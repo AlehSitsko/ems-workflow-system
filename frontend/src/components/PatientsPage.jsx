@@ -1,124 +1,72 @@
 import React, { useState } from 'react';
-
-// Temporary mock patient data for frontend testing.
-// This replaces backend requests until the real API is ready.
-const mockPatients = [
-  {
-    id: 1,
-    first_name: 'John',
-    last_name: 'Carter',
-    dob: '1980-05-12',
-    phone: '555-111-2222',
-    insurance: 'Aetna',
-  },
-  {
-    id: 2,
-    first_name: 'Mary',
-    last_name: 'Carter',
-    dob: '1975-11-03',
-    phone: '555-333-4444',
-    insurance: 'United Healthcare',
-  },
-  {
-    id: 3,
-    first_name: 'James',
-    last_name: 'Wilson',
-    dob: '1990-01-20',
-    phone: '555-555-6666',
-    insurance: 'Blue Cross',
-  },
-  {
-    id: 4,
-    first_name: 'Anna',
-    last_name: 'Lee',
-    dob: '1968-09-14',
-    phone: '555-777-8888',
-    insurance: 'Medicare',
-  },
-  {
-    id: 5,
-    first_name: 'Michael',
-    last_name: 'Brown',
-    dob: '1987-04-09',
-    phone: '555-999-0000',
-    insurance: '',
-  },
-];
+import { getPatients } from '../api/patientsApi';
 
 // Main patient search component.
-// This version uses local mock data instead of backend fetch requests.
-// Useful for testing UI, search logic, and future patient selection flow.
+// This component now uses the Flask backend instead of temporary mock data.
 const PatientsPage = () => {
-  // Search field for patient name
+  // Search input for patient name
   const [searchName, setSearchName] = useState('');
 
-  // Search field for patient date of birth
+  // Search input for patient date of birth
   const [searchDob, setSearchDob] = useState('');
 
-  // Filtered patient results shown in the table
+  // Patient records returned from the backend and filtered by search criteria
   const [patients, setPatients] = useState([]);
 
-  // Loading state for search simulation
+  // Loading state for API requests
   const [loading, setLoading] = useState(false);
 
   // Error message state
   const [error, setError] = useState('');
 
-  // Tracks whether a search-related action has already been performed
+  // Tracks whether the user has performed a search or clicked Show All
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Stores the currently selected patient from the result table
+  // Stores the currently selected patient from the results table
   const [selectedPatient, setSelectedPatient] = useState(null);
 
-  // Handle patient search form submission
-  const handleSearch = (e) => {
+  // Handles patient search by loading records from the backend
+  // and filtering them on the frontend by name and/or DOB.
+  const handleSearch = async (e) => {
     e.preventDefault();
 
-    // Reset previous messages and states
     setError('');
     setHasSearched(true);
     setLoading(true);
 
     try {
-      // Prevent empty search from returning the full list automatically
+      // Prevent empty searches from returning all records automatically.
       if (!searchName.trim() && !searchDob.trim()) {
         setError('Please enter a patient name or date of birth.');
         setPatients([]);
         setSelectedPatient(null);
-        setLoading(false);
         return;
       }
 
-      // Normalize input values for comparison
+      // Load all patients from the backend API.
+      const allPatients = await getPatients();
+
+      // Normalize search values for comparison.
       const normalizedName = searchName.trim().toLowerCase();
       const normalizedDob = searchDob.trim();
 
-      // Filter mock patients by name and/or DOB
-      const filteredPatients = mockPatients.filter((patient) => {
-        // Full name used for broad matching
-        const fullName =
-          `${patient.first_name} ${patient.last_name}`.toLowerCase();
-
-        // Last name used for more direct matching
+      // Filter backend data by name and/or DOB.
+      const filteredPatients = allPatients.filter((patient) => {
+        const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
         const lastName = patient.last_name.toLowerCase();
 
-        // Match by full name or last name
         const matchesName =
           !normalizedName ||
           fullName.includes(normalizedName) ||
           lastName.includes(normalizedName);
 
-        // Match exact DOB
-        const matchesDob = !normalizedDob || patient.dob === normalizedDob;
+        const matchesDob =
+          !normalizedDob || patient.dob === normalizedDob;
 
-        // Both conditions must pass
         return matchesName && matchesDob;
       });
 
-      // Save filtered results
       setPatients(filteredPatients);
-
-      // Reset selected patient after a new search
       setSelectedPatient(null);
     } catch (err) {
       console.error('Search error:', err);
@@ -126,21 +74,31 @@ const PatientsPage = () => {
       setPatients([]);
       setSelectedPatient(null);
     } finally {
-      // End loading state
       setLoading(false);
     }
   };
 
-  // Show all mock patients without requiring search criteria
-  const handleShowAll = () => {
+  // Loads and displays all patient records from the backend.
+  const handleShowAll = async () => {
     setError('');
     setHasSearched(true);
-    setLoading(false);
-    setPatients(mockPatients);
-    setSelectedPatient(null);
+    setLoading(true);
+
+    try {
+      const data = await getPatients();
+      setPatients(data);
+      setSelectedPatient(null);
+    } catch (err) {
+      console.error('Load patients error:', err);
+      setError('Failed to load patients.');
+      setPatients([]);
+      setSelectedPatient(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Clear search form, results, errors, and selected patient
+  // Clears search fields, results, errors, and selected patient preview.
   const handleClear = () => {
     setSearchName('');
     setSearchDob('');
@@ -150,12 +108,9 @@ const PatientsPage = () => {
     setSelectedPatient(null);
   };
 
-  // Handle row selection from the search result table
+  // Stores selected patient for preview and future integration with the call form.
   const handleSelectPatient = (patient) => {
     setSelectedPatient(patient);
-
-    // Placeholder for future integration.
-    // Later this can send patient data to CallForm or shared state.
     console.log('Selected patient:', patient);
   };
 
@@ -166,21 +121,12 @@ const PatientsPage = () => {
         <h5 className="mb-2">Patients Page</h5>
         <p className="mb-2">
           This page is used to search and review patient records before future
-          integration with the Call Taking Form and backend database.
+          integration with the Call Taking Form.
         </p>
-        <p className="mb-2">
-          At the current stage, this section works with temporary mock patient
-          records for frontend testing only. No real backend connection is active yet.
+        <p className="mb-0">
+          This section is now connected to the Flask backend and uses real patient
+          records from the local database.
         </p>
-        <ul className="mb-0">
-          <li>Search by patient name, date of birth, or both.</li>
-          <li>Use Show All to display all temporary test patients.</li>
-          <li>Select a patient from the table to preview their information.</li>
-          <li>
-            Later this page will connect to the real patient database and support
-            linking a selected patient to the Call Taking Form.
-          </li>
-        </ul>
       </div>
 
       {/* Page title */}
@@ -223,6 +169,7 @@ const PatientsPage = () => {
             type="button"
             className="btn btn-outline-info"
             onClick={handleShowAll}
+            disabled={loading}
           >
             Show All
           </button>
@@ -231,6 +178,7 @@ const PatientsPage = () => {
             type="button"
             className="btn btn-outline-secondary"
             onClick={handleClear}
+            disabled={loading}
           >
             Clear
           </button>
@@ -244,10 +192,11 @@ const PatientsPage = () => {
         </div>
       )}
 
-      {/* Empty state before first action */}
+      {/* Empty state before first search or Show All action */}
       {!hasSearched && !loading && (
         <div className="alert alert-info">
-          Enter a patient name, date of birth, or both, then click Search. You can also use Show All.
+          Enter a patient name, date of birth, or both, then click Search.
+          You can also use Show All.
         </div>
       )}
 
@@ -263,18 +212,22 @@ const PatientsPage = () => {
         <div className="card border-success shadow-sm mb-4">
           <div className="card-body">
             <h5 className="card-title text-success mb-3">Selected Patient</h5>
+
             <p className="mb-1">
               <strong>Name:</strong> {selectedPatient.first_name}{' '}
               {selectedPatient.last_name}
             </p>
+
             <p className="mb-1">
               <strong>DOB:</strong> {selectedPatient.dob || '—'}
             </p>
+
             <p className="mb-1">
               <strong>Phone:</strong> {selectedPatient.phone || '—'}
             </p>
+
             <p className="mb-0">
-              <strong>Insurance:</strong> {selectedPatient.insurance || '—'}
+              <strong>Address:</strong> {selectedPatient.address || '—'}
             </p>
           </div>
         </div>
@@ -293,10 +246,11 @@ const PatientsPage = () => {
                     <th>Full Name</th>
                     <th>DOB</th>
                     <th>Phone Nr.</th>
-                    <th>Insurance</th>
+                    <th>Address</th>
                     <th style={{ width: '120px' }}>Action</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {patients.map((p) => {
                     const isSelected = selectedPatient?.id === p.id;
@@ -306,9 +260,11 @@ const PatientsPage = () => {
                         <td>
                           {p.first_name} {p.last_name}
                         </td>
+
                         <td>{p.dob || '—'}</td>
                         <td>{p.phone || '—'}</td>
-                        <td>{p.insurance || '—'}</td>
+                        <td>{p.address || '—'}</td>
+
                         <td>
                           <button
                             type="button"
