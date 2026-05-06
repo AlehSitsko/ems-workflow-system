@@ -29,6 +29,72 @@ def get_patients():
     patients = Patient.query.all()
     return jsonify([p.to_dict() for p in patients])
 
+@app.route("/api/patients", methods=["POST"])
+def create_patient():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+
+    if not first_name or not last_name:
+        return jsonify({"error": "first_name and last_name are required"}), 400
+
+    new_patient = Patient(
+        first_name=first_name,
+        last_name=last_name,
+        dob=data.get("dob"),
+        phone=data.get("phone"),
+        address=data.get("address")
+    )
+
+    db.session.add(new_patient)
+    db.session.commit()
+
+    return jsonify(new_patient.to_dict()), 201
+
+@app.route("/api/patient/<int:id>", methods=["GET"])
+def get_patient(id):
+    patient = Patient.query.get(id)
+
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    return jsonify(patient.to_dict())
+
+@app.route("/api/patient/<int:id>", methods=["PUT"])
+def update_patient(id):
+    patient = Patient.query.get(id)
+
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    data = request.get_json()
+
+    patient.first_name = data.get("first_name", patient.first_name)
+    patient.last_name = data.get("last_name", patient.last_name)
+    patient.dob = data.get("dob", patient.dob)
+    patient.phone = data.get("phone", patient.phone)
+    patient.address = data.get("address", patient.address)
+
+    db.session.commit()
+
+    return jsonify(patient.to_dict())
+
+@app.route("/api/patient/<int:id>", methods=["DELETE"])
+def delete_patient(id):
+    patient = Patient.query.get(id)
+
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    db.session.delete(patient)
+    db.session.commit()
+
+    return jsonify({"message": "Patient deleted"})
+
 with app.app_context():
     db.create_all()
 
