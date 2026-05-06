@@ -1,0 +1,123 @@
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Remove buttons and non-essential elements */
+  .btn,
+  .no-print,
+  nav,
+  footer {
+    display: none !important;
+  }
+
+  /* Ensure form controls are visible and printable */
+  input,
+  select,
+  textarea {
+    background: transparent !important;
+    color: black !important;
+    border: 1px solid black !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  label {
+    color: black !important;
+    font-weight: bold;
+  }
+
+  .form-control::placeholder {
+    color: black !important;
+  }
+
+  /* Radio buttons styling */
+  .form-check {
+    border: 1px solid black !important;
+    padding: 4px;
+    margin-right: 8px;
+    display: inline-block;
+  }
+
+  .form-check-input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid black;
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    vertical-align: middle;
+    display: inline-block;
+    position: relative;
+  }
+
+  .form-check-input[type="radio"]:checked::before {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    background: black;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+  }
+
+  .form-check-label {
+    color: black !important;
+    font-weight: bold;
+  }
+
+  /* Layout fixes */
+  .card,
+  .card-body,
+  .card-header {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .card-header h5 {
+    font-size: 18pt;
+    margin-bottom: 12px;
+  }
+
+  .container,
+  .row,
+  .col-md-6,
+  .d-flex {
+    all: revert;
+  }
+
+  .d-flex.gap-3.flex-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .text-white,
+  .bg-primary,
+  .bg-info,
+  .bg-success,
+  .bg-danger {
+    background-color: transparent !important;
+    color: black !important;
+  }
+
+  /* Page footer (page numbers, etc.) */
+  @page {
+    margin: 20mm;
+  }
+
+  html,
+  body {
+    width: 100%;
+    height: auto;
+  }
+}
