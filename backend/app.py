@@ -39,7 +39,6 @@ def get_patients():
 
     query = Patient.query
 
-    # Filter by first name or last name if a name is provided.
     if name:
         query = query.filter(
             db.or_(
@@ -48,7 +47,6 @@ def get_patients():
             )
         )
 
-    # Filter by exact date of birth if provided.
     if dob:
         query = query.filter(Patient.dob == dob)
 
@@ -68,7 +66,6 @@ def create_patient():
     first_name = data.get("first_name")
     last_name = data.get("last_name")
 
-    # Minimal required field validation.
     if not first_name or not last_name:
         return jsonify({"error": "first_name and last_name are required"}), 400
 
@@ -76,8 +73,34 @@ def create_patient():
         first_name=first_name,
         last_name=last_name,
         dob=data.get("dob"),
+        gender=data.get("gender"),
+
         phone=data.get("phone"),
-        address=data.get("address")
+        secondary_phone=data.get("secondary_phone"),
+        address=data.get("address"),
+        city=data.get("city"),
+        state=data.get("state"),
+        zip_code=data.get("zip_code"),
+
+        insurance=data.get("insurance"),
+        member_id=data.get("member_id"),
+        policy_number=data.get("policy_number"),
+        requires_auth=data.get("requires_auth", False),
+        copay_required=data.get("copay_required", False),
+        insurance_notes=data.get("insurance_notes"),
+
+        default_service_level=data.get("default_service_level"),
+        weight=data.get("weight"),
+        oxygen_required=data.get("oxygen_required", False),
+        stairs=data.get("stairs", False),
+        special_equipment_notes=data.get("special_equipment_notes"),
+
+        facility_name=data.get("facility_name"),
+        room_number=data.get("room_number"),
+        emergency_contact_name=data.get("emergency_contact_name"),
+        emergency_contact_phone=data.get("emergency_contact_phone"),
+
+        notes=data.get("notes"),
     )
 
     db.session.add(new_patient)
@@ -110,12 +133,47 @@ def update_patient(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Update only fields provided in the request.
     patient.first_name = data.get("first_name", patient.first_name)
     patient.last_name = data.get("last_name", patient.last_name)
     patient.dob = data.get("dob", patient.dob)
+    patient.gender = data.get("gender", patient.gender)
+
     patient.phone = data.get("phone", patient.phone)
+    patient.secondary_phone = data.get("secondary_phone", patient.secondary_phone)
     patient.address = data.get("address", patient.address)
+    patient.city = data.get("city", patient.city)
+    patient.state = data.get("state", patient.state)
+    patient.zip_code = data.get("zip_code", patient.zip_code)
+
+    patient.insurance = data.get("insurance", patient.insurance)
+    patient.member_id = data.get("member_id", patient.member_id)
+    patient.policy_number = data.get("policy_number", patient.policy_number)
+    patient.requires_auth = data.get("requires_auth", patient.requires_auth)
+    patient.copay_required = data.get("copay_required", patient.copay_required)
+    patient.insurance_notes = data.get("insurance_notes", patient.insurance_notes)
+
+    patient.default_service_level = data.get(
+        "default_service_level", patient.default_service_level
+    )
+    patient.weight = data.get("weight", patient.weight)
+    patient.oxygen_required = data.get(
+        "oxygen_required", patient.oxygen_required
+    )
+    patient.stairs = data.get("stairs", patient.stairs)
+    patient.special_equipment_notes = data.get(
+        "special_equipment_notes", patient.special_equipment_notes
+    )
+
+    patient.facility_name = data.get("facility_name", patient.facility_name)
+    patient.room_number = data.get("room_number", patient.room_number)
+    patient.emergency_contact_name = data.get(
+        "emergency_contact_name", patient.emergency_contact_name
+    )
+    patient.emergency_contact_phone = data.get(
+        "emergency_contact_phone", patient.emergency_contact_phone
+    )
+
+    patient.notes = data.get("notes", patient.notes)
 
     db.session.commit()
 
