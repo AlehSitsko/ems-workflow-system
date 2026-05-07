@@ -47,6 +47,25 @@ export async function createPatient(patientData) {
   return data;
 }
 
+// Update an existing patient record in the backend database.
+export async function updatePatient(id, patientData) {
+  const response = await fetch(`${API_BASE_URL}/api/patient/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(patientData),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to update patient");
+  }
+
+  return data;
+}
+
 // Delete an existing patient record from the backend database.
 export async function deletePatient(id) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}`, {

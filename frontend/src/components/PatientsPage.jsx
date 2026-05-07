@@ -1,17 +1,16 @@
 import React, { useState } from "react";
-import { getPatients, createPatient, deletePatient } from "../api/patientsApi";
+import {
+  getPatients,
+  createPatient,
+  updatePatient,
+  deletePatient,
+} from "../api/patientsApi";
 
 // Main patient management component.
-// This component uses the Flask backend as the data source.
-// Search filtering is handled by the backend through query parameters.
 const PatientsPage = () => {
-  // Search input for patient name.
   const [searchName, setSearchName] = useState("");
-
-  // Search input for patient date of birth.
   const [searchDob, setSearchDob] = useState("");
 
-  // New patient form state.
   const [newPatient, setNewPatient] = useState({
     first_name: "",
     last_name: "",
@@ -20,32 +19,37 @@ const PatientsPage = () => {
     address: "",
   });
 
-  // Patient records returned from the backend.
   const [patients, setPatients] = useState([]);
-
-  // Loading state for API requests.
   const [loading, setLoading] = useState(false);
-
-  // Error message state.
   const [error, setError] = useState("");
-
-  // Tracks whether the user has performed a search or clicked Show All.
   const [hasSearched, setHasSearched] = useState(false);
-
-  // Stores the currently selected patient from the results table.
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [editingPatientId, setEditingPatientId] = useState(null);
 
-  // Handles changes in the Add New Patient form.
+  // Reset the add/edit patient form.
+  const resetPatientForm = () => {
+    setNewPatient({
+      first_name: "",
+      last_name: "",
+      dob: "",
+      phone: "",
+      address: "",
+    });
+
+    setEditingPatientId(null);
+  };
+
+  // Handle form changes.
   const handleNewPatientChange = (e) => {
     const { name, value } = e.target;
 
-    setNewPatient((prevPatient) => ({
-      ...prevPatient,
+    setNewPatient((prev) => ({
+      ...prev,
       [name]: value,
     }));
   };
 
-  // Creates a new patient record through the backend API.
+  // Create a new patient or update an existing patient.
   const handleCreatePatient = async (e) => {
     e.preventDefault();
 
@@ -53,30 +57,28 @@ const PatientsPage = () => {
     setLoading(true);
 
     try {
-      const createdPatient = await createPatient(newPatient);
+      let savedPatient;
 
-      setNewPatient({
-        first_name: "",
-        last_name: "",
-        dob: "",
-        phone: "",
-        address: "",
-      });
+      if (editingPatientId) {
+        savedPatient = await updatePatient(editingPatientId, newPatient);
+      } else {
+        savedPatient = await createPatient(newPatient);
+      }
 
+      resetPatientForm();
+      setSelectedPatient(savedPatient);
       setHasSearched(true);
-      setSelectedPatient(createdPatient);
 
-      // Reload patient list after successful creation.
       const updatedPatients = await getPatients();
       setPatients(updatedPatients);
     } catch (err) {
-      setError(err.message || "Failed to create patient.");
+      setError(err.message || "Operation failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handles patient search by sending filters to the backend API.
+  // Search patients by name, date of birth, or both.
   const handleSearch = async (e) => {
     e.preventDefault();
 
@@ -108,7 +110,7 @@ const PatientsPage = () => {
     }
   };
 
-  // Loads and displays all patient records from the backend.
+  // Load all patients from the backend.
   const handleShowAll = async () => {
     setError("");
     setHasSearched(true);
@@ -120,20 +122,14 @@ const PatientsPage = () => {
       setSelectedPatient(null);
     } catch (err) {
       setError(err.message || "Failed to load patients.");
-      setPatients([]);
-      setSelectedPatient(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Deletes a patient record through the backend API.
+  // Delete a patient record.
   const handleDeletePatient = async (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this patient?"
-    );
-
-    if (!confirmDelete) return;
+    if (!window.confirm("Delete this patient?")) return;
 
     setError("");
     setLoading(true);
@@ -141,24 +137,44 @@ const PatientsPage = () => {
     try {
       await deletePatient(id);
 
-      // Reload patient list after successful deletion.
       const updatedPatients = await getPatients();
       setPatients(updatedPatients);
 
-      // Clear selected patient if the deleted patient was selected.
       if (selectedPatient?.id === id) {
         setSelectedPatient(null);
       }
 
-      setHasSearched(true);
+      if (editingPatientId === id) {
+        resetPatientForm();
+      }
     } catch (err) {
-      setError(err.message || "Failed to delete patient.");
+      setError(err.message || "Delete failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Clears search fields, results, errors, and selected patient preview.
+  // Select a patient for preview and future call form integration.
+  const handleSelectPatient = (patient) => {
+    setSelectedPatient(patient);
+  };
+
+  // Start editing an existing patient.
+  const handleEditPatient = (patient) => {
+    setEditingPatientId(patient.id);
+
+    setNewPatient({
+      first_name: patient.first_name || "",
+      last_name: patient.last_name || "",
+      dob: patient.dob || "",
+      phone: patient.phone || "",
+      address: patient.address || "",
+    });
+
+    setSelectedPatient(patient);
+  };
+
+  // Clear search, results, selected patient, and editing mode.
   const handleClear = () => {
     setSearchName("");
     setSearchDob("");
@@ -166,40 +182,24 @@ const PatientsPage = () => {
     setError("");
     setHasSearched(false);
     setSelectedPatient(null);
-  };
-
-  // Stores selected patient for preview and future integration with the call form.
-  const handleSelectPatient = (patient) => {
-    setSelectedPatient(patient);
+    resetPatientForm();
   };
 
   return (
     <div className="container mt-4">
-      {/* Informational block for users */}
-      <div className="alert alert-info mb-4">
-        <h5 className="mb-2">Patients Page</h5>
-        <p className="mb-2">
-          This page is used to create, search, review, and delete patient records
-          before future integration with the Call Taking Form.
-        </p>
-        <p className="mb-0">
-          This section is connected to the Flask backend and uses patient records
-          from the local database.
-        </p>
-      </div>
-
-      {/* Create patient form */}
+      {/* Add / edit patient form */}
       <div className="card shadow-sm p-3 mb-4">
-        <h4 className="mb-3">Add New Patient</h4>
+        <h4 className="mb-3">
+          {editingPatientId ? "Edit Patient" : "Add New Patient"}
+        </h4>
 
         <form onSubmit={handleCreatePatient}>
           <div className="row">
             <div className="col-md-6 mb-3">
-              <label className="form-label">First Name *</label>
               <input
-                type="text"
                 name="first_name"
                 className="form-control"
+                placeholder="First Name"
                 value={newPatient.first_name}
                 onChange={handleNewPatientChange}
                 disabled={loading}
@@ -208,11 +208,10 @@ const PatientsPage = () => {
             </div>
 
             <div className="col-md-6 mb-3">
-              <label className="form-label">Last Name *</label>
               <input
-                type="text"
                 name="last_name"
                 className="form-control"
+                placeholder="Last Name"
                 value={newPatient.last_name}
                 onChange={handleNewPatientChange}
                 disabled={loading}
@@ -221,7 +220,6 @@ const PatientsPage = () => {
             </div>
 
             <div className="col-md-4 mb-3">
-              <label className="form-label">Date of Birth</label>
               <input
                 type="date"
                 name="dob"
@@ -233,11 +231,10 @@ const PatientsPage = () => {
             </div>
 
             <div className="col-md-4 mb-3">
-              <label className="form-label">Phone</label>
               <input
-                type="text"
                 name="phone"
                 className="form-control"
+                placeholder="Phone"
                 value={newPatient.phone}
                 onChange={handleNewPatientChange}
                 disabled={loading}
@@ -245,11 +242,10 @@ const PatientsPage = () => {
             </div>
 
             <div className="col-md-4 mb-3">
-              <label className="form-label">Address</label>
               <input
-                type="text"
                 name="address"
                 className="form-control"
+                placeholder="Address"
                 value={newPatient.address}
                 onChange={handleNewPatientChange}
                 disabled={loading}
@@ -257,31 +253,43 @@ const PatientsPage = () => {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-success" disabled={loading}>
-            {loading ? "Saving..." : "Add Patient"}
-          </button>
+          <div className="d-flex gap-2">
+            <button type="submit" className="btn btn-success" disabled={loading}>
+              {loading
+                ? "Saving..."
+                : editingPatientId
+                ? "Update Patient"
+                : "Add Patient"}
+            </button>
+
+            {editingPatientId && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={resetPatientForm}
+                disabled={loading}
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
-      <h2 className="mb-4">Search Patients</h2>
-
-      {/* Search form */}
+      {/* Search block */}
       <form onSubmit={handleSearch} className="card shadow-sm p-3 mb-4">
         <div className="row">
-          <div className="col-md-6 mb-3">
-            <label className="form-label">Name</label>
+          <div className="col-md-6 mb-3 mb-md-0">
             <input
-              type="text"
-              placeholder="Enter patient name"
               className="form-control"
+              placeholder="Search Name"
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
               disabled={loading}
             />
           </div>
 
-          <div className="col-md-6 mb-3">
-            <label className="form-label">Date of Birth</label>
+          <div className="col-md-6">
             <input
               type="date"
               className="form-control"
@@ -292,14 +300,14 @@ const PatientsPage = () => {
           </div>
         </div>
 
-        <div className="d-flex gap-2 flex-wrap">
+        <div className="mt-3 d-flex gap-2 flex-wrap">
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Searching..." : "Search"}
+            Search
           </button>
 
           <button
             type="button"
-            className="btn btn-outline-info"
+            className="btn btn-info"
             onClick={handleShowAll}
             disabled={loading}
           >
@@ -308,7 +316,7 @@ const PatientsPage = () => {
 
           <button
             type="button"
-            className="btn btn-outline-secondary"
+            className="btn btn-secondary"
             onClick={handleClear}
             disabled={loading}
           >
@@ -317,11 +325,7 @@ const PatientsPage = () => {
         </div>
       </form>
 
-      {error && (
-        <div className="alert alert-danger" role="alert">
-          {error}
-        </div>
-      )}
+      {error && <div className="alert alert-danger">{error}</div>}
 
       {!hasSearched && !loading && (
         <div className="alert alert-info">
@@ -335,11 +339,10 @@ const PatientsPage = () => {
       )}
 
       {hasSearched && !loading && !error && patients.length === 0 && (
-        <div className="alert alert-warning">
-          No patients found for the given search criteria.
-        </div>
+        <div className="alert alert-warning">No patients found.</div>
       )}
 
+      {/* Selected patient preview */}
       {selectedPatient && (
         <div className="card border-success shadow-sm mb-4">
           <div className="card-body">
@@ -365,10 +368,11 @@ const PatientsPage = () => {
         </div>
       )}
 
+      {/* Results table */}
       {patients.length > 0 && (
         <div className="card shadow-sm">
           <div className="card-body">
-            <h5 className="card-title mb-3">Search Results</h5>
+            <h5 className="card-title mb-3">Patient List</h5>
 
             <div className="table-responsive">
               <table className="table table-bordered table-hover align-middle mb-0">
@@ -376,9 +380,9 @@ const PatientsPage = () => {
                   <tr>
                     <th>Full Name</th>
                     <th>DOB</th>
-                    <th>Phone Nr.</th>
+                    <th>Phone</th>
                     <th>Address</th>
-                    <th style={{ width: "180px" }}>Action</th>
+                    <th style={{ width: "230px" }}>Actions</th>
                   </tr>
                 </thead>
 
@@ -391,13 +395,11 @@ const PatientsPage = () => {
                         <td>
                           {patient.first_name} {patient.last_name}
                         </td>
-
                         <td>{patient.dob || "—"}</td>
                         <td>{patient.phone || "—"}</td>
                         <td>{patient.address || "—"}</td>
-
                         <td>
-                          <div className="d-flex gap-2">
+                          <div className="d-flex gap-2 flex-wrap">
                             <button
                               type="button"
                               className={`btn btn-sm ${
@@ -413,7 +415,16 @@ const PatientsPage = () => {
 
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-danger"
+                              className="btn btn-sm btn-warning"
+                              onClick={() => handleEditPatient(patient)}
+                              disabled={loading}
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger"
                               onClick={() => handleDeletePatient(patient.id)}
                               disabled={loading}
                             >
