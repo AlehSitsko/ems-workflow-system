@@ -6,6 +6,9 @@ import React, {
   useEffect,
 } from 'react';
 
+import { createCall } from '../api/callsApi';
+import { getPatients } from '../api/patientsApi';
+
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger clearForm() externally.
 const CallForm = forwardRef((props, ref) => {
@@ -16,13 +19,14 @@ const CallForm = forwardRef((props, ref) => {
   const getTodayDate = () => new Date().toISOString().split('T')[0];
 
   // Initial form state.
-  // The entire form is stored in one object to make future backend integration easier.
+  // The entire form is stored in one object to make backend integration easier.
   const initialFormData = {
     // Caller information
     callerType: '',
     callerNote: '',
 
     // Patient information
+    patientId: null,
     firstName: '',
     lastName: '',
     dob: '',
@@ -48,6 +52,14 @@ const CallForm = forwardRef((props, ref) => {
 
   // Main form state.
   const [formData, setFormData] = useState(initialFormData);
+
+  // Patient search state.
+  const [patientSearchResults, setPatientSearchResults] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+
+  // Submit state.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
 
   // Stores the previous return ride option.
   // This is used to detect when return ride is turned on or off.
@@ -81,40 +93,70 @@ const CallForm = forwardRef((props, ref) => {
     }));
   };
 
-  // Placeholder patient search action.
-  // This is the future connection point for searching the patient database.
-  const handleFindPatient = () => {
+  // Search patients through the backend by last name and/or DOB.
+  const handleFindPatient = async () => {
     const trimmedLastName = formData.lastName.trim();
     const trimmedDob = formData.dob.trim();
 
-    // Require at least one search field.
     if (!trimmedLastName && !trimmedDob) {
       window.alert('Please enter Last Name or Date of Birth before searching.');
       return;
     }
 
-    // Placeholder behavior for now.
-    // Later this will call the backend API and show search results.
-    console.log('Patient search placeholder:', {
-      lastName: trimmedLastName,
-      dob: trimmedDob,
+    try {
+      const results = await getPatients({
+        name: trimmedLastName,
+        dob: trimmedDob,
+      });
+
+      setPatientSearchResults(results);
+
+      if (results.length === 0) {
+        window.alert('No matching patients found.');
+      }
+    } catch (err) {
+      console.error('Failed to search patient:', err);
+      window.alert('Failed to search patient.');
+    }
+  };
+
+  // Select a patient from search results and bind patient_id to the call form.
+  const handleSelectPatient = (patient) => {
+    setSelectedPatient(patient);
+
+    setFormData((prev) => ({
+      ...prev,
+      patientId: patient.id,
+      firstName: patient.first_name || '',
+      lastName: patient.last_name || '',
+      dob: patient.dob || '',
+      phoneNumber: patient.phone || '',
+      pickupAddress: patient.address || '',
+      serviceLevel:
+        patient.default_service_level?.toLowerCase() || prev.serviceLevel,
+    }));
+
+    setPatientSearchResults([]);
+  };
+
+  // Clear all form data and patient selection.
+  const clearFormData = () => {
+    setFormData({
+      ...initialFormData,
+      callDate: getTodayDate(),
     });
 
-    window.alert(
-      'Patient lookup is not connected yet. This button is ready for future backend integration.'
-    );
+    setSelectedPatient(null);
+    setPatientSearchResults([]);
+    setSubmitMessage('');
+
+    previousReturnRideOption.current = 'none';
   };
 
   // Expose clearForm() to the parent page.
   useImperativeHandle(ref, () => ({
     clearForm() {
-      setFormData({
-        ...initialFormData,
-        callDate: getTodayDate(),
-      });
-
-      // Reset tracked previous option too.
-      previousReturnRideOption.current = 'none';
+      clearFormData();
     },
   }));
 
@@ -147,15 +189,58 @@ const CallForm = forwardRef((props, ref) => {
       }));
     }
 
-    // Save current value for the next render.
     previousReturnRideOption.current = currentOption;
   }, [formData.returnRideOption]);
 
-  // Submit handler placeholder.
-  // Right now it prevents page refresh and logs form data.
-  const handleSubmit = (e) => {
+  // Submit the call intake form to the backend.
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
+
+    setSubmitMessage('');
+    setIsSubmitting(true);
+
+    // Map frontend field names to backend Call model field names.
+    const callPayload = {
+      patient_id: formData.patientId,
+      date_of_call: formData.callDate,
+      trip_date: formData.tripDate,
+      pickup_time: formData.pickupTime,
+      pickup_address: formData.pickupAddress,
+      dropoff_address: formData.dropoffAddress,
+      caller_type: formData.callerType,
+      call_type: formData.returnRideOption,
+      service_level: formData.serviceLevel,
+      notes: [
+        formData.additionalInfo,
+        formData.callerNote ? `Caller note: ${formData.callerNote}` : '',
+        formData.firstName || formData.lastName
+          ? `Patient: ${formData.firstName} ${formData.lastName}`
+          : '',
+        formData.dob ? `DOB: ${formData.dob}` : '',
+        formData.phoneNumber ? `Phone: ${formData.phoneNumber}` : '',
+        formData.returnRideOption !== 'none'
+          ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
+              formData.returnTime || 'Will Call'
+            }`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    };
+
+    try {
+      const savedCall = await createCall(callPayload);
+
+      console.log('Call saved:', savedCall);
+      setSubmitMessage('Call saved successfully.');
+
+      clearFormData();
+    } catch (err) {
+      console.error('Failed to save call:', err);
+      setSubmitMessage(err.message || 'Failed to save call.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -167,6 +252,18 @@ const CallForm = forwardRef((props, ref) => {
         </div>
 
         <div className="card-body">
+          {submitMessage && (
+            <div
+              className={`alert ${
+                submitMessage.includes('successfully')
+                  ? 'alert-success'
+                  : 'alert-danger'
+              }`}
+            >
+              {submitMessage}
+            </div>
+          )}
+
           {/* Main form */}
           <form ref={formRef} onSubmit={handleSubmit}>
             <div className="row">
@@ -184,6 +281,7 @@ const CallForm = forwardRef((props, ref) => {
                   name="callerType"
                   value={formData.callerType}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 >
                   <option value="">Select...</option>
                   <option value="Broker">Broker</option>
@@ -205,6 +303,7 @@ const CallForm = forwardRef((props, ref) => {
                   placeholder="e.g. Case Manager, Social Worker, Son, etc."
                   value={formData.callerNote}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -225,6 +324,7 @@ const CallForm = forwardRef((props, ref) => {
                   autoComplete="given-name"
                   value={formData.firstName}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -241,6 +341,7 @@ const CallForm = forwardRef((props, ref) => {
                   autoComplete="family-name"
                   value={formData.lastName}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -255,20 +356,67 @@ const CallForm = forwardRef((props, ref) => {
                   name="dob"
                   value={formData.dob}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
               {/* Patient search action */}
-              {/* This is a placeholder for future backend lookup by last name and/or DOB */}
               <div className="col-md-12 mb-3">
                 <button
                   type="button"
                   className="btn btn-outline-primary"
                   onClick={handleFindPatient}
+                  disabled={isSubmitting}
                 >
                   Find Patient
                 </button>
               </div>
+
+              {/* Patient search results */}
+              {patientSearchResults.length > 0 && (
+                <div className="col-md-12 mb-3">
+                  <div className="card border-primary">
+                    <div className="card-body">
+                      <h6 className="card-title mb-3">
+                        Patient Search Results
+                      </h6>
+
+                      {patientSearchResults.map((patient) => (
+                        <div
+                          key={patient.id}
+                          className="d-flex justify-content-between align-items-center border-bottom py-2"
+                        >
+                          <span>
+                            {patient.first_name} {patient.last_name} — DOB:{' '}
+                            {patient.dob || '—'} — Phone:{' '}
+                            {patient.phone || '—'}
+                          </span>
+
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-success"
+                            onClick={() => handleSelectPatient(patient)}
+                            disabled={isSubmitting}
+                          >
+                            Select
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Selected patient indicator */}
+              {selectedPatient && (
+                <div className="col-md-12 mb-3">
+                  <div className="alert alert-success mb-0">
+                    Selected Patient: {selectedPatient.first_name}{' '}
+                    {selectedPatient.last_name} — DOB:{' '}
+                    {selectedPatient.dob || '—'}
+                  </div>
+                </div>
+              )}
 
               <div className="col-md-6 mb-3">
                 <label htmlFor="phoneNumber" className="form-label">
@@ -283,6 +431,7 @@ const CallForm = forwardRef((props, ref) => {
                   autoComplete="tel"
                   value={formData.phoneNumber}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -298,6 +447,7 @@ const CallForm = forwardRef((props, ref) => {
                   placeholder="123 Main St"
                   value={formData.pickupAddress}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -316,6 +466,7 @@ const CallForm = forwardRef((props, ref) => {
                   name="callDate"
                   value={formData.callDate}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -330,6 +481,7 @@ const CallForm = forwardRef((props, ref) => {
                   name="tripDate"
                   value={formData.tripDate}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -344,6 +496,7 @@ const CallForm = forwardRef((props, ref) => {
                   name="pickupTime"
                   value={formData.pickupTime}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -359,6 +512,7 @@ const CallForm = forwardRef((props, ref) => {
                   placeholder="456 Oak Ave"
                   value={formData.dropoffAddress}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -374,6 +528,7 @@ const CallForm = forwardRef((props, ref) => {
                   placeholder="Any notes or instructions..."
                   value={formData.additionalInfo}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -391,6 +546,7 @@ const CallForm = forwardRef((props, ref) => {
                   name="returnRideOption"
                   value={formData.returnRideOption}
                   onChange={handleChange}
+                  disabled={isSubmitting}
                 >
                   <option value="none">No Return</option>
                   <option value="return">Return Ride</option>
@@ -405,6 +561,7 @@ const CallForm = forwardRef((props, ref) => {
                     type="button"
                     className="btn btn-outline-secondary w-100"
                     onClick={syncReturnAddresses}
+                    disabled={isSubmitting}
                   >
                     Sync Return Addresses
                   </button>
@@ -425,6 +582,7 @@ const CallForm = forwardRef((props, ref) => {
                       name="returnPickup"
                       value={formData.returnPickup}
                       onChange={handleChange}
+                      disabled={isSubmitting}
                     />
                   </div>
 
@@ -439,6 +597,7 @@ const CallForm = forwardRef((props, ref) => {
                       name="returnDestination"
                       value={formData.returnDestination}
                       onChange={handleChange}
+                      disabled={isSubmitting}
                     />
                   </div>
 
@@ -454,6 +613,7 @@ const CallForm = forwardRef((props, ref) => {
                         name="returnTime"
                         value={formData.returnTime}
                         onChange={handleChange}
+                        disabled={isSubmitting}
                       />
                     </div>
                   )}
@@ -483,6 +643,7 @@ const CallForm = forwardRef((props, ref) => {
                       value="stretcher"
                       checked={formData.serviceLevel === 'stretcher'}
                       onChange={() => handleServiceLevelChange('stretcher')}
+                      disabled={isSubmitting}
                     />
                     <label className="form-check-label ms-2" htmlFor="stretcher">
                       Stretcher Base
@@ -504,6 +665,7 @@ const CallForm = forwardRef((props, ref) => {
                       value="bls"
                       checked={formData.serviceLevel === 'bls'}
                       onChange={() => handleServiceLevelChange('bls')}
+                      disabled={isSubmitting}
                     />
                     <label className="form-check-label ms-2" htmlFor="bls">
                       BLS
@@ -525,6 +687,7 @@ const CallForm = forwardRef((props, ref) => {
                       value="als"
                       checked={formData.serviceLevel === 'als'}
                       onChange={() => handleServiceLevelChange('als')}
+                      disabled={isSubmitting}
                     />
                     <label className="form-check-label ms-2" htmlFor="als">
                       ALS
@@ -536,8 +699,12 @@ const CallForm = forwardRef((props, ref) => {
 
             {/* Form actions */}
             <div className="d-flex justify-content-between mt-4">
-              <button type="submit" className="btn btn-success">
-                Submit
+              <button
+                type="submit"
+                className="btn btn-success"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Saving...' : 'Submit'}
               </button>
             </div>
           </form>
