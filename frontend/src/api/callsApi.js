@@ -5,8 +5,9 @@ const API_BASE_URL = "http://127.0.0.1:5050";
 export async function getCalls(filters = {}) {
   const params = new URLSearchParams();
 
-  if (filters.trip_date) {
-    params.append("trip_date", filters.trip_date);
+  // Filter by the date when the call was received.
+  if (filters.date_of_call) {
+    params.append("date_of_call", filters.date_of_call);
   }
 
   const queryString = params.toString();

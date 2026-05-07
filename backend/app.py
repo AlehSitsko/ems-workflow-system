@@ -42,6 +42,7 @@ def get_patients():
 
     query = Patient.query
 
+    # Filter by first name or last name.
     if name:
         query = query.filter(
             db.or_(
@@ -50,6 +51,7 @@ def get_patients():
             )
         )
 
+    # Filter by exact date of birth.
     if dob:
         query = query.filter(Patient.dob == dob)
 
@@ -69,6 +71,7 @@ def create_patient():
     first_name = data.get("first_name")
     last_name = data.get("last_name")
 
+    # Minimal required field validation.
     if not first_name or not last_name:
         return jsonify({"error": "first_name and last_name are required"}), 400
 
@@ -136,10 +139,10 @@ def update_patient(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Update all fields dynamically.
+    # Update all existing model fields dynamically.
     for key, value in data.items():
-        if hasattr(patient, key):
-            setattr(patient, key, value)
+      if hasattr(patient, key):
+          setattr(patient, key, value)
 
     db.session.commit()
 
@@ -166,14 +169,14 @@ def delete_patient(id):
 
 @app.route("/api/calls", methods=["GET"])
 def get_calls():
-    # Optional query parameter for filtering calls by trip date.
-    trip_date = request.args.get("trip_date", "").strip()
+    # Optional query parameter for filtering calls by date of call.
+    date_of_call = request.args.get("date_of_call", "").strip()
 
     query = Call.query
 
-    # Filter calls by exact trip date if provided.
-    if trip_date:
-        query = query.filter(Call.trip_date == trip_date)
+    # Filter calls by the date when the call was received.
+    if date_of_call:
+        query = query.filter(Call.date_of_call == date_of_call)
 
     calls = query.all()
 
@@ -182,7 +185,7 @@ def get_calls():
 
 @app.route("/api/calls", methods=["POST"])
 def create_call():
-    # Create a new call record.
+    # Create a new call record from JSON request data.
     data = request.get_json()
 
     if not data:
@@ -224,6 +227,7 @@ def get_patient_calls(id):
 # INIT DB
 # =========================
 
+# Create database tables automatically for MVP development.
 with app.app_context():
     db.create_all()
 
