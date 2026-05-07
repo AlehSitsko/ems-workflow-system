@@ -2,124 +2,112 @@
 
 ## Overview
 
-EMS Workflow System is a modular web application designed as a **backup and support tool for EMS dispatch operations**. It allows dispatchers to quickly capture call data, manage patients, and maintain operational continuity in case of primary system failure (e.g., RescueNet outages).
+EMS Workflow System is a modular web application designed as a **backup and support tool for EMS dispatch operations**.
 
-The system is **not intended to replace primary EMS software**, but to act as a **first point of data entry and local redundancy layer**.
+It provides a **lightweight, fast, and reliable call intake system** that ensures data is captured even when primary systems (e.g., RescueNet) are unavailable.
+
+The system acts as a:
+- First point of call intake
+- Local redundancy layer
+- Dispatcher support tool
 
 ---
 
 ## Core Goals
 
-* Fast and reliable call intake
-* Local data availability during outages
-* Simple patient lookup and management
-* Modular architecture for future expansion (HR, scheduling, logistics)
+- Fast and reliable call intake
+- Patient lookup and reuse of data
+- Call tracking and history
+- Operational continuity during outages
+- Modular architecture for future expansion
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-
-* React (Vite)
-* JavaScript (ES6+)
-* Bootstrap (CDN)
+- React (Vite)
+- JavaScript (ES6+)
+- Bootstrap (CDN)
 
 ### Backend
-
-* Python
-* Flask
-* Flask-CORS
-* SQLAlchemy
+- Python
+- Flask
+- Flask-CORS
+- SQLAlchemy
 
 ### Database
-
-* SQLite (current)
-* PostgreSQL (planned)
+- SQLite (current)
+- PostgreSQL (planned)
 
 ---
 
 ## Project Structure
-
-```
 ems-workflow-system/
 │
 ├── backend/
-│   ├── app.py              # Main Flask application
-│   ├── models.py          # Database models
-│   ├── requirements.txt   # Backend dependencies
+│ ├── app.py
+│ ├── models.py
+│ ├── requirements.txt
 │
 ├── frontend/
-│   ├── src/
-│   │   ├── api/           # API calls
-│   │   ├── components/    # Reusable UI components
-│   │   ├── pages/         # Application pages
-│   │   ├── App.jsx        # Main app entry
-│   │   └── main.jsx       # React bootstrap
+│ ├── src/
+│ │ ├── api/
+│ │ ├── components/
+│ │ ├── pages/
+│ │ ├── App.jsx
+│ │ └── main.jsx
 │
 └── README.md
-```
 
 ---
 
 ## Features (Current)
 
-### 1. Call Taking Form
+### Call Taking Form
+- Full call intake workflow
+- Patient search and linking
+- Return ride logic
+- Service level selection
 
-* Capture basic trip information
-* Pickup details
-* Caller type
-* Service type
-* Optional price calculation
+### Call Quality Control (NEW)
+- Real-time validation during call intake
+- Critical vs non-critical field detection
+- Required explanation for missing critical fields
+- Quality data stored with each call
 
-### 2. Price Calculator
+### Patients Module
+- Create, edit, and search patients
+- Search by name and DOB
+- Patient-call linkage
 
-* Base price input
-* Crew multiplier logic (manual)
-* Price per mile support
-* Fixed price override
+### Call History
+- Global call history page
+- Filter by **date of call**
+- Display all call details and notes
 
-### 3. Patients Module
-
-* Create patient records
-* Search by name and DOB
-* Edit existing records
-
-### 4. Backend API
-
-* REST API for patient management:
-
-  * `GET /api/patients`
-  * `POST /api/patients`
-  * `PUT /api/patients/:id`
+### Backend API
+- Patients API
+- Calls API
+- Patient → Call relationship
 
 ---
 
-## Planned Features
+## API Endpoints
 
-### High Priority
+### Patients
 
-* Call history linked to patients
-* Auto-fill patient data in call form
-* Form validation improvements
-* Daily trip list generation
+- `GET /api/patients`
+- `POST /api/patients`
+- `PUT /api/patient/<id>`
+- `DELETE /api/patient/<id>`
 
-### Backend Expansion
+### Calls
 
-* Authentication system (admin / dispatcher roles)
-* Secure data handling (HIPAA-aware design)
-* PostgreSQL migration
-
-### UI / UX
-
-* Better layout for wide screens
-* Improved mobile usability
-
-### Advanced
-
-* Offline mode (PWA / Electron)
-* Email sending (SMTP)
-* PDF export
+- `GET /api/calls`
+- `GET /api/calls?date_of_call=YYYY-MM-DD`
+- `POST /api/calls`
+- `GET /api/patient/<id>/calls`
 
 ---
 
@@ -133,93 +121,83 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
-```
 
-Backend runs on:
+Backend:
 
-```
 http://127.0.0.1:5050
-```
 
----
+Frontend
 
-### Frontend
-
-```bash
 cd frontend
 npm install
 npm run dev
-```
 
-Frontend runs on:
-
-```
+Frontend:
 http://localhost:5173
-```
 
----
-
-## Development Workflow
+Development Workflow
 
 Branches:
 
-* `main` — stable version
-* `dev` — development branch
+main — stable
+dev — development
 
 Rules:
 
-* Do NOT develop directly in `main`
-* All changes go through `dev`
-* Merge to `main` only after testing
-
----
-
-## API Example
-
-### Create Patient
-
-```json
-POST /api/patients
-
-{
-  "first_name": "John",
-  "last_name": "Doe",
-  "dob": "1990-01-01",
-  "phone": "1234567890",
-  "gender": "Male",
-  "address": "123 Main St",
-  "insurance": "Test Insurance",
-  "notes": "N/A"
-}
-```
-
----
-
-## Purpose Reminder
+Never work directly in main
+Develop in dev
+Merge only after testing
+TODO / Roadmap
+🔴 High Priority
+ Patient auto-fill improvements (more fields)
+ Add Date of Trip to required logic (optional/critical review)
+ Improve validation UX (inline errors instead of alerts)
+ Add call creation audit (who created the call)
+🟡 Medium Priority
+ Click call → open related patient
+ Highlight call quality in CallsPage (colors or status)
+ Add quick filters (Today / This Week)
+ Improve table UX (sorting, pagination)
+🟢 Quality Control Expansion
+ Add scoring system (0–100%)
+ Store structured quality data (not just in notes)
+ Require dispatcher justification for incomplete calls
+ Add “Call Refused / Incomplete” workflow
+🔵 Backend & Security
+ Authentication system (admin / dispatcher roles)
+ Role-based access control
+ Data protection (HIPAA-aware design)
+ PostgreSQL migration
+🟣 UI / UX
+ Redesign layout (wide screens)
+ Mobile optimization improvements
+ Field highlighting improvements
+⚫ Advanced
+ Offline mode (PWA / Electron)
+ Email sending (SMTP)
+ PDF export
+ Daily trip report generation
+Purpose Reminder
 
 This system is:
 
-* A **backup tool**
-* A **data capture layer**
-* A **dispatcher assistant**
+A backup tool
+A dispatcher assistant
+A data capture layer
 
 This system is NOT:
 
-* A replacement for RescueNet
-* A fully compliant medical record system (yet)
-
----
-
-## Author
+A replacement for RescueNet
+A full EMR system
+Author
 
 Aleh Sitsko
 
----
+Status
 
-## Status
+MVP — functional.
 
-MVP in progress.
+Core workflow is implemented:
+Call Intake → Validation → Storage → History
 
-Core functionality is operational.
-
-Next step: backend expansion and system integration.
+Next phase: system expansion and data quality tools.
