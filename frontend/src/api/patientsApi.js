@@ -38,9 +38,26 @@ export async function createPatient(patientData) {
     body: JSON.stringify(patientData),
   });
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Failed to create patient");
+    throw new Error(data.error || "Failed to create patient");
   }
 
-  return response.json();
+  return data;
+}
+
+// Delete an existing patient record from the backend database.
+export async function deletePatient(id) {
+  const response = await fetch(`${API_BASE_URL}/api/patient/${id}`, {
+    method: "DELETE",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to delete patient");
+  }
+
+  return data;
 }
