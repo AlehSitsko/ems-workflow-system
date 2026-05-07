@@ -1,12 +1,11 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from models import db, Patient
+from models import db, Patient, Call  # Added Call model
 
 app = Flask(__name__)
 CORS(app)
 
 # Local SQLite database configuration.
-# The database file is created inside the backend/instance folder by Flask.
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -30,6 +29,10 @@ def health_check():
         "service": "ems-workflow-system-backend"
     })
 
+
+# =========================
+# PATIENT ROUTES
+# =========================
 
 @app.route("/api/patients", methods=["GET"])
 def get_patients():
@@ -133,47 +136,10 @@ def update_patient(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    patient.first_name = data.get("first_name", patient.first_name)
-    patient.last_name = data.get("last_name", patient.last_name)
-    patient.dob = data.get("dob", patient.dob)
-    patient.gender = data.get("gender", patient.gender)
-
-    patient.phone = data.get("phone", patient.phone)
-    patient.secondary_phone = data.get("secondary_phone", patient.secondary_phone)
-    patient.address = data.get("address", patient.address)
-    patient.city = data.get("city", patient.city)
-    patient.state = data.get("state", patient.state)
-    patient.zip_code = data.get("zip_code", patient.zip_code)
-
-    patient.insurance = data.get("insurance", patient.insurance)
-    patient.member_id = data.get("member_id", patient.member_id)
-    patient.policy_number = data.get("policy_number", patient.policy_number)
-    patient.requires_auth = data.get("requires_auth", patient.requires_auth)
-    patient.copay_required = data.get("copay_required", patient.copay_required)
-    patient.insurance_notes = data.get("insurance_notes", patient.insurance_notes)
-
-    patient.default_service_level = data.get(
-        "default_service_level", patient.default_service_level
-    )
-    patient.weight = data.get("weight", patient.weight)
-    patient.oxygen_required = data.get(
-        "oxygen_required", patient.oxygen_required
-    )
-    patient.stairs = data.get("stairs", patient.stairs)
-    patient.special_equipment_notes = data.get(
-        "special_equipment_notes", patient.special_equipment_notes
-    )
-
-    patient.facility_name = data.get("facility_name", patient.facility_name)
-    patient.room_number = data.get("room_number", patient.room_number)
-    patient.emergency_contact_name = data.get(
-        "emergency_contact_name", patient.emergency_contact_name
-    )
-    patient.emergency_contact_phone = data.get(
-        "emergency_contact_phone", patient.emergency_contact_phone
-    )
-
-    patient.notes = data.get("notes", patient.notes)
+    # Update all fields dynamically
+    for key, value in data.items():
+        if hasattr(patient, key):
+            setattr(patient, key, value)
 
     db.session.commit()
 
@@ -194,7 +160,54 @@ def delete_patient(id):
     return jsonify({"message": "Patient deleted"})
 
 
-# Create database tables automatically for MVP development.
+# =========================
+# CALL ROUTES (NEW)
+# =========================
+
+@app.route("/api/calls", methods=["POST"])
+def create_call():
+    # Create a new call record.
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    new_call = Call(
+        patient_id=data.get("patient_id"),
+        date_of_call=data.get("date_of_call"),
+        trip_date=data.get("trip_date"),
+        pickup_time=data.get("pickup_time"),
+        pickup_address=data.get("pickup_address"),
+        dropoff_address=data.get("dropoff_address"),
+        caller_type=data.get("caller_type"),
+        call_type=data.get("call_type"),
+        service_level=data.get("service_level"),
+        notes=data.get("notes"),
+    )
+
+    db.session.add(new_call)
+    db.session.commit()
+
+    return jsonify(new_call.to_dict()), 201
+
+
+@app.route("/api/patient/<int:id>/calls", methods=["GET"])
+def get_patient_calls(id):
+    # Return all call records linked to a specific patient.
+    patient = Patient.query.get(id)
+
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    calls = Call.query.filter_by(patient_id=id).all()
+
+    return jsonify([call.to_dict() for call in calls])
+
+
+# =========================
+# INIT DB
+# =========================
+
 with app.app_context():
     db.create_all()
 

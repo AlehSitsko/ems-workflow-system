@@ -80,3 +80,42 @@ class Patient(db.Model):
 
             "notes": self.notes,
         }
+
+
+class Call(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Link this call to a patient.
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=True)
+
+    # Call metadata.
+    date_of_call = db.Column(db.String(20))
+    trip_date = db.Column(db.String(20))
+    pickup_time = db.Column(db.String(20))
+
+    # Trip details.
+    pickup_address = db.Column(db.Text)
+    dropoff_address = db.Column(db.Text)
+
+    # Operational fields.
+    caller_type = db.Column(db.String(100))
+    call_type = db.Column(db.String(100))
+    service_level = db.Column(db.String(100))
+
+    # Notes.
+    notes = db.Column(db.Text)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "date_of_call": self.date_of_call,
+            "trip_date": self.trip_date,
+            "pickup_time": self.pickup_time,
+            "pickup_address": self.pickup_address,
+            "dropoff_address": self.dropoff_address,
+            "caller_type": self.caller_type,
+            "call_type": self.call_type,
+            "service_level": self.service_level,
+            "notes": self.notes,
+        }

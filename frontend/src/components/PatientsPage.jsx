@@ -5,6 +5,7 @@ import {
   updatePatient,
   deletePatient,
 } from "../api/patientsApi";
+import { getPatientCalls } from "../api/callsApi";
 
 // Empty patient template used for create, reset, and cancel edit.
 const emptyPatient = {
@@ -48,6 +49,8 @@ const PatientsPage = () => {
 
   const [newPatient, setNewPatient] = useState(emptyPatient);
   const [patients, setPatients] = useState([]);
+  const [patientCalls, setPatientCalls] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
@@ -68,6 +71,17 @@ const PatientsPage = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  // Load call history for a selected patient.
+  const loadPatientCalls = async (patientId) => {
+    try {
+      const calls = await getPatientCalls(patientId);
+      setPatientCalls(calls);
+    } catch (err) {
+      console.error("Failed to load patient call history:", err);
+      setPatientCalls([]);
+    }
   };
 
   // Create a new patient or update an existing patient.
@@ -92,6 +106,8 @@ const PatientsPage = () => {
 
       const updatedPatients = await getPatients();
       setPatients(updatedPatients);
+
+      await loadPatientCalls(savedPatient.id);
     } catch (err) {
       setError(err.message || "Operation failed.");
     } finally {
@@ -112,6 +128,7 @@ const PatientsPage = () => {
         setError("Please enter a patient name or date of birth.");
         setPatients([]);
         setSelectedPatient(null);
+        setPatientCalls([]);
         return;
       }
 
@@ -122,10 +139,12 @@ const PatientsPage = () => {
 
       setPatients(filteredPatients);
       setSelectedPatient(null);
+      setPatientCalls([]);
     } catch (err) {
       setError(err.message || "Failed to search patients.");
       setPatients([]);
       setSelectedPatient(null);
+      setPatientCalls([]);
     } finally {
       setLoading(false);
     }
@@ -141,6 +160,7 @@ const PatientsPage = () => {
       const data = await getPatients();
       setPatients(data);
       setSelectedPatient(null);
+      setPatientCalls([]);
     } catch (err) {
       setError(err.message || "Failed to load patients.");
     } finally {
@@ -163,6 +183,7 @@ const PatientsPage = () => {
 
       if (selectedPatient?.id === id) {
         setSelectedPatient(null);
+        setPatientCalls([]);
       }
 
       if (editingPatientId === id) {
@@ -175,13 +196,14 @@ const PatientsPage = () => {
     }
   };
 
-  // Select a patient for preview and future call form integration.
-  const handleSelectPatient = (patient) => {
+  // Select a patient for preview and load call history.
+  const handleSelectPatient = async (patient) => {
     setSelectedPatient(patient);
+    await loadPatientCalls(patient.id);
   };
 
-  // Start editing an existing patient.
-  const handleEditPatient = (patient) => {
+  // Start editing an existing patient and load call history.
+  const handleEditPatient = async (patient) => {
     setEditingPatientId(patient.id);
 
     setNewPatient({
@@ -219,13 +241,15 @@ const PatientsPage = () => {
     });
 
     setSelectedPatient(patient);
+    await loadPatientCalls(patient.id);
   };
 
-  // Clear search, results, selected patient, and editing mode.
+  // Clear search, results, selected patient, call history, and editing mode.
   const handleClear = () => {
     setSearchName("");
     setSearchDob("");
     setPatients([]);
+    setPatientCalls([]);
     setError("");
     setHasSearched(false);
     setSelectedPatient(null);
@@ -673,28 +697,132 @@ const PatientsPage = () => {
           <div className="card-body">
             <h5 className="card-title text-success mb-3">Selected Patient</h5>
 
-            <p><strong>Name:</strong> {selectedPatient.first_name} {selectedPatient.last_name}</p>
-            <p><strong>DOB:</strong> {selectedPatient.dob || "—"}</p>
-            <p><strong>Gender:</strong> {selectedPatient.gender || "—"}</p>
-            <p><strong>Phone:</strong> {selectedPatient.phone || "—"}</p>
-            <p><strong>Secondary Phone:</strong> {selectedPatient.secondary_phone || "—"}</p>
-            <p><strong>Address:</strong> {selectedPatient.address || "—"}, {selectedPatient.city || ""} {selectedPatient.state || ""} {selectedPatient.zip_code || ""}</p>
+            <p>
+              <strong>Name:</strong> {selectedPatient.first_name}{" "}
+              {selectedPatient.last_name}
+            </p>
+            <p>
+              <strong>DOB:</strong> {selectedPatient.dob || "—"}
+            </p>
+            <p>
+              <strong>Gender:</strong> {selectedPatient.gender || "—"}
+            </p>
+            <p>
+              <strong>Phone:</strong> {selectedPatient.phone || "—"}
+            </p>
+            <p>
+              <strong>Secondary Phone:</strong>{" "}
+              {selectedPatient.secondary_phone || "—"}
+            </p>
+            <p>
+              <strong>Address:</strong> {selectedPatient.address || "—"},{" "}
+              {selectedPatient.city || ""} {selectedPatient.state || ""}{" "}
+              {selectedPatient.zip_code || ""}
+            </p>
+
             <hr />
-            <p><strong>Insurance:</strong> {selectedPatient.insurance || "—"}</p>
-            <p><strong>Member ID:</strong> {selectedPatient.member_id || "—"}</p>
-            <p><strong>Policy Number:</strong> {selectedPatient.policy_number || "—"}</p>
-            <p><strong>Requires Auth:</strong> {selectedPatient.requires_auth ? "Yes" : "No"}</p>
-            <p><strong>Copay Required:</strong> {selectedPatient.copay_required ? "Yes" : "No"}</p>
+
+            <p>
+              <strong>Insurance:</strong> {selectedPatient.insurance || "—"}
+            </p>
+            <p>
+              <strong>Member ID:</strong> {selectedPatient.member_id || "—"}
+            </p>
+            <p>
+              <strong>Policy Number:</strong>{" "}
+              {selectedPatient.policy_number || "—"}
+            </p>
+            <p>
+              <strong>Requires Auth:</strong>{" "}
+              {selectedPatient.requires_auth ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Copay Required:</strong>{" "}
+              {selectedPatient.copay_required ? "Yes" : "No"}
+            </p>
+
             <hr />
-            <p><strong>Default Service Level:</strong> {selectedPatient.default_service_level || "—"}</p>
-            <p><strong>Weight:</strong> {selectedPatient.weight || "—"}</p>
-            <p><strong>Oxygen Required:</strong> {selectedPatient.oxygen_required ? "Yes" : "No"}</p>
-            <p><strong>Stairs:</strong> {selectedPatient.stairs ? "Yes" : "No"}</p>
+
+            <p>
+              <strong>Default Service Level:</strong>{" "}
+              {selectedPatient.default_service_level || "—"}
+            </p>
+            <p>
+              <strong>Weight:</strong> {selectedPatient.weight || "—"}
+            </p>
+            <p>
+              <strong>Oxygen Required:</strong>{" "}
+              {selectedPatient.oxygen_required ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Stairs:</strong> {selectedPatient.stairs ? "Yes" : "No"}
+            </p>
+
             <hr />
-            <p><strong>Facility:</strong> {selectedPatient.facility_name || "—"}</p>
-            <p><strong>Room:</strong> {selectedPatient.room_number || "—"}</p>
-            <p><strong>Emergency Contact:</strong> {selectedPatient.emergency_contact_name || "—"} {selectedPatient.emergency_contact_phone || ""}</p>
-            <p><strong>Notes:</strong> {selectedPatient.notes || "—"}</p>
+
+            <p>
+              <strong>Facility:</strong>{" "}
+              {selectedPatient.facility_name || "—"}
+            </p>
+            <p>
+              <strong>Room:</strong> {selectedPatient.room_number || "—"}
+            </p>
+            <p>
+              <strong>Emergency Contact:</strong>{" "}
+              {selectedPatient.emergency_contact_name || "—"}{" "}
+              {selectedPatient.emergency_contact_phone || ""}
+            </p>
+            <p>
+              <strong>Notes:</strong> {selectedPatient.notes || "—"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {selectedPatient && (
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="card-title mb-3">Call History</h5>
+
+            {patientCalls.length === 0 ? (
+              <div className="alert alert-light mb-0">
+                No calls found for this patient.
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm table-bordered table-hover mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Date of Call</th>
+                      <th>Trip Date</th>
+                      <th>Pickup Time</th>
+                      <th>Pickup</th>
+                      <th>Dropoff</th>
+                      <th>Caller Type</th>
+                      <th>Call Type</th>
+                      <th>Service</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {patientCalls.map((call) => (
+                      <tr key={call.id}>
+                        <td>{call.date_of_call || "—"}</td>
+                        <td>{call.trip_date || "—"}</td>
+                        <td>{call.pickup_time || "—"}</td>
+                        <td>{call.pickup_address || "—"}</td>
+                        <td>{call.dropoff_address || "—"}</td>
+                        <td>{call.caller_type || "—"}</td>
+                        <td>{call.call_type || "—"}</td>
+                        <td>{call.service_level || "—"}</td>
+                        <td>{call.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -723,7 +851,9 @@ const PatientsPage = () => {
 
                     return (
                       <tr key={patient.id}>
-                        <td>{patient.first_name} {patient.last_name}</td>
+                        <td>
+                          {patient.first_name} {patient.last_name}
+                        </td>
                         <td>{patient.dob || "—"}</td>
                         <td>{patient.phone || "—"}</td>
                         <td>{patient.insurance || "—"}</td>
