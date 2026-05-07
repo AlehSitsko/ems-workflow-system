@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from models import db, Patient, Call  # Added Call model
+from models import db, Patient, Call
 
 app = Flask(__name__)
 CORS(app)
@@ -136,7 +136,7 @@ def update_patient(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Update all fields dynamically
+    # Update all fields dynamically.
     for key, value in data.items():
         if hasattr(patient, key):
             setattr(patient, key, value)
@@ -161,8 +161,24 @@ def delete_patient(id):
 
 
 # =========================
-# CALL ROUTES (NEW)
+# CALL ROUTES
 # =========================
+
+@app.route("/api/calls", methods=["GET"])
+def get_calls():
+    # Optional query parameter for filtering calls by trip date.
+    trip_date = request.args.get("trip_date", "").strip()
+
+    query = Call.query
+
+    # Filter calls by exact trip date if provided.
+    if trip_date:
+        query = query.filter(Call.trip_date == trip_date)
+
+    calls = query.all()
+
+    return jsonify([call.to_dict() for call in calls])
+
 
 @app.route("/api/calls", methods=["POST"])
 def create_call():
