@@ -3,7 +3,12 @@ import { getCalls } from "../api/callsApi";
 
 const CallsPage = () => {
   const [calls, setCalls] = useState([]);
+
   const [dateOfCall, setDateOfCall] = useState("");
+  const [dispatcherName, setDispatcherName] = useState("");
+  const [minQualityScore, setMinQualityScore] = useState("");
+  const [maxQualityScore, setMaxQualityScore] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,16 +48,23 @@ const CallsPage = () => {
   // Get today's date.
   const getTodayDate = () => formatDate(new Date());
 
-  // Load calls with optional filters.
-  const loadCalls = async (dateFilter = "") => {
+  // Build filter object for the backend API.
+  const buildFilters = () => {
+    return {
+      date_of_call: dateOfCall,
+      dispatcher_name: dispatcherName,
+      min_quality_score: minQualityScore,
+      max_quality_score: maxQualityScore,
+    };
+  };
+
+  // Load calls with current filters.
+  const loadCalls = async (filters = buildFilters()) => {
     setLoading(true);
     setError("");
 
     try {
-      const data = await getCalls({
-        date_of_call: dateFilter,
-      });
-
+      const data = await getCalls(filters);
       setCalls(data);
     } catch (err) {
       console.error("Failed to load calls:", err);
@@ -62,27 +74,41 @@ const CallsPage = () => {
     }
   };
 
-  // Load calls using the manually selected date.
-  const handleLoadByDate = () => {
-    loadCalls(dateOfCall);
+  // Load calls using all currently selected filters.
+  const handleApplyFilters = () => {
+    loadCalls();
   };
 
-  // Load all calls without date filtering.
+  // Load all calls without filtering.
   const handleLoadAll = () => {
     setDateOfCall("");
-    loadCalls("");
+    setDispatcherName("");
+    setMinQualityScore("");
+    setMaxQualityScore("");
+
+    loadCalls({});
   };
 
   // Load today's calls.
   const handleToday = () => {
     const today = getTodayDate();
+
     setDateOfCall(today);
-    loadCalls(today);
+
+    loadCalls({
+      date_of_call: today,
+      dispatcher_name: dispatcherName,
+      min_quality_score: minQualityScore,
+      max_quality_score: maxQualityScore,
+    });
   };
 
   // Clear filters and table results.
   const handleClear = () => {
     setDateOfCall("");
+    setDispatcherName("");
+    setMinQualityScore("");
+    setMaxQualityScore("");
     setCalls([]);
     setError("");
   };
@@ -93,7 +119,7 @@ const CallsPage = () => {
         <h4 className="mb-3">Global Call History</h4>
 
         <div className="row">
-          <div className="col-md-4 mb-3">
+          <div className="col-md-3 mb-3">
             <label className="form-label">Date of Call</label>
 
             <input
@@ -105,14 +131,57 @@ const CallsPage = () => {
             />
           </div>
 
-          <div className="col-md-8 d-flex align-items-end gap-2 flex-wrap mb-3">
+          <div className="col-md-3 mb-3">
+            <label className="form-label">Dispatcher</label>
+
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Dispatcher name"
+              value={dispatcherName}
+              onChange={(e) => setDispatcherName(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="col-md-3 mb-3">
+            <label className="form-label">Min Quality Score</label>
+
+            <input
+              type="number"
+              className="form-control"
+              placeholder="Example: 50"
+              min="0"
+              max="100"
+              value={minQualityScore}
+              onChange={(e) => setMinQualityScore(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="col-md-3 mb-3">
+            <label className="form-label">Max Quality Score</label>
+
+            <input
+              type="number"
+              className="form-control"
+              placeholder="Example: 100"
+              min="0"
+              max="100"
+              value={maxQualityScore}
+              onChange={(e) => setMaxQualityScore(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="col-12 d-flex align-items-end gap-2 flex-wrap mb-3">
             <button
               type="button"
               className="btn btn-primary"
-              onClick={handleLoadByDate}
+              onClick={handleApplyFilters}
               disabled={loading}
             >
-              {loading ? "Loading..." : "Load by Date"}
+              {loading ? "Loading..." : "Apply Filters"}
             </button>
 
             <button
@@ -174,6 +243,9 @@ const CallsPage = () => {
                     <th>Caller Type</th>
                     <th>Call Type</th>
                     <th>Service</th>
+                    <th>Missing Critical</th>
+                    <th>Missing Optional</th>
+                    <th>Explanation</th>
                     <th>Notes</th>
                   </tr>
                 </thead>
@@ -183,13 +255,9 @@ const CallsPage = () => {
                     <tr key={call.id}>
                       <td>{call.date_of_call || "—"}</td>
 
-                      <td>
-                        {call.dispatcher_name || "—"}
-                      </td>
+                      <td>{call.dispatcher_name || "—"}</td>
 
-                      <td>
-                        {renderQualityBadge(call.quality_score)}
-                      </td>
+                      <td>{renderQualityBadge(call.quality_score)}</td>
 
                       <td>{call.trip_date || "—"}</td>
 
@@ -204,6 +272,18 @@ const CallsPage = () => {
                       <td>{call.call_type || "—"}</td>
 
                       <td>{call.service_level || "—"}</td>
+
+                      <td style={{ whiteSpace: "pre-line" }}>
+                        {call.missing_critical_fields || "—"}
+                      </td>
+
+                      <td style={{ whiteSpace: "pre-line" }}>
+                        {call.missing_optional_fields || "—"}
+                      </td>
+
+                      <td style={{ whiteSpace: "pre-line" }}>
+                        {call.missing_info_explanation || "—"}
+                      </td>
 
                       <td style={{ whiteSpace: "pre-line" }}>
                         {call.notes || "—"}

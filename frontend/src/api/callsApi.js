@@ -74,3 +74,15 @@ export async function getPatientCalls(patientId) {
 
   return data;
 }
+
+// Fetch dispatcher analytics for supervisor reporting.
+export async function getDispatcherAnalytics() {
+  const response = await fetch(`${API_BASE_URL}/api/analytics/dispatchers`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to fetch dispatcher analytics");
+  }
+
+  return data;
+}
