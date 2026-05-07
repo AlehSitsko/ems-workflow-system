@@ -4,10 +4,28 @@ import React, {
   useRef,
   useState,
   useEffect,
-} from 'react';
+} from "react";
 
-import { createCall } from '../api/callsApi';
-import { getPatients } from '../api/patientsApi';
+import { createCall } from "../api/callsApi";
+import { getPatients } from "../api/patientsApi";
+
+// Read logged-in user from localStorage.
+// This is MVP-level auth state until backend sessions or tokens are added.
+const getLoggedDispatcherName = () => {
+  const storedUser = localStorage.getItem("ems_current_user");
+
+  if (!storedUser) {
+    return "";
+  }
+
+  try {
+    const user = JSON.parse(storedUser);
+    return user.display_name || user.username || "";
+  } catch (err) {
+    console.error("Failed to read logged dispatcher:", err);
+    return "";
+  }
+};
 
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger clearForm() externally.
@@ -16,42 +34,41 @@ const CallForm = forwardRef((props, ref) => {
   const formRef = useRef(null);
 
   // Helper function to get today's date in YYYY-MM-DD format.
-  const getTodayDate = () => new Date().toISOString().split('T')[0];
+  const getTodayDate = () => new Date().toISOString().split("T")[0];
 
   // Initial form state.
   // The entire form is stored in one object to make backend integration easier.
   const initialFormData = {
-    // Dispatcher information.
-    // Temporary field before authentication system is implemented.
-    dispatcherName: '',
+    // Dispatcher information is now pulled from the logged-in user.
+    dispatcherName: getLoggedDispatcherName(),
 
     // Caller information.
-    callerType: '',
-    callerNote: '',
+    callerType: "",
+    callerNote: "",
 
     // Patient information.
     patientId: null,
-    firstName: '',
-    lastName: '',
-    dob: '',
-    phoneNumber: '',
+    firstName: "",
+    lastName: "",
+    dob: "",
+    phoneNumber: "",
 
     // Main trip information.
-    pickupAddress: '',
-    dropoffAddress: '',
+    pickupAddress: "",
+    dropoffAddress: "",
     callDate: getTodayDate(),
-    tripDate: '',
-    pickupTime: '',
-    additionalInfo: '',
+    tripDate: "",
+    pickupTime: "",
+    additionalInfo: "",
 
     // Return ride information.
-    returnRideOption: 'none',
-    returnPickup: '',
-    returnDestination: '',
-    returnTime: '',
+    returnRideOption: "none",
+    returnPickup: "",
+    returnDestination: "",
+    returnTime: "",
 
     // Service level.
-    serviceLevel: '',
+    serviceLevel: "",
   };
 
   // Main form state.
@@ -62,15 +79,15 @@ const CallForm = forwardRef((props, ref) => {
   const [selectedPatient, setSelectedPatient] = useState(null);
 
   // Explanation required when critical information is missing.
-  const [missingInfoExplanation, setMissingInfoExplanation] = useState('');
+  const [missingInfoExplanation, setMissingInfoExplanation] = useState("");
 
   // Submit state.
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState('');
+  const [submitMessage, setSubmitMessage] = useState("");
 
   // Stores the previous return ride option.
   // This is used to detect when return ride is turned on or off.
-  const previousReturnRideOption = useRef('none');
+  const previousReturnRideOption = useRef("none");
 
   // Generic change handler for text, date, time, select, and textarea fields.
   const handleChange = (e) => {
@@ -107,20 +124,20 @@ const CallForm = forwardRef((props, ref) => {
     const nonCriticalMissing = [];
 
     // Critical fields needed to identify the patient and pickup location.
-    if (!formData.firstName.trim()) criticalMissing.push('First Name');
-    if (!formData.lastName.trim()) criticalMissing.push('Last Name');
-    if (!formData.dob.trim()) criticalMissing.push('Date of Birth');
-    if (!formData.pickupAddress.trim()) criticalMissing.push('Pick Up Address');
+    if (!formData.firstName.trim()) criticalMissing.push("First Name");
+    if (!formData.lastName.trim()) criticalMissing.push("Last Name");
+    if (!formData.dob.trim()) criticalMissing.push("Date of Birth");
+    if (!formData.pickupAddress.trim()) criticalMissing.push("Pick Up Address");
 
     // Non-critical fields improve call quality but should not always block saving.
-    if (!formData.phoneNumber.trim()) nonCriticalMissing.push('Phone Number');
-    if (!formData.dropoffAddress.trim()) nonCriticalMissing.push('Drop Off Address');
-    if (!formData.tripDate.trim()) nonCriticalMissing.push('Date of Trip');
-    if (!formData.pickupTime.trim()) nonCriticalMissing.push('Pickup Time');
-    if (!formData.callerType.trim()) nonCriticalMissing.push('Caller Type');
-    if (!formData.serviceLevel.trim()) nonCriticalMissing.push('Service Level');
+    if (!formData.phoneNumber.trim()) nonCriticalMissing.push("Phone Number");
+    if (!formData.dropoffAddress.trim()) nonCriticalMissing.push("Drop Off Address");
+    if (!formData.tripDate.trim()) nonCriticalMissing.push("Date of Trip");
+    if (!formData.pickupTime.trim()) nonCriticalMissing.push("Pickup Time");
+    if (!formData.callerType.trim()) nonCriticalMissing.push("Caller Type");
+    if (!formData.serviceLevel.trim()) nonCriticalMissing.push("Service Level");
     if (!formData.additionalInfo.trim()) {
-      nonCriticalMissing.push('Additional Information');
+      nonCriticalMissing.push("Additional Information");
     }
 
     // Score weights:
@@ -150,7 +167,7 @@ const CallForm = forwardRef((props, ref) => {
     const trimmedDob = formData.dob.trim();
 
     if (!trimmedLastName && !trimmedDob) {
-      window.alert('Please enter Last Name or Date of Birth before searching.');
+      window.alert("Please enter Last Name or Date of Birth before searching.");
       return;
     }
 
@@ -163,11 +180,11 @@ const CallForm = forwardRef((props, ref) => {
       setPatientSearchResults(results);
 
       if (results.length === 0) {
-        window.alert('No matching patients found.');
+        window.alert("No matching patients found.");
       }
     } catch (err) {
-      console.error('Failed to search patient:', err);
-      window.alert('Failed to search patient.');
+      console.error("Failed to search patient:", err);
+      window.alert("Failed to search patient.");
     }
   };
 
@@ -178,11 +195,11 @@ const CallForm = forwardRef((props, ref) => {
     setFormData((prev) => ({
       ...prev,
       patientId: patient.id,
-      firstName: patient.first_name || '',
-      lastName: patient.last_name || '',
-      dob: patient.dob || '',
-      phoneNumber: patient.phone || '',
-      pickupAddress: patient.address || '',
+      firstName: patient.first_name || "",
+      lastName: patient.last_name || "",
+      dob: patient.dob || "",
+      phoneNumber: patient.phone || "",
+      pickupAddress: patient.address || "",
       serviceLevel:
         patient.default_service_level?.toLowerCase() || prev.serviceLevel,
     }));
@@ -194,15 +211,16 @@ const CallForm = forwardRef((props, ref) => {
   const clearFormData = () => {
     setFormData({
       ...initialFormData,
+      dispatcherName: getLoggedDispatcherName(),
       callDate: getTodayDate(),
     });
 
     setSelectedPatient(null);
     setPatientSearchResults([]);
-    setMissingInfoExplanation('');
-    setSubmitMessage('');
+    setMissingInfoExplanation("");
+    setSubmitMessage("");
 
-    previousReturnRideOption.current = 'none';
+    previousReturnRideOption.current = "none";
   };
 
   // Expose clearForm() to the parent page.
@@ -219,10 +237,10 @@ const CallForm = forwardRef((props, ref) => {
     const currentOption = formData.returnRideOption;
 
     const isReturnRideJustEnabled =
-      previousOption === 'none' && currentOption !== 'none';
+      previousOption === "none" && currentOption !== "none";
 
     const isReturnRideDisabled =
-      previousOption !== 'none' && currentOption === 'none';
+      previousOption !== "none" && currentOption === "none";
 
     if (isReturnRideJustEnabled) {
       setFormData((prev) => ({
@@ -235,9 +253,9 @@ const CallForm = forwardRef((props, ref) => {
     if (isReturnRideDisabled) {
       setFormData((prev) => ({
         ...prev,
-        returnPickup: '',
-        returnDestination: '',
-        returnTime: '',
+        returnPickup: "",
+        returnDestination: "",
+        returnTime: "",
       }));
     }
 
@@ -261,12 +279,12 @@ const CallForm = forwardRef((props, ref) => {
       !missingInfoExplanation.trim()
     ) {
       window.alert(
-        'Critical information is missing. Please provide an explanation before saving.'
+        "Critical information is missing. Please provide an explanation before saving."
       );
       return;
     }
 
-    setSubmitMessage('');
+    setSubmitMessage("");
     setIsSubmitting(true);
 
     // Map frontend field names to backend Call model field names.
@@ -293,56 +311,56 @@ const CallForm = forwardRef((props, ref) => {
 
       // Structured quality tracking.
       quality_score: currentQualityReport.score,
-      missing_critical_fields: currentQualityReport.criticalMissing.join(', '),
-      missing_optional_fields: currentQualityReport.nonCriticalMissing.join(', '),
+      missing_critical_fields: currentQualityReport.criticalMissing.join(", "),
+      missing_optional_fields: currentQualityReport.nonCriticalMissing.join(", "),
       missing_info_explanation: missingInfoExplanation.trim(),
 
       // General notes.
       notes: [
         formData.additionalInfo,
-        formData.callerNote ? `Caller note: ${formData.callerNote}` : '',
+        formData.callerNote ? `Caller note: ${formData.callerNote}` : "",
         formData.dispatcherName
           ? `Dispatcher: ${formData.dispatcherName}`
-          : '',
+          : "",
         formData.firstName || formData.lastName
           ? `Patient: ${formData.firstName} ${formData.lastName}`
-          : '',
-        formData.dob ? `DOB: ${formData.dob}` : '',
-        formData.phoneNumber ? `Phone: ${formData.phoneNumber}` : '',
-        formData.returnRideOption !== 'none'
+          : "",
+        formData.dob ? `DOB: ${formData.dob}` : "",
+        formData.phoneNumber ? `Phone: ${formData.phoneNumber}` : "",
+        formData.returnRideOption !== "none"
           ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
-              formData.returnTime || 'Will Call'
+              formData.returnTime || "Will Call"
             }`
-          : '',
+          : "",
         `Call Quality Score: ${currentQualityReport.score}%`,
         currentQualityReport.criticalMissing.length > 0
           ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
-              ', '
+              ", "
             )}`
-          : '',
+          : "",
         currentQualityReport.nonCriticalMissing.length > 0
           ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
-              ', '
+              ", "
             )}`
-          : '',
+          : "",
         missingInfoExplanation.trim()
           ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
-          : '',
+          : "",
       ]
         .filter(Boolean)
-        .join('\n'),
+        .join("\n"),
     };
 
     try {
       const savedCall = await createCall(callPayload);
 
-      console.log('Call saved:', savedCall);
-      setSubmitMessage('Call saved successfully.');
+      console.log("Call saved:", savedCall);
+      setSubmitMessage("Call saved successfully.");
 
       clearFormData();
     } catch (err) {
-      console.error('Failed to save call:', err);
-      setSubmitMessage(err.message || 'Failed to save call.');
+      console.error("Failed to save call:", err);
+      setSubmitMessage(err.message || "Failed to save call.");
     } finally {
       setIsSubmitting(false);
     }
@@ -360,9 +378,9 @@ const CallForm = forwardRef((props, ref) => {
           {submitMessage && (
             <div
               className={`alert ${
-                submitMessage.includes('successfully')
-                  ? 'alert-success'
-                  : 'alert-danger'
+                submitMessage.includes("successfully")
+                  ? "alert-success"
+                  : "alert-danger"
               }`}
             >
               {submitMessage}
@@ -386,11 +404,14 @@ const CallForm = forwardRef((props, ref) => {
                   className="form-control"
                   id="dispatcherName"
                   name="dispatcherName"
-                  placeholder="e.g. John Smith"
                   value={formData.dispatcherName}
-                  onChange={handleChange}
+                  readOnly
                   disabled={isSubmitting}
                 />
+
+                <div className="form-text">
+                  Dispatcher identity is taken from the logged-in user.
+                </div>
               </div>
 
               {/* =========================================================
@@ -444,7 +465,7 @@ const CallForm = forwardRef((props, ref) => {
                 <input
                   type="text"
                   className={`form-control ${
-                    !formData.firstName.trim() ? 'border-danger' : ''
+                    !formData.firstName.trim() ? "border-danger" : ""
                   }`}
                   id="firstName"
                   name="firstName"
@@ -463,7 +484,7 @@ const CallForm = forwardRef((props, ref) => {
                 <input
                   type="text"
                   className={`form-control ${
-                    !formData.lastName.trim() ? 'border-danger' : ''
+                    !formData.lastName.trim() ? "border-danger" : ""
                   }`}
                   id="lastName"
                   name="lastName"
@@ -482,7 +503,7 @@ const CallForm = forwardRef((props, ref) => {
                 <input
                   type="date"
                   className={`form-control ${
-                    !formData.dob.trim() ? 'border-danger' : ''
+                    !formData.dob.trim() ? "border-danger" : ""
                   }`}
                   id="dob"
                   name="dob"
@@ -519,9 +540,9 @@ const CallForm = forwardRef((props, ref) => {
                           className="d-flex justify-content-between align-items-center border-bottom py-2"
                         >
                           <span>
-                            {patient.first_name} {patient.last_name} — DOB:{' '}
-                            {patient.dob || '—'} — Phone:{' '}
-                            {patient.phone || '—'}
+                            {patient.first_name} {patient.last_name} — DOB:{" "}
+                            {patient.dob || "—"} — Phone:{" "}
+                            {patient.phone || "—"}
                           </span>
 
                           <button
@@ -543,9 +564,9 @@ const CallForm = forwardRef((props, ref) => {
               {selectedPatient && (
                 <div className="col-md-12 mb-3">
                   <div className="alert alert-success mb-0">
-                    Selected Patient: {selectedPatient.first_name}{' '}
-                    {selectedPatient.last_name} — DOB:{' '}
-                    {selectedPatient.dob || '—'}
+                    Selected Patient: {selectedPatient.first_name}{" "}
+                    {selectedPatient.last_name} — DOB:{" "}
+                    {selectedPatient.dob || "—"}
                   </div>
                 </div>
               )}
@@ -574,7 +595,7 @@ const CallForm = forwardRef((props, ref) => {
                 <input
                   type="text"
                   className={`form-control ${
-                    !formData.pickupAddress.trim() ? 'border-danger' : ''
+                    !formData.pickupAddress.trim() ? "border-danger" : ""
                   }`}
                   id="pickupAddress"
                   name="pickupAddress"
@@ -689,7 +710,7 @@ const CallForm = forwardRef((props, ref) => {
               </div>
 
               {/* Manual helper button for rebuilding return addresses */}
-              {formData.returnRideOption !== 'none' && (
+              {formData.returnRideOption !== "none" && (
                 <div className="col-md-6 mb-3 d-flex align-items-end">
                   <button
                     type="button"
@@ -702,8 +723,8 @@ const CallForm = forwardRef((props, ref) => {
                 </div>
               )}
 
-              {(formData.returnRideOption === 'return' ||
-                formData.returnRideOption === 'will_call') && (
+              {(formData.returnRideOption === "return" ||
+                formData.returnRideOption === "will_call") && (
                 <>
                   <div className="col-md-6 mb-3">
                     <label htmlFor="returnPickup" className="form-label">
@@ -735,7 +756,7 @@ const CallForm = forwardRef((props, ref) => {
                     />
                   </div>
 
-                  {formData.returnRideOption === 'return' && (
+                  {formData.returnRideOption === "return" && (
                     <div className="col-md-6 mb-3">
                       <label htmlFor="returnTime" className="form-label">
                         Return Pick Up Time
@@ -764,9 +785,9 @@ const CallForm = forwardRef((props, ref) => {
                 <div className="d-flex gap-3 flex-wrap">
                   <div
                     className={`form-check p-2 rounded ${
-                      formData.serviceLevel === 'stretcher'
-                        ? 'bg-info text-white'
-                        : 'border'
+                      formData.serviceLevel === "stretcher"
+                        ? "bg-info text-white"
+                        : "border"
                     }`}
                   >
                     <input
@@ -775,8 +796,8 @@ const CallForm = forwardRef((props, ref) => {
                       name="serviceLevel"
                       id="stretcher"
                       value="stretcher"
-                      checked={formData.serviceLevel === 'stretcher'}
-                      onChange={() => handleServiceLevelChange('stretcher')}
+                      checked={formData.serviceLevel === "stretcher"}
+                      onChange={() => handleServiceLevelChange("stretcher")}
                       disabled={isSubmitting}
                     />
                     <label className="form-check-label ms-2" htmlFor="stretcher">
@@ -786,9 +807,9 @@ const CallForm = forwardRef((props, ref) => {
 
                   <div
                     className={`form-check p-2 rounded ${
-                      formData.serviceLevel === 'bls'
-                        ? 'bg-success text-white'
-                        : 'border'
+                      formData.serviceLevel === "bls"
+                        ? "bg-success text-white"
+                        : "border"
                     }`}
                   >
                     <input
@@ -797,8 +818,8 @@ const CallForm = forwardRef((props, ref) => {
                       name="serviceLevel"
                       id="bls"
                       value="bls"
-                      checked={formData.serviceLevel === 'bls'}
-                      onChange={() => handleServiceLevelChange('bls')}
+                      checked={formData.serviceLevel === "bls"}
+                      onChange={() => handleServiceLevelChange("bls")}
                       disabled={isSubmitting}
                     />
                     <label className="form-check-label ms-2" htmlFor="bls">
@@ -808,9 +829,9 @@ const CallForm = forwardRef((props, ref) => {
 
                   <div
                     className={`form-check p-2 rounded ${
-                      formData.serviceLevel === 'als'
-                        ? 'bg-danger text-white'
-                        : 'border'
+                      formData.serviceLevel === "als"
+                        ? "bg-danger text-white"
+                        : "border"
                     }`}
                   >
                     <input
@@ -819,8 +840,8 @@ const CallForm = forwardRef((props, ref) => {
                       name="serviceLevel"
                       id="als"
                       value="als"
-                      checked={formData.serviceLevel === 'als'}
-                      onChange={() => handleServiceLevelChange('als')}
+                      checked={formData.serviceLevel === "als"}
+                      onChange={() => handleServiceLevelChange("als")}
                       disabled={isSubmitting}
                     />
                     <label className="form-check-label ms-2" htmlFor="als">
@@ -838,10 +859,10 @@ const CallForm = forwardRef((props, ref) => {
                 <div
                   className={`alert ${
                     hasCriticalIssues
-                      ? 'alert-danger'
+                      ? "alert-danger"
                       : hasAnyQualityIssues
-                        ? 'alert-warning'
-                        : 'alert-success'
+                        ? "alert-warning"
+                        : "alert-success"
                   }`}
                 >
                   <strong>Call Quality Check</strong>
@@ -852,15 +873,15 @@ const CallForm = forwardRef((props, ref) => {
 
                   {criticalMissing.length > 0 && (
                     <div className="mt-2">
-                      <strong>Missing Critical:</strong>{' '}
-                      {criticalMissing.join(', ')}
+                      <strong>Missing Critical:</strong>{" "}
+                      {criticalMissing.join(", ")}
                     </div>
                   )}
 
                   {nonCriticalMissing.length > 0 && (
                     <div className="mt-2">
-                      <strong>Missing Optional:</strong>{' '}
-                      {nonCriticalMissing.join(', ')}
+                      <strong>Missing Optional:</strong>{" "}
+                      {nonCriticalMissing.join(", ")}
                     </div>
                   )}
 
@@ -895,7 +916,7 @@ const CallForm = forwardRef((props, ref) => {
                 className="btn btn-success"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Saving...' : 'Submit'}
+                {isSubmitting ? "Saving..." : "Submit"}
               </button>
             </div>
           </form>
