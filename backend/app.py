@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import db, Patient, Call, User
+from models import db, Patient, Call, User, Employee
 
 app = Flask(__name__)
 CORS(app)
@@ -135,6 +135,128 @@ def get_users():
 
     return jsonify([user.to_dict() for user in users])
 
+# =========================
+# EMPLOYEE HELPER FUNCTIONS
+# =========================
+
+def normalize_license_data(data, license_key):
+    # Read nested license data from frontend payload.
+    # Example structure:
+    # "cpr": {"hasLicense": true, "licenseName": "CPR", "expirationDate": "2027-12-31"}
+    license_data = data.get(license_key) or {}
+
+    return {
+        "has_license": bool(license_data.get("hasLicense", False)),
+        "license_name": license_data.get("licenseName", ""),
+        "expiration_date": license_data.get("expirationDate", ""),
+    }
+
+
+def apply_employee_data(employee, data):
+    # Apply employee JSON data to SQLAlchemy Employee fields.
+    employee.first_name = data.get("firstName", "").strip()
+    employee.last_name = data.get("lastName", "").strip()
+    employee.phone = data.get("phone", "").strip()
+    employee.is_active = bool(data.get("isActive", True))
+    employee.notes = data.get("notes", "").strip()
+
+    cpr = normalize_license_data(data, "cpr")
+    employee.cpr_has_license = cpr["has_license"]
+    employee.cpr_license_name = cpr["license_name"]
+    employee.cpr_expiration_date = cpr["expiration_date"]
+
+    evoc = normalize_license_data(data, "evoc")
+    employee.evoc_has_license = evoc["has_license"]
+    employee.evoc_license_name = evoc["license_name"]
+    employee.evoc_expiration_date = evoc["expiration_date"]
+
+    emt = normalize_license_data(data, "emt")
+    employee.emt_has_license = emt["has_license"]
+    employee.emt_license_name = emt["license_name"]
+    employee.emt_expiration_date = emt["expiration_date"]
+
+    paramedic = normalize_license_data(data, "paramedic")
+    employee.paramedic_has_license = paramedic["has_license"]
+    employee.paramedic_license_name = paramedic["license_name"]
+    employee.paramedic_expiration_date = paramedic["expiration_date"]
+
+
+# =========================
+# EMPLOYEE ROUTES
+# =========================
+
+@app.route("/api/employees", methods=["GET"])
+def get_employees():
+    # Return all employees from the backend database.
+    employees = Employee.query.order_by(
+        Employee.last_name.asc(),
+        Employee.first_name.asc()
+    ).all()
+
+    return jsonify([employee.to_dict() for employee in employees])
+
+
+@app.route("/api/employees", methods=["POST"])
+def create_employee():
+    # Create a new employee record from JSON request data.
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    first_name = data.get("firstName", "").strip()
+    last_name = data.get("lastName", "").strip()
+
+    if not first_name or not last_name:
+        return jsonify({"error": "First Name and Last Name are required"}), 400
+
+    employee = Employee()
+    apply_employee_data(employee, data)
+
+    db.session.add(employee)
+    db.session.commit()
+
+    return jsonify(employee.to_dict()), 201
+
+
+@app.route("/api/employees/<int:id>", methods=["PUT"])
+def update_employee(id):
+    # Update an existing employee record.
+    employee = Employee.query.get(id)
+
+    if not employee:
+        return jsonify({"error": "Employee not found"}), 404
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    first_name = data.get("firstName", "").strip()
+    last_name = data.get("lastName", "").strip()
+
+    if not first_name or not last_name:
+        return jsonify({"error": "First Name and Last Name are required"}), 400
+
+    apply_employee_data(employee, data)
+
+    db.session.commit()
+
+    return jsonify(employee.to_dict())
+
+
+@app.route("/api/employees/<int:id>", methods=["DELETE"])
+def delete_employee(id):
+    # Delete an existing employee record.
+    employee = Employee.query.get(id)
+
+    if not employee:
+        return jsonify({"error": "Employee not found"}), 404
+
+    db.session.delete(employee)
+    db.session.commit()
+
+    return jsonify({"message": "Employee deleted"})
 
 # =========================
 # PATIENT ROUTES

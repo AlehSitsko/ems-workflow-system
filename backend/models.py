@@ -31,6 +31,72 @@ class User(db.Model):
         }
 
 
+class Employee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic employee information.
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(30))
+    is_active = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text)
+
+    # CPR certification.
+    cpr_has_license = db.Column(db.Boolean, default=False)
+    cpr_license_name = db.Column(db.String(150))
+    cpr_expiration_date = db.Column(db.String(20))
+
+    # EVOC certification.
+    evoc_has_license = db.Column(db.Boolean, default=False)
+    evoc_license_name = db.Column(db.String(150))
+    evoc_expiration_date = db.Column(db.String(20))
+
+    # EMT certification.
+    emt_has_license = db.Column(db.Boolean, default=False)
+    emt_license_name = db.Column(db.String(150))
+    emt_expiration_date = db.Column(db.String(20))
+
+    # Paramedic certification.
+    paramedic_has_license = db.Column(db.Boolean, default=False)
+    paramedic_license_name = db.Column(db.String(150))
+    paramedic_expiration_date = db.Column(db.String(20))
+
+    def to_dict(self):
+        # Return data in the same shape the existing frontend and Crew Planner expect.
+        return {
+            "id": self.id,
+            "firstName": self.first_name,
+            "lastName": self.last_name,
+            "phone": self.phone,
+            "isActive": self.is_active,
+            "notes": self.notes,
+
+            "cpr": {
+                "hasLicense": self.cpr_has_license,
+                "licenseName": self.cpr_license_name or "",
+                "expirationDate": self.cpr_expiration_date or "",
+            },
+
+            "evoc": {
+                "hasLicense": self.evoc_has_license,
+                "licenseName": self.evoc_license_name or "",
+                "expirationDate": self.evoc_expiration_date or "",
+            },
+
+            "emt": {
+                "hasLicense": self.emt_has_license,
+                "licenseName": self.emt_license_name or "",
+                "expirationDate": self.emt_expiration_date or "",
+            },
+
+            "paramedic": {
+                "hasLicense": self.paramedic_has_license,
+                "licenseName": self.paramedic_license_name or "",
+                "expirationDate": self.paramedic_expiration_date or "",
+            },
+        }
+
+
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 

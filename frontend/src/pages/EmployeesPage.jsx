@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
-/*
-  localStorage key for saving employee records.
-*/
-const STORAGE_KEY = 'employees';
+import {
+  createEmployee,
+  deleteEmployee,
+  getEmployees,
+  updateEmployee,
+} from "../api/employeesApi";
 
 /*
   Separate storage key for Crew Planner units.
   This allows us to clear saved crews when loading test employees.
 */
-const UNITS_STORAGE_KEY = 'planned_units';
+const UNITS_STORAGE_KEY = "planned_units";
 
 /*
   Helper to create license objects for test employees.
@@ -25,100 +27,91 @@ const createLicense = (hasLicense, licenseName, expirationDate) => ({
 */
 const TEST_EMPLOYEES = [
   {
-    id: 1001,
-    firstName: 'John',
-    lastName: 'Carter',
-    phone: '215-555-0101',
+    firstName: "John",
+    lastName: "Carter",
+    phone: "215-555-0101",
     isActive: true,
-    notes: 'Test BLS driver / EMT',
-    cpr: createLicense(true, 'CPR', '2027-12-31'),
-    evoc: createLicense(true, 'EVOC', '2027-11-30'),
-    emt: createLicense(true, 'EMT', '2027-10-31'),
-    paramedic: createLicense(false, '', ''),
+    notes: "Test BLS driver / EMT",
+    cpr: createLicense(true, "CPR", "2027-12-31"),
+    evoc: createLicense(true, "EVOC", "2027-11-30"),
+    emt: createLicense(true, "EMT", "2027-10-31"),
+    paramedic: createLicense(false, "", ""),
   },
   {
-    id: 1002,
-    firstName: 'Mike',
-    lastName: 'Dalton',
-    phone: '215-555-0102',
+    firstName: "Mike",
+    lastName: "Dalton",
+    phone: "215-555-0102",
     isActive: true,
-    notes: 'Test BLS EMT',
-    cpr: createLicense(true, 'CPR', '2027-12-31'),
-    evoc: createLicense(false, '', ''),
-    emt: createLicense(true, 'EMT', '2027-08-31'),
-    paramedic: createLicense(false, '', ''),
+    notes: "Test BLS EMT",
+    cpr: createLicense(true, "CPR", "2027-12-31"),
+    evoc: createLicense(false, "", ""),
+    emt: createLicense(true, "EMT", "2027-08-31"),
+    paramedic: createLicense(false, "", ""),
   },
   {
-    id: 1003,
-    firstName: 'Sarah',
-    lastName: 'Collins',
-    phone: '215-555-0103',
+    firstName: "Sarah",
+    lastName: "Collins",
+    phone: "215-555-0103",
     isActive: true,
-    notes: 'Test ALS medic',
-    cpr: createLicense(true, 'CPR', '2027-12-31'),
-    evoc: createLicense(false, '', ''),
-    emt: createLicense(false, '', ''),
-    paramedic: createLicense(true, 'Paramedic', '2027-07-31'),
+    notes: "Test ALS medic",
+    cpr: createLicense(true, "CPR", "2027-12-31"),
+    evoc: createLicense(false, "", ""),
+    emt: createLicense(false, "", ""),
+    paramedic: createLicense(true, "Paramedic", "2027-07-31"),
   },
   {
-    id: 1004,
-    firstName: 'Victor',
-    lastName: 'Hayes',
-    phone: '215-555-0104',
+    firstName: "Victor",
+    lastName: "Hayes",
+    phone: "215-555-0104",
     isActive: true,
-    notes: 'Test ALS driver / medic',
-    cpr: createLicense(true, 'CPR', '2027-12-31'),
-    evoc: createLicense(true, 'EVOC', '2027-06-30'),
-    emt: createLicense(false, '', ''),
-    paramedic: createLicense(true, 'Paramedic', '2027-05-31'),
+    notes: "Test ALS driver / medic",
+    cpr: createLicense(true, "CPR", "2027-12-31"),
+    evoc: createLicense(true, "EVOC", "2027-06-30"),
+    emt: createLicense(false, "", ""),
+    paramedic: createLicense(true, "Paramedic", "2027-05-31"),
   },
   {
-    id: 1005,
-    firstName: 'Nina',
-    lastName: 'Brooks',
-    phone: '215-555-0105',
+    firstName: "Nina",
+    lastName: "Brooks",
+    phone: "215-555-0105",
     isActive: true,
-    notes: 'Test assist crew',
-    cpr: createLicense(true, 'CPR', '2027-12-31'),
-    evoc: createLicense(false, '', ''),
-    emt: createLicense(false, '', ''),
-    paramedic: createLicense(false, '', ''),
+    notes: "Test assist crew",
+    cpr: createLicense(true, "CPR", "2027-12-31"),
+    evoc: createLicense(false, "", ""),
+    emt: createLicense(false, "", ""),
+    paramedic: createLicense(false, "", ""),
   },
   {
-    id: 1006,
-    firstName: 'Ethan',
-    lastName: 'Reed',
-    phone: '215-555-0106',
+    firstName: "Ethan",
+    lastName: "Reed",
+    phone: "215-555-0106",
     isActive: true,
-    notes: 'Test assist crew',
-    cpr: createLicense(true, 'CPR', '2027-12-31'),
-    evoc: createLicense(false, '', ''),
-    emt: createLicense(false, '', ''),
-    paramedic: createLicense(false, '', ''),
+    notes: "Test assist crew",
+    cpr: createLicense(true, "CPR", "2027-12-31"),
+    evoc: createLicense(false, "", ""),
+    emt: createLicense(false, "", ""),
+    paramedic: createLicense(false, "", ""),
   },
 ];
 
 /*
   Default empty license object.
-  This helps avoid repeating the same structure for every certification block.
 */
 const emptyLicense = {
   hasLicense: false,
-  licenseName: '',
-  expirationDate: '',
+  licenseName: "",
+  expirationDate: "",
 };
 
 /*
   Initial form state for a new employee.
-  CPR is added as a required-by-business certification,
-  but the app will only warn if it is missing or expired.
 */
 const initialFormData = {
-  firstName: '',
-  lastName: '',
-  phone: '',
+  firstName: "",
+  lastName: "",
+  phone: "",
   isActive: true,
-  notes: '',
+  notes: "",
 
   cpr: { ...emptyLicense },
   evoc: { ...emptyLicense },
@@ -127,47 +120,38 @@ const initialFormData = {
 };
 
 function EmployeesPage() {
-  /*
-    Employee list state.
-    Data is loaded from localStorage on first render.
-  */
-  const [employees, setEmployees] = useState(() => {
-    try {
-      const savedEmployees = localStorage.getItem(STORAGE_KEY);
-
-      if (!savedEmployees) {
-        return [];
-      }
-
-      const parsedEmployees = JSON.parse(savedEmployees);
-      return Array.isArray(parsedEmployees) ? parsedEmployees : [];
-    } catch (error) {
-      console.error('Failed to load employees from localStorage:', error);
-      return [];
-    }
-  });
-
-  /*
-    Tracks which employee is currently being edited.
-    If null, the form works in "add new employee" mode.
-  */
+  const [employees, setEmployees] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
-
-  /*
-    Current form state for add/edit employee form.
-  */
   const [formData, setFormData] = useState(initialFormData);
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
   /*
-    Save employee list to localStorage every time it changes.
+    Load employees from backend.
+  */
+  const loadEmployees = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await getEmployees();
+      setEmployees(data);
+    } catch (err) {
+      console.error("Failed to load employees:", err);
+      setError(err.message || "Failed to load employees.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /*
+    Load employees when the page opens.
   */
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
-    } catch (error) {
-      console.error('Failed to save employees to localStorage:', error);
-    }
-  }, [employees]);
+    loadEmployees();
+  }, []);
 
   /*
     Handles simple top-level form fields like firstName, lastName, phone, etc.
@@ -177,13 +161,12 @@ function EmployeesPage() {
 
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   /*
     Handles nested license fields such as cpr, evoc, emt, paramedic.
-    Example: hasLicense, licenseName, expirationDate.
   */
   const handleLicenseChange = (event, licenseType) => {
     const { name, value, type, checked } = event.target;
@@ -192,14 +175,13 @@ function EmployeesPage() {
       ...prev,
       [licenseType]: {
         ...prev[licenseType],
-        [name]: type === 'checkbox' ? checked : value,
+        [name]: type === "checkbox" ? checked : value,
       },
     }));
   };
 
   /*
-    Resets the form back to the initial state
-    and exits edit mode.
+    Resets the form back to the initial state and exits edit mode.
   */
   const resetForm = () => {
     setFormData(initialFormData);
@@ -207,8 +189,7 @@ function EmployeesPage() {
   };
 
   /*
-    Ensures that older employee records still work
-    even if they were created before CPR was added.
+    Ensures that older employee records still work.
   */
   const normalizeLicense = (license) => {
     if (!license) {
@@ -217,8 +198,8 @@ function EmployeesPage() {
 
     return {
       hasLicense: Boolean(license.hasLicense),
-      licenseName: license.licenseName || '',
-      expirationDate: license.expirationDate || '',
+      licenseName: license.licenseName || "",
+      expirationDate: license.expirationDate || "",
     };
   };
 
@@ -227,11 +208,11 @@ function EmployeesPage() {
   */
   const handleEdit = (employee) => {
     setFormData({
-      firstName: employee.firstName || '',
-      lastName: employee.lastName || '',
-      phone: employee.phone || '',
+      firstName: employee.firstName || "",
+      lastName: employee.lastName || "",
+      phone: employee.phone || "",
       isActive: Boolean(employee.isActive),
-      notes: employee.notes || '',
+      notes: employee.notes || "",
 
       cpr: normalizeLicense(employee.cpr),
       evoc: normalizeLicense(employee.evoc),
@@ -240,20 +221,21 @@ function EmployeesPage() {
     });
 
     setEditingEmployeeId(employee.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setMessage("");
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   /*
     Calculates human-readable status for a certification.
-    Used for CPR, EVOC, EMT, and Paramedic.
   */
   const getLicenseStatus = (license) => {
     if (!license || !license.hasLicense) {
-      return 'No License';
+      return "No License";
     }
 
     if (!license.expirationDate) {
-      return 'Active';
+      return "Active";
     }
 
     const today = new Date();
@@ -262,14 +244,14 @@ function EmployeesPage() {
     const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
 
     if (diffInDays < 0) {
-      return 'Expired';
+      return "Expired";
     }
 
     if (diffInDays <= 30) {
-      return 'Expiring Soon';
+      return "Expiring Soon";
     }
 
-    return 'Active';
+    return "Active";
   };
 
   /*
@@ -277,59 +259,55 @@ function EmployeesPage() {
   */
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case 'Active':
-        return 'text-bg-success';
-      case 'Expiring Soon':
-        return 'text-bg-warning';
-      case 'Expired':
-        return 'text-bg-danger';
+      case "Active":
+        return "text-bg-success";
+      case "Expiring Soon":
+        return "text-bg-warning";
+      case "Expired":
+        return "text-bg-danger";
       default:
-        return 'text-bg-secondary';
+        return "text-bg-secondary";
     }
   };
 
   /*
     CPR is required by business rules for all employees.
-    This helper returns the warning message only.
-    It does NOT block any role and does NOT remove allowed positions.
   */
   const getCprWarning = (employee) => {
     const cpr = normalizeLicense(employee.cpr);
     const cprStatus = getLicenseStatus(cpr);
 
     if (!cpr.hasLicense) {
-      return 'Missing CPR';
+      return "Missing CPR";
     }
 
-    if (cprStatus === 'Expired') {
-      return 'CPR Expired';
+    if (cprStatus === "Expired") {
+      return "CPR Expired";
     }
 
-    if (cprStatus === 'Expiring Soon') {
-      return 'CPR Expiring Soon';
+    if (cprStatus === "Expiring Soon") {
+      return "CPR Expiring Soon";
     }
 
-    return '';
+    return "";
   };
 
   /*
     Determines which positions the employee is allowed to work.
-    CPR does NOT control positions here.
-    It is tracked separately as a compliance warning only.
   */
   const getAllowedPositions = (employee) => {
-    const positions = ['Assist'];
+    const positions = ["Assist"];
 
     if (employee.evoc?.hasLicense) {
-      positions.push('Driver');
+      positions.push("Driver");
     }
 
     if (employee.emt?.hasLicense) {
-      positions.push('EMT');
+      positions.push("EMT");
     }
 
     if (employee.paramedic?.hasLicense) {
-      positions.push('Paramedic');
+      positions.push("Paramedic");
     }
 
     return positions;
@@ -353,8 +331,7 @@ function EmployeesPage() {
   };
 
   /*
-    Renders a license summary block:
-    status badge, license name, and expiration date.
+    Renders a license summary block.
   */
   const renderLicenseSummary = (license) => {
     const normalizedLicense = normalizeLicense(license);
@@ -368,11 +345,11 @@ function EmployeesPage() {
 
         {normalizedLicense.hasLicense && (
           <div className="small mt-1">
-            <div>{normalizedLicense.licenseName.trim() || 'Unnamed License'}</div>
+            <div>{normalizedLicense.licenseName.trim() || "Unnamed License"}</div>
             <div>
               {normalizedLicense.expirationDate
                 ? `Exp: ${normalizedLicense.expirationDate}`
-                : 'No expiration date'}
+                : "No expiration date"}
             </div>
           </div>
         )}
@@ -382,7 +359,6 @@ function EmployeesPage() {
 
   /*
     Renders CPR warning badge.
-    Empty string means no warning.
   */
   const renderCprWarning = (employee) => {
     const warning = getCprWarning(employee);
@@ -391,7 +367,7 @@ function EmployeesPage() {
       return <span className="badge text-bg-success">OK</span>;
     }
 
-    if (warning === 'CPR Expiring Soon') {
+    if (warning === "CPR Expiring Soon") {
       return <span className="badge text-bg-warning">{warning}</span>;
     }
 
@@ -400,19 +376,19 @@ function EmployeesPage() {
 
   /*
     Handles form submission for both add and edit modes.
-    CPR is not a blocking validation here.
-    But user gets a warning if CPR is missing or expired.
   */
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
+    setError("");
+    setMessage("");
+
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      alert('First Name and Last Name are required.');
+      setError("First Name and Last Name are required.");
       return;
     }
 
     const employeePayload = {
-      id: editingEmployeeId || Date.now(),
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       phone: formData.phone.trim(),
@@ -437,75 +413,97 @@ function EmployeesPage() {
       }
     }
 
-    if (editingEmployeeId) {
-      setEmployees((prev) =>
-        prev.map((employee) =>
-          employee.id === editingEmployeeId ? employeePayload : employee
-        )
-      );
-    } else {
-      setEmployees((prev) => [...prev, employeePayload]);
-    }
+    setLoading(true);
 
-    resetForm();
+    try {
+      if (editingEmployeeId) {
+        await updateEmployee(editingEmployeeId, employeePayload);
+        setMessage("Employee updated successfully.");
+      } else {
+        await createEmployee(employeePayload);
+        setMessage("Employee created successfully.");
+      }
+
+      resetForm();
+      await loadEmployees();
+    } catch (err) {
+      console.error("Failed to save employee:", err);
+      setError(err.message || "Failed to save employee.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   /*
     Deletes one employee by id.
-    If the deleted employee is currently being edited,
-    the form is reset.
   */
-  const handleDelete = (employeeId) => {
-    const isEditingCurrentEmployee = editingEmployeeId === employeeId;
-
-    setEmployees((prev) => prev.filter((employee) => employee.id !== employeeId));
-
-    if (isEditingCurrentEmployee) {
-      resetForm();
-    }
-  };
-
-  /*
-    Deletes all employees from state and localStorage.
-  */
-  const handleClearAllEmployees = () => {
+  const handleDelete = async (employeeId) => {
     const confirmed = window.confirm(
-      'Are you sure you want to delete all employees from local storage?'
+      "Are you sure you want to delete this employee?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    setEmployees([]);
-    resetForm();
-    localStorage.removeItem(STORAGE_KEY);
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await deleteEmployee(employeeId);
+
+      if (editingEmployeeId === employeeId) {
+        resetForm();
+      }
+
+      setMessage("Employee deleted successfully.");
+      await loadEmployees();
+    } catch (err) {
+      console.error("Failed to delete employee:", err);
+      setError(err.message || "Failed to delete employee.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   /*
-    Loads predefined test employees.
-    Also clears saved Crew Planner units to avoid broken employee references.
+    Loads predefined test employees into the backend.
   */
-  const handleLoadTestEmployees = () => {
+  const handleLoadTestEmployees = async () => {
     const confirmed = window.confirm(
       employees.length > 0
-        ? 'This will replace current employees and clear all planned units. Continue?'
-        : 'Load test employees and clear all planned units?'
+        ? "This will add test employees and clear all planned units. Continue?"
+        : "Load test employees and clear all planned units?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    setEmployees(TEST_EMPLOYEES);
-    resetForm();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(TEST_EMPLOYEES));
-    localStorage.removeItem(UNITS_STORAGE_KEY);
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      for (const employee of TEST_EMPLOYEES) {
+        await createEmployee(employee);
+      }
+
+      localStorage.removeItem(UNITS_STORAGE_KEY);
+      resetForm();
+      setMessage("Test employees loaded successfully.");
+      await loadEmployees();
+    } catch (err) {
+      console.error("Failed to load test employees:", err);
+      setError(err.message || "Failed to load test employees.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="container mt-4">
-      {/* Page title and short description */}
       <div className="mb-4">
         <h1 className="mb-2">Employees</h1>
         <p className="text-muted mb-0">
@@ -513,11 +511,14 @@ function EmployeesPage() {
         </p>
       </div>
 
-      {/* Employee form card */}
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      {message && <div className="alert alert-success">{message}</div>}
+
       <div className="card shadow-sm mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">
-            {editingEmployeeId ? 'Edit Employee' : 'Add Employee'}
+            {editingEmployeeId ? "Edit Employee" : "Add Employee"}
           </h5>
 
           {editingEmployeeId && (
@@ -528,7 +529,6 @@ function EmployeesPage() {
         <div className="card-body">
           <form onSubmit={handleSubmit}>
             <div className="row g-3">
-              {/* First name field */}
               <div className="col-md-6">
                 <label htmlFor="firstName" className="form-label">
                   First Name
@@ -541,10 +541,10 @@ function EmployeesPage() {
                   value={formData.firstName}
                   onChange={handleChange}
                   placeholder="e.g. John"
+                  disabled={loading}
                 />
               </div>
 
-              {/* Last name field */}
               <div className="col-md-6">
                 <label htmlFor="lastName" className="form-label">
                   Last Name
@@ -557,10 +557,10 @@ function EmployeesPage() {
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="e.g. Smith"
+                  disabled={loading}
                 />
               </div>
 
-              {/* Phone number field */}
               <div className="col-md-6">
                 <label htmlFor="phone" className="form-label">
                   Phone Number
@@ -573,10 +573,10 @@ function EmployeesPage() {
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="e.g. 555-123-4567"
+                  disabled={loading}
                 />
               </div>
 
-              {/* Active employee checkbox */}
               <div className="col-md-6 d-flex align-items-end">
                 <div className="form-check mb-2">
                   <input
@@ -586,6 +586,7 @@ function EmployeesPage() {
                     className="form-check-input"
                     checked={formData.isActive}
                     onChange={handleChange}
+                    disabled={loading}
                   />
                   <label htmlFor="isActive" className="form-check-label">
                     Active Employee
@@ -593,7 +594,6 @@ function EmployeesPage() {
                 </div>
               </div>
 
-              {/* Notes field */}
               <div className="col-12">
                 <label htmlFor="notes" className="form-label">
                   Notes
@@ -606,268 +606,101 @@ function EmployeesPage() {
                   value={formData.notes}
                   onChange={handleChange}
                   placeholder="Optional notes about this employee"
+                  disabled={loading}
                 />
               </div>
 
-              {/* License section header */}
               <div className="col-12">
                 <hr />
                 <h5 className="mb-3">Licenses / Certifications</h5>
               </div>
 
-              {/* CPR certification block */}
-              <div className="col-12">
-                <div className="card border-light-subtle">
-                  <div className="card-body">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h6 className="mb-0">CPR</h6>
-                      <span className="badge text-bg-warning">
-                        Required for all employees
-                      </span>
-                    </div>
+              {["cpr", "evoc", "emt", "paramedic"].map((licenseType) => (
+                <div className="col-12" key={licenseType}>
+                  <div className="card border-light-subtle">
+                    <div className="card-body">
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h6 className="mb-0 text-uppercase">{licenseType}</h6>
 
-                    <div className="row g-3">
-                      <div className="col-md-3">
-                        <div className="form-check mt-2">
-                          <input
-                            id="cprHasLicense"
-                            name="hasLicense"
-                            type="checkbox"
-                            className="form-check-input"
-                            checked={formData.cpr.hasLicense}
-                            onChange={(event) => handleLicenseChange(event, 'cpr')}
-                          />
-                          <label htmlFor="cprHasLicense" className="form-check-label">
-                            Has CPR
-                          </label>
+                        {licenseType === "cpr" && (
+                          <span className="badge text-bg-warning">
+                            Required for all employees
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-md-3">
+                          <div className="form-check mt-2">
+                            <input
+                              id={`${licenseType}HasLicense`}
+                              name="hasLicense"
+                              type="checkbox"
+                              className="form-check-input"
+                              checked={formData[licenseType].hasLicense}
+                              onChange={(event) =>
+                                handleLicenseChange(event, licenseType)
+                              }
+                              disabled={loading}
+                            />
+                            <label
+                              htmlFor={`${licenseType}HasLicense`}
+                              className="form-check-label"
+                            >
+                              Has {licenseType.toUpperCase()}
+                            </label>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="col-md-5">
-                        <label htmlFor="cprLicenseName" className="form-label">
-                          Certification Name
-                        </label>
-                        <input
-                          id="cprLicenseName"
-                          name="licenseName"
-                          type="text"
-                          className="form-control"
-                          value={formData.cpr.licenseName}
-                          onChange={(event) => handleLicenseChange(event, 'cpr')}
-                          placeholder="e.g. BLS / CPR Certification"
-                          disabled={!formData.cpr.hasLicense}
-                        />
-                      </div>
-
-                      <div className="col-md-4">
-                        <label htmlFor="cprExpirationDate" className="form-label">
-                          Expiration Date
-                        </label>
-                        <input
-                          id="cprExpirationDate"
-                          name="expirationDate"
-                          type="date"
-                          className="form-control"
-                          value={formData.cpr.expirationDate}
-                          onChange={(event) => handleLicenseChange(event, 'cpr')}
-                          disabled={!formData.cpr.hasLicense}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* EVOC certification block */}
-              <div className="col-12">
-                <div className="card border-light-subtle">
-                  <div className="card-body">
-                    <h6 className="mb-3">EVOC</h6>
-
-                    <div className="row g-3">
-                      <div className="col-md-3">
-                        <div className="form-check mt-2">
-                          <input
-                            id="evocHasLicense"
-                            name="hasLicense"
-                            type="checkbox"
-                            className="form-check-input"
-                            checked={formData.evoc.hasLicense}
-                            onChange={(event) => handleLicenseChange(event, 'evoc')}
-                          />
-                          <label htmlFor="evocHasLicense" className="form-check-label">
-                            Has EVOC
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="col-md-5">
-                        <label htmlFor="evocLicenseName" className="form-label">
-                          Certification Name
-                        </label>
-                        <input
-                          id="evocLicenseName"
-                          name="licenseName"
-                          type="text"
-                          className="form-control"
-                          value={formData.evoc.licenseName}
-                          onChange={(event) => handleLicenseChange(event, 'evoc')}
-                          placeholder="e.g. EVOC Certification"
-                          disabled={!formData.evoc.hasLicense}
-                        />
-                      </div>
-
-                      <div className="col-md-4">
-                        <label htmlFor="evocExpirationDate" className="form-label">
-                          Expiration Date
-                        </label>
-                        <input
-                          id="evocExpirationDate"
-                          name="expirationDate"
-                          type="date"
-                          className="form-control"
-                          value={formData.evoc.expirationDate}
-                          onChange={(event) => handleLicenseChange(event, 'evoc')}
-                          disabled={!formData.evoc.hasLicense}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* EMT certification block */}
-              <div className="col-12">
-                <div className="card border-light-subtle">
-                  <div className="card-body">
-                    <h6 className="mb-3">EMT</h6>
-
-                    <div className="row g-3">
-                      <div className="col-md-3">
-                        <div className="form-check mt-2">
-                          <input
-                            id="emtHasLicense"
-                            name="hasLicense"
-                            type="checkbox"
-                            className="form-check-input"
-                            checked={formData.emt.hasLicense}
-                            onChange={(event) => handleLicenseChange(event, 'emt')}
-                          />
-                          <label htmlFor="emtHasLicense" className="form-check-label">
-                            Has EMT
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="col-md-5">
-                        <label htmlFor="emtLicenseName" className="form-label">
-                          Certification Name
-                        </label>
-                        <input
-                          id="emtLicenseName"
-                          name="licenseName"
-                          type="text"
-                          className="form-control"
-                          value={formData.emt.licenseName}
-                          onChange={(event) => handleLicenseChange(event, 'emt')}
-                          placeholder="e.g. State EMT License"
-                          disabled={!formData.emt.hasLicense}
-                        />
-                      </div>
-
-                      <div className="col-md-4">
-                        <label htmlFor="emtExpirationDate" className="form-label">
-                          Expiration Date
-                        </label>
-                        <input
-                          id="emtExpirationDate"
-                          name="expirationDate"
-                          type="date"
-                          className="form-control"
-                          value={formData.emt.expirationDate}
-                          onChange={(event) => handleLicenseChange(event, 'emt')}
-                          disabled={!formData.emt.hasLicense}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Paramedic certification block */}
-              <div className="col-12">
-                <div className="card border-light-subtle">
-                  <div className="card-body">
-                    <h6 className="mb-3">Paramedic</h6>
-
-                    <div className="row g-3">
-                      <div className="col-md-3">
-                        <div className="form-check mt-2">
-                          <input
-                            id="paramedicHasLicense"
-                            name="hasLicense"
-                            type="checkbox"
-                            className="form-check-input"
-                            checked={formData.paramedic.hasLicense}
-                            onChange={(event) =>
-                              handleLicenseChange(event, 'paramedic')
-                            }
-                          />
+                        <div className="col-md-5">
                           <label
-                            htmlFor="paramedicHasLicense"
-                            className="form-check-label"
+                            htmlFor={`${licenseType}LicenseName`}
+                            className="form-label"
                           >
-                            Has Paramedic
+                            Certification Name
                           </label>
+                          <input
+                            id={`${licenseType}LicenseName`}
+                            name="licenseName"
+                            type="text"
+                            className="form-control"
+                            value={formData[licenseType].licenseName}
+                            onChange={(event) =>
+                              handleLicenseChange(event, licenseType)
+                            }
+                            placeholder={`e.g. ${licenseType.toUpperCase()} Certification`}
+                            disabled={!formData[licenseType].hasLicense || loading}
+                          />
                         </div>
-                      </div>
 
-                      <div className="col-md-5">
-                        <label htmlFor="paramedicLicenseName" className="form-label">
-                          Certification Name
-                        </label>
-                        <input
-                          id="paramedicLicenseName"
-                          name="licenseName"
-                          type="text"
-                          className="form-control"
-                          value={formData.paramedic.licenseName}
-                          onChange={(event) =>
-                            handleLicenseChange(event, 'paramedic')
-                          }
-                          placeholder="e.g. State Paramedic License"
-                          disabled={!formData.paramedic.hasLicense}
-                        />
-                      </div>
-
-                      <div className="col-md-4">
-                        <label
-                          htmlFor="paramedicExpirationDate"
-                          className="form-label"
-                        >
-                          Expiration Date
-                        </label>
-                        <input
-                          id="paramedicExpirationDate"
-                          name="expirationDate"
-                          type="date"
-                          className="form-control"
-                          value={formData.paramedic.expirationDate}
-                          onChange={(event) =>
-                            handleLicenseChange(event, 'paramedic')
-                          }
-                          disabled={!formData.paramedic.hasLicense}
-                        />
+                        <div className="col-md-4">
+                          <label
+                            htmlFor={`${licenseType}ExpirationDate`}
+                            className="form-label"
+                          >
+                            Expiration Date
+                          </label>
+                          <input
+                            id={`${licenseType}ExpirationDate`}
+                            name="expirationDate"
+                            type="date"
+                            className="form-control"
+                            value={formData[licenseType].expirationDate}
+                            onChange={(event) =>
+                              handleLicenseChange(event, licenseType)
+                            }
+                            disabled={!formData[licenseType].hasLicense || loading}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              ))}
 
-              {/* Form action buttons */}
               <div className="col-12 d-flex gap-2">
-                <button type="submit" className="btn btn-primary">
-                  {editingEmployeeId ? 'Update Employee' : 'Add Employee'}
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {editingEmployeeId ? "Update Employee" : "Add Employee"}
                 </button>
 
                 {editingEmployeeId && (
@@ -875,17 +708,26 @@ function EmployeesPage() {
                     type="button"
                     className="btn btn-outline-secondary"
                     onClick={resetForm}
+                    disabled={loading}
                   >
                     Cancel Edit
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  className="btn btn-outline-info"
+                  onClick={loadEmployees}
+                  disabled={loading}
+                >
+                  Refresh
+                </button>
               </div>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Employee list card */}
       <div className="card shadow-sm">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Employee List</h5>
@@ -897,24 +739,17 @@ function EmployeesPage() {
               type="button"
               className="btn btn-sm btn-outline-primary"
               onClick={handleLoadTestEmployees}
+              disabled={loading}
             >
               Load Test Crew
             </button>
-
-            {employees.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-danger"
-                onClick={handleClearAllEmployees}
-              >
-                Clear All
-              </button>
-            )}
           </div>
         </div>
 
         <div className="card-body">
-          {employees.length === 0 ? (
+          {loading && employees.length === 0 ? (
+            <p className="text-muted mb-0">Loading employees...</p>
+          ) : employees.length === 0 ? (
             <p className="text-muted mb-0">No employees added yet.</p>
           ) : (
             <div className="table-responsive">
@@ -931,60 +766,52 @@ function EmployeesPage() {
                     <th>EMT</th>
                     <th>Paramedic</th>
                     <th>Notes</th>
-                    <th style={{ width: '170px' }}>Actions</th>
+                    <th style={{ width: "170px" }}>Actions</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {employees.map((employee) => (
                     <tr key={employee.id}>
-                      {/* Employee full name */}
                       <td>
                         {employee.firstName} {employee.lastName}
                       </td>
 
-                      {/* Phone number */}
-                      <td>{employee.phone || '—'}</td>
+                      <td>{employee.phone || "—"}</td>
 
-                      {/* Employee active/inactive status */}
                       <td>
                         <span
                           className={`badge ${
-                            employee.isActive ? 'text-bg-success' : 'text-bg-secondary'
+                            employee.isActive
+                              ? "text-bg-success"
+                              : "text-bg-secondary"
                           }`}
                         >
-                          {employee.isActive ? 'Active' : 'Inactive'}
+                          {employee.isActive ? "Active" : "Inactive"}
                         </span>
                       </td>
 
-                      {/* Role summary */}
                       <td>{renderAllowedPositions(employee)}</td>
 
-                      {/* CPR compliance warning */}
                       <td>{renderCprWarning(employee)}</td>
 
-                      {/* CPR details */}
                       <td>{renderLicenseSummary(employee.cpr)}</td>
 
-                      {/* EVOC details */}
                       <td>{renderLicenseSummary(employee.evoc)}</td>
 
-                      {/* EMT details */}
                       <td>{renderLicenseSummary(employee.emt)}</td>
 
-                      {/* Paramedic details */}
                       <td>{renderLicenseSummary(employee.paramedic)}</td>
 
-                      {/* Notes */}
-                      <td>{employee.notes || '—'}</td>
+                      <td>{employee.notes || "—"}</td>
 
-                      {/* Action buttons */}
                       <td>
                         <div className="d-flex gap-2">
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-primary"
                             onClick={() => handleEdit(employee)}
+                            disabled={loading}
                           >
                             Edit
                           </button>
@@ -993,6 +820,7 @@ function EmployeesPage() {
                             type="button"
                             className="btn btn-sm btn-outline-danger"
                             onClick={() => handleDelete(employee.id)}
+                            disabled={loading}
                           >
                             Delete
                           </button>
