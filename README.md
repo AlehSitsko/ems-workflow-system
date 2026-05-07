@@ -82,9 +82,9 @@ ems-workflow-system/
 
 # Current Features
 
-# Authentication System (NEW)
+# Authentication System
 
-The application now includes a foundational authentication and role system.
+The application includes a foundational authentication and role system.
 
 ## Current Roles
 
@@ -190,9 +190,9 @@ Optional fields currently include:
 
 ---
 
-# Supervisor Dashboard (NEW)
+# Supervisor Dashboard
 
-The system now includes a dedicated supervisor analytics dashboard.
+The system includes a dedicated supervisor analytics dashboard.
 
 ## Current Analytics
 
@@ -208,6 +208,70 @@ The system now includes a dedicated supervisor analytics dashboard.
 - Admin → full access
 - Supervisor → supervisor dashboard access
 - Dispatcher → operational access only
+
+---
+
+# Employees Module
+
+The system now includes a backend-powered employee and certification management module.
+
+## Features
+
+- Employee creation and editing
+- Active / inactive employee tracking
+- CPR certification tracking
+- EVOC certification tracking
+- EMT certification tracking
+- Paramedic certification tracking
+- Certification expiration tracking
+- Crew eligibility validation
+- Crew Planner integration
+- Backend API integration
+- SQLite employee storage
+
+## Operational Logic
+
+Employees are now stored in the backend database instead of localStorage.
+
+This module serves as the foundation for:
+
+- Crew planning
+- Staffing validation
+- Future scheduling systems
+- Supervisor staffing oversight
+- Dispatcher / employee relationship mapping
+
+---
+
+# Crew Planner System
+
+The Crew Planner module now integrates with backend employee data.
+
+## Features
+
+- Unit creation and editing
+- BLS / ALS / Assist unit types
+- Driver eligibility validation
+- EMT eligibility validation
+- Paramedic eligibility validation
+- Duplicate assignment detection
+- Certification expiration warnings
+- CPR validation warnings
+- Patient order tracking
+- Crew conflict detection
+
+## Current Storage
+
+- Employees → backend database
+- Planned units → localStorage (temporary MVP stage)
+
+## Planned Future Improvements
+
+- Backend unit storage
+- Shift scheduling
+- Supervisor staffing tools
+- Conflict analytics
+- Availability tracking
 
 ---
 
@@ -238,6 +302,15 @@ The system now includes a dedicated supervisor analytics dashboard.
 - `GET /api/calls?max_quality_score=VALUE`
 - `POST /api/calls`
 - `GET /api/patient/<id>/calls`
+
+---
+
+# Employees API
+
+- `GET /api/employees`
+- `POST /api/employees`
+- `PUT /api/employees/<id>`
+- `DELETE /api/employees/<id>`
 
 ---
 
@@ -298,11 +371,13 @@ http://localhost:5173
 ## Git Branches
 
 ### Stable Branch
+
 ```txt
 main
 ```
 
 ### Development Branch
+
 ```txt
 dev
 ```
@@ -329,6 +404,9 @@ The project is evolving toward:
 - Modular workflow platform
 - HIPAA-aware architecture
 - Role-based operational environment
+- Staffing and crew management platform
+- Certification tracking system
+- Employee operational layer
 
 ---
 
@@ -354,6 +432,11 @@ The project is evolving toward:
 - Dispatcher justification workflows
 - Supervisor review workflows
 - Supervisor notes
+- Backend storage for planned units
+- Shift scheduling system
+- Employee availability tracking
+- Supervisor staffing analytics
+- Certification expiration alerts
 
 ---
 
@@ -384,6 +467,7 @@ The project is evolving toward:
 IMPORTANT:
 
 UI/UX redesign is intentionally postponed until:
+
 - Core workflow stabilizes
 - Authentication stabilizes
 - Analytics systems mature
@@ -435,11 +519,56 @@ Planned improvements:
 
 Aleh Sitsko
 
-Status
+---
 
-MVP — functional.
+# Current Status
 
-Core workflow is implemented:
-Call Intake → Validation → Storage → History
+## MVP Status
 
-Next phase: system expansion and data quality tools.
+Functional.
+
+Implemented operational flow:
+
+```txt
+Authentication
+↓
+Dispatcher Assignment
+↓
+Call Intake
+↓
+Validation
+↓
+Quality Tracking
+↓
+Storage
+↓
+Call History
+↓
+Supervisor Analytics
+↓
+Employee Management
+↓
+Crew Planning
+```
+
+Core operational functionality is working.
+
+Completed major milestones:
+
+- Authentication foundation
+- Role-based routing
+- Dispatcher-linked analytics
+- Supervisor dashboard
+- Structured quality tracking
+- Backend employee management
+- Crew Planner backend integration
+- Certification validation system
+
+Next major phase:
+
+- User management
+- Backend unit storage
+- Audit trail system
+- Shift scheduling
+- Secure authentication
+- HIPAA-aware backend architecture
