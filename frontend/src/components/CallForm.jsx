@@ -96,7 +96,8 @@ const CallForm = forwardRef((props, ref) => {
     }));
   };
 
-  // Analyze form completeness and split missing fields by severity.
+  // Analyze form completeness, split missing fields by severity,
+  // and calculate a call quality score.
   const analyzeCallQuality = () => {
     const criticalMissing = [];
     const nonCriticalMissing = [];
@@ -114,11 +115,27 @@ const CallForm = forwardRef((props, ref) => {
     if (!formData.pickupTime.trim()) nonCriticalMissing.push('Pickup Time');
     if (!formData.callerType.trim()) nonCriticalMissing.push('Caller Type');
     if (!formData.serviceLevel.trim()) nonCriticalMissing.push('Service Level');
-    if (!formData.additionalInfo.trim()) nonCriticalMissing.push('Additional Information');
+    if (!formData.additionalInfo.trim())
+      nonCriticalMissing.push('Additional Information');
+
+    // Score weights:
+    // Critical fields represent 70% of total score.
+    // Optional fields represent 30% of total score.
+    const totalCritical = 4;
+    const totalOptional = 7;
+
+    const criticalScore =
+      ((totalCritical - criticalMissing.length) / totalCritical) * 70;
+
+    const optionalScore =
+      ((totalOptional - nonCriticalMissing.length) / totalOptional) * 30;
+
+    const score = Math.round(criticalScore + optionalScore);
 
     return {
       criticalMissing,
       nonCriticalMissing,
+      score,
     };
   };
 
@@ -222,7 +239,8 @@ const CallForm = forwardRef((props, ref) => {
     previousReturnRideOption.current = currentOption;
   }, [formData.returnRideOption]);
 
-  const { criticalMissing, nonCriticalMissing } = analyzeCallQuality();
+  const { criticalMissing, nonCriticalMissing, score } = analyzeCallQuality();
+
   const hasCriticalIssues = criticalMissing.length > 0;
   const hasAnyQualityIssues =
     criticalMissing.length > 0 || nonCriticalMissing.length > 0;
@@ -270,6 +288,7 @@ const CallForm = forwardRef((props, ref) => {
               formData.returnTime || 'Will Call'
             }`
           : '',
+        `Call Quality Score: ${currentQualityReport.score}%`,
         currentQualityReport.criticalMissing.length > 0
           ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
               ', '
@@ -779,6 +798,10 @@ const CallForm = forwardRef((props, ref) => {
                   }`}
                 >
                   <strong>Call Quality Check</strong>
+
+                  <div className="mt-2">
+                    <strong>Quality Score:</strong> {score}%
+                  </div>
 
                   {criticalMissing.length > 0 && (
                     <div className="mt-2">
