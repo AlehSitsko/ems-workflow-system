@@ -7,6 +7,37 @@ const CallsPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Extract quality score from saved call notes.
+  const extractScore = (notes) => {
+    if (!notes) return null;
+
+    const match = notes.match(/Call Quality Score: (\d+)%/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  // Return Bootstrap badge color based on quality score.
+  const getScoreColor = (score) => {
+    if (score === null) return "secondary";
+    if (score >= 80) return "success";
+    if (score >= 50) return "warning";
+    return "danger";
+  };
+
+  // Render quality score badge.
+  const renderQualityBadge = (notes) => {
+    const score = extractScore(notes);
+
+    if (score === null) {
+      return <span className="badge bg-secondary">—</span>;
+    }
+
+    return (
+      <span className={`badge bg-${getScoreColor(score)}`}>
+        {score}%
+      </span>
+    );
+  };
+
   // Return date in YYYY-MM-DD format.
   const formatDate = (date) => date.toISOString().split("T")[0];
 
@@ -130,6 +161,7 @@ const CallsPage = () => {
                     <th>Date of Call</th>
                     <th>Trip Date</th>
                     <th>Pickup Time</th>
+                    <th>Quality</th>
                     <th>Pickup</th>
                     <th>Dropoff</th>
                     <th>Caller Type</th>
@@ -145,6 +177,7 @@ const CallsPage = () => {
                       <td>{call.date_of_call || "—"}</td>
                       <td>{call.trip_date || "—"}</td>
                       <td>{call.pickup_time || "—"}</td>
+                      <td>{renderQualityBadge(call.notes)}</td>
                       <td>{call.pickup_address || "—"}</td>
                       <td>{call.dropoff_address || "—"}</td>
                       <td>{call.caller_type || "—"}</td>
