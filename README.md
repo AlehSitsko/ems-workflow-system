@@ -2,204 +2,481 @@
 
 ## Overview
 
-EMS Workflow System is a modular web application designed as a **backup and support tool for EMS dispatch operations**.
+EMS Workflow System is a modular web application designed as a **backup and support platform for EMS dispatch operations**.
 
-It provides a **lightweight, fast, and reliable call intake system** that ensures data is captured even when primary systems (e.g., RescueNet) are unavailable.
+The system provides a lightweight and reliable operational workflow layer for EMS-related activities during both normal operations and emergency situations.
 
-The system acts as a:
-- First point of call intake
-- Local redundancy layer
-- Dispatcher support tool
+This project is intentionally designed as:
+
+- A backup EMS workflow system
+- A dispatcher support platform
+- A local operational redundancy layer
+- A structured call intake and tracking system
+
+The project is NOT intended to replace primary EMS systems such as RescueNet.
 
 ---
 
-## Core Goals
+# Core Goals
 
 - Fast and reliable call intake
-- Patient lookup and reuse of data
-- Call tracking and history
 - Operational continuity during outages
-- Modular architecture for future expansion
+- Dispatcher accountability
+- Structured quality tracking
+- Supervisor oversight tools
+- Patient lookup and reuse of information
+- Modular and scalable architecture
+- Future-ready backend infrastructure
 
 ---
 
-## Tech Stack
+# Tech Stack
 
-### Frontend
+## Frontend
+
 - React (Vite)
 - JavaScript (ES6+)
-- Bootstrap (CDN)
+- Bootstrap
 
-### Backend
+## Backend
+
 - Python
 - Flask
 - Flask-CORS
 - SQLAlchemy
 
-### Database
-- SQLite (current)
-- PostgreSQL (planned)
+## Database
+
+### Current
+- SQLite
+
+### Planned
+- PostgreSQL
 
 ---
 
-## Project Structure
+# Current Architecture
+
+The project currently follows a separated frontend/backend architecture.
+
+```txt
 ems-workflow-system/
 │
 ├── backend/
-│ ├── app.py
-│ ├── models.py
-│ ├── requirements.txt
+│   ├── app.py
+│   ├── models.py
+│   ├── requirements.txt
 │
 ├── frontend/
-│ ├── src/
-│ │ ├── api/
-│ │ ├── components/
-│ │ ├── pages/
-│ │ ├── App.jsx
-│ │ └── main.jsx
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── App.jsx
+│   │   └── main.jsx
 │
 └── README.md
+```
 
 ---
 
-## Features (Current)
+# Current Features
 
-### Call Taking Form
-- Full call intake workflow
+# Authentication System (NEW)
+
+The application now includes a foundational authentication and role system.
+
+## Current Roles
+
+- admin
+- supervisor
+- dispatcher
+
+## Features
+
+- Login system
+- Protected routes
+- Role-aware navigation
+- Supervisor-only dashboard access
+- Dispatcher identity tracking
+- localStorage-based session persistence (MVP)
+- Automatic dispatcher assignment to calls
+
+---
+
+# Call Taking Form
+
+## Features
+
+- Full EMS call intake workflow
 - Patient search and linking
 - Return ride logic
 - Service level selection
-
-### Call Quality Control (NEW)
-- Real-time validation during call intake
-- Critical vs non-critical field detection
-- Required explanation for missing critical fields
-- Quality data stored with each call
-
-### Patients Module
-- Create, edit, and search patients
-- Search by name and DOB
-- Patient-call linkage
-
-### Call History
-- Global call history page
-- Filter by **date of call**
-- Display all call details and notes
-
-### Backend API
-- Patients API
-- Calls API
-- Patient → Call relationship
+- Structured call storage
+- Automatic dispatcher assignment
+- Call quality analysis
 
 ---
 
-## API Endpoints
+# Call Quality Control System
 
-### Patients
+The system includes structured quality tracking for every call.
+
+## Critical Fields
+
+Critical fields currently include:
+
+- First Name
+- Last Name
+- Date of Birth
+- Pick Up Address
+
+## Optional Fields
+
+Optional fields currently include:
+
+- Phone Number
+- Drop Off Address
+- Trip Date
+- Pickup Time
+- Caller Type
+- Service Level
+- Additional Information
+
+---
+
+## Quality Score Logic
+
+### Score Distribution
+
+- Critical fields = 70%
+- Optional fields = 30%
+
+### Current Features
+
+- Real-time quality scoring
+- Missing critical field detection
+- Missing optional field tracking
+- Required explanation for incomplete calls
+- Structured quality data storage
+- Dispatcher-linked quality analytics
+
+---
+
+# Patients Module
+
+## Features
+
+- Create patients
+- Edit patients
+- Search by name
+- Search by DOB
+- Patient-call linkage
+- EMS-specific patient data fields
+
+---
+
+# Global Call History
+
+## Features
+
+- Global call history page
+- Filter by date
+- Filter by dispatcher
+- Filter by quality score
+- Display dispatcher information
+- Display structured quality data
+- Display incomplete call explanations
+
+---
+
+# Supervisor Dashboard (NEW)
+
+The system now includes a dedicated supervisor analytics dashboard.
+
+## Current Analytics
+
+- Total calls per dispatcher
+- Average dispatcher quality score
+- Missing critical field statistics
+- Missing optional field statistics
+- Incomplete call tracking
+- Explanation tracking
+
+## Current Access Rules
+
+- Admin → full access
+- Supervisor → supervisor dashboard access
+- Dispatcher → operational access only
+
+---
+
+# Backend API
+
+# Authentication API
+
+- `POST /api/auth/login`
+- `GET /api/auth/users`
+
+---
+
+# Patients API
 
 - `GET /api/patients`
 - `POST /api/patients`
 - `PUT /api/patient/<id>`
 - `DELETE /api/patient/<id>`
 
-### Calls
+---
+
+# Calls API
 
 - `GET /api/calls`
 - `GET /api/calls?date_of_call=YYYY-MM-DD`
+- `GET /api/calls?dispatcher_name=NAME`
+- `GET /api/calls?min_quality_score=VALUE`
+- `GET /api/calls?max_quality_score=VALUE`
 - `POST /api/calls`
 - `GET /api/patient/<id>/calls`
 
 ---
 
-## Installation
+# Analytics API
 
-### Backend
+- `GET /api/analytics/dispatchers`
+
+---
+
+# Installation
+
+# Backend
 
 ```bash
 cd backend
+
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Windows
+venv\Scripts\activate
+
+# Linux / macOS
+source venv/bin/activate
+
 pip install -r requirements.txt
+
 python app.py
+```
 
-Backend:
+Backend runs on:
 
+```txt
 http://127.0.0.1:5050
+```
 
-Frontend
+---
 
+# Frontend
+
+```bash
 cd frontend
+
 npm install
+
 npm run dev
+```
 
-Frontend:
+Frontend runs on:
+
+```txt
 http://localhost:5173
+```
 
-Development Workflow
+---
 
-Branches:
+# Development Workflow
 
-main — stable
-dev — development
+## Git Branches
 
-Rules:
+### Stable Branch
+```txt
+main
+```
 
-Never work directly in main
-Develop in dev
-Merge only after testing
-TODO / Roadmap
-🔴 High Priority
- Patient auto-fill improvements (more fields)
- Add Date of Trip to required logic (optional/critical review)
- Improve validation UX (inline errors instead of alerts)
- Add call creation audit (who created the call)
-🟡 Medium Priority
- Click call → open related patient
- Highlight call quality in CallsPage (colors or status)
- Add quick filters (Today / This Week)
- Improve table UX (sorting, pagination)
-🟢 Quality Control Expansion
- Add scoring system (0–100%)
- Store structured quality data (not just in notes)
- Require dispatcher justification for incomplete calls
- Add “Call Refused / Incomplete” workflow
-🔵 Backend & Security
- Authentication system (admin / dispatcher roles)
- Role-based access control
- Data protection (HIPAA-aware design)
- PostgreSQL migration
-🟣 UI / UX
- Redesign layout (wide screens)
- Mobile optimization improvements
- Field highlighting improvements
-⚫ Advanced
- Offline mode (PWA / Electron)
- Email sending (SMTP)
- PDF export
- Daily trip report generation
-Purpose Reminder
+### Development Branch
+```txt
+dev
+```
 
-This system is:
+---
 
-A backup tool
-A dispatcher assistant
-A data capture layer
+## Rules
 
-This system is NOT:
+- Never work directly in `main`
+- Develop new features in `dev`
+- Test before merge
+- Use English comments only
+- Keep frontend and backend separated
 
-A replacement for RescueNet
-A full EMR system
-Author
+---
+
+# Current Development Direction
+
+The project is evolving toward:
+
+- Dispatcher accountability platform
+- Supervisor analytics system
+- EMS operational support system
+- Modular workflow platform
+- HIPAA-aware architecture
+- Role-based operational environment
+
+---
+
+# TODO / Roadmap
+
+# 🔴 High Priority
+
+- User management system
+- Admin user management page
+- Create/deactivate users
+- Password reset functionality
+- Role management
+- Audit trail support
+- Call ownership tracking
+
+---
+
+# 🟠 Workflow Expansion
+
+- Daily call history overview
+- Daily trip generation
+- Validation escalation logic
+- Dispatcher justification workflows
+- Supervisor review workflows
+- Supervisor notes
+
+---
+
+# 🟡 Medium Priority
+
+- Quick filters
+- Pagination
+- Table sorting
+- Better validation UX
+- Improved dashboard layouts
+- Better analytics visualizations
+
+---
+
+# 🔵 Backend & Security
+
+- JWT/session authentication
+- Persistent authentication
+- Permission middleware
+- HIPAA-aware architecture
+- PostgreSQL migration
+- Better database normalization
+
+---
+
+# 🟣 UI / UX
+
+IMPORTANT:
+
+UI/UX redesign is intentionally postponed until:
+- Core workflow stabilizes
+- Authentication stabilizes
+- Analytics systems mature
+- Main operational logic is complete
+
+Planned improvements:
+
+- Wide-screen redesign
+- Better dispatcher workflow UX
+- Faster operational layouts
+- Better visual hierarchy
+- Mobile optimization improvements
+
+---
+
+# ⚫ Advanced Future Features
+
+- Offline mode
+- PWA support
+- Electron desktop version
+- SMTP integration
+- PDF export
+- Supervisor reports
+- Daily operational exports
+
+---
+
+# Purpose Reminder
+
+## This System IS
+
+- Backup EMS workflow platform
+- Dispatcher support system
+- Operational redundancy tool
+- Structured data capture platform
+- Supervisor oversight tool
+
+---
+
+## This System IS NOT
+
+- A RescueNet replacement
+- A full EMR platform
+- A hospital management system
+
+---
+
+# Author
 
 Aleh Sitsko
 
-Status
+---
 
-MVP — functional.
+# Current Status
 
-Core workflow is implemented:
-Call Intake → Validation → Storage → History
+## MVP Status
 
-Core functionality is operational.
+Functional.
 
-Next step: backend expansion and system integration.
+Implemented operational flow:
+
+```txt
+Authentication
+    ↓
+Dispatcher Assignment
+    ↓
+Call Intake
+    ↓
+Validation
+    ↓
+Quality Tracking
+    ↓
+Storage
+    ↓
+Call History
+    ↓
+Supervisor Analytics
+```
+
+Core operational functionality is working.
+
+Current major milestone completed:
+
+- Authentication foundation
+- Role-based routing
+- Dispatcher-linked analytics
+- Supervisor dashboard
+- Structured quality tracking
+
+Next major phase:
+
+- User management
+- Audit trail system
+- Secure authentication
+- Role expansion
+- HIPAA-aware backend architecture

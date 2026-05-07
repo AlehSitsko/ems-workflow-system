@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from models import db, Patient, Call
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from models import db, Patient, Call, User
 
 app = Flask(__name__)
 CORS(app)
@@ -36,7 +38,6 @@ def health_check():
 
 def split_missing_fields(value):
     # Convert stored text data into a clean list of missing fields.
-    # The frontend may store missing fields as comma-separated text.
     if not value:
         return []
 
@@ -45,6 +46,94 @@ def split_missing_fields(value):
         for item in value.split(",")
         if item.strip()
     ]
+
+
+def create_default_users():
+    # Seed default MVP users only if they do not already exist.
+    # These users are for local development and testing only.
+    default_users = [
+        {
+            "username": "admin",
+            "password": "admin",
+            "display_name": "Admin User",
+            "role": "admin",
+        },
+        {
+            "username": "supervisor",
+            "password": "supervisor",
+            "display_name": "Supervisor User",
+            "role": "supervisor",
+        },
+        {
+            "username": "dispatcher",
+            "password": "dispatcher",
+            "display_name": "Dispatcher User",
+            "role": "dispatcher",
+        },
+    ]
+
+    for user_data in default_users:
+        existing_user = User.query.filter_by(
+            username=user_data["username"]
+        ).first()
+
+        if not existing_user:
+            user = User(
+                username=user_data["username"],
+                password_hash=generate_password_hash(user_data["password"]),
+                display_name=user_data["display_name"],
+                role=user_data["role"],
+                is_active=True,
+            )
+
+            db.session.add(user)
+
+    db.session.commit()
+
+
+# =========================
+# AUTH ROUTES
+# =========================
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    # Basic MVP login endpoint.
+    # The frontend stores returned user data in localStorage.
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    if not user.is_active:
+        return jsonify({"error": "User account is inactive"}), 403
+
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    return jsonify({
+        "message": "Login successful",
+        "user": user.to_dict()
+    })
+
+
+@app.route("/api/auth/users", methods=["GET"])
+def get_users():
+    # Return all users for MVP admin/debug visibility.
+    # Later this route should be protected by role-based access.
+    users = User.query.order_by(User.id.asc()).all()
+
+    return jsonify([user.to_dict() for user in users])
 
 
 # =========================
@@ -368,6 +457,7 @@ def get_dispatcher_analytics():
 # Create database tables automatically for MVP development.
 with app.app_context():
     db.create_all()
+    create_default_users()
 
 
 if __name__ == "__main__":

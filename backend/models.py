@@ -3,6 +3,34 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Basic authentication information.
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+
+    # Display name is used in the UI and as dispatcher identity.
+    display_name = db.Column(db.String(150), nullable=False)
+
+    # Role controls what the user can access.
+    # Planned roles: admin, supervisor, dispatcher.
+    role = db.Column(db.String(50), nullable=False, default="dispatcher")
+
+    # Allows disabling users without deleting historical data.
+    is_active = db.Column(db.Boolean, default=True)
+
+    def to_dict(self):
+        # Never return password_hash to the frontend.
+        return {
+            "id": self.id,
+            "username": self.username,
+            "display_name": self.display_name,
+            "role": self.role,
+            "is_active": self.is_active,
+        }
+
+
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -45,7 +73,6 @@ class Patient(db.Model):
     notes = db.Column(db.Text)
 
     def to_dict(self):
-        # Convert the Patient database object into a JSON-friendly dictionary.
         return {
             "id": self.id,
 
@@ -94,7 +121,7 @@ class Call(db.Model):
     )
 
     # Dispatcher information.
-    # Temporary implementation before authentication system.
+    # Currently stored as text for compatibility with existing call history.
     dispatcher_name = db.Column(db.String(100))
 
     # Call metadata.
@@ -114,8 +141,7 @@ class Call(db.Model):
     # Call quality tracking.
     quality_score = db.Column(db.Integer)
 
-    # Missing fields are stored separately to support
-    # future analytics and supervisor reporting.
+    # Missing fields are stored separately to support analytics.
     missing_critical_fields = db.Column(db.Text)
     missing_optional_fields = db.Column(db.Text)
 
@@ -126,7 +152,6 @@ class Call(db.Model):
     notes = db.Column(db.Text)
 
     def to_dict(self):
-        # Convert the Call database object into a JSON-friendly dictionary.
         return {
             "id": self.id,
 
