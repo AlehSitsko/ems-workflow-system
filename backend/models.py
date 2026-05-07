@@ -45,6 +45,7 @@ class Patient(db.Model):
     notes = db.Column(db.Text)
 
     def to_dict(self):
+        # Convert the Patient database object into a JSON-friendly dictionary.
         return {
             "id": self.id,
 
@@ -125,6 +126,7 @@ class Call(db.Model):
     notes = db.Column(db.Text)
 
     def to_dict(self):
+        # Convert the Call database object into a JSON-friendly dictionary.
         return {
             "id": self.id,
 
