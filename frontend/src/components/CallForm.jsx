@@ -57,6 +57,9 @@ const CallForm = forwardRef((props, ref) => {
   const [patientSearchResults, setPatientSearchResults] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
 
+  // Explanation required when critical information is missing.
+  const [missingInfoExplanation, setMissingInfoExplanation] = useState('');
+
   // Submit state.
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
@@ -91,6 +94,32 @@ const CallForm = forwardRef((props, ref) => {
       returnPickup: prev.dropoffAddress,
       returnDestination: prev.pickupAddress,
     }));
+  };
+
+  // Analyze form completeness and split missing fields by severity.
+  const analyzeCallQuality = () => {
+    const criticalMissing = [];
+    const nonCriticalMissing = [];
+
+    // Critical fields needed to identify the patient and pickup location.
+    if (!formData.firstName.trim()) criticalMissing.push('First Name');
+    if (!formData.lastName.trim()) criticalMissing.push('Last Name');
+    if (!formData.dob.trim()) criticalMissing.push('Date of Birth');
+    if (!formData.pickupAddress.trim()) criticalMissing.push('Pick Up Address');
+
+    // Non-critical fields improve call quality but should not always block saving.
+    if (!formData.phoneNumber.trim()) nonCriticalMissing.push('Phone Number');
+    if (!formData.dropoffAddress.trim()) nonCriticalMissing.push('Drop Off Address');
+    if (!formData.tripDate.trim()) nonCriticalMissing.push('Date of Trip');
+    if (!formData.pickupTime.trim()) nonCriticalMissing.push('Pickup Time');
+    if (!formData.callerType.trim()) nonCriticalMissing.push('Caller Type');
+    if (!formData.serviceLevel.trim()) nonCriticalMissing.push('Service Level');
+    if (!formData.additionalInfo.trim()) nonCriticalMissing.push('Additional Information');
+
+    return {
+      criticalMissing,
+      nonCriticalMissing,
+    };
   };
 
   // Search patients through the backend by last name and/or DOB.
@@ -148,6 +177,7 @@ const CallForm = forwardRef((props, ref) => {
 
     setSelectedPatient(null);
     setPatientSearchResults([]);
+    setMissingInfoExplanation('');
     setSubmitMessage('');
 
     previousReturnRideOption.current = 'none';
@@ -192,9 +222,26 @@ const CallForm = forwardRef((props, ref) => {
     previousReturnRideOption.current = currentOption;
   }, [formData.returnRideOption]);
 
+  const { criticalMissing, nonCriticalMissing } = analyzeCallQuality();
+  const hasCriticalIssues = criticalMissing.length > 0;
+  const hasAnyQualityIssues =
+    criticalMissing.length > 0 || nonCriticalMissing.length > 0;
+
   // Submit the call intake form to the backend.
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const currentQualityReport = analyzeCallQuality();
+
+    if (
+      currentQualityReport.criticalMissing.length > 0 &&
+      !missingInfoExplanation.trim()
+    ) {
+      window.alert(
+        'Critical information is missing. Please provide an explanation before saving.'
+      );
+      return;
+    }
 
     setSubmitMessage('');
     setIsSubmitting(true);
@@ -222,6 +269,19 @@ const CallForm = forwardRef((props, ref) => {
           ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
               formData.returnTime || 'Will Call'
             }`
+          : '',
+        currentQualityReport.criticalMissing.length > 0
+          ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
+              ', '
+            )}`
+          : '',
+        currentQualityReport.nonCriticalMissing.length > 0
+          ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
+              ', '
+            )}`
+          : '',
+        missingInfoExplanation.trim()
+          ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
           : '',
       ]
         .filter(Boolean)
@@ -317,7 +377,9 @@ const CallForm = forwardRef((props, ref) => {
                 </label>
                 <input
                   type="text"
-                  className="form-control"
+                  className={`form-control ${
+                    !formData.firstName.trim() ? 'border-danger' : ''
+                  }`}
                   id="firstName"
                   name="firstName"
                   placeholder="e.g. John"
@@ -334,7 +396,9 @@ const CallForm = forwardRef((props, ref) => {
                 </label>
                 <input
                   type="text"
-                  className="form-control"
+                  className={`form-control ${
+                    !formData.lastName.trim() ? 'border-danger' : ''
+                  }`}
                   id="lastName"
                   name="lastName"
                   placeholder="e.g. Doe"
@@ -351,7 +415,9 @@ const CallForm = forwardRef((props, ref) => {
                 </label>
                 <input
                   type="date"
-                  className="form-control"
+                  className={`form-control ${
+                    !formData.dob.trim() ? 'border-danger' : ''
+                  }`}
                   id="dob"
                   name="dob"
                   value={formData.dob}
@@ -441,7 +507,9 @@ const CallForm = forwardRef((props, ref) => {
                 </label>
                 <input
                   type="text"
-                  className="form-control"
+                  className={`form-control ${
+                    !formData.pickupAddress.trim() ? 'border-danger' : ''
+                  }`}
                   id="pickupAddress"
                   name="pickupAddress"
                   placeholder="123 Main St"
@@ -695,6 +763,59 @@ const CallForm = forwardRef((props, ref) => {
                   </div>
                 </div>
               </div>
+
+              {/* =========================================================
+                  Call Quality Report
+              ========================================================== */}
+
+              <div className="col-md-12 mb-3">
+                <div
+                  className={`alert ${
+                    hasCriticalIssues
+                      ? 'alert-danger'
+                      : hasAnyQualityIssues
+                      ? 'alert-warning'
+                      : 'alert-success'
+                  }`}
+                >
+                  <strong>Call Quality Check</strong>
+
+                  {criticalMissing.length > 0 && (
+                    <div className="mt-2">
+                      <strong>Missing Critical:</strong>{' '}
+                      {criticalMissing.join(', ')}
+                    </div>
+                  )}
+
+                  {nonCriticalMissing.length > 0 && (
+                    <div className="mt-2">
+                      <strong>Missing Optional:</strong>{' '}
+                      {nonCriticalMissing.join(', ')}
+                    </div>
+                  )}
+
+                  {!hasAnyQualityIssues && (
+                    <div className="mt-2">All tracked fields are completed.</div>
+                  )}
+                </div>
+              </div>
+
+              {hasCriticalIssues && (
+                <div className="col-md-12 mb-3">
+                  <label htmlFor="missingInfoExplanation" className="form-label">
+                    Missing Information Explanation (Required)
+                  </label>
+                  <textarea
+                    className="form-control"
+                    id="missingInfoExplanation"
+                    rows="2"
+                    placeholder="Explain why critical information is missing, e.g. patient refused, caller did not provide information, call was not accepted, etc."
+                    value={missingInfoExplanation}
+                    onChange={(e) => setMissingInfoExplanation(e.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Form actions */}
