@@ -21,18 +21,22 @@ const CallForm = forwardRef((props, ref) => {
   // Initial form state.
   // The entire form is stored in one object to make backend integration easier.
   const initialFormData = {
-    // Caller information
+    // Dispatcher information.
+    // Temporary field before authentication system is implemented.
+    dispatcherName: '',
+
+    // Caller information.
     callerType: '',
     callerNote: '',
 
-    // Patient information
+    // Patient information.
     patientId: null,
     firstName: '',
     lastName: '',
     dob: '',
     phoneNumber: '',
 
-    // Main trip information
+    // Main trip information.
     pickupAddress: '',
     dropoffAddress: '',
     callDate: getTodayDate(),
@@ -40,13 +44,13 @@ const CallForm = forwardRef((props, ref) => {
     pickupTime: '',
     additionalInfo: '',
 
-    // Return ride information
+    // Return ride information.
     returnRideOption: 'none',
     returnPickup: '',
     returnDestination: '',
     returnTime: '',
 
-    // Service level
+    // Service level.
     serviceLevel: '',
   };
 
@@ -115,8 +119,9 @@ const CallForm = forwardRef((props, ref) => {
     if (!formData.pickupTime.trim()) nonCriticalMissing.push('Pickup Time');
     if (!formData.callerType.trim()) nonCriticalMissing.push('Caller Type');
     if (!formData.serviceLevel.trim()) nonCriticalMissing.push('Service Level');
-    if (!formData.additionalInfo.trim())
+    if (!formData.additionalInfo.trim()) {
       nonCriticalMissing.push('Additional Information');
+    }
 
     // Score weights:
     // Critical fields represent 70% of total score.
@@ -266,18 +271,39 @@ const CallForm = forwardRef((props, ref) => {
 
     // Map frontend field names to backend Call model field names.
     const callPayload = {
+      // Patient link.
       patient_id: formData.patientId,
+
+      // Dispatcher information.
+      dispatcher_name: formData.dispatcherName,
+
+      // Call metadata.
       date_of_call: formData.callDate,
       trip_date: formData.tripDate,
       pickup_time: formData.pickupTime,
+
+      // Trip details.
       pickup_address: formData.pickupAddress,
       dropoff_address: formData.dropoffAddress,
+
+      // Operational fields.
       caller_type: formData.callerType,
       call_type: formData.returnRideOption,
       service_level: formData.serviceLevel,
+
+      // Structured quality tracking.
+      quality_score: currentQualityReport.score,
+      missing_critical_fields: currentQualityReport.criticalMissing.join(', '),
+      missing_optional_fields: currentQualityReport.nonCriticalMissing.join(', '),
+      missing_info_explanation: missingInfoExplanation.trim(),
+
+      // General notes.
       notes: [
         formData.additionalInfo,
         formData.callerNote ? `Caller note: ${formData.callerNote}` : '',
+        formData.dispatcherName
+          ? `Dispatcher: ${formData.dispatcherName}`
+          : '',
         formData.firstName || formData.lastName
           ? `Patient: ${formData.firstName} ${formData.lastName}`
           : '',
@@ -346,6 +372,27 @@ const CallForm = forwardRef((props, ref) => {
           {/* Main form */}
           <form ref={formRef} onSubmit={handleSubmit}>
             <div className="row">
+              {/* =========================================================
+                  Dispatcher Information
+              ========================================================== */}
+
+              <div className="col-md-6 mb-3">
+                <label htmlFor="dispatcherName" className="form-label">
+                  Dispatcher Name
+                </label>
+
+                <input
+                  type="text"
+                  className="form-control"
+                  id="dispatcherName"
+                  name="dispatcherName"
+                  placeholder="e.g. John Smith"
+                  value={formData.dispatcherName}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                />
+              </div>
+
               {/* =========================================================
                   Caller Information
               ========================================================== */}
@@ -793,8 +840,8 @@ const CallForm = forwardRef((props, ref) => {
                     hasCriticalIssues
                       ? 'alert-danger'
                       : hasAnyQualityIssues
-                      ? 'alert-warning'
-                      : 'alert-success'
+                        ? 'alert-warning'
+                        : 'alert-success'
                   }`}
                 >
                   <strong>Call Quality Check</strong>

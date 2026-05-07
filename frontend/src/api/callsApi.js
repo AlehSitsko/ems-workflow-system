@@ -10,6 +10,21 @@ export async function getCalls(filters = {}) {
     params.append("date_of_call", filters.date_of_call);
   }
 
+  // Filter by dispatcher name.
+  if (filters.dispatcher_name) {
+    params.append("dispatcher_name", filters.dispatcher_name);
+  }
+
+  // Filter by minimum quality score.
+  if (filters.min_quality_score) {
+    params.append("min_quality_score", filters.min_quality_score);
+  }
+
+  // Filter by maximum quality score.
+  if (filters.max_quality_score) {
+    params.append("max_quality_score", filters.max_quality_score);
+  }
+
   const queryString = params.toString();
 
   const url = queryString
@@ -47,7 +62,10 @@ export async function createCall(callData) {
 
 // Fetch all call records linked to a specific patient.
 export async function getPatientCalls(patientId) {
-  const response = await fetch(`${API_BASE_URL}/api/patient/${patientId}/calls`);
+  const response = await fetch(
+    `${API_BASE_URL}/api/patient/${patientId}/calls`
+  );
+
   const data = await response.json();
 
   if (!response.ok) {

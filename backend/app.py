@@ -141,8 +141,8 @@ def update_patient(id):
 
     # Update all existing model fields dynamically.
     for key, value in data.items():
-      if hasattr(patient, key):
-          setattr(patient, key, value)
+        if hasattr(patient, key):
+            setattr(patient, key, value)
 
     db.session.commit()
 
@@ -169,8 +169,12 @@ def delete_patient(id):
 
 @app.route("/api/calls", methods=["GET"])
 def get_calls():
-    # Optional query parameter for filtering calls by date of call.
+    # Optional query parameters for call filtering.
     date_of_call = request.args.get("date_of_call", "").strip()
+    dispatcher_name = request.args.get("dispatcher_name", "").strip()
+
+    min_quality_score = request.args.get("min_quality_score")
+    max_quality_score = request.args.get("max_quality_score")
 
     query = Call.query
 
@@ -178,7 +182,25 @@ def get_calls():
     if date_of_call:
         query = query.filter(Call.date_of_call == date_of_call)
 
-    calls = query.all()
+    # Filter calls by dispatcher name.
+    if dispatcher_name:
+        query = query.filter(
+            Call.dispatcher_name.ilike(f"%{dispatcher_name}%")
+        )
+
+    # Filter calls by minimum quality score.
+    if min_quality_score:
+        query = query.filter(
+            Call.quality_score >= int(min_quality_score)
+        )
+
+    # Filter calls by maximum quality score.
+    if max_quality_score:
+        query = query.filter(
+            Call.quality_score <= int(max_quality_score)
+        )
+
+    calls = query.order_by(Call.id.desc()).all()
 
     return jsonify([call.to_dict() for call in calls])
 
@@ -192,15 +214,33 @@ def create_call():
         return jsonify({"error": "Request body must be JSON"}), 400
 
     new_call = Call(
+        # Patient link.
         patient_id=data.get("patient_id"),
+
+        # Dispatcher information.
+        dispatcher_name=data.get("dispatcher_name"),
+
+        # Call metadata.
         date_of_call=data.get("date_of_call"),
         trip_date=data.get("trip_date"),
         pickup_time=data.get("pickup_time"),
+
+        # Trip details.
         pickup_address=data.get("pickup_address"),
         dropoff_address=data.get("dropoff_address"),
+
+        # Operational fields.
         caller_type=data.get("caller_type"),
         call_type=data.get("call_type"),
         service_level=data.get("service_level"),
+
+        # Quality tracking.
+        quality_score=data.get("quality_score"),
+        missing_critical_fields=data.get("missing_critical_fields"),
+        missing_optional_fields=data.get("missing_optional_fields"),
+        missing_info_explanation=data.get("missing_info_explanation"),
+
+        # General notes.
         notes=data.get("notes"),
     )
 
@@ -218,7 +258,12 @@ def get_patient_calls(id):
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
 
-    calls = Call.query.filter_by(patient_id=id).all()
+    calls = (
+        Call.query
+        .filter_by(patient_id=id)
+        .order_by(Call.id.desc())
+        .all()
+    )
 
     return jsonify([call.to_dict() for call in calls])
 

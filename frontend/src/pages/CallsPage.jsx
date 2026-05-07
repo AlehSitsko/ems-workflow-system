@@ -7,27 +7,26 @@ const CallsPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Extract quality score from saved call notes.
-  const extractScore = (notes) => {
-    if (!notes) return null;
-
-    const match = notes.match(/Call Quality Score: (\d+)%/);
-    return match ? parseInt(match[1], 10) : null;
-  };
-
   // Return Bootstrap badge color based on quality score.
   const getScoreColor = (score) => {
-    if (score === null) return "secondary";
-    if (score >= 80) return "success";
-    if (score >= 50) return "warning";
+    if (score === null || score === undefined) {
+      return "secondary";
+    }
+
+    if (score >= 80) {
+      return "success";
+    }
+
+    if (score >= 50) {
+      return "warning";
+    }
+
     return "danger";
   };
 
-  // Render quality score badge.
-  const renderQualityBadge = (notes) => {
-    const score = extractScore(notes);
-
-    if (score === null) {
+  // Render quality score badge using structured backend data.
+  const renderQualityBadge = (score) => {
+    if (score === null || score === undefined) {
       return <span className="badge bg-secondary">—</span>;
     }
 
@@ -44,7 +43,7 @@ const CallsPage = () => {
   // Get today's date.
   const getTodayDate = () => formatDate(new Date());
 
-  // Load calls with optional date-of-call filter.
+  // Load calls with optional filters.
   const loadCalls = async (dateFilter = "") => {
     setLoading(true);
     setError("");
@@ -96,6 +95,7 @@ const CallsPage = () => {
         <div className="row">
           <div className="col-md-4 mb-3">
             <label className="form-label">Date of Call</label>
+
             <input
               type="date"
               className="form-control"
@@ -144,7 +144,11 @@ const CallsPage = () => {
           </div>
         </div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && (
+          <div className="alert alert-danger">
+            {error}
+          </div>
+        )}
       </div>
 
       <div className="card shadow-sm">
@@ -152,16 +156,19 @@ const CallsPage = () => {
           <h5 className="mb-3">Calls</h5>
 
           {calls.length === 0 ? (
-            <p className="text-muted mb-0">No calls found.</p>
+            <p className="text-muted mb-0">
+              No calls found.
+            </p>
           ) : (
             <div className="table-responsive">
               <table className="table table-bordered table-hover align-middle mb-0">
                 <thead className="table-light">
                   <tr>
                     <th>Date of Call</th>
+                    <th>Dispatcher</th>
+                    <th>Quality</th>
                     <th>Trip Date</th>
                     <th>Pickup Time</th>
-                    <th>Quality</th>
                     <th>Pickup</th>
                     <th>Dropoff</th>
                     <th>Caller Type</th>
@@ -175,14 +182,29 @@ const CallsPage = () => {
                   {calls.map((call) => (
                     <tr key={call.id}>
                       <td>{call.date_of_call || "—"}</td>
+
+                      <td>
+                        {call.dispatcher_name || "—"}
+                      </td>
+
+                      <td>
+                        {renderQualityBadge(call.quality_score)}
+                      </td>
+
                       <td>{call.trip_date || "—"}</td>
+
                       <td>{call.pickup_time || "—"}</td>
-                      <td>{renderQualityBadge(call.notes)}</td>
+
                       <td>{call.pickup_address || "—"}</td>
+
                       <td>{call.dropoff_address || "—"}</td>
+
                       <td>{call.caller_type || "—"}</td>
+
                       <td>{call.call_type || "—"}</td>
+
                       <td>{call.service_level || "—"}</td>
+
                       <td style={{ whiteSpace: "pre-line" }}>
                         {call.notes || "—"}
                       </td>

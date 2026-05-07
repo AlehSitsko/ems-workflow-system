@@ -86,7 +86,15 @@ class Call(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Link this call to a patient.
-    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=True)
+    patient_id = db.Column(
+        db.Integer,
+        db.ForeignKey("patient.id"),
+        nullable=True
+    )
+
+    # Dispatcher information.
+    # Temporary implementation before authentication system.
+    dispatcher_name = db.Column(db.String(100))
 
     # Call metadata.
     date_of_call = db.Column(db.String(20))
@@ -102,20 +110,44 @@ class Call(db.Model):
     call_type = db.Column(db.String(100))
     service_level = db.Column(db.String(100))
 
-    # Notes.
+    # Call quality tracking.
+    quality_score = db.Column(db.Integer)
+
+    # Missing fields are stored separately to support
+    # future analytics and supervisor reporting.
+    missing_critical_fields = db.Column(db.Text)
+    missing_optional_fields = db.Column(db.Text)
+
+    # Required explanation when critical data is missing.
+    missing_info_explanation = db.Column(db.Text)
+
+    # General notes.
     notes = db.Column(db.Text)
 
     def to_dict(self):
         return {
             "id": self.id,
+
             "patient_id": self.patient_id,
+
+            "dispatcher_name": self.dispatcher_name,
+
             "date_of_call": self.date_of_call,
             "trip_date": self.trip_date,
             "pickup_time": self.pickup_time,
+
             "pickup_address": self.pickup_address,
             "dropoff_address": self.dropoff_address,
+
             "caller_type": self.caller_type,
             "call_type": self.call_type,
             "service_level": self.service_level,
+
+            "quality_score": self.quality_score,
+
+            "missing_critical_fields": self.missing_critical_fields,
+            "missing_optional_fields": self.missing_optional_fields,
+            "missing_info_explanation": self.missing_info_explanation,
+
             "notes": self.notes,
         }
