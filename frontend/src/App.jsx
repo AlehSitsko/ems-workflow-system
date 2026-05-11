@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { HashRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
 
+import HomePage from "./pages/HomePage";
 import CallFormPage from "./pages/CallFormPage";
 import PatientsPage from "./pages/PatientsPage";
 import CallsPage from "./pages/CallsPage";
@@ -9,6 +10,7 @@ import EmployeesPage from "./pages/EmployeesPage";
 import CrewPlannerPage from "./pages/CrewPlannerPage";
 import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import LoginPage from "./pages/LoginPage";
+import UserManagementPage from "./pages/UserManagementPage";
 
 import {
   getCurrentUser,
@@ -43,14 +45,36 @@ function App() {
     return children;
   };
 
-  // Protect supervisor-only pages.
+  // Prevent logged-in users from staying on the login page.
+  const LoginRoute = ({ children }) => {
+    if (currentUser) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return children;
+  };
+
+  // Protect supervisor-level pages.
   const SupervisorRoute = ({ children }) => {
     if (!currentUser) {
       return <Navigate to="/login" replace />;
     }
 
     if (!hasSupervisorAccess(currentUser)) {
-      return <Navigate to="/" replace />;
+      return <Navigate to="/home" replace />;
+    }
+
+    return children;
+  };
+
+  // Protect admin-only pages.
+  const AdminRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (currentUser.role !== "admin") {
+      return <Navigate to="/home" replace />;
     }
 
     return children;
@@ -67,7 +91,11 @@ function App() {
           {currentUser && (
             <>
               <div className="navbar-nav ms-3">
-                <NavLink to="/" end className={getNavLinkClass}>
+                <NavLink to="/home" className={getNavLinkClass}>
+                  Home
+                </NavLink>
+
+                <NavLink to="/call-form" className={getNavLinkClass}>
                   Call Form
                 </NavLink>
 
@@ -80,21 +108,29 @@ function App() {
                 </NavLink>
 
                 {hasSupervisorAccess(currentUser) && (
-                  <NavLink to="/supervisor" className={getNavLinkClass}>
-                    Supervisor
+                  <>
+                    <NavLink to="/supervisor" className={getNavLinkClass}>
+                      Supervisor
+                    </NavLink>
+
+                    <NavLink to="/employees" className={getNavLinkClass}>
+                      Employees
+                    </NavLink>
+                  </>
+                )}
+
+                {currentUser.role === "admin" && (
+                  <NavLink to="/users" className={getNavLinkClass}>
+                    Users
                   </NavLink>
                 )}
 
-                <NavLink to="/manual" className={getNavLinkClass}>
-                  User Manual
-                </NavLink>
-
-                <NavLink to="/employees" className={getNavLinkClass}>
-                  Employees
-                </NavLink>
-
                 <NavLink to="/crew-planner" className={getNavLinkClass}>
                   Crew Planner
+                </NavLink>
+
+                <NavLink to="/manual" className={getNavLinkClass}>
+                  User Manual
                 </NavLink>
               </div>
 
@@ -117,10 +153,28 @@ function App() {
       </nav>
 
       <Routes>
-        <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
 
         <Route
-          path="/"
+          path="/login"
+          element={
+            <LoginRoute>
+              <LoginPage onLogin={handleLogin} />
+            </LoginRoute>
+          }
+        />
+
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <HomePage currentUser={currentUser} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/call-form"
           element={
             <ProtectedRoute>
               <CallFormPage />
@@ -167,9 +221,18 @@ function App() {
         <Route
           path="/employees"
           element={
-            <ProtectedRoute>
+            <SupervisorRoute>
               <EmployeesPage />
-            </ProtectedRoute>
+            </SupervisorRoute>
+          }
+        />
+
+        <Route
+          path="/users"
+          element={
+            <AdminRoute>
+              <UserManagementPage />
+            </AdminRoute>
           }
         />
 
@@ -181,6 +244,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </HashRouter>
   );

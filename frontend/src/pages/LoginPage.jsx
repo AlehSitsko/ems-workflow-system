@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { loginUser, saveCurrentUser } from "../api/authApi";
 
 const LoginPage = ({ onLogin }) => {
+  const navigate = useNavigate();
+
   const [username, setUsername] = useState("dispatcher");
   const [password, setPassword] = useState("dispatcher");
   const [loading, setLoading] = useState(false);
@@ -19,6 +22,9 @@ const LoginPage = ({ onLogin }) => {
 
       saveCurrentUser(user);
       onLogin(user);
+
+      // Redirect authenticated users to the module launcher.
+      navigate("/home", { replace: true });
     } catch (err) {
       console.error("Login failed:", err);
       setError(err.message || "Login failed.");
@@ -41,11 +47,7 @@ const LoginPage = ({ onLogin }) => {
                 Use your dispatcher, supervisor, or admin account to continue.
               </p>
 
-              {error && (
-                <div className="alert alert-danger">
-                  {error}
-                </div>
-              )}
+              {error && <div className="alert alert-danger">{error}</div>}
 
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
@@ -92,7 +94,9 @@ const LoginPage = ({ onLogin }) => {
               <hr />
 
               <div className="small text-muted">
-                <div><strong>Dev users:</strong></div>
+                <div>
+                  <strong>Dev users:</strong>
+                </div>
                 <div>admin / admin</div>
                 <div>supervisor / supervisor</div>
                 <div>dispatcher / dispatcher</div>
