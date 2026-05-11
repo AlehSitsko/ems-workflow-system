@@ -2,30 +2,40 @@
 
 ## Overview
 
-EMS Workflow System is a modular web application designed as a **backup and support platform for EMS dispatch operations**.
+EMS Workflow System is a modular EMS operations platform designed as a:
 
-The system provides a lightweight and reliable operational workflow layer for EMS-related activities during both normal operations and emergency situations.
+- Backup EMS workflow system
+- Dispatcher support platform
+- Operational redundancy layer
+- Crew planning and staffing system
+- Supervisor analytics platform
+- Structured operational data platform
 
-This project is intentionally designed as:
+The project is intentionally designed to support EMS operations during:
 
-- A backup EMS workflow system
-- A dispatcher support platform
-- A local operational redundancy layer
-- A structured call intake and tracking system
+- normal operational flow,
+- software outages,
+- communication disruptions,
+- temporary workflow failures,
+- and operational overload situations.
 
-The project is NOT intended to replace primary EMS systems such as RescueNet.
+This system is NOT intended to replace primary EMS software such as RescueNet.
+
+Instead, it acts as an operational support and continuity platform.
 
 ---
 
 # Core Goals
 
 - Fast and reliable call intake
+- Structured dispatcher workflows
 - Operational continuity during outages
 - Dispatcher accountability
-- Structured quality tracking
-- Supervisor oversight tools
-- Patient lookup and reuse of information
-- Modular and scalable architecture
+- Supervisor oversight
+- Crew planning and staffing support
+- Patient lookup and operational history
+- Certification and staffing validation
+- Modular scalable architecture
 - Future-ready backend infrastructure
 
 ---
@@ -48,16 +58,16 @@ The project is NOT intended to replace primary EMS systems such as RescueNet.
 ## Database
 
 ### Current
+
 - SQLite
 
 ### Planned
+
 - PostgreSQL
 
 ---
 
 # Current Architecture
-
-The project currently follows a separated frontend/backend architecture.
 
 ```txt
 ems-workflow-system/
@@ -80,7 +90,7 @@ ems-workflow-system/
 
 ---
 
-# Current Features
+# Current Implemented Systems
 
 # Authentication System
 
@@ -96,11 +106,36 @@ The application includes a foundational authentication and role system.
 
 - Login system
 - Protected routes
-- Role-aware navigation
+- Role-aware homepage navigation
+- Module visibility by role
 - Supervisor-only dashboard access
 - Dispatcher identity tracking
-- localStorage-based session persistence (MVP)
+- localStorage session persistence (MVP stage)
 - Automatic dispatcher assignment to calls
+
+---
+
+# Home Page / Module System
+
+The application now uses a centralized operational homepage.
+
+## Features
+
+- Role-aware module visibility
+- Operational navigation hub
+- Future modular expansion support
+- Centralized workflow access
+
+## Current Modules
+
+- Call Form
+- Patients
+- Calls
+- Employees
+- Crew Planner
+- Supervisor Dashboard
+- User Management
+- User Manual
 
 ---
 
@@ -173,6 +208,7 @@ Optional fields currently include:
 - Search by DOB
 - Patient-call linkage
 - EMS-specific patient data fields
+- Structured operational notes support
 
 ---
 
@@ -213,7 +249,7 @@ The system includes a dedicated supervisor analytics dashboard.
 
 # Employees Module
 
-The system now includes a backend-powered employee and certification management module.
+The system includes backend-powered employee and certification management.
 
 ## Features
 
@@ -229,9 +265,7 @@ The system now includes a backend-powered employee and certification management 
 - Backend API integration
 - SQLite employee storage
 
-## Operational Logic
-
-Employees are now stored in the backend database instead of localStorage.
+## Operational Purpose
 
 This module serves as the foundation for:
 
@@ -240,17 +274,41 @@ This module serves as the foundation for:
 - Future scheduling systems
 - Supervisor staffing oversight
 - Dispatcher / employee relationship mapping
+- Operational staffing analytics
+
+---
+
+# User Management System
+
+The system includes backend-powered operational user management.
+
+## Features
+
+- Create operational users
+- Edit users
+- Activate / deactivate accounts
+- Role assignment
+- Dispatcher / supervisor separation
+- Admin-only access
+- Backend user storage
+
+## Current Roles
+
+- admin
+- supervisor
+- dispatcher
 
 ---
 
 # Crew Planner System
 
-The Crew Planner module now integrates with backend employee data.
+The Crew Planner module is now fully backend-powered.
 
 ## Features
 
 - Unit creation and editing
 - BLS / ALS / Assist unit types
+- Shift-date planning
 - Driver eligibility validation
 - EMT eligibility validation
 - Paramedic eligibility validation
@@ -259,19 +317,27 @@ The Crew Planner module now integrates with backend employee data.
 - CPR validation warnings
 - Patient order tracking
 - Crew conflict detection
+- Crew assignment history
+- Daily staffing persistence
 
-## Current Storage
+---
 
-- Employees → backend database
-- Planned units → localStorage (temporary MVP stage)
+# Crew Presets System
 
-## Planned Future Improvements
+The system now supports reusable crew presets.
 
-- Backend unit storage
-- Shift scheduling
-- Supervisor staffing tools
-- Conflict analytics
-- Availability tracking
+## Features
+
+- Save reusable crew configurations
+- Apply saved presets to units
+- Backend preset storage
+- Role-aware crew autofill preparation
+- Rapid staffing workflow support
+
+## Operational Purpose
+
+Crew Presets reduce repetitive dispatcher staffing tasks
+and prepare the system for future scheduling automation.
 
 ---
 
@@ -281,6 +347,9 @@ The Crew Planner module now integrates with backend employee data.
 
 - `POST /api/auth/login`
 - `GET /api/auth/users`
+- `POST /api/auth/users`
+- `PUT /api/auth/users/<id>`
+- `PATCH /api/auth/users/<id>/toggle-active`
 
 ---
 
@@ -311,6 +380,24 @@ The Crew Planner module now integrates with backend employee data.
 - `POST /api/employees`
 - `PUT /api/employees/<id>`
 - `DELETE /api/employees/<id>`
+
+---
+
+# Crew Planner API
+
+- `GET /api/crew-units`
+- `POST /api/crew-units`
+- `PUT /api/crew-units/<id>`
+- `DELETE /api/crew-units/<id>`
+
+---
+
+# Crew Presets API
+
+- `GET /api/crew-presets`
+- `POST /api/crew-presets`
+- `PUT /api/crew-presets/<id>`
+- `DELETE /api/crew-presets/<id>`
 
 ---
 
@@ -398,15 +485,16 @@ dev
 
 The project is evolving toward:
 
+- EMS operational support platform
 - Dispatcher accountability platform
 - Supervisor analytics system
-- EMS operational support system
+- Crew staffing system
 - Modular workflow platform
 - HIPAA-aware architecture
 - Role-based operational environment
-- Staffing and crew management platform
-- Certification tracking system
-- Employee operational layer
+- Staffing and scheduling layer
+- Certification validation platform
+- Operational continuity platform
 
 ---
 
@@ -414,51 +502,66 @@ The project is evolving toward:
 
 # 🔴 High Priority
 
-- User management system
-- Admin user management page
-- Create/deactivate users
+- Full user management system
 - Password reset functionality
-- Role management
 - Audit trail support
-- Call ownership tracking
+- Secure authentication
+- JWT/session authentication
+- Permission middleware
 
 ---
 
 # 🟠 Workflow Expansion
 
-- Daily call history overview
+- Daily operational overview
 - Daily trip generation
 - Validation escalation logic
 - Dispatcher justification workflows
 - Supervisor review workflows
 - Supervisor notes
-- Backend storage for planned units
 - Shift scheduling system
 - Employee availability tracking
 - Supervisor staffing analytics
 - Certification expiration alerts
+- Unit staffing history
+- Operational assignment history
 
 ---
 
-# 🟡 Medium Priority
+# 🟡 Crew System Expansion
 
-- Quick filters
-- Pagination
-- Table sorting
-- Better validation UX
-- Improved dashboard layouts
-- Better analytics visualizations
+- Ambulance Unit Definitions
+- Dynamic role-based staffing templates
+- Autofill empty crew slots
+- Availability-aware staffing
+- Shift templates
+- Recurring crew schedules
+- Crew preset management UI
+- Unit status tracking
+
+---
+
+# 🟢 Patient Operations Expansion
+
+- Patient operational flags
+- Cancellation tracking
+- No-show tracking
+- Operational incident tracking
+- Structured patient risk indicators
+- Patient reliability metrics
+- Supervisor patient review tools
 
 ---
 
 # 🔵 Backend & Security
 
-- JWT/session authentication
-- Persistent authentication
-- Permission middleware
-- HIPAA-aware architecture
 - PostgreSQL migration
 - Better database normalization
+- Secure session handling
+- Audit logging
+- Permission middleware
+- HIPAA-aware architecture
+- Operational backup strategy
 
 ---
 
@@ -471,7 +574,7 @@ UI/UX redesign is intentionally postponed until:
 - Core workflow stabilizes
 - Authentication stabilizes
 - Analytics systems mature
-- Main operational logic is complete
+- Operational modules stabilize
 
 Planned improvements:
 
@@ -492,6 +595,9 @@ Planned improvements:
 - PDF export
 - Supervisor reports
 - Daily operational exports
+- Notification system
+- Expiration alerts
+- Operational dashboard widgets
 
 ---
 
@@ -504,6 +610,8 @@ Planned improvements:
 - Operational redundancy tool
 - Structured data capture platform
 - Supervisor oversight tool
+- Crew planning platform
+- EMS operational support layer
 
 ---
 
@@ -532,7 +640,7 @@ Implemented operational flow:
 ```txt
 Authentication
 ↓
-Dispatcher Assignment
+Role-Based Navigation
 ↓
 Call Intake
 ↓
@@ -540,15 +648,17 @@ Validation
 ↓
 Quality Tracking
 ↓
-Storage
+Patient Management
 ↓
 Call History
-↓
-Supervisor Analytics
 ↓
 Employee Management
 ↓
 Crew Planning
+↓
+Crew Presets
+↓
+Supervisor Analytics
 ```
 
 Core operational functionality is working.
@@ -562,13 +672,20 @@ Completed major milestones:
 - Structured quality tracking
 - Backend employee management
 - Crew Planner backend integration
+- Crew preset system
 - Certification validation system
+- Backend staffing persistence
 
-Next major phase:
+---
 
-- User management
-- Backend unit storage
-- Audit trail system
-- Shift scheduling
-- Secure authentication
-- HIPAA-aware backend architecture
+# Long-Term Direction
+
+The long-term goal is to evolve EMS Workflow System into a modular EMS operations platform with reusable operational components that can later support:
+
+- EMS
+- Medical transport
+- Logistics
+- Scheduling
+- Staffing
+- Dispatch operations
+- Operational redundancy systems
