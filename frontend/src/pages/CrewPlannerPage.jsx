@@ -9,6 +9,11 @@ import {
   updateCrewUnit,
 } from "../api/crewApi";
 
+import {
+  createCrewPreset,
+  getCrewPresets,
+} from "../api/crewPresetApi";
+
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
 const getTodayDate = () => new Date().toISOString().split("T")[0];
@@ -41,6 +46,11 @@ function CrewPlannerPage() {
   const [unitsLoading, setUnitsLoading] = useState(false);
   const [unitsError, setUnitsError] = useState("");
   const [unitsMessage, setUnitsMessage] = useState("");
+
+  const [crewPresets, setCrewPresets] = useState([]);
+  const [presetsLoading, setPresetsLoading] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [presetName, setPresetName] = useState("");
 
   const [unitForm, setUnitForm] = useState({
     ...initialUnitForm,
@@ -83,8 +93,23 @@ function CrewPlannerPage() {
     }
   };
 
+  const loadCrewPresets = async () => {
+    setPresetsLoading(true);
+
+    try {
+      const data = await getCrewPresets();
+      setCrewPresets(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load crew presets:", error);
+      setCrewPresets([]);
+    } finally {
+      setPresetsLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadEmployees();
+    loadCrewPresets();
   }, []);
 
   useEffect(() => {
@@ -197,6 +222,16 @@ function CrewPlannerPage() {
     );
   };
 
+  const getEmployeeName = (employeeId) => {
+    const employee = getEmployeeById(employeeId);
+
+    if (!employee) {
+      return "Not assigned";
+    }
+
+    return `${employee.firstName} ${employee.lastName}`;
+  };
+
   const isEmployeeEligibleForRole = (employee, role, unitType) => {
     if (!employee.isActive) {
       return false;
@@ -295,6 +330,65 @@ function CrewPlannerPage() {
     }));
   };
 
+  const handleApplyPreset = (presetId) => {
+    setSelectedPresetId(presetId);
+
+    if (!presetId) {
+      return;
+    }
+
+    const preset = crewPresets.find(
+      (item) => String(item.id) === String(presetId)
+    );
+
+    if (!preset) {
+      return;
+    }
+
+    setUnitForm((prev) => ({
+      ...prev,
+      unitType: preset.unitType || prev.unitType,
+      crew: {
+        driver: preset.crew?.driver || "",
+        medical: preset.crew?.medical || "",
+        assist1: preset.crew?.assist1 || "",
+        assist2: preset.crew?.assist2 || "",
+      },
+    }));
+  };
+
+  const handleSavePreset = async () => {
+    if (!presetName.trim()) {
+      alert("Preset Name is required.");
+      return;
+    }
+
+    if (!unitForm.crew.driver && !unitForm.crew.medical) {
+      alert("Select at least one crew member before saving a preset.");
+      return;
+    }
+
+    setUnitsError("");
+    setUnitsMessage("");
+
+    try {
+      await createCrewPreset({
+        presetName: presetName.trim(),
+        unitType: unitForm.unitType,
+        crew: { ...unitForm.crew },
+        notes: "",
+      });
+
+      setPresetName("");
+      setUnitsMessage("Crew preset created successfully.");
+
+      await loadCrewPresets();
+    } catch (error) {
+      console.error("Failed to create crew preset:", error);
+      setUnitsError(error.message || "Failed to create crew preset.");
+    }
+  };
+
   const handleFirstPatientChange = (event) => {
     setUnitForm((prev) => ({
       ...prev,
@@ -346,6 +440,7 @@ function CrewPlannerPage() {
     });
 
     setEditingUnitId(null);
+    setSelectedPresetId("");
   };
 
   const handleEditUnit = (unit) => {
@@ -369,6 +464,7 @@ function CrewPlannerPage() {
           : [""],
     });
 
+    setSelectedPresetId("");
     setUnitsMessage("");
     setUnitsError("");
 
@@ -501,7 +597,6 @@ function CrewPlannerPage() {
       firstPatient: unitForm.firstPatient.trim(),
       nextPatients: cleanedNextPatients,
       notes: "",
-
       createdAt: existingUnit?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -571,16 +666,6 @@ function CrewPlannerPage() {
     }
   };
 
-  const getEmployeeName = (employeeId) => {
-    const employee = getEmployeeById(employeeId);
-
-    if (!employee) {
-      return "Not assigned";
-    }
-
-    return `${employee.firstName} ${employee.lastName}`;
-  };
-
   const renderCrewSelect = (role, label) => {
     const availableEmployees = getAvailableEmployeesForRole(role);
     const selectedEmployeeId = unitForm.crew[role];
@@ -633,7 +718,9 @@ function CrewPlannerPage() {
         </p>
       </div>
 
-      {employeesError && <div className="alert alert-danger">{employeesError}</div>}
+      {employeesError && (
+        <div className="alert alert-danger">{employeesError}</div>
+      )}
 
       {unitsError && <div className="alert alert-danger">{unitsError}</div>}
 
@@ -645,8 +732,8 @@ function CrewPlannerPage() {
         <h5 className="mb-2">Current Stage</h5>
 
         <p className="mb-0">
-          Crew Planner now loads employees and planned units from the backend
-          API. Planned units are stored by shift date.
+          Crew Planner stores planned units by shift date and supports reusable
+          crew presets.
         </p>
       </div>
 
@@ -751,7 +838,9 @@ function CrewPlannerPage() {
             {editingUnitId ? "Edit Unit" : "Create New Unit"}
           </h5>
 
-          {editingUnitId && <span className="badge text-bg-info">Editing Mode</span>}
+          {editingUnitId && (
+            <span className="badge text-bg-info">Editing Mode</span>
+          )}
         </div>
 
         <div className="card-body">
@@ -802,7 +891,10 @@ function CrewPlannerPage() {
                 </div>
 
                 <div className="col-md-3">
-                  <label htmlFor="truckNumber" className="form-label fw-semibold">
+                  <label
+                    htmlFor="truckNumber"
+                    className="form-label fw-semibold"
+                  >
                     Truck Number
                   </label>
 
@@ -838,6 +930,67 @@ function CrewPlannerPage() {
                   <h5 className="mb-0">Crew Assignment</h5>
                 </div>
 
+                <div className="col-12">
+                  <div className="card bg-light border-0">
+                    <div className="card-body">
+                      <h6 className="mb-3">Crew Presets</h6>
+
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="form-label fw-semibold">
+                            Apply Existing Preset
+                          </label>
+
+                          <select
+                            className="form-select"
+                            value={selectedPresetId}
+                            onChange={(event) =>
+                              handleApplyPreset(event.target.value)
+                            }
+                            disabled={presetsLoading || unitsLoading}
+                          >
+                            <option value="">Select preset...</option>
+
+                            {crewPresets.map((preset) => (
+                              <option key={preset.id} value={preset.id}>
+                                {preset.presetName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label fw-semibold">
+                            Save Current Crew as Preset
+                          </label>
+
+                          <div className="d-flex gap-2">
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Preset name..."
+                              value={presetName}
+                              onChange={(event) =>
+                                setPresetName(event.target.value)
+                              }
+                              disabled={presetsLoading || unitsLoading}
+                            />
+
+                            <button
+                              type="button"
+                              className="btn btn-outline-success"
+                              onClick={handleSavePreset}
+                              disabled={presetsLoading || unitsLoading}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {renderCrewSelect("driver", "Driver")}
 
                 {isMedicalSlotVisible(unitForm.unitType) &&
@@ -856,7 +1009,10 @@ function CrewPlannerPage() {
                 </div>
 
                 <div className="col-12">
-                  <label htmlFor="firstPatient" className="form-label fw-semibold">
+                  <label
+                    htmlFor="firstPatient"
+                    className="form-label fw-semibold"
+                  >
                     First Patient
                     <span className="badge text-bg-danger ms-2">Required</span>
                   </label>

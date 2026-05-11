@@ -10,6 +10,7 @@ from models import (
     User,
     Employee,
     DailyCrewUnit,
+    CrewPreset,
 )
 
 app = Flask(__name__)
@@ -25,7 +26,6 @@ db.init_app(app)
 
 @app.route("/")
 def home():
-    # Basic root endpoint used to confirm that the backend is running.
     return jsonify({
         "message": "EMS Workflow System backend is running"
     })
@@ -33,7 +33,6 @@ def home():
 
 @app.route("/api/health")
 def health_check():
-    # Health check endpoint for quick backend testing.
     return jsonify({
         "status": "ok",
         "service": "ems-workflow-system-backend"
@@ -45,7 +44,6 @@ def health_check():
 # =========================
 
 def split_missing_fields(value):
-    # Convert stored text data into a clean list of missing fields.
     if not value:
         return []
 
@@ -57,8 +55,6 @@ def split_missing_fields(value):
 
 
 def create_default_users():
-    # Seed default MVP users only if they do not already exist.
-    # These users are for local development and testing only.
     default_users = [
         {
             "username": "admin",
@@ -99,14 +95,57 @@ def create_default_users():
     db.session.commit()
 
 
+def normalize_license_data(data, license_key):
+    license_data = data.get(license_key) or {}
+
+    return {
+        "has_license": bool(license_data.get("hasLicense", False)),
+        "license_name": license_data.get("licenseName", ""),
+        "expiration_date": license_data.get("expirationDate", ""),
+    }
+
+
+def apply_employee_data(employee, data):
+    employee.first_name = data.get("firstName", "").strip()
+    employee.last_name = data.get("lastName", "").strip()
+    employee.phone = data.get("phone", "").strip()
+    employee.is_active = bool(data.get("isActive", True))
+    employee.notes = data.get("notes", "").strip()
+
+    cpr = normalize_license_data(data, "cpr")
+    employee.cpr_has_license = cpr["has_license"]
+    employee.cpr_license_name = cpr["license_name"]
+    employee.cpr_expiration_date = cpr["expiration_date"]
+
+    evoc = normalize_license_data(data, "evoc")
+    employee.evoc_has_license = evoc["has_license"]
+    employee.evoc_license_name = evoc["license_name"]
+    employee.evoc_expiration_date = evoc["expiration_date"]
+
+    emt = normalize_license_data(data, "emt")
+    employee.emt_has_license = emt["has_license"]
+    employee.emt_license_name = emt["license_name"]
+    employee.emt_expiration_date = emt["expiration_date"]
+
+    paramedic = normalize_license_data(data, "paramedic")
+    employee.paramedic_has_license = paramedic["has_license"]
+    employee.paramedic_license_name = paramedic["license_name"]
+    employee.paramedic_expiration_date = paramedic["expiration_date"]
+
+
+def parse_optional_employee_id(value):
+    if value:
+        return int(value)
+
+    return None
+
+
 # =========================
 # AUTH ROUTES
 # =========================
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
-    # Basic MVP login endpoint.
-    # The frontend stores returned user data in localStorage.
     data = request.get_json()
 
     if not data:
@@ -137,8 +176,6 @@ def login():
 
 @app.route("/api/auth/users", methods=["GET"])
 def get_users():
-    # Return all users for MVP admin visibility.
-    # Later this route should be protected by role-based backend middleware.
     users = User.query.order_by(User.id.asc()).all()
 
     return jsonify([user.to_dict() for user in users])
@@ -146,8 +183,6 @@ def get_users():
 
 @app.route("/api/auth/users", methods=["POST"])
 def create_user():
-    # Create a new application user account.
-    # User accounts are separate from employee staffing records.
     data = request.get_json()
 
     if not data:
@@ -194,8 +229,6 @@ def create_user():
 
 @app.route("/api/auth/users/<int:id>", methods=["PUT"])
 def update_user(id):
-    # Update an existing application user.
-    # Password is changed only when a new non-empty password is provided.
     data = request.get_json()
 
     if not data:
@@ -246,7 +279,6 @@ def update_user(id):
 
 @app.route("/api/auth/users/<int:id>/toggle-active", methods=["PATCH"])
 def toggle_user_active(id):
-    # Activate or deactivate a user without deleting the account.
     user = User.query.get(id)
 
     if not user:
@@ -263,51 +295,6 @@ def toggle_user_active(id):
 
     return jsonify(user.to_dict())
 
-# =========================
-# EMPLOYEE HELPER FUNCTIONS
-# =========================
-
-def normalize_license_data(data, license_key):
-    # Read nested license data from frontend payload.
-    # Example structure:
-    # "cpr": {"hasLicense": true, "licenseName": "CPR", "expirationDate": "2027-12-31"}
-    license_data = data.get(license_key) or {}
-
-    return {
-        "has_license": bool(license_data.get("hasLicense", False)),
-        "license_name": license_data.get("licenseName", ""),
-        "expiration_date": license_data.get("expirationDate", ""),
-    }
-
-
-def apply_employee_data(employee, data):
-    # Apply employee JSON data to SQLAlchemy Employee fields.
-    employee.first_name = data.get("firstName", "").strip()
-    employee.last_name = data.get("lastName", "").strip()
-    employee.phone = data.get("phone", "").strip()
-    employee.is_active = bool(data.get("isActive", True))
-    employee.notes = data.get("notes", "").strip()
-
-    cpr = normalize_license_data(data, "cpr")
-    employee.cpr_has_license = cpr["has_license"]
-    employee.cpr_license_name = cpr["license_name"]
-    employee.cpr_expiration_date = cpr["expiration_date"]
-
-    evoc = normalize_license_data(data, "evoc")
-    employee.evoc_has_license = evoc["has_license"]
-    employee.evoc_license_name = evoc["license_name"]
-    employee.evoc_expiration_date = evoc["expiration_date"]
-
-    emt = normalize_license_data(data, "emt")
-    employee.emt_has_license = emt["has_license"]
-    employee.emt_license_name = emt["license_name"]
-    employee.emt_expiration_date = emt["expiration_date"]
-
-    paramedic = normalize_license_data(data, "paramedic")
-    employee.paramedic_has_license = paramedic["has_license"]
-    employee.paramedic_license_name = paramedic["license_name"]
-    employee.paramedic_expiration_date = paramedic["expiration_date"]
-
 
 # =========================
 # EMPLOYEE ROUTES
@@ -315,7 +302,6 @@ def apply_employee_data(employee, data):
 
 @app.route("/api/employees", methods=["GET"])
 def get_employees():
-    # Return all employees from the backend database.
     employees = Employee.query.order_by(
         Employee.last_name.asc(),
         Employee.first_name.asc()
@@ -326,7 +312,6 @@ def get_employees():
 
 @app.route("/api/employees", methods=["POST"])
 def create_employee():
-    # Create a new employee record from JSON request data.
     data = request.get_json()
 
     if not data:
@@ -349,7 +334,6 @@ def create_employee():
 
 @app.route("/api/employees/<int:id>", methods=["PUT"])
 def update_employee(id):
-    # Update an existing employee record.
     employee = Employee.query.get(id)
 
     if not employee:
@@ -375,7 +359,6 @@ def update_employee(id):
 
 @app.route("/api/employees/<int:id>", methods=["DELETE"])
 def delete_employee(id):
-    # Delete an existing employee record.
     employee = Employee.query.get(id)
 
     if not employee:
@@ -386,18 +369,17 @@ def delete_employee(id):
 
     return jsonify({"message": "Employee deleted"})
 
+
 # =========================
 # DAILY CREW ROUTES
 # =========================
 
 @app.route("/api/crew-units", methods=["GET"])
 def get_daily_crew_units():
-    # Optional date filter.
     shift_date = request.args.get("shift_date", "").strip()
 
     query = DailyCrewUnit.query
 
-    # Filter by shift date.
     if shift_date:
         query = query.filter(
             DailyCrewUnit.shift_date == shift_date
@@ -413,57 +395,43 @@ def get_daily_crew_units():
 
 @app.route("/api/crew-units", methods=["POST"])
 def create_daily_crew_unit():
-    # Create a new planned crew unit.
     data = request.get_json()
 
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
     shift_date = data.get("shiftDate", "").strip()
+    truck_number = data.get("truckNumber", "").strip()
+    start_time = data.get("startTime", "").strip()
+    first_patient = data.get("firstPatient", "").strip()
 
     if not shift_date:
         return jsonify({"error": "Shift date is required"}), 400
 
-    if not data.get("truckNumber", "").strip():
+    if not truck_number:
         return jsonify({"error": "Truck Number is required"}), 400
 
-    if not data.get("startTime", "").strip():
+    if not start_time:
         return jsonify({"error": "Start Time is required"}), 400
 
-    if not data.get("firstPatient", "").strip():
+    if not first_patient:
         return jsonify({"error": "First Patient is required"}), 400
 
     crew = data.get("crew") or {}
 
     unit = DailyCrewUnit(
         shift_date=shift_date,
-
         unit_type=data.get("unitType", "BLS"),
-        truck_number=data.get("truckNumber", "").strip(),
-        start_time=data.get("startTime", "").strip(),
+        truck_number=truck_number,
+        start_time=start_time,
 
-        driver_id=int(crew["driver"])
-        if crew.get("driver")
-        else None,
+        driver_id=parse_optional_employee_id(crew.get("driver")),
+        medical_id=parse_optional_employee_id(crew.get("medical")),
+        assist1_id=parse_optional_employee_id(crew.get("assist1")),
+        assist2_id=parse_optional_employee_id(crew.get("assist2")),
 
-        medical_id=int(crew["medical"])
-        if crew.get("medical")
-        else None,
-
-        assist1_id=int(crew["assist1"])
-        if crew.get("assist1")
-        else None,
-
-        assist2_id=int(crew["assist2"])
-        if crew.get("assist2")
-        else None,
-
-        first_patient=data.get("firstPatient", "").strip(),
-
-        next_patients=json.dumps(
-            data.get("nextPatients", [])
-        ),
-
+        first_patient=first_patient,
+        next_patients=json.dumps(data.get("nextPatients", [])),
         notes=data.get("notes", "").strip(),
 
         created_at=data.get("createdAt"),
@@ -478,7 +446,6 @@ def create_daily_crew_unit():
 
 @app.route("/api/crew-units/<int:id>", methods=["PUT"])
 def update_daily_crew_unit(id):
-    # Update an existing planned crew unit.
     unit = DailyCrewUnit.query.get(id)
 
     if not unit:
@@ -492,46 +459,18 @@ def update_daily_crew_unit(id):
     crew = data.get("crew") or {}
 
     unit.shift_date = data.get("shiftDate", "").strip()
-
     unit.unit_type = data.get("unitType", "BLS")
     unit.truck_number = data.get("truckNumber", "").strip()
     unit.start_time = data.get("startTime", "").strip()
 
-    unit.driver_id = (
-        int(crew["driver"])
-        if crew.get("driver")
-        else None
-    )
+    unit.driver_id = parse_optional_employee_id(crew.get("driver"))
+    unit.medical_id = parse_optional_employee_id(crew.get("medical"))
+    unit.assist1_id = parse_optional_employee_id(crew.get("assist1"))
+    unit.assist2_id = parse_optional_employee_id(crew.get("assist2"))
 
-    unit.medical_id = (
-        int(crew["medical"])
-        if crew.get("medical")
-        else None
-    )
-
-    unit.assist1_id = (
-        int(crew["assist1"])
-        if crew.get("assist1")
-        else None
-    )
-
-    unit.assist2_id = (
-        int(crew["assist2"])
-        if crew.get("assist2")
-        else None
-    )
-
-    unit.first_patient = data.get(
-        "firstPatient",
-        ""
-    ).strip()
-
-    unit.next_patients = json.dumps(
-        data.get("nextPatients", [])
-    )
-
+    unit.first_patient = data.get("firstPatient", "").strip()
+    unit.next_patients = json.dumps(data.get("nextPatients", []))
     unit.notes = data.get("notes", "").strip()
-
     unit.updated_at = data.get("updatedAt")
 
     db.session.commit()
@@ -541,7 +480,6 @@ def update_daily_crew_unit(id):
 
 @app.route("/api/crew-units/<int:id>", methods=["DELETE"])
 def delete_daily_crew_unit(id):
-    # Delete a planned crew unit.
     unit = DailyCrewUnit.query.get(id)
 
     if not unit:
@@ -550,9 +488,101 @@ def delete_daily_crew_unit(id):
     db.session.delete(unit)
     db.session.commit()
 
-    return jsonify({
-        "message": "Crew unit deleted"
-    })
+    return jsonify({"message": "Crew unit deleted"})
+
+
+# =========================
+# CREW PRESET ROUTES
+# =========================
+
+@app.route("/api/crew-presets", methods=["GET"])
+def get_crew_presets():
+    presets = CrewPreset.query.order_by(
+        CrewPreset.preset_name.asc(),
+        CrewPreset.id.asc()
+    ).all()
+
+    return jsonify([preset.to_dict() for preset in presets])
+
+
+@app.route("/api/crew-presets", methods=["POST"])
+def create_crew_preset():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    preset_name = data.get("presetName", "").strip()
+
+    if not preset_name:
+        return jsonify({"error": "Preset name is required"}), 400
+
+    crew = data.get("crew") or {}
+
+    preset = CrewPreset(
+        preset_name=preset_name,
+        unit_type=data.get("unitType", "BLS"),
+
+        driver_id=parse_optional_employee_id(crew.get("driver")),
+        medical_id=parse_optional_employee_id(crew.get("medical")),
+        assist1_id=parse_optional_employee_id(crew.get("assist1")),
+        assist2_id=parse_optional_employee_id(crew.get("assist2")),
+
+        notes=data.get("notes", "").strip(),
+    )
+
+    db.session.add(preset)
+    db.session.commit()
+
+    return jsonify(preset.to_dict()), 201
+
+
+@app.route("/api/crew-presets/<int:id>", methods=["PUT"])
+def update_crew_preset(id):
+    preset = CrewPreset.query.get(id)
+
+    if not preset:
+        return jsonify({"error": "Crew preset not found"}), 404
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    preset_name = data.get("presetName", "").strip()
+
+    if not preset_name:
+        return jsonify({"error": "Preset name is required"}), 400
+
+    crew = data.get("crew") or {}
+
+    preset.preset_name = preset_name
+    preset.unit_type = data.get("unitType", "BLS")
+
+    preset.driver_id = parse_optional_employee_id(crew.get("driver"))
+    preset.medical_id = parse_optional_employee_id(crew.get("medical"))
+    preset.assist1_id = parse_optional_employee_id(crew.get("assist1"))
+    preset.assist2_id = parse_optional_employee_id(crew.get("assist2"))
+
+    preset.notes = data.get("notes", "").strip()
+
+    db.session.commit()
+
+    return jsonify(preset.to_dict())
+
+
+@app.route("/api/crew-presets/<int:id>", methods=["DELETE"])
+def delete_crew_preset(id):
+    preset = CrewPreset.query.get(id)
+
+    if not preset:
+        return jsonify({"error": "Crew preset not found"}), 404
+
+    db.session.delete(preset)
+    db.session.commit()
+
+    return jsonify({"message": "Crew preset deleted"})
+
 
 # =========================
 # PATIENT ROUTES
@@ -560,13 +590,11 @@ def delete_daily_crew_unit(id):
 
 @app.route("/api/patients", methods=["GET"])
 def get_patients():
-    # Optional query parameters for backend-side filtering.
     name = request.args.get("name", "").strip()
     dob = request.args.get("dob", "").strip()
 
     query = Patient.query
 
-    # Filter by first name or last name.
     if name:
         query = query.filter(
             db.or_(
@@ -575,7 +603,6 @@ def get_patients():
             )
         )
 
-    # Filter by exact date of birth.
     if dob:
         query = query.filter(Patient.dob == dob)
 
@@ -586,7 +613,6 @@ def get_patients():
 
 @app.route("/api/patients", methods=["POST"])
 def create_patient():
-    # Create a new patient record from JSON request data.
     data = request.get_json()
 
     if not data:
@@ -595,7 +621,6 @@ def create_patient():
     first_name = data.get("first_name")
     last_name = data.get("last_name")
 
-    # Minimal required field validation.
     if not first_name or not last_name:
         return jsonify({"error": "first_name and last_name are required"}), 400
 
@@ -641,7 +666,6 @@ def create_patient():
 
 @app.route("/api/patient/<int:id>", methods=["GET"])
 def get_patient(id):
-    # Return one patient by ID.
     patient = Patient.query.get(id)
 
     if not patient:
@@ -652,7 +676,6 @@ def get_patient(id):
 
 @app.route("/api/patient/<int:id>", methods=["PUT"])
 def update_patient(id):
-    # Update an existing patient record.
     patient = Patient.query.get(id)
 
     if not patient:
@@ -663,7 +686,6 @@ def update_patient(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Update all existing model fields dynamically.
     for key, value in data.items():
         if hasattr(patient, key):
             setattr(patient, key, value)
@@ -675,7 +697,6 @@ def update_patient(id):
 
 @app.route("/api/patient/<int:id>", methods=["DELETE"])
 def delete_patient(id):
-    # Delete an existing patient record.
     patient = Patient.query.get(id)
 
     if not patient:
@@ -693,7 +714,6 @@ def delete_patient(id):
 
 @app.route("/api/calls", methods=["GET"])
 def get_calls():
-    # Optional query parameters for call filtering.
     date_of_call = request.args.get("date_of_call", "").strip()
     dispatcher_name = request.args.get("dispatcher_name", "").strip()
 
@@ -702,23 +722,19 @@ def get_calls():
 
     query = Call.query
 
-    # Filter calls by the date when the call was received.
     if date_of_call:
         query = query.filter(Call.date_of_call == date_of_call)
 
-    # Filter calls by dispatcher name.
     if dispatcher_name:
         query = query.filter(
             Call.dispatcher_name.ilike(f"%{dispatcher_name}%")
         )
 
-    # Filter calls by minimum quality score.
     if min_quality_score:
         query = query.filter(
             Call.quality_score >= int(min_quality_score)
         )
 
-    # Filter calls by maximum quality score.
     if max_quality_score:
         query = query.filter(
             Call.quality_score <= int(max_quality_score)
@@ -731,40 +747,31 @@ def get_calls():
 
 @app.route("/api/calls", methods=["POST"])
 def create_call():
-    # Create a new call record from JSON request data.
     data = request.get_json()
 
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
     new_call = Call(
-        # Patient link.
         patient_id=data.get("patient_id"),
-
-        # Dispatcher information.
         dispatcher_name=data.get("dispatcher_name"),
 
-        # Call metadata.
         date_of_call=data.get("date_of_call"),
         trip_date=data.get("trip_date"),
         pickup_time=data.get("pickup_time"),
 
-        # Trip details.
         pickup_address=data.get("pickup_address"),
         dropoff_address=data.get("dropoff_address"),
 
-        # Operational fields.
         caller_type=data.get("caller_type"),
         call_type=data.get("call_type"),
         service_level=data.get("service_level"),
 
-        # Quality tracking.
         quality_score=data.get("quality_score"),
         missing_critical_fields=data.get("missing_critical_fields"),
         missing_optional_fields=data.get("missing_optional_fields"),
         missing_info_explanation=data.get("missing_info_explanation"),
 
-        # General notes.
         notes=data.get("notes"),
     )
 
@@ -776,7 +783,6 @@ def create_call():
 
 @app.route("/api/patient/<int:id>/calls", methods=["GET"])
 def get_patient_calls(id):
-    # Return all call records linked to a specific patient.
     patient = Patient.query.get(id)
 
     if not patient:
@@ -798,7 +804,6 @@ def get_patient_calls(id):
 
 @app.route("/api/analytics/dispatchers", methods=["GET"])
 def get_dispatcher_analytics():
-    # Return basic supervisor analytics grouped by dispatcher name.
     calls = Call.query.all()
 
     analytics = {}
@@ -872,7 +877,6 @@ def get_dispatcher_analytics():
 # INIT DB
 # =========================
 
-# Create database tables automatically for MVP development.
 with app.app_context():
     db.create_all()
     create_default_users()

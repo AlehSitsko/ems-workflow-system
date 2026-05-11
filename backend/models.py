@@ -180,7 +180,37 @@ class DailyCrewUnit(db.Model):
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
+class CrewPreset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
 
+    # Preset name shown in the UI.
+    preset_name = db.Column(db.String(150), nullable=False)
+
+    # Default unit type for this crew.
+    unit_type = db.Column(db.String(50), nullable=False, default="BLS")
+
+    # Saved crew composition.
+    driver_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+    medical_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+    assist1_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+    assist2_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+
+    # Optional notes.
+    notes = db.Column(db.Text)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "presetName": self.preset_name,
+            "unitType": self.unit_type,
+            "crew": {
+                "driver": str(self.driver_id) if self.driver_id else "",
+                "medical": str(self.medical_id) if self.medical_id else "",
+                "assist1": str(self.assist1_id) if self.assist1_id else "",
+                "assist2": str(self.assist2_id) if self.assist2_id else "",
+            },
+            "notes": self.notes or "",
+        }
 
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
