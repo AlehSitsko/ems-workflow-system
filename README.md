@@ -471,15 +471,6 @@ dev
 
 ---
 
-## Rules
-
-- Never work directly in `main`
-- Develop new features in `dev`
-- Test before merge
-- Use English comments only
-- Keep frontend and backend separated
-
----
 
 # Current Development Direction
 
