@@ -2,20 +2,17 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { getEmployees } from "../api/employeesApi";
 
-/*
-  localStorage key for saved units.
-  Units are still stored locally during MVP stage.
-*/
-const UNITS_STORAGE_KEY = "planned_units";
+import {
+  createCrewUnit,
+  deleteCrewUnit,
+  getCrewUnits,
+  updateCrewUnit,
+} from "../api/crewApi";
 
-/*
-  Supported unit types.
-*/
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
-/*
-  Empty crew structure for a new unit form.
-*/
+const getTodayDate = () => new Date().toISOString().split("T")[0];
+
 const initialCrew = {
   driver: "",
   medical: "",
@@ -23,10 +20,8 @@ const initialCrew = {
   assist2: "",
 };
 
-/*
-  Empty unit form state.
-*/
 const initialUnitForm = {
+  shiftDate: getTodayDate(),
   unitType: "BLS",
   truckNumber: "",
   startTime: "",
@@ -36,92 +31,73 @@ const initialUnitForm = {
 };
 
 function CrewPlannerPage() {
-  /*
-    Employee list is now loaded from backend API.
-  */
   const [employees, setEmployees] = useState([]);
-
-  /*
-    Loading state for backend employee fetch.
-  */
   const [employeesLoading, setEmployeesLoading] = useState(false);
-
-  /*
-    Error state for backend employee fetch.
-  */
   const [employeesError, setEmployeesError] = useState("");
 
-  /*
-    Saved units remain local during MVP stage.
-  */
-  const [units, setUnits] = useState(() => {
-    try {
-      const savedUnits = localStorage.getItem(UNITS_STORAGE_KEY);
+  const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
-      if (!savedUnits) {
-        return [];
-      }
+  const [units, setUnits] = useState([]);
+  const [unitsLoading, setUnitsLoading] = useState(false);
+  const [unitsError, setUnitsError] = useState("");
+  const [unitsMessage, setUnitsMessage] = useState("");
 
-      const parsedUnits = JSON.parse(savedUnits);
-
-      return Array.isArray(parsedUnits) ? parsedUnits : [];
-    } catch (error) {
-      console.error("Failed to load units from localStorage:", error);
-      return [];
-    }
+  const [unitForm, setUnitForm] = useState({
+    ...initialUnitForm,
+    shiftDate: selectedDate,
   });
 
-  /*
-    Form state for creating or editing a unit.
-  */
-  const [unitForm, setUnitForm] = useState(initialUnitForm);
-
-  /*
-    Tracks edit mode.
-  */
   const [editingUnitId, setEditingUnitId] = useState(null);
 
-  /*
-    Load employees from backend API.
-  */
+  const loadEmployees = async () => {
+    setEmployeesLoading(true);
+    setEmployeesError("");
+
+    try {
+      const data = await getEmployees();
+      setEmployees(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load employees:", error);
+      setEmployees([]);
+      setEmployeesError(
+        error.message || "Failed to load employees from backend."
+      );
+    } finally {
+      setEmployeesLoading(false);
+    }
+  };
+
+  const loadUnits = async () => {
+    setUnitsLoading(true);
+    setUnitsError("");
+
+    try {
+      const data = await getCrewUnits(selectedDate);
+      setUnits(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load crew units:", error);
+      setUnits([]);
+      setUnitsError(error.message || "Failed to load crew units.");
+    } finally {
+      setUnitsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadEmployees = async () => {
-      setEmployeesLoading(true);
-      setEmployeesError("");
-
-      try {
-        const data = await getEmployees();
-
-        setEmployees(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to load employees:", error);
-
-        setEmployees([]);
-        setEmployeesError(
-          error.message || "Failed to load employees from backend."
-        );
-      } finally {
-        setEmployeesLoading(false);
-      }
-    };
-
     loadEmployees();
   }, []);
 
-  /*
-    Save units every time the unit list changes.
-  */
   useEffect(() => {
-    try {
-      localStorage.setItem(UNITS_STORAGE_KEY, JSON.stringify(units));
-    } catch (error) {
-      console.error("Failed to save units to localStorage:", error);
-    }
-  }, [units]);
+    loadUnits();
 
-  /*
-    Normalizes a license object to avoid crashes.
-  */
+    setUnitForm((prev) => ({
+      ...prev,
+      shiftDate: selectedDate,
+    }));
+
+    setEditingUnitId(null);
+  }, [selectedDate]);
+
   const normalizeLicense = (license) => {
     if (!license) {
       return {
@@ -138,9 +114,6 @@ function CrewPlannerPage() {
     };
   };
 
-  /*
-    Returns human-readable status for certifications.
-  */
   const getLicenseStatus = (license) => {
     const normalizedLicense = normalizeLicense(license);
 
@@ -153,16 +126,12 @@ function CrewPlannerPage() {
     }
 
     const today = new Date();
-
     const expirationDate = new Date(
       `${normalizedLicense.expirationDate}T23:59:59`
     );
 
     const diffInMs = expirationDate - today;
-
-    const diffInDays = Math.ceil(
-      diffInMs / (1000 * 60 * 60 * 24)
-    );
+    const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
 
     if (diffInDays < 0) {
       return "Expired";
@@ -175,31 +144,8 @@ function CrewPlannerPage() {
     return "Active";
   };
 
-  /*
-    Maps status names to Bootstrap badge classes.
-  */
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case "Active":
-        return "text-bg-success";
-
-      case "Expiring Soon":
-        return "text-bg-warning";
-
-      case "Expired":
-        return "text-bg-danger";
-
-      default:
-        return "text-bg-secondary";
-    }
-  };
-
-  /*
-    CPR warning helper.
-  */
   const getCprWarning = (employee) => {
     const cpr = normalizeLicense(employee.cpr);
-
     const cprStatus = getLicenseStatus(cpr);
 
     if (!cpr.hasLicense) {
@@ -217,66 +163,41 @@ function CrewPlannerPage() {
     return "";
   };
 
-  /*
-    Returns label for medical slot.
-  */
   const getMedicalSlotLabel = (unitType) => {
     switch (unitType) {
       case "ALS":
         return "Paramedic";
-
       case "BLS":
         return "EMT";
-
       case "ASSIST":
       default:
         return "Medical Slot";
     }
   };
 
-  /*
-    Returns whether medical slot should be shown.
-  */
   const isMedicalSlotVisible = (unitType) => {
     return unitType === "ALS" || unitType === "BLS";
   };
 
-  /*
-    Returns whether role is required.
-  */
   const isRoleRequired = (unitType, role) => {
     switch (unitType) {
       case "ALS":
-        return role === "driver" || role === "medical";
-
       case "BLS":
         return role === "driver" || role === "medical";
-
       case "ASSIST":
         return role === "driver";
-
       default:
         return false;
     }
   };
 
-  /*
-    Find employee by id.
-  */
   const getEmployeeById = (employeeId) => {
     return employees.find(
       (employee) => String(employee.id) === String(employeeId)
     );
   };
 
-  /*
-    Eligibility validation for crew roles.
-  */
-  const isEmployeeEligibleForRole = (
-    employee,
-    role,
-    unitType
-  ) => {
+  const isEmployeeEligibleForRole = (employee, role, unitType) => {
     if (!employee.isActive) {
       return false;
     }
@@ -304,84 +225,57 @@ function CrewPlannerPage() {
     return false;
   };
 
-  /*
-    Prevent duplicate assignment inside same unit.
-  */
   const getSelectedEmployeeIds = (currentRole) => {
     return Object.entries(unitForm.crew)
-      .filter(
-        ([role, employeeId]) =>
-          role !== currentRole && employeeId
-      )
+      .filter(([role, employeeId]) => role !== currentRole && employeeId)
       .map(([, employeeId]) => String(employeeId));
   };
 
-  /*
-    Returns assignments in other units.
-  */
-  const getEmployeeAssignmentsInOtherUnits = (
-    employeeId
-  ) => {
+  const getEmployeeAssignmentsInOtherUnits = (employeeId) => {
     const normalizedEmployeeId = String(employeeId);
-
     const assignments = [];
 
     units.forEach((unit) => {
-      if (
-        editingUnitId &&
-        String(unit.id) === String(editingUnitId)
-      ) {
+      if (editingUnitId && String(unit.id) === String(editingUnitId)) {
         return;
       }
 
-      Object.entries(unit.crew || {}).forEach(
-        ([role, assignedEmployeeId]) => {
-          if (
-            String(assignedEmployeeId) ===
-            normalizedEmployeeId
-          ) {
-            assignments.push({
-              unitId: unit.id,
-              truckNumber: unit.truckNumber,
-              unitType: unit.unitType,
-              startTime: unit.startTime,
-              role,
-            });
-          }
+      Object.entries(unit.crew || {}).forEach(([role, assignedEmployeeId]) => {
+        if (String(assignedEmployeeId) === normalizedEmployeeId) {
+          assignments.push({
+            unitId: unit.id,
+            truckNumber: unit.truckNumber,
+            unitType: unit.unitType,
+            startTime: unit.startTime,
+            role,
+          });
         }
-      );
+      });
     });
 
     return assignments;
   };
 
-  /*
-    Returns available employees for role.
-  */
   const getAvailableEmployeesForRole = (role) => {
-    const selectedElsewhereInCurrentUnit =
-      getSelectedEmployeeIds(role);
+    const selectedElsewhereInCurrentUnit = getSelectedEmployeeIds(role);
 
     return employees.filter((employee) => {
       const employeeId = String(employee.id);
 
-      if (
-        selectedElsewhereInCurrentUnit.includes(employeeId)
-      ) {
+      if (selectedElsewhereInCurrentUnit.includes(employeeId)) {
         return false;
       }
 
-      return isEmployeeEligibleForRole(
-        employee,
-        role,
-        unitForm.unitType
-      );
+      return isEmployeeEligibleForRole(employee, role, unitForm.unitType);
     });
   };
 
-  /*
-    Generic unit field update.
-  */
+  const handleSelectedDateChange = (event) => {
+    setSelectedDate(event.target.value);
+    setUnitsMessage("");
+    setUnitsError("");
+  };
+
   const handleUnitFieldChange = (event) => {
     const { name, value } = event.target;
 
@@ -391,9 +285,6 @@ function CrewPlannerPage() {
     }));
   };
 
-  /*
-    Crew slot update.
-  */
   const handleCrewChange = (role, employeeId) => {
     setUnitForm((prev) => ({
       ...prev,
@@ -404,25 +295,16 @@ function CrewPlannerPage() {
     }));
   };
 
-  /*
-    First patient update.
-  */
   const handleFirstPatientChange = (event) => {
-    const { value } = event.target;
-
     setUnitForm((prev) => ({
       ...prev,
-      firstPatient: value,
+      firstPatient: event.target.value,
     }));
   };
 
-  /*
-    Next patient update.
-  */
   const handleNextPatientChange = (index, value) => {
     setUnitForm((prev) => {
       const updatedPatients = [...prev.nextPatients];
-
       updatedPatients[index] = value;
 
       return {
@@ -432,9 +314,6 @@ function CrewPlannerPage() {
     });
   };
 
-  /*
-    Add optional patient field.
-  */
   const handleAddNextPatientField = () => {
     setUnitForm((prev) => ({
       ...prev,
@@ -442,9 +321,6 @@ function CrewPlannerPage() {
     }));
   };
 
-  /*
-    Remove optional patient field.
-  */
   const handleRemoveNextPatientField = (index) => {
     setUnitForm((prev) => {
       if (prev.nextPatients.length === 1) {
@@ -463,21 +339,20 @@ function CrewPlannerPage() {
     });
   };
 
-  /*
-    Reset form.
-  */
   const resetUnitForm = () => {
-    setUnitForm(initialUnitForm);
+    setUnitForm({
+      ...initialUnitForm,
+      shiftDate: selectedDate,
+    });
+
     setEditingUnitId(null);
   };
 
-  /*
-    Load existing unit into edit mode.
-  */
   const handleEditUnit = (unit) => {
     setEditingUnitId(unit.id);
 
     setUnitForm({
+      shiftDate: unit.shiftDate || selectedDate,
       unitType: unit.unitType || "BLS",
       truckNumber: unit.truckNumber || "",
       startTime: unit.startTime || "",
@@ -489,11 +364,13 @@ function CrewPlannerPage() {
       },
       firstPatient: unit.firstPatient || "",
       nextPatients:
-        unit.nextPatients &&
-        unit.nextPatients.length > 0
+        unit.nextPatients && unit.nextPatients.length > 0
           ? [...unit.nextPatients]
           : [""],
     });
+
+    setUnitsMessage("");
+    setUnitsError("");
 
     window.scrollTo({
       top: 0,
@@ -501,9 +378,6 @@ function CrewPlannerPage() {
     });
   };
 
-  /*
-    Clear medical slot when hidden.
-  */
   useEffect(() => {
     if (!isMedicalSlotVisible(unitForm.unitType)) {
       setUnitForm((prev) => ({
@@ -516,11 +390,12 @@ function CrewPlannerPage() {
     }
   }, [unitForm.unitType]);
 
-  /*
-    Validation errors.
-  */
   const unitValidationErrors = useMemo(() => {
     const errors = [];
+
+    if (!unitForm.shiftDate.trim()) {
+      errors.push("Shift Date is required.");
+    }
 
     if (!unitForm.truckNumber.trim()) {
       errors.push("Truck Number is required.");
@@ -538,36 +413,23 @@ function CrewPlannerPage() {
       errors.push("Driver is required.");
     }
 
-    if (
-      unitForm.unitType === "BLS" &&
-      !unitForm.crew.medical
-    ) {
+    if (unitForm.unitType === "BLS" && !unitForm.crew.medical) {
       errors.push("BLS unit requires an EMT.");
     }
 
-    if (
-      unitForm.unitType === "ALS" &&
-      !unitForm.crew.medical
-    ) {
+    if (unitForm.unitType === "ALS" && !unitForm.crew.medical) {
       errors.push("ALS unit requires a Paramedic.");
     }
 
     return errors;
   }, [unitForm]);
 
-  /*
-    Warning messages.
-  */
   const unitWarningMessages = useMemo(() => {
     const warnings = [];
 
-    const selectedCrewMembers = Object.values(
-      unitForm.crew
-    )
+    const selectedCrewMembers = Object.values(unitForm.crew)
       .filter(Boolean)
-      .map((employeeId) =>
-        getEmployeeById(employeeId)
-      )
+      .map((employeeId) => getEmployeeById(employeeId))
       .filter(Boolean);
 
     selectedCrewMembers.forEach((employee) => {
@@ -579,10 +441,9 @@ function CrewPlannerPage() {
         );
       }
 
-      const existingAssignments =
-        getEmployeeAssignmentsInOtherUnits(
-          employee.id
-        );
+      const existingAssignments = getEmployeeAssignmentsInOtherUnits(
+        employee.id
+      );
 
       existingAssignments.forEach((assignment) => {
         warnings.push(
@@ -594,140 +455,122 @@ function CrewPlannerPage() {
     return warnings;
   }, [unitForm, employees, units, editingUnitId]);
 
-  /*
-    Assigned employee ids.
-  */
   const assignedEmployeeIds = useMemo(() => {
     const ids = [];
 
     units.forEach((unit) => {
-      if (
-        editingUnitId &&
-        String(unit.id) === String(editingUnitId)
-      ) {
+      if (editingUnitId && String(unit.id) === String(editingUnitId)) {
         return;
       }
 
-      Object.values(unit.crew || {}).forEach(
-        (employeeId) => {
-          if (employeeId) {
-            ids.push(String(employeeId));
-          }
+      Object.values(unit.crew || {}).forEach((employeeId) => {
+        if (employeeId) {
+          ids.push(String(employeeId));
         }
-      );
+      });
     });
 
     return ids;
   }, [units, editingUnitId]);
 
-  /*
-    Unassigned active employees.
-  */
   const unassignedEmployees = useMemo(() => {
     return employees.filter((employee) => {
       if (!employee.isActive) {
         return false;
       }
 
-      return !assignedEmployeeIds.includes(
-        String(employee.id)
-      );
+      return !assignedEmployeeIds.includes(String(employee.id));
     });
   }, [employees, assignedEmployeeIds]);
 
-  /*
-    Save unit.
-  */
-  const handleSaveUnit = (event) => {
-    event.preventDefault();
+  const buildUnitPayload = () => {
+    const cleanedNextPatients = unitForm.nextPatients
+      .map((patient) => patient.trim())
+      .filter(Boolean);
 
-    if (unitValidationErrors.length > 0) {
-      return;
-    }
+    const existingUnit = editingUnitId
+      ? units.find((unit) => String(unit.id) === String(editingUnitId))
+      : null;
 
-    const cleanedNextPatients =
-      unitForm.nextPatients
-        .map((patient) => patient.trim())
-        .filter(Boolean);
-
-    const unitPayload = {
-      id: editingUnitId || Date.now(),
+    return {
+      shiftDate: unitForm.shiftDate,
       unitType: unitForm.unitType,
       truckNumber: unitForm.truckNumber.trim(),
       startTime: unitForm.startTime,
       crew: { ...unitForm.crew },
       firstPatient: unitForm.firstPatient.trim(),
       nextPatients: cleanedNextPatients,
+      notes: "",
 
-      createdAt: editingUnitId
-        ? units.find(
-            (unit) =>
-              String(unit.id) ===
-              String(editingUnitId)
-          )?.createdAt ||
-          new Date().toISOString()
-        : new Date().toISOString(),
-
+      createdAt: existingUnit?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-
-    if (editingUnitId) {
-      setUnits((prev) =>
-        prev.map((unit) =>
-          String(unit.id) ===
-          String(editingUnitId)
-            ? unitPayload
-            : unit
-        )
-      );
-    } else {
-      setUnits((prev) => [...prev, unitPayload]);
-    }
-
-    resetUnitForm();
   };
 
-  /*
-    Delete one unit.
-  */
-  const handleDeleteUnit = (unitId) => {
-    const isCurrentlyEditing =
-      String(editingUnitId) === String(unitId);
+  const handleSaveUnit = async (event) => {
+    event.preventDefault();
 
-    setUnits((prev) =>
-      prev.filter(
-        (unit) =>
-          String(unit.id) !== String(unitId)
-      )
-    );
+    if (unitValidationErrors.length > 0) {
+      return;
+    }
 
-    if (isCurrentlyEditing) {
+    setUnitsLoading(true);
+    setUnitsError("");
+    setUnitsMessage("");
+
+    try {
+      const unitPayload = buildUnitPayload();
+
+      if (editingUnitId) {
+        await updateCrewUnit(editingUnitId, unitPayload);
+        setUnitsMessage("Crew unit updated successfully.");
+      } else {
+        await createCrewUnit(unitPayload);
+        setUnitsMessage("Crew unit created successfully.");
+      }
+
       resetUnitForm();
+      await loadUnits();
+    } catch (error) {
+      console.error("Failed to save crew unit:", error);
+      setUnitsError(error.message || "Failed to save crew unit.");
+    } finally {
+      setUnitsLoading(false);
     }
   };
 
-  /*
-    Clear all units.
-  */
-  const handleClearAllUnits = () => {
+  const handleDeleteUnit = async (unitId) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete all planned units?"
+      "Are you sure you want to delete this planned unit?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    setUnits([]);
+    const isCurrentlyEditing = String(editingUnitId) === String(unitId);
 
-    localStorage.removeItem(UNITS_STORAGE_KEY);
+    setUnitsLoading(true);
+    setUnitsError("");
+    setUnitsMessage("");
 
-    resetUnitForm();
+    try {
+      await deleteCrewUnit(unitId);
+
+      if (isCurrentlyEditing) {
+        resetUnitForm();
+      }
+
+      setUnitsMessage("Crew unit deleted successfully.");
+      await loadUnits();
+    } catch (error) {
+      console.error("Failed to delete crew unit:", error);
+      setUnitsError(error.message || "Failed to delete crew unit.");
+    } finally {
+      setUnitsLoading(false);
+    }
   };
 
-  /*
-    Employee display name.
-  */
   const getEmployeeName = (employeeId) => {
     const employee = getEmployeeById(employeeId);
 
@@ -738,64 +581,39 @@ function CrewPlannerPage() {
     return `${employee.firstName} ${employee.lastName}`;
   };
 
-  /*
-    Crew selector.
-  */
   const renderCrewSelect = (role, label) => {
-    const availableEmployees =
-      getAvailableEmployeesForRole(role);
-
-    const selectedEmployeeId =
-      unitForm.crew[role];
+    const availableEmployees = getAvailableEmployeesForRole(role);
+    const selectedEmployeeId = unitForm.crew[role];
 
     return (
       <div className="col-md-6 col-xl-3">
         <label className="form-label fw-semibold">
           {label}
 
-          {isRoleRequired(
-            unitForm.unitType,
-            role
-          ) && (
-            <span className="badge text-bg-danger ms-2">
-              Required
-            </span>
+          {isRoleRequired(unitForm.unitType, role) && (
+            <span className="badge text-bg-danger ms-2">Required</span>
           )}
         </label>
 
         <select
           className="form-select"
           value={selectedEmployeeId}
-          onChange={(event) =>
-            handleCrewChange(
-              role,
-              event.target.value
-            )
-          }
+          onChange={(event) => handleCrewChange(role, event.target.value)}
+          disabled={unitsLoading}
         >
-          <option value="">
-            Select employee...
-          </option>
+          <option value="">Select employee...</option>
 
           {availableEmployees.map((employee) => {
-            const existingAssignments =
-              getEmployeeAssignmentsInOtherUnits(
-                employee.id
-              );
+            const existingAssignments = getEmployeeAssignmentsInOtherUnits(
+              employee.id
+            );
 
-            const isAlreadyAssigned =
-              existingAssignments.length > 0;
+            const isAlreadyAssigned = existingAssignments.length > 0;
 
             return (
-              <option
-                key={employee.id}
-                value={employee.id}
-              >
-                {employee.firstName}{" "}
-                {employee.lastName}
-                {isAlreadyAssigned
-                  ? " [ALREADY ASSIGNED]"
-                  : ""}
+              <option key={employee.id} value={employee.id}>
+                {employee.firstName} {employee.lastName}
+                {isAlreadyAssigned ? " [ALREADY ASSIGNED]" : ""}
               </option>
             );
           })}
@@ -807,39 +625,66 @@ function CrewPlannerPage() {
   return (
     <div className="container mt-4">
       <div className="mb-4">
-        <h1 className="mb-2">
-          Unit Planner
-        </h1>
+        <h1 className="mb-2">Unit Planner</h1>
 
         <p className="text-muted mb-0">
-          Create and manage EMS units
-          with crew assignment and
+          Create and manage EMS units by shift date with crew assignment and
           patient order.
         </p>
       </div>
 
-      {employeesError && (
-        <div className="alert alert-danger">
-          {employeesError}
-        </div>
+      {employeesError && <div className="alert alert-danger">{employeesError}</div>}
+
+      {unitsError && <div className="alert alert-danger">{unitsError}</div>}
+
+      {unitsMessage && (
+        <div className="alert alert-success">{unitsMessage}</div>
       )}
 
       <div className="alert alert-info">
-        <h5 className="mb-2">
-          Current Stage
-        </h5>
+        <h5 className="mb-2">Current Stage</h5>
 
         <p className="mb-0">
-          Crew Planner now loads
-          employees from the backend API.
+          Crew Planner now loads employees and planned units from the backend
+          API. Planned units are stored by shift date.
         </p>
       </div>
 
       <div className="card shadow-sm mb-4">
+        <div className="card-header">
+          <h5 className="mb-0">Shift Date</h5>
+        </div>
+
+        <div className="card-body">
+          <div className="row g-3 align-items-end">
+            <div className="col-md-4">
+              <label htmlFor="selectedDate" className="form-label fw-semibold">
+                Planning Date
+              </label>
+
+              <input
+                id="selectedDate"
+                type="date"
+                className="form-control"
+                value={selectedDate}
+                onChange={handleSelectedDateChange}
+                disabled={unitsLoading}
+              />
+            </div>
+
+            <div className="col-md-8">
+              <p className="text-muted mb-0">
+                Use this date to review current, previous, or future crew
+                assignments.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card shadow-sm mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            Unassigned Employees
-          </h5>
+          <h5 className="mb-0">Unassigned Employees</h5>
 
           <span className="badge text-bg-secondary">
             {unassignedEmployees.length}
@@ -848,83 +693,54 @@ function CrewPlannerPage() {
 
         <div className="card-body py-3">
           {employeesLoading ? (
-            <p className="text-muted mb-0">
-              Loading employees...
-            </p>
-          ) : unassignedEmployees.length ===
-            0 ? (
-            <p className="text-muted mb-0">
-              No unassigned active
-              employees.
-            </p>
+            <p className="text-muted mb-0">Loading employees...</p>
+          ) : unassignedEmployees.length === 0 ? (
+            <p className="text-muted mb-0">No unassigned active employees.</p>
           ) : (
             <div className="d-flex flex-wrap gap-2">
-              {unassignedEmployees.map(
-                (employee) => {
-                  const cprWarning =
-                    getCprWarning(employee);
+              {unassignedEmployees.map((employee) => {
+                const cprWarning = getCprWarning(employee);
 
-                  return (
-                    <span
-                      key={employee.id}
-                      className={`badge ${
-                        cprWarning
-                          ? cprWarning ===
-                            "CPR Expiring Soon"
-                            ? "text-bg-warning"
-                            : "text-bg-danger"
-                          : "text-bg-light border text-dark"
-                      }`}
-                    >
-                      {employee.firstName}{" "}
-                      {employee.lastName}
-                    </span>
-                  );
-                }
-              )}
+                return (
+                  <span
+                    key={employee.id}
+                    className={`badge ${
+                      cprWarning
+                        ? cprWarning === "CPR Expiring Soon"
+                          ? "text-bg-warning"
+                          : "text-bg-danger"
+                        : "text-bg-light border text-dark"
+                    }`}
+                  >
+                    {employee.firstName} {employee.lastName}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {unitValidationErrors.length >
-        0 && (
+      {unitValidationErrors.length > 0 && (
         <div className="alert alert-danger">
-          <h5 className="mb-2">
-            Unit Validation Errors
-          </h5>
+          <h5 className="mb-2">Unit Validation Errors</h5>
 
           <ul className="mb-0">
-            {unitValidationErrors.map(
-              (message, index) => (
-                <li
-                  key={`unit-error-${index}`}
-                >
-                  {message}
-                </li>
-              )
-            )}
+            {unitValidationErrors.map((message, index) => (
+              <li key={`unit-error-${index}`}>{message}</li>
+            ))}
           </ul>
         </div>
       )}
 
-      {unitWarningMessages.length >
-        0 && (
+      {unitWarningMessages.length > 0 && (
         <div className="alert alert-warning">
-          <h5 className="mb-2">
-            Unit Warnings
-          </h5>
+          <h5 className="mb-2">Unit Warnings</h5>
 
           <ul className="mb-0">
-            {unitWarningMessages.map(
-              (message, index) => (
-                <li
-                  key={`unit-warning-${index}`}
-                >
-                  {message}
-                </li>
-              )
-            )}
+            {unitWarningMessages.map((message, index) => (
+              <li key={`unit-warning-${index}`}>{message}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -932,37 +748,40 @@ function CrewPlannerPage() {
       <div className="card shadow-sm mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">
-            {editingUnitId
-              ? "Edit Unit"
-              : "Create New Unit"}
+            {editingUnitId ? "Edit Unit" : "Create New Unit"}
           </h5>
 
-          {editingUnitId && (
-            <span className="badge text-bg-info">
-              Editing Mode
-            </span>
-          )}
+          {editingUnitId && <span className="badge text-bg-info">Editing Mode</span>}
         </div>
 
         <div className="card-body">
           {employeesLoading ? (
-            <p className="text-muted mb-0">
-              Loading employees...
-            </p>
+            <p className="text-muted mb-0">Loading employees...</p>
           ) : employees.length === 0 ? (
             <p className="text-muted mb-0">
-              No employees found.
-              Add employees on the
-              Employees page first.
+              No employees found. Add employees on the Employees page first.
             </p>
           ) : (
             <form onSubmit={handleSaveUnit}>
               <div className="row g-3">
-                <div className="col-md-4">
-                  <label
-                    htmlFor="unitType"
-                    className="form-label fw-semibold"
-                  >
+                <div className="col-md-3">
+                  <label htmlFor="shiftDate" className="form-label fw-semibold">
+                    Shift Date
+                  </label>
+
+                  <input
+                    id="shiftDate"
+                    name="shiftDate"
+                    type="date"
+                    className="form-control"
+                    value={unitForm.shiftDate}
+                    onChange={handleUnitFieldChange}
+                    disabled={unitsLoading}
+                  />
+                </div>
+
+                <div className="col-md-3">
+                  <label htmlFor="unitType" className="form-label fw-semibold">
                     Unit Type
                   </label>
 
@@ -971,26 +790,19 @@ function CrewPlannerPage() {
                     name="unitType"
                     className="form-select"
                     value={unitForm.unitType}
-                    onChange={
-                      handleUnitFieldChange
-                    }
+                    onChange={handleUnitFieldChange}
+                    disabled={unitsLoading}
                   >
                     {UNIT_TYPES.map((type) => (
-                      <option
-                        key={type}
-                        value={type}
-                      >
+                      <option key={type} value={type}>
                         {type}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div className="col-md-4">
-                  <label
-                    htmlFor="truckNumber"
-                    className="form-label fw-semibold"
-                  >
+                <div className="col-md-3">
+                  <label htmlFor="truckNumber" className="form-label fw-semibold">
                     Truck Number
                   </label>
 
@@ -1000,17 +812,13 @@ function CrewPlannerPage() {
                     type="text"
                     className="form-control"
                     value={unitForm.truckNumber}
-                    onChange={
-                      handleUnitFieldChange
-                    }
+                    onChange={handleUnitFieldChange}
+                    disabled={unitsLoading}
                   />
                 </div>
 
-                <div className="col-md-4">
-                  <label
-                    htmlFor="startTime"
-                    className="form-label fw-semibold"
-                  >
+                <div className="col-md-3">
+                  <label htmlFor="startTime" className="form-label fw-semibold">
                     Start Time
                   </label>
 
@@ -1020,127 +828,85 @@ function CrewPlannerPage() {
                     type="time"
                     className="form-control"
                     value={unitForm.startTime}
-                    onChange={
-                      handleUnitFieldChange
-                    }
+                    onChange={handleUnitFieldChange}
+                    disabled={unitsLoading}
                   />
                 </div>
 
                 <div className="col-12">
                   <hr />
-
-                  <h5 className="mb-0">
-                    Crew Assignment
-                  </h5>
+                  <h5 className="mb-0">Crew Assignment</h5>
                 </div>
 
-                {renderCrewSelect(
-                  "driver",
-                  "Driver"
-                )}
+                {renderCrewSelect("driver", "Driver")}
 
-                {isMedicalSlotVisible(
-                  unitForm.unitType
-                ) &&
+                {isMedicalSlotVisible(unitForm.unitType) &&
                   renderCrewSelect(
                     "medical",
-                    getMedicalSlotLabel(
-                      unitForm.unitType
-                    )
+                    getMedicalSlotLabel(unitForm.unitType)
                   )}
 
-                {renderCrewSelect(
-                  "assist1",
-                  "Assist 1"
-                )}
+                {renderCrewSelect("assist1", "Assist 1")}
 
-                {renderCrewSelect(
-                  "assist2",
-                  "Assist 2"
-                )}
+                {renderCrewSelect("assist2", "Assist 2")}
 
                 <div className="col-12">
                   <hr />
-
-                  <h5 className="mb-0">
-                    Patient Order
-                  </h5>
+                  <h5 className="mb-0">Patient Order</h5>
                 </div>
 
                 <div className="col-12">
-                  <label
-                    htmlFor="firstPatient"
-                    className="form-label fw-semibold"
-                  >
+                  <label htmlFor="firstPatient" className="form-label fw-semibold">
                     First Patient
-
-                    <span className="badge text-bg-danger ms-2">
-                      Required
-                    </span>
+                    <span className="badge text-bg-danger ms-2">Required</span>
                   </label>
 
                   <input
                     id="firstPatient"
                     type="text"
                     className="form-control"
-                    value={
-                      unitForm.firstPatient
-                    }
-                    onChange={
-                      handleFirstPatientChange
-                    }
+                    value={unitForm.firstPatient}
+                    onChange={handleFirstPatientChange}
+                    disabled={unitsLoading}
                   />
                 </div>
 
                 <div className="col-12">
-                  <label className="form-label fw-semibold">
-                    Next Patients
-                  </label>
+                  <label className="form-label fw-semibold">Next Patients</label>
 
                   <div className="d-flex flex-column gap-2">
-                    {unitForm.nextPatients.map(
-                      (patient, index) => (
-                        <div
-                          key={`next-patient-${index}`}
-                          className="d-flex gap-2"
-                        >
-                          <input
-                            type="text"
-                            className="form-control"
-                            value={patient}
-                            onChange={(
-                              event
-                            ) =>
-                              handleNextPatientChange(
-                                index,
-                                event.target
-                                  .value
-                              )
-                            }
-                          />
+                    {unitForm.nextPatients.map((patient, index) => (
+                      <div
+                        key={`next-patient-${index}`}
+                        className="d-flex gap-2"
+                      >
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={patient}
+                          onChange={(event) =>
+                            handleNextPatientChange(index, event.target.value)
+                          }
+                          disabled={unitsLoading}
+                        />
 
-                          <button
-                            type="button"
-                            className="btn btn-outline-danger"
-                            onClick={() =>
-                              handleRemoveNextPatientField(
-                                index
-                              )
-                            }
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )
-                    )}
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger"
+                          onClick={() => handleRemoveNextPatientField(index)}
+                          disabled={unitsLoading}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-primary mt-3"
-                    onClick={
-                      handleAddNextPatientField
-                    }
+                    onClick={handleAddNextPatientField}
+                    disabled={unitsLoading}
                   >
                     Add Next Patient
                   </button>
@@ -1150,22 +916,27 @@ function CrewPlannerPage() {
                   <button
                     type="submit"
                     className="btn btn-primary"
+                    disabled={unitsLoading}
                   >
-                    {editingUnitId
-                      ? "Update Unit"
-                      : "Create Unit"}
+                    {editingUnitId ? "Update Unit" : "Create Unit"}
                   </button>
 
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
-                    onClick={
-                      resetUnitForm
-                    }
+                    onClick={resetUnitForm}
+                    disabled={unitsLoading}
                   >
-                    {editingUnitId
-                      ? "Cancel Edit"
-                      : "Clear Form"}
+                    {editingUnitId ? "Cancel Edit" : "Clear Form"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline-info"
+                    onClick={loadUnits}
+                    disabled={unitsLoading}
+                  >
+                    Refresh Units
                   </button>
                 </div>
               </div>
@@ -1176,65 +947,39 @@ function CrewPlannerPage() {
 
       <div className="card shadow-sm">
         <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            Planned Units
-          </h5>
+          <h5 className="mb-0">Planned Units for {selectedDate}</h5>
 
-          <div className="d-flex align-items-center gap-2">
-            <span className="badge text-bg-secondary">
-              {units.length}
-            </span>
-
-            {units.length > 0 && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-danger"
-                onClick={
-                  handleClearAllUnits
-                }
-              >
-                Clear All Units
-              </button>
-            )}
-          </div>
+          <span className="badge text-bg-secondary">{units.length}</span>
         </div>
 
         <div className="card-body">
-          {units.length === 0 ? (
-            <p className="text-muted mb-0">
-              No units created yet.
-            </p>
+          {unitsLoading && units.length === 0 ? (
+            <p className="text-muted mb-0">Loading planned units...</p>
+          ) : units.length === 0 ? (
+            <p className="text-muted mb-0">No units created for this date.</p>
           ) : (
             <div className="row g-3">
               {units.map((unit) => (
-                <div
-                  key={unit.id}
-                  className="col-12"
-                >
+                <div key={unit.id} className="col-12">
                   <div className="card border-light-subtle">
                     <div className="card-body">
                       <div className="d-flex justify-content-between align-items-start mb-3">
                         <div>
                           <h5 className="mb-1">
-                            {unit.startTime} —
-                            Truck{" "}
-                            {
-                              unit.truckNumber
-                            }
+                            {unit.startTime} — Truck {unit.truckNumber}
                           </h5>
 
                           <div className="d-flex flex-wrap gap-2">
                             <span className="badge text-bg-primary">
-                              {
-                                unit.unitType
-                              }
+                              {unit.unitType}
+                            </span>
+
+                            <span className="badge text-bg-secondary">
+                              Date: {unit.shiftDate}
                             </span>
 
                             <span className="badge text-bg-dark">
-                              First:{" "}
-                              {
-                                unit.firstPatient
-                              }
+                              First: {unit.firstPatient}
                             </span>
                           </div>
                         </div>
@@ -1243,11 +988,8 @@ function CrewPlannerPage() {
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-primary"
-                            onClick={() =>
-                              handleEditUnit(
-                                unit
-                              )
-                            }
+                            onClick={() => handleEditUnit(unit)}
+                            disabled={unitsLoading}
                           >
                             Edit
                           </button>
@@ -1255,11 +997,8 @@ function CrewPlannerPage() {
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-danger"
-                            onClick={() =>
-                              handleDeleteUnit(
-                                unit.id
-                              )
-                            }
+                            onClick={() => handleDeleteUnit(unit.id)}
+                            disabled={unitsLoading}
                           >
                             Delete
                           </button>
@@ -1267,92 +1006,54 @@ function CrewPlannerPage() {
                       </div>
 
                       <div className="mb-3">
-                        <div className="fw-semibold mb-2">
-                          Crew
-                        </div>
+                        <div className="fw-semibold mb-2">Crew</div>
 
                         <div className="row g-2">
                           <div className="col-md-3">
                             <div className="border rounded p-2">
-                              <strong>
-                                Driver:
-                              </strong>{" "}
-                              {getEmployeeName(
-                                unit.crew
-                                  .driver
-                              )}
+                              <strong>Driver:</strong>{" "}
+                              {getEmployeeName(unit.crew.driver)}
                             </div>
                           </div>
 
-                          {isMedicalSlotVisible(
-                            unit.unitType
-                          ) && (
+                          {isMedicalSlotVisible(unit.unitType) && (
                             <div className="col-md-3">
                               <div className="border rounded p-2">
                                 <strong>
-                                  {getMedicalSlotLabel(
-                                    unit.unitType
-                                  )}
-                                  :
+                                  {getMedicalSlotLabel(unit.unitType)}:
                                 </strong>{" "}
-                                {getEmployeeName(
-                                  unit.crew
-                                    .medical
-                                )}
+                                {getEmployeeName(unit.crew.medical)}
                               </div>
                             </div>
                           )}
 
                           <div className="col-md-3">
                             <div className="border rounded p-2">
-                              <strong>
-                                Assist 1:
-                              </strong>{" "}
-                              {getEmployeeName(
-                                unit.crew
-                                  .assist1
-                              )}
+                              <strong>Assist 1:</strong>{" "}
+                              {getEmployeeName(unit.crew.assist1)}
                             </div>
                           </div>
 
                           <div className="col-md-3">
                             <div className="border rounded p-2">
-                              <strong>
-                                Assist 2:
-                              </strong>{" "}
-                              {getEmployeeName(
-                                unit.crew
-                                  .assist2
-                              )}
+                              <strong>Assist 2:</strong>{" "}
+                              {getEmployeeName(unit.crew.assist2)}
                             </div>
                           </div>
                         </div>
                       </div>
 
                       <div>
-                        <div className="fw-semibold mb-2">
-                          Patient Order
-                        </div>
+                        <div className="fw-semibold mb-2">Patient Order</div>
 
                         <ol className="mb-0">
-                          <li>
-                            {
-                              unit.firstPatient
-                            }
-                          </li>
+                          <li>{unit.firstPatient}</li>
 
-                          {unit.nextPatients.map(
-                            (
-                              patient,
-                              index
-                            ) => (
-                              <li
-                                key={`saved-patient-${unit.id}-${index}`}
-                              >
-                                {patient}
-                              </li>
-                            )
-                          )}
+                          {unit.nextPatients.map((patient, index) => (
+                            <li key={`saved-patient-${unit.id}-${index}`}>
+                              {patient}
+                            </li>
+                          ))}
                         </ol>
                       </div>
                     </div>

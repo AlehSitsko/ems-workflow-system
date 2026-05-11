@@ -1,3 +1,5 @@
+import json
+
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -62,7 +64,6 @@ class Employee(db.Model):
     paramedic_expiration_date = db.Column(db.String(20))
 
     def to_dict(self):
-        # Return data in the same shape the existing frontend and Crew Planner expect.
         return {
             "id": self.id,
             "firstName": self.first_name,
@@ -94,6 +95,90 @@ class Employee(db.Model):
                 "licenseName": self.paramedic_license_name or "",
                 "expirationDate": self.paramedic_expiration_date or "",
             },
+        }
+
+
+class DailyCrewUnit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Shift date.
+    shift_date = db.Column(db.String(20), nullable=False)
+
+    # Unit information.
+    unit_type = db.Column(db.String(50), nullable=False)
+    truck_number = db.Column(db.String(50), nullable=False)
+    start_time = db.Column(db.String(20), nullable=False)
+
+    # Crew assignments.
+    driver_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employee.id"),
+        nullable=True,
+    )
+
+    medical_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employee.id"),
+        nullable=True,
+    )
+
+    assist1_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employee.id"),
+        nullable=True,
+    )
+
+    assist2_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employee.id"),
+        nullable=True,
+    )
+
+    # Patient order.
+    first_patient = db.Column(db.String(255), nullable=False)
+
+    # Stored as JSON text.
+    next_patients = db.Column(db.Text)
+
+    # Optional notes.
+    notes = db.Column(db.Text)
+
+    # Timestamps.
+    created_at = db.Column(db.String(50))
+    updated_at = db.Column(db.String(50))
+
+    def to_dict(self):
+        try:
+            parsed_next_patients = json.loads(
+                self.next_patients
+            ) if self.next_patients else []
+        except Exception:
+            parsed_next_patients = []
+
+        return {
+            "id": self.id,
+
+            "shiftDate": self.shift_date,
+
+            "unitType": self.unit_type,
+            "truckNumber": self.truck_number,
+            "startTime": self.start_time,
+
+            "crew": {
+                "driver": str(self.driver_id) if self.driver_id else "",
+                "medical": str(self.medical_id) if self.medical_id else "",
+                "assist1": str(self.assist1_id) if self.assist1_id else "",
+                "assist2": str(self.assist2_id) if self.assist2_id else "",
+            },
+
+            "firstPatient": self.first_patient,
+
+            "nextPatients": parsed_next_patients,
+
+            "notes": self.notes or "",
+
+            "createdAt": self.created_at,
+            "updatedAt": self.updated_at,
         }
 
 
@@ -179,42 +264,32 @@ class Patient(db.Model):
 class Call(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
-    # Link this call to a patient.
     patient_id = db.Column(
         db.Integer,
         db.ForeignKey("patient.id"),
         nullable=True
     )
 
-    # Dispatcher information.
-    # Currently stored as text for compatibility with existing call history.
     dispatcher_name = db.Column(db.String(100))
 
-    # Call metadata.
     date_of_call = db.Column(db.String(20))
     trip_date = db.Column(db.String(20))
     pickup_time = db.Column(db.String(20))
 
-    # Trip details.
     pickup_address = db.Column(db.Text)
     dropoff_address = db.Column(db.Text)
 
-    # Operational fields.
     caller_type = db.Column(db.String(100))
     call_type = db.Column(db.String(100))
     service_level = db.Column(db.String(100))
 
-    # Call quality tracking.
     quality_score = db.Column(db.Integer)
 
-    # Missing fields are stored separately to support analytics.
     missing_critical_fields = db.Column(db.Text)
     missing_optional_fields = db.Column(db.Text)
 
-    # Required explanation when critical data is missing.
     missing_info_explanation = db.Column(db.Text)
 
-    # General notes.
     notes = db.Column(db.Text)
 
     def to_dict(self):
