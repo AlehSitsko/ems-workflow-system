@@ -30,6 +30,11 @@ const TEST_EMPLOYEES = [
     firstName: "John",
     lastName: "Carter",
     phone: "215-555-0101",
+    email: "john.carter@example.com",
+    employeeNumber: "EMP-101",
+    hireDate: "2024-01-15",
+    role: "EMT",
+    status: "active",
     isActive: true,
     notes: "Test BLS driver / EMT",
     cpr: createLicense(true, "CPR", "2027-12-31"),
@@ -41,6 +46,11 @@ const TEST_EMPLOYEES = [
     firstName: "Mike",
     lastName: "Dalton",
     phone: "215-555-0102",
+    email: "mike.dalton@example.com",
+    employeeNumber: "EMP-102",
+    hireDate: "2024-03-01",
+    role: "EMT",
+    status: "active",
     isActive: true,
     notes: "Test BLS EMT",
     cpr: createLicense(true, "CPR", "2027-12-31"),
@@ -52,6 +62,11 @@ const TEST_EMPLOYEES = [
     firstName: "Sarah",
     lastName: "Collins",
     phone: "215-555-0103",
+    email: "sarah.collins@example.com",
+    employeeNumber: "EMP-201",
+    hireDate: "2023-09-10",
+    role: "Paramedic",
+    status: "active",
     isActive: true,
     notes: "Test ALS medic",
     cpr: createLicense(true, "CPR", "2027-12-31"),
@@ -63,6 +78,11 @@ const TEST_EMPLOYEES = [
     firstName: "Victor",
     lastName: "Hayes",
     phone: "215-555-0104",
+    email: "victor.hayes@example.com",
+    employeeNumber: "EMP-202",
+    hireDate: "2023-11-20",
+    role: "Paramedic",
+    status: "active",
     isActive: true,
     notes: "Test ALS driver / medic",
     cpr: createLicense(true, "CPR", "2027-12-31"),
@@ -74,6 +94,11 @@ const TEST_EMPLOYEES = [
     firstName: "Nina",
     lastName: "Brooks",
     phone: "215-555-0105",
+    email: "nina.brooks@example.com",
+    employeeNumber: "EMP-301",
+    hireDate: "2025-02-05",
+    role: "Driver",
+    status: "active",
     isActive: true,
     notes: "Test assist crew",
     cpr: createLicense(true, "CPR", "2027-12-31"),
@@ -85,6 +110,11 @@ const TEST_EMPLOYEES = [
     firstName: "Ethan",
     lastName: "Reed",
     phone: "215-555-0106",
+    email: "ethan.reed@example.com",
+    employeeNumber: "EMP-302",
+    hireDate: "2025-04-12",
+    role: "Driver",
+    status: "active",
     isActive: true,
     notes: "Test assist crew",
     cpr: createLicense(true, "CPR", "2027-12-31"),
@@ -109,7 +139,16 @@ const emptyLicense = {
 const initialFormData = {
   firstName: "",
   lastName: "",
+
   phone: "",
+  email: "",
+
+  employeeNumber: "",
+  hireDate: "",
+
+  role: "EMT",
+  status: "active",
+
   isActive: true,
   notes: "",
 
@@ -210,7 +249,16 @@ function EmployeesPage() {
     setFormData({
       firstName: employee.firstName || "",
       lastName: employee.lastName || "",
+
       phone: employee.phone || "",
+      email: employee.email || "",
+
+      employeeNumber: employee.employeeNumber || "",
+      hireDate: employee.hireDate || "",
+
+      role: employee.role || "EMT",
+      status: employee.status || "active",
+
       isActive: Boolean(employee.isActive),
       notes: employee.notes || "",
 
@@ -265,6 +313,26 @@ function EmployeesPage() {
         return "text-bg-warning";
       case "Expired":
         return "text-bg-danger";
+      default:
+        return "text-bg-secondary";
+    }
+  };
+
+  /*
+    Maps operational employee status values to Bootstrap badge classes.
+  */
+  const getEmployeeStatusBadgeClass = (status) => {
+    switch (status) {
+      case "active":
+        return "text-bg-success";
+      case "vacation":
+        return "text-bg-info";
+      case "sick":
+        return "text-bg-warning";
+      case "suspended":
+        return "text-bg-danger";
+      case "terminated":
+        return "text-bg-dark";
       default:
         return "text-bg-secondary";
     }
@@ -391,7 +459,16 @@ function EmployeesPage() {
     const employeePayload = {
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
+
       phone: formData.phone.trim(),
+      email: formData.email.trim(),
+
+      employeeNumber: formData.employeeNumber.trim(),
+      hireDate: formData.hireDate,
+
+      role: formData.role,
+      status: formData.status,
+
       isActive: formData.isActive,
       notes: formData.notes.trim(),
 
@@ -577,6 +654,94 @@ function EmployeesPage() {
                 />
               </div>
 
+              <div className="col-md-6">
+                <label htmlFor="email" className="form-label">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  className="form-control"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="e.g. john@example.com"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="col-md-6">
+                <label htmlFor="employeeNumber" className="form-label">
+                  Employee Number
+                </label>
+                <input
+                  id="employeeNumber"
+                  name="employeeNumber"
+                  type="text"
+                  className="form-control"
+                  value={formData.employeeNumber}
+                  onChange={handleChange}
+                  placeholder="e.g. EMT-102"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="col-md-6">
+                <label htmlFor="hireDate" className="form-label">
+                  Hire Date
+                </label>
+                <input
+                  id="hireDate"
+                  name="hireDate"
+                  type="date"
+                  className="form-control"
+                  value={formData.hireDate}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="col-md-3">
+                <label htmlFor="role" className="form-label">
+                  Role
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  className="form-select"
+                  value={formData.role}
+                  onChange={handleChange}
+                  disabled={loading}
+                >
+                  <option value="EMT">EMT</option>
+                  <option value="Paramedic">Paramedic</option>
+                  <option value="Dispatcher">Dispatcher</option>
+                  <option value="Driver">Driver</option>
+                  <option value="Supervisor">Supervisor</option>
+                  <option value="Manager">Manager</option>
+                </select>
+              </div>
+
+              <div className="col-md-3">
+                <label htmlFor="status" className="form-label">
+                  Employee Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  className="form-select"
+                  value={formData.status}
+                  onChange={handleChange}
+                  disabled={loading}
+                >
+                  <option value="active">Active</option>
+                  <option value="vacation">Vacation</option>
+                  <option value="sick">Sick</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="terminated">Terminated</option>
+                </select>
+              </div>
+
               <div className="col-md-6 d-flex align-items-end">
                 <div className="form-check mb-2">
                   <input
@@ -758,7 +923,12 @@ function EmployeesPage() {
                   <tr>
                     <th>Name</th>
                     <th>Phone</th>
-                    <th>Status</th>
+                    <th>Email</th>
+                    <th>Employee #</th>
+                    <th>Hire Date</th>
+                    <th>Role</th>
+                    <th>Employee Status</th>
+                    <th>Active</th>
                     <th>Allowed Positions</th>
                     <th>CPR Warning</th>
                     <th>CPR</th>
@@ -778,6 +948,24 @@ function EmployeesPage() {
                       </td>
 
                       <td>{employee.phone || "—"}</td>
+
+                      <td>{employee.email || "—"}</td>
+
+                      <td>{employee.employeeNumber || "—"}</td>
+
+                      <td>{employee.hireDate || "—"}</td>
+
+                      <td>{employee.role || "—"}</td>
+
+                      <td>
+                        <span
+                          className={`badge ${getEmployeeStatusBadgeClass(
+                            employee.status || "active"
+                          )}`}
+                        >
+                          {employee.status || "active"}
+                        </span>
+                      </td>
 
                       <td>
                         <span

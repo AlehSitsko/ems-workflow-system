@@ -40,6 +40,14 @@ class Employee(db.Model):
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(30))
+    email = db.Column(db.String(150))
+    employee_number = db.Column(db.String(50))
+    hire_date = db.Column(db.String(20))
+
+    # Operational employee information.
+    role = db.Column(db.String(50), default="EMT")
+    status = db.Column(db.String(50), default="active")
+
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text)
 
@@ -69,6 +77,11 @@ class Employee(db.Model):
             "firstName": self.first_name,
             "lastName": self.last_name,
             "phone": self.phone,
+            "email": self.email or "",
+            "employeeNumber": self.employee_number or "",
+            "hireDate": self.hire_date or "",
+            "role": self.role or "EMT",
+            "status": self.status or "active",
             "isActive": self.is_active,
             "notes": self.notes,
 
@@ -180,6 +193,8 @@ class DailyCrewUnit(db.Model):
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
+
+
 class CrewPreset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -211,6 +226,7 @@ class CrewPreset(db.Model):
             },
             "notes": self.notes or "",
         }
+
 
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)

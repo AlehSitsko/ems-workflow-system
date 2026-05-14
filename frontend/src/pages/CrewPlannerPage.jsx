@@ -14,10 +14,21 @@ import {
   getCrewPresets,
 } from "../api/crewPresetApi";
 
+/*
+  Available unit types for the planner.
+  These values are used by validation and crew slot visibility rules.
+*/
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
+/*
+  Returns today's date in YYYY-MM-DD format for date inputs.
+*/
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
+/*
+  Default empty crew object.
+  Each property stores an employee ID as a string.
+*/
 const initialCrew = {
   driver: "",
   medical: "",
@@ -25,6 +36,9 @@ const initialCrew = {
   assist2: "",
 };
 
+/*
+  Default form state for creating a new unit.
+*/
 const initialUnitForm = {
   shiftDate: getTodayDate(),
   unitType: "BLS",
@@ -36,29 +50,56 @@ const initialUnitForm = {
 };
 
 function CrewPlannerPage() {
+  /*
+    Employee state.
+    Employees are loaded from the backend and used for crew assignment.
+  */
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [employeesError, setEmployeesError] = useState("");
 
+  /*
+    Selected planning date.
+    Crew units are filtered by this date.
+  */
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
+  /*
+    Crew unit state.
+    Units represent planned trucks or crews for the selected shift date.
+  */
   const [units, setUnits] = useState([]);
   const [unitsLoading, setUnitsLoading] = useState(false);
   const [unitsError, setUnitsError] = useState("");
   const [unitsMessage, setUnitsMessage] = useState("");
 
+  /*
+    Crew preset state.
+    Presets allow saving and reusing crew combinations.
+  */
   const [crewPresets, setCrewPresets] = useState([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetName, setPresetName] = useState("");
 
+  /*
+    Unit form state.
+    This is used for both create mode and edit mode.
+  */
   const [unitForm, setUnitForm] = useState({
     ...initialUnitForm,
     shiftDate: selectedDate,
   });
 
+  /*
+    Stores the ID of the unit currently being edited.
+    Null means the form is in create mode.
+  */
   const [editingUnitId, setEditingUnitId] = useState(null);
 
+  /*
+    Loads employees from the backend.
+  */
   const loadEmployees = async () => {
     setEmployeesLoading(true);
     setEmployeesError("");
@@ -77,6 +118,9 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Loads planned crew units for the selected date.
+  */
   const loadUnits = async () => {
     setUnitsLoading(true);
     setUnitsError("");
@@ -93,6 +137,9 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Loads saved crew presets from the backend.
+  */
   const loadCrewPresets = async () => {
     setPresetsLoading(true);
 
@@ -107,11 +154,18 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Initial page load.
+  */
   useEffect(() => {
     loadEmployees();
     loadCrewPresets();
   }, []);
 
+  /*
+    Reload units whenever the selected date changes.
+    Also resets edit mode because the visible unit list changed.
+  */
   useEffect(() => {
     loadUnits();
 
@@ -123,6 +177,9 @@ function CrewPlannerPage() {
     setEditingUnitId(null);
   }, [selectedDate]);
 
+  /*
+    Normalizes license objects so older or incomplete records do not break UI logic.
+  */
   const normalizeLicense = (license) => {
     if (!license) {
       return {
@@ -139,6 +196,9 @@ function CrewPlannerPage() {
     };
   };
 
+  /*
+    Calculates the current status of a license based on expiration date.
+  */
   const getLicenseStatus = (license) => {
     const normalizedLicense = normalizeLicense(license);
 
@@ -169,6 +229,9 @@ function CrewPlannerPage() {
     return "Active";
   };
 
+  /*
+    Returns a CPR warning message when CPR is missing, expired, or expiring soon.
+  */
   const getCprWarning = (employee) => {
     const cpr = normalizeLicense(employee.cpr);
     const cprStatus = getLicenseStatus(cpr);
@@ -188,6 +251,9 @@ function CrewPlannerPage() {
     return "";
   };
 
+  /*
+    Returns the medical slot label based on unit type.
+  */
   const getMedicalSlotLabel = (unitType) => {
     switch (unitType) {
       case "ALS":
@@ -200,10 +266,17 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Determines whether the medical slot should be shown.
+    ASSIST units do not use a medical slot at this stage.
+  */
   const isMedicalSlotVisible = (unitType) => {
     return unitType === "ALS" || unitType === "BLS";
   };
 
+  /*
+    Marks required roles depending on unit type.
+  */
   const isRoleRequired = (unitType, role) => {
     switch (unitType) {
       case "ALS":
@@ -216,12 +289,18 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Finds a full employee object by employee ID.
+  */
   const getEmployeeById = (employeeId) => {
     return employees.find(
       (employee) => String(employee.id) === String(employeeId)
     );
   };
 
+  /*
+    Returns a display name for an assigned employee.
+  */
   const getEmployeeName = (employeeId) => {
     const employee = getEmployeeById(employeeId);
 
@@ -232,8 +311,23 @@ function CrewPlannerPage() {
     return `${employee.firstName} ${employee.lastName}`;
   };
 
+  /*
+    Determines whether an employee can be assigned to a specific role.
+
+    Rules:
+    - Employee must be technically active.
+    - Employee operational status must be active.
+    - Driver requires EVOC.
+    - BLS medical slot requires EMT.
+    - ALS medical slot requires Paramedic.
+    - Assist slots allow any technically and operationally active employee.
+  */
   const isEmployeeEligibleForRole = (employee, role, unitType) => {
     if (!employee.isActive) {
+      return false;
+    }
+
+    if (employee.status !== "active") {
       return false;
     }
 
@@ -260,12 +354,20 @@ function CrewPlannerPage() {
     return false;
   };
 
+  /*
+    Returns employee IDs already selected in other slots of the current form.
+    This prevents selecting the same employee twice in one unit.
+  */
   const getSelectedEmployeeIds = (currentRole) => {
     return Object.entries(unitForm.crew)
       .filter(([role, employeeId]) => role !== currentRole && employeeId)
       .map(([, employeeId]) => String(employeeId));
   };
 
+  /*
+    Checks whether an employee is already assigned to another unit on the same date.
+    This creates warnings instead of hard-blocking the assignment.
+  */
   const getEmployeeAssignmentsInOtherUnits = (employeeId) => {
     const normalizedEmployeeId = String(employeeId);
     const assignments = [];
@@ -291,6 +393,9 @@ function CrewPlannerPage() {
     return assignments;
   };
 
+  /*
+    Returns employees available for a specific role in the current form.
+  */
   const getAvailableEmployeesForRole = (role) => {
     const selectedElsewhereInCurrentUnit = getSelectedEmployeeIds(role);
 
@@ -305,12 +410,18 @@ function CrewPlannerPage() {
     });
   };
 
+  /*
+    Handles planning date change.
+  */
   const handleSelectedDateChange = (event) => {
     setSelectedDate(event.target.value);
     setUnitsMessage("");
     setUnitsError("");
   };
 
+  /*
+    Handles simple unit form fields.
+  */
   const handleUnitFieldChange = (event) => {
     const { name, value } = event.target;
 
@@ -320,6 +431,9 @@ function CrewPlannerPage() {
     }));
   };
 
+  /*
+    Handles crew member selection for a specific crew role.
+  */
   const handleCrewChange = (role, employeeId) => {
     setUnitForm((prev) => ({
       ...prev,
@@ -330,6 +444,9 @@ function CrewPlannerPage() {
     }));
   };
 
+  /*
+    Applies a saved crew preset to the current unit form.
+  */
   const handleApplyPreset = (presetId) => {
     setSelectedPresetId(presetId);
 
@@ -357,6 +474,9 @@ function CrewPlannerPage() {
     }));
   };
 
+  /*
+    Saves the current crew combination as a reusable preset.
+  */
   const handleSavePreset = async () => {
     if (!presetName.trim()) {
       alert("Preset Name is required.");
@@ -389,6 +509,9 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Handles first patient field change.
+  */
   const handleFirstPatientChange = (event) => {
     setUnitForm((prev) => ({
       ...prev,
@@ -396,6 +519,9 @@ function CrewPlannerPage() {
     }));
   };
 
+  /*
+    Handles one next-patient field by index.
+  */
   const handleNextPatientChange = (index, value) => {
     setUnitForm((prev) => {
       const updatedPatients = [...prev.nextPatients];
@@ -408,6 +534,9 @@ function CrewPlannerPage() {
     });
   };
 
+  /*
+    Adds another optional next-patient input.
+  */
   const handleAddNextPatientField = () => {
     setUnitForm((prev) => ({
       ...prev,
@@ -415,6 +544,10 @@ function CrewPlannerPage() {
     }));
   };
 
+  /*
+    Removes a next-patient input.
+    At least one empty field is kept for easier data entry.
+  */
   const handleRemoveNextPatientField = (index) => {
     setUnitForm((prev) => {
       if (prev.nextPatients.length === 1) {
@@ -433,6 +566,9 @@ function CrewPlannerPage() {
     });
   };
 
+  /*
+    Resets the unit form and leaves edit mode.
+  */
   const resetUnitForm = () => {
     setUnitForm({
       ...initialUnitForm,
@@ -443,6 +579,9 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
   };
 
+  /*
+    Loads an existing unit into the form for editing.
+  */
   const handleEditUnit = (unit) => {
     setEditingUnitId(unit.id);
 
@@ -474,6 +613,9 @@ function CrewPlannerPage() {
     });
   };
 
+  /*
+    Clears the medical slot when unit type does not support it.
+  */
   useEffect(() => {
     if (!isMedicalSlotVisible(unitForm.unitType)) {
       setUnitForm((prev) => ({
@@ -486,6 +628,10 @@ function CrewPlannerPage() {
     }
   }, [unitForm.unitType]);
 
+  /*
+    Builds hard validation errors for the unit form.
+    These errors block saving.
+  */
   const unitValidationErrors = useMemo(() => {
     const errors = [];
 
@@ -520,6 +666,10 @@ function CrewPlannerPage() {
     return errors;
   }, [unitForm]);
 
+  /*
+    Builds warning messages for non-blocking crew issues.
+    Warnings do not prevent saving.
+  */
   const unitWarningMessages = useMemo(() => {
     const warnings = [];
 
@@ -551,6 +701,9 @@ function CrewPlannerPage() {
     return warnings;
   }, [unitForm, employees, units, editingUnitId]);
 
+  /*
+    Collects employee IDs already assigned to existing units on the selected date.
+  */
   const assignedEmployeeIds = useMemo(() => {
     const ids = [];
 
@@ -569,9 +722,16 @@ function CrewPlannerPage() {
     return ids;
   }, [units, editingUnitId]);
 
+  /*
+    Shows active and operationally available employees who are not assigned yet.
+  */
   const unassignedEmployees = useMemo(() => {
     return employees.filter((employee) => {
       if (!employee.isActive) {
+        return false;
+      }
+
+      if (employee.status !== "active") {
         return false;
       }
 
@@ -579,6 +739,9 @@ function CrewPlannerPage() {
     });
   }, [employees, assignedEmployeeIds]);
 
+  /*
+    Builds the payload expected by the backend for create/update requests.
+  */
   const buildUnitPayload = () => {
     const cleanedNextPatients = unitForm.nextPatients
       .map((patient) => patient.trim())
@@ -602,6 +765,9 @@ function CrewPlannerPage() {
     };
   };
 
+  /*
+    Saves a new unit or updates an existing one.
+  */
   const handleSaveUnit = async (event) => {
     event.preventDefault();
 
@@ -634,6 +800,9 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Deletes a planned unit.
+  */
   const handleDeleteUnit = async (unitId) => {
     const confirmed = window.confirm(
       "Are you sure you want to delete this planned unit?"
@@ -666,6 +835,9 @@ function CrewPlannerPage() {
     }
   };
 
+  /*
+    Renders one crew selection dropdown.
+  */
   const renderCrewSelect = (role, label) => {
     const availableEmployees = getAvailableEmployeesForRole(role);
     const selectedEmployeeId = unitForm.crew[role];
@@ -709,6 +881,7 @@ function CrewPlannerPage() {
 
   return (
     <div className="container mt-4">
+      {/* Page header. */}
       <div className="mb-4">
         <h1 className="mb-2">Unit Planner</h1>
 
@@ -718,16 +891,20 @@ function CrewPlannerPage() {
         </p>
       </div>
 
+      {/* Employee loading error. */}
       {employeesError && (
         <div className="alert alert-danger">{employeesError}</div>
       )}
 
+      {/* Unit loading or saving error. */}
       {unitsError && <div className="alert alert-danger">{unitsError}</div>}
 
+      {/* Successful unit operation message. */}
       {unitsMessage && (
         <div className="alert alert-success">{unitsMessage}</div>
       )}
 
+      {/* Current module status message. */}
       <div className="alert alert-info">
         <h5 className="mb-2">Current Stage</h5>
 
@@ -737,6 +914,7 @@ function CrewPlannerPage() {
         </p>
       </div>
 
+      {/* Shift date selector. */}
       <div className="card shadow-sm mb-4">
         <div className="card-header">
           <h5 className="mb-0">Shift Date</h5>
@@ -769,6 +947,7 @@ function CrewPlannerPage() {
         </div>
       </div>
 
+      {/* Unassigned employees summary. */}
       <div className="card shadow-sm mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Unassigned Employees</h5>
@@ -808,6 +987,7 @@ function CrewPlannerPage() {
         </div>
       </div>
 
+      {/* Hard validation errors that block saving. */}
       {unitValidationErrors.length > 0 && (
         <div className="alert alert-danger">
           <h5 className="mb-2">Unit Validation Errors</h5>
@@ -820,6 +1000,7 @@ function CrewPlannerPage() {
         </div>
       )}
 
+      {/* Non-blocking warning messages. */}
       {unitWarningMessages.length > 0 && (
         <div className="alert alert-warning">
           <h5 className="mb-2">Unit Warnings</h5>
@@ -832,6 +1013,7 @@ function CrewPlannerPage() {
         </div>
       )}
 
+      {/* Create/edit unit form. */}
       <div className="card shadow-sm mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">
@@ -853,6 +1035,7 @@ function CrewPlannerPage() {
           ) : (
             <form onSubmit={handleSaveUnit}>
               <div className="row g-3">
+                {/* Basic unit information. */}
                 <div className="col-md-3">
                   <label htmlFor="shiftDate" className="form-label fw-semibold">
                     Shift Date
@@ -925,11 +1108,13 @@ function CrewPlannerPage() {
                   />
                 </div>
 
+                {/* Crew assignment section. */}
                 <div className="col-12">
                   <hr />
                   <h5 className="mb-0">Crew Assignment</h5>
                 </div>
 
+                {/* Crew presets block. */}
                 <div className="col-12">
                   <div className="card bg-light border-0">
                     <div className="card-body">
@@ -991,6 +1176,7 @@ function CrewPlannerPage() {
                   </div>
                 </div>
 
+                {/* Role-based crew selectors. */}
                 {renderCrewSelect("driver", "Driver")}
 
                 {isMedicalSlotVisible(unitForm.unitType) &&
@@ -1003,6 +1189,7 @@ function CrewPlannerPage() {
 
                 {renderCrewSelect("assist2", "Assist 2")}
 
+                {/* Patient order section. */}
                 <div className="col-12">
                   <hr />
                   <h5 className="mb-0">Patient Order</h5>
@@ -1068,6 +1255,7 @@ function CrewPlannerPage() {
                   </button>
                 </div>
 
+                {/* Form actions. */}
                 <div className="col-12 d-flex gap-2">
                   <button
                     type="submit"
@@ -1101,6 +1289,7 @@ function CrewPlannerPage() {
         </div>
       </div>
 
+      {/* Planned units list. */}
       <div className="card shadow-sm">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Planned Units for {selectedDate}</h5>
@@ -1161,6 +1350,7 @@ function CrewPlannerPage() {
                         </div>
                       </div>
 
+                      {/* Saved crew summary. */}
                       <div className="mb-3">
                         <div className="fw-semibold mb-2">Crew</div>
 
@@ -1199,6 +1389,7 @@ function CrewPlannerPage() {
                         </div>
                       </div>
 
+                      {/* Saved patient order summary. */}
                       <div>
                         <div className="fw-semibold mb-2">Patient Order</div>
 
