@@ -1,31 +1,22 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from werkzeug.security import generate_password_hash, check_password_hash
-import json
-from routes.auth_routes import auth_bp
-from utils.employee_utils import apply_employee_data, parse_optional_employee_id
-from routes.employee_routes import employee_bp
-from routes.crew_routes import crew_bp
+from werkzeug.security import generate_password_hash
 
 from models import (
     db,
     Patient,
     Call,
     User,
-    Employee,
-    DailyCrewUnit,
-    CrewPreset,
 )
+
+from routes.auth_routes import auth_bp
+from routes.employee_routes import employee_bp
+from routes.crew_routes import crew_bp
+from routes.crew_preset_routes import crew_preset_bp
+
 
 app = Flask(__name__)
 CORS(app)
-
-# Register authentication and user management routes.
-app.register_blueprint(auth_bp)
-# Register employee management routes.
-app.register_blueprint(employee_bp)
-# Register daily crew unit routes.
-app.register_blueprint(crew_bp)
 
 # Local SQLite database configuration.
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
@@ -33,6 +24,18 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Connect SQLAlchemy to the Flask app.
 db.init_app(app)
+
+# Register authentication and user management routes.
+app.register_blueprint(auth_bp)
+
+# Register employee management routes.
+app.register_blueprint(employee_bp)
+
+# Register daily crew unit routes.
+app.register_blueprint(crew_bp)
+
+# Register reusable crew preset routes.
+app.register_blueprint(crew_preset_bp)
 
 
 @app.route("/")
@@ -104,99 +107,6 @@ def create_default_users():
             db.session.add(user)
 
     db.session.commit()
-
-
-# =========================
-# CREW PRESET ROUTES
-# =========================
-
-@app.route("/api/crew-presets", methods=["GET"])
-def get_crew_presets():
-    presets = CrewPreset.query.order_by(
-        CrewPreset.preset_name.asc(),
-        CrewPreset.id.asc()
-    ).all()
-
-    return jsonify([preset.to_dict() for preset in presets])
-
-
-@app.route("/api/crew-presets", methods=["POST"])
-def create_crew_preset():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-
-    preset_name = data.get("presetName", "").strip()
-
-    if not preset_name:
-        return jsonify({"error": "Preset name is required"}), 400
-
-    crew = data.get("crew") or {}
-
-    preset = CrewPreset(
-        preset_name=preset_name,
-        unit_type=data.get("unitType", "BLS"),
-
-        driver_id=parse_optional_employee_id(crew.get("driver")),
-        medical_id=parse_optional_employee_id(crew.get("medical")),
-        assist1_id=parse_optional_employee_id(crew.get("assist1")),
-        assist2_id=parse_optional_employee_id(crew.get("assist2")),
-
-        notes=data.get("notes", "").strip(),
-    )
-
-    db.session.add(preset)
-    db.session.commit()
-
-    return jsonify(preset.to_dict()), 201
-
-
-@app.route("/api/crew-presets/<int:id>", methods=["PUT"])
-def update_crew_preset(id):
-    preset = CrewPreset.query.get(id)
-
-    if not preset:
-        return jsonify({"error": "Crew preset not found"}), 404
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-
-    preset_name = data.get("presetName", "").strip()
-
-    if not preset_name:
-        return jsonify({"error": "Preset name is required"}), 400
-
-    crew = data.get("crew") or {}
-
-    preset.preset_name = preset_name
-    preset.unit_type = data.get("unitType", "BLS")
-
-    preset.driver_id = parse_optional_employee_id(crew.get("driver"))
-    preset.medical_id = parse_optional_employee_id(crew.get("medical"))
-    preset.assist1_id = parse_optional_employee_id(crew.get("assist1"))
-    preset.assist2_id = parse_optional_employee_id(crew.get("assist2"))
-
-    preset.notes = data.get("notes", "").strip()
-
-    db.session.commit()
-
-    return jsonify(preset.to_dict())
-
-
-@app.route("/api/crew-presets/<int:id>", methods=["DELETE"])
-def delete_crew_preset(id):
-    preset = CrewPreset.query.get(id)
-
-    if not preset:
-        return jsonify({"error": "Crew preset not found"}), 404
-
-    db.session.delete(preset)
-    db.session.commit()
-
-    return jsonify({"message": "Crew preset deleted"})
 
 
 # =========================
@@ -446,8 +356,12 @@ def get_dispatcher_analytics():
             dispatcher_stats["quality_score_sum"] += call.quality_score
             dispatcher_stats["quality_score_count"] += 1
 
-        missing_critical_fields = split_missing_fields(call.missing_critical_fields)
-        missing_optional_fields = split_missing_fields(call.missing_optional_fields)
+        missing_critical_fields = split_missing_fields(
+            call.missing_critical_fields
+        )
+        missing_optional_fields = split_missing_fields(
+            call.missing_optional_fields
+        )
 
         dispatcher_stats["missing_critical_count"] += len(missing_critical_fields)
         dispatcher_stats["missing_optional_count"] += len(missing_optional_fields)
@@ -476,7 +390,9 @@ def get_dispatcher_analytics():
             "average_quality_score": average_quality_score,
             "missing_critical_count": dispatcher_stats["missing_critical_count"],
             "missing_optional_count": dispatcher_stats["missing_optional_count"],
-            "calls_with_missing_critical": dispatcher_stats["calls_with_missing_critical"],
+            "calls_with_missing_critical": dispatcher_stats[
+                "calls_with_missing_critical"
+            ],
             "calls_with_explanation": dispatcher_stats["calls_with_explanation"],
         })
 
