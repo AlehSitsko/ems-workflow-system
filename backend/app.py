@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import json
 from routes.auth_routes import auth_bp
 from utils.employee_utils import apply_employee_data, parse_optional_employee_id
+from routes.employee_routes import employee_bp
 
 from models import (
     db,
@@ -20,6 +21,8 @@ CORS(app)
 
 # Register authentication and user management routes.
 app.register_blueprint(auth_bp)
+# Register employee management routes.
+app.register_blueprint(employee_bp)
 
 # Local SQLite database configuration.
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
@@ -98,80 +101,6 @@ def create_default_users():
             db.session.add(user)
 
     db.session.commit()
-
-
-# =========================
-# EMPLOYEE ROUTES
-# =========================
-
-@app.route("/api/employees", methods=["GET"])
-def get_employees():
-    employees = Employee.query.order_by(
-        Employee.last_name.asc(),
-        Employee.first_name.asc()
-    ).all()
-
-    return jsonify([employee.to_dict() for employee in employees])
-
-
-@app.route("/api/employees", methods=["POST"])
-def create_employee():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-
-    first_name = data.get("firstName", "").strip()
-    last_name = data.get("lastName", "").strip()
-
-    if not first_name or not last_name:
-        return jsonify({"error": "First Name and Last Name are required"}), 400
-
-    employee = Employee()
-    apply_employee_data(employee, data)
-
-    db.session.add(employee)
-    db.session.commit()
-
-    return jsonify(employee.to_dict()), 201
-
-
-@app.route("/api/employees/<int:id>", methods=["PUT"])
-def update_employee(id):
-    employee = Employee.query.get(id)
-
-    if not employee:
-        return jsonify({"error": "Employee not found"}), 404
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-
-    first_name = data.get("firstName", "").strip()
-    last_name = data.get("lastName", "").strip()
-
-    if not first_name or not last_name:
-        return jsonify({"error": "First Name and Last Name are required"}), 400
-
-    apply_employee_data(employee, data)
-
-    db.session.commit()
-
-    return jsonify(employee.to_dict())
-
-
-@app.route("/api/employees/<int:id>", methods=["DELETE"])
-def delete_employee(id):
-    employee = Employee.query.get(id)
-
-    if not employee:
-        return jsonify({"error": "Employee not found"}), 404
-
-    db.session.delete(employee)
-    db.session.commit()
-
-    return jsonify({"message": "Employee deleted"})
 
 
 # =========================
