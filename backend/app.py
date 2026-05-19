@@ -14,6 +14,7 @@ from routes.employee_routes import employee_bp
 from routes.crew_routes import crew_bp
 from routes.crew_preset_routes import crew_preset_bp
 from routes.patient_routes import patient_bp
+from routes.call_routes import call_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -39,6 +40,9 @@ app.register_blueprint(crew_preset_bp)
 
 # Register patient management routes.
 app.register_blueprint(patient_bp)
+
+# Register call history and call intake routes.
+app.register_blueprint(call_bp)
 
 @app.route("/")
 def home():
@@ -109,96 +113,6 @@ def create_default_users():
             db.session.add(user)
 
     db.session.commit()
-
-
-# =========================
-# CALL ROUTES
-# =========================
-
-@app.route("/api/calls", methods=["GET"])
-def get_calls():
-    date_of_call = request.args.get("date_of_call", "").strip()
-    dispatcher_name = request.args.get("dispatcher_name", "").strip()
-
-    min_quality_score = request.args.get("min_quality_score")
-    max_quality_score = request.args.get("max_quality_score")
-
-    query = Call.query
-
-    if date_of_call:
-        query = query.filter(Call.date_of_call == date_of_call)
-
-    if dispatcher_name:
-        query = query.filter(
-            Call.dispatcher_name.ilike(f"%{dispatcher_name}%")
-        )
-
-    if min_quality_score:
-        query = query.filter(
-            Call.quality_score >= int(min_quality_score)
-        )
-
-    if max_quality_score:
-        query = query.filter(
-            Call.quality_score <= int(max_quality_score)
-        )
-
-    calls = query.order_by(Call.id.desc()).all()
-
-    return jsonify([call.to_dict() for call in calls])
-
-
-@app.route("/api/calls", methods=["POST"])
-def create_call():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Request body must be JSON"}), 400
-
-    new_call = Call(
-        patient_id=data.get("patient_id"),
-        dispatcher_name=data.get("dispatcher_name"),
-
-        date_of_call=data.get("date_of_call"),
-        trip_date=data.get("trip_date"),
-        pickup_time=data.get("pickup_time"),
-
-        pickup_address=data.get("pickup_address"),
-        dropoff_address=data.get("dropoff_address"),
-
-        caller_type=data.get("caller_type"),
-        call_type=data.get("call_type"),
-        service_level=data.get("service_level"),
-
-        quality_score=data.get("quality_score"),
-        missing_critical_fields=data.get("missing_critical_fields"),
-        missing_optional_fields=data.get("missing_optional_fields"),
-        missing_info_explanation=data.get("missing_info_explanation"),
-
-        notes=data.get("notes"),
-    )
-
-    db.session.add(new_call)
-    db.session.commit()
-
-    return jsonify(new_call.to_dict()), 201
-
-
-@app.route("/api/patient/<int:id>/calls", methods=["GET"])
-def get_patient_calls(id):
-    patient = Patient.query.get(id)
-
-    if not patient:
-        return jsonify({"error": "Patient not found"}), 404
-
-    calls = (
-        Call.query
-        .filter_by(patient_id=id)
-        .order_by(Call.id.desc())
-        .all()
-    )
-
-    return jsonify([call.to_dict() for call in calls])
 
 
 # =========================
