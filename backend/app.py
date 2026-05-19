@@ -11,6 +11,8 @@ from routes.crew_preset_routes import crew_preset_bp
 from routes.patient_routes import patient_bp
 from routes.call_routes import call_bp
 from routes.analytics_routes import analytics_bp
+
+
 app = Flask(__name__)
 CORS(app)
 
@@ -41,6 +43,7 @@ app.register_blueprint(call_bp)
 
 # Register supervisor analytics routes.
 app.register_blueprint(analytics_bp)
+
 
 @app.route("/")
 def home():
@@ -100,6 +103,7 @@ def create_default_users():
             db.session.add(user)
 
     db.session.commit()
+
 
 # =========================
 # INIT DB
