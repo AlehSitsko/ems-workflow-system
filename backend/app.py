@@ -1,13 +1,8 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 
-from models import (
-    db,
-    Patient,
-    Call,
-    User,
-)
+from models import db, User
 
 from routes.auth_routes import auth_bp
 from routes.employee_routes import employee_bp
@@ -15,7 +10,7 @@ from routes.crew_routes import crew_bp
 from routes.crew_preset_routes import crew_preset_bp
 from routes.patient_routes import patient_bp
 from routes.call_routes import call_bp
-
+from routes.analytics_routes import analytics_bp
 app = Flask(__name__)
 CORS(app)
 
@@ -44,6 +39,9 @@ app.register_blueprint(patient_bp)
 # Register call history and call intake routes.
 app.register_blueprint(call_bp)
 
+# Register supervisor analytics routes.
+app.register_blueprint(analytics_bp)
+
 @app.route("/")
 def home():
     return jsonify({
@@ -62,17 +60,6 @@ def health_check():
 # =========================
 # HELPER FUNCTIONS
 # =========================
-
-def split_missing_fields(value):
-    if not value:
-        return []
-
-    return [
-        item.strip()
-        for item in value.split(",")
-        if item.strip()
-    ]
-
 
 def create_default_users():
     default_users = [
@@ -113,88 +100,6 @@ def create_default_users():
             db.session.add(user)
 
     db.session.commit()
-
-
-# =========================
-# ANALYTICS ROUTES
-# =========================
-
-@app.route("/api/analytics/dispatchers", methods=["GET"])
-def get_dispatcher_analytics():
-    calls = Call.query.all()
-
-    analytics = {}
-
-    for call in calls:
-        dispatcher = call.dispatcher_name or "Unknown"
-
-        if dispatcher not in analytics:
-            analytics[dispatcher] = {
-                "dispatcher_name": dispatcher,
-                "total_calls": 0,
-                "quality_score_sum": 0,
-                "quality_score_count": 0,
-                "missing_critical_count": 0,
-                "missing_optional_count": 0,
-                "calls_with_missing_critical": 0,
-                "calls_with_explanation": 0,
-            }
-
-        dispatcher_stats = analytics[dispatcher]
-
-        dispatcher_stats["total_calls"] += 1
-
-        if call.quality_score is not None:
-            dispatcher_stats["quality_score_sum"] += call.quality_score
-            dispatcher_stats["quality_score_count"] += 1
-
-        missing_critical_fields = split_missing_fields(
-            call.missing_critical_fields
-        )
-        missing_optional_fields = split_missing_fields(
-            call.missing_optional_fields
-        )
-
-        dispatcher_stats["missing_critical_count"] += len(missing_critical_fields)
-        dispatcher_stats["missing_optional_count"] += len(missing_optional_fields)
-
-        if missing_critical_fields:
-            dispatcher_stats["calls_with_missing_critical"] += 1
-
-        if call.missing_info_explanation:
-            dispatcher_stats["calls_with_explanation"] += 1
-
-    result = []
-
-    for dispatcher_stats in analytics.values():
-        score_count = dispatcher_stats["quality_score_count"]
-
-        if score_count > 0:
-            average_quality_score = round(
-                dispatcher_stats["quality_score_sum"] / score_count
-            )
-        else:
-            average_quality_score = None
-
-        result.append({
-            "dispatcher_name": dispatcher_stats["dispatcher_name"],
-            "total_calls": dispatcher_stats["total_calls"],
-            "average_quality_score": average_quality_score,
-            "missing_critical_count": dispatcher_stats["missing_critical_count"],
-            "missing_optional_count": dispatcher_stats["missing_optional_count"],
-            "calls_with_missing_critical": dispatcher_stats[
-                "calls_with_missing_critical"
-            ],
-            "calls_with_explanation": dispatcher_stats["calls_with_explanation"],
-        })
-
-    result.sort(
-        key=lambda item: item["average_quality_score"] or 0,
-        reverse=True
-    )
-
-    return jsonify(result)
-
 
 # =========================
 # INIT DB
