@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getEmployees } from "../api/employeesApi";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
 import UnassignedEmployeesCard from "../components/crew/UnassignedEmployeesCard";
+import PlannedUnitsList from "../components/crew/PlannedUnitsList";
 
 import {
   createCrewUnit,
@@ -320,7 +321,7 @@ function CrewPlannerPage() {
     - Employee must be technically active.
     - Employee operational status must be active.
     - Driver requires EVOC.
-    - BLS medical slot requires EMT.
+    - BLS medical slot requires EMT or Paramedic.
     - ALS medical slot requires Paramedic.
     - Assist slots allow any technically and operationally active employee.
   */
@@ -339,7 +340,9 @@ function CrewPlannerPage() {
 
     if (role === "medical") {
       if (unitType === "BLS") {
-        return Boolean(employee.emt?.hasLicense);
+        return Boolean(
+          employee.emt?.hasLicense || employee.paramedic?.hasLicense
+        );
       }
 
       if (unitType === "ALS") {
@@ -658,7 +661,7 @@ function CrewPlannerPage() {
     }
 
     if (unitForm.unitType === "BLS" && !unitForm.crew.medical) {
-      errors.push("BLS unit requires an EMT.");
+      errors.push("BLS unit requires an EMT or Paramedic.");
     }
 
     if (unitForm.unitType === "ALS" && !unitForm.crew.medical) {
@@ -955,7 +958,7 @@ function CrewPlannerPage() {
         employeesLoading={employeesLoading}
         getCprWarning={getCprWarning}
       />
-      
+
       {/* Hard validation errors that block saving. */}
       {unitValidationErrors.length > 0 && (
         <div className="alert alert-danger">
@@ -1204,127 +1207,16 @@ function CrewPlannerPage() {
       </div>
 
       {/* Planned units list. */}
-      <div className="card shadow-sm">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Planned Units for {selectedDate}</h5>
-
-          <span className="badge text-bg-secondary">{units.length}</span>
-        </div>
-
-        <div className="card-body">
-          {unitsLoading && units.length === 0 ? (
-            <p className="text-muted mb-0">Loading planned units...</p>
-          ) : units.length === 0 ? (
-            <p className="text-muted mb-0">No units created for this date.</p>
-          ) : (
-            <div className="row g-3">
-              {units.map((unit) => (
-                <div key={unit.id} className="col-12">
-                  <div className="card border-light-subtle">
-                    <div className="card-body">
-                      <div className="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                          <h5 className="mb-1">
-                            {unit.startTime} — Truck {unit.truckNumber}
-                          </h5>
-
-                          <div className="d-flex flex-wrap gap-2">
-                            <span className="badge text-bg-primary">
-                              {unit.unitType}
-                            </span>
-
-                            <span className="badge text-bg-secondary">
-                              Date: {unit.shiftDate}
-                            </span>
-
-                            <span className="badge text-bg-dark">
-                              First: {unit.firstPatient}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="d-flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => handleEditUnit(unit)}
-                            disabled={unitsLoading}
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeleteUnit(unit.id)}
-                            disabled={unitsLoading}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Saved crew summary. */}
-                      <div className="mb-3">
-                        <div className="fw-semibold mb-2">Crew</div>
-
-                        <div className="row g-2">
-                          <div className="col-md-3">
-                            <div className="border rounded p-2">
-                              <strong>Driver:</strong>{" "}
-                              {getEmployeeName(unit.crew.driver)}
-                            </div>
-                          </div>
-
-                          {isMedicalSlotVisible(unit.unitType) && (
-                            <div className="col-md-3">
-                              <div className="border rounded p-2">
-                                <strong>
-                                  {getMedicalSlotLabel(unit.unitType)}:
-                                </strong>{" "}
-                                {getEmployeeName(unit.crew.medical)}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="col-md-3">
-                            <div className="border rounded p-2">
-                              <strong>Assist 1:</strong>{" "}
-                              {getEmployeeName(unit.crew.assist1)}
-                            </div>
-                          </div>
-
-                          <div className="col-md-3">
-                            <div className="border rounded p-2">
-                              <strong>Assist 2:</strong>{" "}
-                              {getEmployeeName(unit.crew.assist2)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Saved patient order summary. */}
-                      <div>
-                        <div className="fw-semibold mb-2">Patient Order</div>
-
-                        <ol className="mb-0">
-                          <li>{unit.firstPatient}</li>
-
-                          {unit.nextPatients.map((patient, index) => (
-                            <li key={`saved-patient-${unit.id}-${index}`}>
-                              {patient}
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <PlannedUnitsList
+        selectedDate={selectedDate}
+        units={units}
+        unitsLoading={unitsLoading}
+        onEditUnit={handleEditUnit}
+        onDeleteUnit={handleDeleteUnit}
+        getEmployeeName={getEmployeeName}
+        isMedicalSlotVisible={isMedicalSlotVisible}
+        getMedicalSlotLabel={getMedicalSlotLabel}
+      />
     </div>
   );
 }
