@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { getEmployees } from "../api/employeesApi";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
+import UnassignedEmployeesCard from "../components/crew/UnassignedEmployeesCard";
 
 import {
   createCrewUnit,
@@ -949,45 +950,12 @@ function CrewPlannerPage() {
       </div>
 
       {/* Unassigned employees summary. */}
-      <div className="card shadow-sm mb-4">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Unassigned Employees</h5>
-
-          <span className="badge text-bg-secondary">
-            {unassignedEmployees.length}
-          </span>
-        </div>
-
-        <div className="card-body py-3">
-          {employeesLoading ? (
-            <p className="text-muted mb-0">Loading employees...</p>
-          ) : unassignedEmployees.length === 0 ? (
-            <p className="text-muted mb-0">No unassigned active employees.</p>
-          ) : (
-            <div className="d-flex flex-wrap gap-2">
-              {unassignedEmployees.map((employee) => {
-                const cprWarning = getCprWarning(employee);
-
-                return (
-                  <span
-                    key={employee.id}
-                    className={`badge ${
-                      cprWarning
-                        ? cprWarning === "CPR Expiring Soon"
-                          ? "text-bg-warning"
-                          : "text-bg-danger"
-                        : "text-bg-light border text-dark"
-                    }`}
-                  >
-                    {employee.firstName} {employee.lastName}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
+      <UnassignedEmployeesCard
+        unassignedEmployees={unassignedEmployees}
+        employeesLoading={employeesLoading}
+        getCprWarning={getCprWarning}
+      />
+      
       {/* Hard validation errors that block saving. */}
       {unitValidationErrors.length > 0 && (
         <div className="alert alert-danger">
