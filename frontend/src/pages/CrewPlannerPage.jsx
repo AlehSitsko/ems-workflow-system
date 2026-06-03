@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { getEmployees } from "../api/employeesApi";
+import PatientOrderSection from "../components/crew/PatientOrderSection";
 
 import {
   createCrewUnit,
@@ -1190,70 +1191,15 @@ function CrewPlannerPage() {
                 {renderCrewSelect("assist2", "Assist 2")}
 
                 {/* Patient order section. */}
-                <div className="col-12">
-                  <hr />
-                  <h5 className="mb-0">Patient Order</h5>
-                </div>
-
-                <div className="col-12">
-                  <label
-                    htmlFor="firstPatient"
-                    className="form-label fw-semibold"
-                  >
-                    First Patient
-                    <span className="badge text-bg-danger ms-2">Required</span>
-                  </label>
-
-                  <input
-                    id="firstPatient"
-                    type="text"
-                    className="form-control"
-                    value={unitForm.firstPatient}
-                    onChange={handleFirstPatientChange}
-                    disabled={unitsLoading}
-                  />
-                </div>
-
-                <div className="col-12">
-                  <label className="form-label fw-semibold">Next Patients</label>
-
-                  <div className="d-flex flex-column gap-2">
-                    {unitForm.nextPatients.map((patient, index) => (
-                      <div
-                        key={`next-patient-${index}`}
-                        className="d-flex gap-2"
-                      >
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={patient}
-                          onChange={(event) =>
-                            handleNextPatientChange(index, event.target.value)
-                          }
-                          disabled={unitsLoading}
-                        />
-
-                        <button
-                          type="button"
-                          className="btn btn-outline-danger"
-                          onClick={() => handleRemoveNextPatientField(index)}
-                          disabled={unitsLoading}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary mt-3"
-                    onClick={handleAddNextPatientField}
-                    disabled={unitsLoading}
-                  >
-                    Add Next Patient
-                  </button>
-                </div>
+                <PatientOrderSection
+                  firstPatient={unitForm.firstPatient}
+                  nextPatients={unitForm.nextPatients}
+                  onFirstPatientChange={handleFirstPatientChange}
+                  onNextPatientChange={handleNextPatientChange}
+                  onAddNextPatientField={handleAddNextPatientField}
+                  onRemoveNextPatientField={handleRemoveNextPatientField}
+                  disabled={unitsLoading}
+                />
 
                 {/* Form actions. */}
                 <div className="col-12 d-flex gap-2">
