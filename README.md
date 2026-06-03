@@ -1,497 +1,480 @@
-# EMS Workflow System
+EMS Workflow System
+Overview
 
-## Overview
+EMS Workflow System is a modular operational platform designed to support EMS organizations with workforce management, crew planning, dispatcher workflows, operational continuity, and administrative oversight.
 
-EMS Workflow System is a modular operational platform designed for EMS organizations as a:
+The system is designed as an operational support platform rather than a replacement for primary dispatch software.
 
-- Dispatcher support platform
-- Workforce management platform
-- Crew planning and staffing system
-- Supervisor oversight and analytics platform
-- Operational continuity and redundancy solution
-- Structured operational data platform
+Primary objectives:
 
-The system is designed to support EMS operations during:
+Dispatcher workflow support
+Workforce management
+Crew planning and staffing
+Operational continuity
+Supervisor oversight and analytics
+Structured operational record keeping
+Training and quality improvement
 
-- Normal operational flow
-- Software outages
-- Communication disruptions
-- Temporary workflow failures
-- Operational overload situations
+The platform is intended to remain useful during:
 
-This project is **not intended to replace primary EMS dispatch or patient care software**.
-
-Instead, it acts as an operational support, workflow, staffing, and continuity platform.
-
----
-
-# Core Goals
-
-- Fast and reliable call intake
-- Structured dispatcher workflows
-- Operational continuity during outages
-- Dispatcher accountability
-- Supervisor oversight
-- Crew planning and staffing support
-- Patient lookup and operational history
-- Certification and staffing validation
-- Modular scalable architecture
-- Future-ready backend infrastructure
-
----
-
-# Tech Stack
-
-## Frontend
-
-- React (Vite)
-- JavaScript (ES6+)
-- Bootstrap
-
-## Backend
-
-- Python
-- Flask
-- Flask Blueprints
-- Flask-CORS
-- SQLAlchemy
-
-## Database
-
-### Current
-- SQLite
-
-### Planned
-- PostgreSQL
-
----
-
-# Current Architecture
+Normal operations
+Temporary software outages
+Communication disruptions
+Workflow failures
+High-volume operational periods
+Core Goals
+Fast and reliable call intake
+Structured dispatcher workflows
+Crew planning and staffing support
+Employee and certification management
+Operational continuity
+Supervisor oversight
+Quality tracking
+Workforce analytics
+Modular architecture
+Future scalability
+Technology Stack
+Frontend
+React
+Vite
+JavaScript (ES6+)
+Bootstrap
+Backend
+Python
+Flask
+Flask Blueprints
+Flask-CORS
+SQLAlchemy
+Database
+Current
+SQLite
+Planned
+PostgreSQL
+Current Architecture
 
 ems-workflow-system/
 
-- backend/
-  - app.py
-  - models.py
-  - routes/
-    - auth_routes.py
-    - employee_routes.py
-    - crew_routes.py
-    - crew_preset_routes.py
-    - patient_routes.py
-    - call_routes.py
-    - analytics_routes.py
-  - utils/
-- frontend/
-  - src/
-    - api/
-    - components/
-    - pages/
-- README.md
+backend/
 
----
+app.py
+models.py
+routes/
+auth_routes.py
+employee_routes.py
+crew_routes.py
+crew_preset_routes.py
+patient_routes.py
+call_routes.py
+analytics_routes.py
+utils/
 
-# Authentication System
+frontend/
 
-## Current Roles
+src/
+api/
+components/
+pages/
+styles/
 
-- admin
-- supervisor
-- dispatcher
-- hr
+README.md
 
-## Features
+Authentication System
+Current Roles
+admin
+supervisor
+dispatcher
+hr
+Current Features
+Login system
+Role-aware navigation
+Protected frontend routes
+User management
+Dispatcher identity tracking
+Session persistence (MVP)
+Role Access
+Admin
 
-- Login system
-- Role-aware navigation
-- Protected frontend routes
-- User management
-- Dispatcher identity tracking
-- Session persistence (MVP)
-
----
-
-# Role Access
-
-## Admin
-
-- Full system access
-
-## Supervisor
-
-- Operational access
-- Analytics access
-- Employee oversight
-
-## Dispatcher
-
-- Call intake
-- Patients
-- Calls
-- Operational workflows
-
-## HR
+Full system access.
 
 Can access:
 
-- Employees
-- Crew Planner
-- Crew Presets
-- Workforce-related information
+Users
+Employees
+Crew Planner
+Crew Presets
+Patients
+Calls
+Analytics
+Administration
+Supervisor
+
+Operational and management access.
+
+Can access:
+
+Employees
+Crew Planner
+Crew Presets
+Patients
+Calls
+Analytics
+Dispatcher
+
+Operational workflow access.
+
+Can access:
+
+Call Taking Form
+Patients
+Calls
+Operational workflows
+HR
+
+Workforce management access.
+
+Can access:
+
+Employees
+Crew Planner
+Crew Presets
+Staffing information
 
 Cannot access:
 
-- Patients
-- Calls
-- Call Taking Form
-- Patient analytics
-- Protected PHI-related information
-
----
-
-# Current Modules
-
-## Call Taking Form
+Patients
+Calls
+Call Taking Form
+Patient analytics
+Protected PHI-related information
+Current Modules
+Call Taking Form
 
 Features:
 
-- Full EMS intake workflow
-- Patient search and linking
-- Structured call storage
-- Quality scoring
-- Dispatcher assignment
-
-## Patients
-
-Features:
-
-- Create patients
-- Edit patients
-- Search by name
-- Search by DOB
-- Patient-call linkage
-
-## Calls
+EMS intake workflow
+Structured call capture
+Dispatcher assignment
+Call quality tracking
+Future patient linking
+Patients
 
 Features:
 
-- Global call history
-- Quality filtering
-- Dispatcher filtering
-- Operational auditing
-
-## Employees
-
-Features:
-
-- Employee management
-- Certification tracking
-- Operational status tracking
-- Workforce management
-
-## Crew Planner
+Create patients
+Edit patients
+Search patients
+Date of birth lookup
+Future call linkage
+Calls
 
 Features:
 
-- Daily crew planning
-- Certification validation
-- Conflict detection
-- Crew assignment persistence
-
-## Crew Presets
-
-Features:
-
-- Reusable crew templates
-- Rapid staffing workflows
-
-## Supervisor Dashboard
+Global call history
+Quality tracking
+Dispatcher filtering
+Operational auditing
+Employees
 
 Features:
 
-- Dispatcher analytics
-- Quality tracking
-- Missing field analysis
-
-## User Management
+Employee management
+Certification tracking
+Operational status tracking
+Workforce administration
+Crew Planner
 
 Features:
 
-- Create users
-- Edit users
-- Activate/deactivate accounts
-- Role assignment
+Daily crew planning
+Certification validation
+Conflict detection
+Crew assignment persistence
+Staffing validation
+Crew Presets
 
----
+Features:
 
-# Crew Validation Rules
+Reusable crew templates
+Rapid staffing workflows
+Standardized crew configurations
+Supervisor Dashboard
 
-## Driver
+Features:
 
-Requires:
+Dispatcher analytics
+Quality tracking
+Missing field reporting
+Operational metrics
+User Management
 
-- Active employee
-- Active operational status
-- EVOC certification
+Features:
 
-## BLS Medical
+Create users
+Edit users
+Activate accounts
+Deactivate accounts
+Role assignment
+Crew Validation Rules
+Driver
 
-Requires:
+Requirements:
 
-- EMT certification
+Active employee
+Active operational status
+EVOC certification
+BLS Medical
 
-## ALS Medical
+Requirements:
 
-Requires:
+EMT certification
 
-- Paramedic certification
+OR
 
-## Assist
+Paramedic certification
+ALS Medical
 
-Allows:
+Requirements:
 
-- Any operationally active employee
+Paramedic certification
+Assist Roles
 
----
+Requirements:
 
-# Backend API
-
-## Authentication
-
-- POST /api/auth/login
-- GET /api/auth/users
-- POST /api/auth/users
-- PUT /api/auth/users/<id>
-- PATCH /api/auth/users/<id>/toggle-active
-
-## Patients
-
-- GET /api/patients
-- POST /api/patients
-- GET /api/patient/<id>
-- PUT /api/patient/<id>
-- DELETE /api/patient/<id>
-
-## Calls
-
-- GET /api/calls
-- POST /api/calls
-
-## Employees
-
-- GET /api/employees
-- POST /api/employees
-- PUT /api/employees/<id>
-- DELETE /api/employees/<id>
-
-## Crew Planner
-
-- GET /api/crew-units
-- POST /api/crew-units
-- PUT /api/crew-units/<id>
-- DELETE /api/crew-units/<id>
-
-## Crew Presets
-
-- GET /api/crew-presets
-- POST /api/crew-presets
-- PUT /api/crew-presets/<id>
-- DELETE /api/crew-presets/<id>
-
-## Analytics
-
-- GET /api/analytics/dispatchers
-
----
-
-# Installation
-
-## Backend
-
-```bash
+Active employee
+Active operational status
+Backend API
+Authentication
+POST /api/auth/login
+GET /api/auth/users
+POST /api/auth/users
+PUT /api/auth/users/
+PATCH /api/auth/users//toggle-active
+Employees
+GET /api/employees
+POST /api/employees
+PUT /api/employees/
+DELETE /api/employees/
+Patients
+GET /api/patients
+POST /api/patients
+GET /api/patient/
+PUT /api/patient/
+DELETE /api/patient/
+Calls
+GET /api/calls
+POST /api/calls
+Crew Planner
+GET /api/crew-units
+POST /api/crew-units
+PUT /api/crew-units/
+DELETE /api/crew-units/
+Crew Presets
+GET /api/crew-presets
+POST /api/crew-presets
+PUT /api/crew-presets/
+DELETE /api/crew-presets/
+Analytics
+GET /api/analytics/dispatchers
+Installation
+Backend
 cd backend
-python -m venv venv
-pip install -r requirements.txt
-python app.py
-```
 
-Runs on:
+python -m venv venv
+
+pip install -r requirements.txt
+
+python app.py
+
+Backend runs on:
 
 http://127.0.0.1:5050
-
-## Frontend
-
-```bash
+Frontend
 cd frontend
-npm install
-npm run dev
-```
 
-Runs on:
+npm install
+
+npm run dev
+
+Frontend runs on:
 
 http://localhost:5173
+Development Workflow
+Branch Strategy
+main = stable branch
+dev = development branch
 
----
+Development should occur in dev first.
 
-# Development Workflow
+After testing:
 
-## Branches
+dev
+→
+main
+Current Development Direction
 
-- main = stable branch
-- dev = development branch
+Current focus areas:
 
----
+Frontend architecture refactoring
+Component decomposition
+Crew Planner modularization
+Role-based access expansion
+Docker preparation
+Security improvements
+Frontend Refactor Progress
 
-# Current Development Direction
+Completed:
 
-- Frontend architecture refactoring
-- Component decomposition
-- Guided workflow interfaces
-- Dual-mode call intake system
-- Workforce management expansion
-- Scheduling expansion
-- Security hardening
+PatientOrderSection extracted
+UnassignedEmployeesCard extracted
+PlannedUnitsList extracted
+CrewPresetsSection extracted
 
----
+Remaining major target:
 
-# Roadmap
+CrewAssignmentSection
+Roadmap
+High Priority
+JWT authentication
+Backend permission middleware
+Audit logging
+Route protection
+Security hardening
+Authentication & Roles
+HR frontend implementation
+HR backend permission enforcement
+Role-specific navigation
+Module visibility restrictions
+Patient data access restrictions
+UI / UX
+Wide-screen redesign
+Better form organization
+Improved visual hierarchy
+Mobile optimization
+Call Taking Form Evolution
+Classic Mode
 
-## High Priority
+Current workflow:
 
-- JWT authentication
-- Permission middleware
-- Audit logging
-- Route protection
-- Frontend refactor
+Full form visible
+Dispatcher enters information manually
+Guided Mode
 
-## Authentication & Roles Expansion
+Future workflow:
 
-- HR role implementation
-- Role-specific module visibility
-- Backend role permissions
-- Restrict patient data access
-
-## UI / UX
-
-- Wide-screen redesign
-- Better form organization
-- Improved visual hierarchy
-- Mobile optimization
-
-## Call Intake Evolution
-
-- Classic Call Intake Mode
-- Guided Step-by-Step Call Intake Mode
-- Start Taking Call workflow
-- Patient lookup by DOB, phone, and last name
-- Automatic patient autofill
-- New patient creation workflow
-- Training-friendly workflow
-
-## Workforce & Scheduling
-
-- Shift scheduling
-- Employee availability tracking
-- Staffing analytics
-- Certification alerts
-- Scheduling automation
-
-## Crew System Expansion
-
-- Ambulance unit definitions
-- Dynamic staffing templates
-- Additional unit types
-- Autofill empty crew slots
-- Unit status tracking
-
-## Patient Operations Expansion
-
-- Patient flags
-- Cancellation tracking
-- No-show tracking
-- Reliability metrics
-
-## Backend & Security
-
-- PostgreSQL migration
-- Secure session handling
-- Docker containerization
-- Docker Compose deployment
-- Database normalization
-- Backup strategy
-
-## Advanced Future Features
-
-- Offline mode
-- PWA support
-- Electron desktop version
-- SMTP integration
-- PDF export
-- Notifications
-- Dashboard widgets
-
----
-
-# This System IS
-
-- An EMS workflow platform
-- A dispatcher support system
-- A workforce management platform
-- A crew planning platform
-- An operational continuity platform
-
-# This System IS NOT
-
-- A replacement for primary EMS dispatch software
-- A full Electronic Medical Record (EMR) platform
-- A hospital management system
-- A clinical documentation system
-
----
-
-# Current Status
-
-## MVP Status
+Start Taking Call button
+Step-by-step intake process
+Patient search by:
+DOB
+Last Name
+Phone Number
+Automatic patient autofill
+New patient creation workflow
+Training-friendly experience
+Workforce & Scheduling
+Shift scheduling
+Employee availability tracking
+Staffing analytics
+Certification alerts
+Scheduling automation
+Crew System Expansion
+Ambulance unit definitions
+Dynamic staffing templates
+Additional unit types
+Crew recommendations
+Unit status tracking
+Patient Operations
+Patient flags
+Cancellation tracking
+No-show tracking
+Reliability metrics
+Operational history
+Backend & Security
+PostgreSQL migration
+Docker support
+Docker Compose deployment
+Secure session handling
+Database normalization
+Backup strategy
+Advanced Future Features
+Offline mode
+PWA support
+Electron desktop application
+SMTP integration
+PDF generation
+Notifications
+Dashboard widgets
+This System IS
+An EMS workflow platform
+A dispatcher support platform
+A workforce management platform
+A staffing platform
+A crew planning platform
+An operational continuity platform
+This System IS NOT
+A replacement for primary dispatch software
+An EMR platform
+A hospital management system
+A clinical documentation system
+Current Status
+MVP Status
 
 Functional.
 
-Implemented flow:
+Current implemented workflow:
 
 Authentication
-→ Role-Based Navigation
-→ Call Intake
-→ Quality Tracking
-→ Patient Management
-→ Call History
-→ Employee Management
-→ Crew Planning
-→ Crew Presets
-→ Supervisor Analytics
 
----
+↓
 
-# Long-Term Direction
+Role-Based Navigation
+
+↓
+
+Call Intake
+
+↓
+
+Patient Management
+
+↓
+
+Call History
+
+↓
+
+Employee Management
+
+↓
+
+Crew Planning
+
+↓
+
+Crew Presets
+
+↓
+
+Supervisor Analytics
+
+Long-Term Direction
 
 The long-term goal is to evolve EMS Workflow System into a modular operational platform capable of supporting:
 
-- EMS
-- Medical transport
-- Logistics
-- Staffing
-- Scheduling
-- Dispatch operations
-- Workforce coordination
-- Supervisor analytics
+EMS
+Medical transportation
+Logistics
+Workforce management
+Scheduling
+Dispatch operations
+Operational coordination
+Supervisor analytics
 
 Future deployment targets:
 
-- Docker
-- PostgreSQL
-- Self-hosted environments
-- Cloud deployments
-
----
-
-# Author
+Docker
+PostgreSQL
+Self-hosted environments
+Cloud environments
+Author
 
 Aleh Sitsko
