@@ -4,6 +4,7 @@ import { getEmployees } from "../api/employeesApi";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
 import UnassignedEmployeesCard from "../components/crew/UnassignedEmployeesCard";
 import PlannedUnitsList from "../components/crew/PlannedUnitsList";
+import CrewPresetsSection from "../components/crew/CrewPresetsSection";
 
 import {
   createCrewUnit,
@@ -1087,66 +1088,16 @@ function CrewPlannerPage() {
                 </div>
 
                 {/* Crew presets block. */}
-                <div className="col-12">
-                  <div className="card bg-light border-0">
-                    <div className="card-body">
-                      <h6 className="mb-3">Crew Presets</h6>
-
-                      <div className="row g-3">
-                        <div className="col-md-6">
-                          <label className="form-label fw-semibold">
-                            Apply Existing Preset
-                          </label>
-
-                          <select
-                            className="form-select"
-                            value={selectedPresetId}
-                            onChange={(event) =>
-                              handleApplyPreset(event.target.value)
-                            }
-                            disabled={presetsLoading || unitsLoading}
-                          >
-                            <option value="">Select preset...</option>
-
-                            {crewPresets.map((preset) => (
-                              <option key={preset.id} value={preset.id}>
-                                {preset.presetName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="col-md-6">
-                          <label className="form-label fw-semibold">
-                            Save Current Crew as Preset
-                          </label>
-
-                          <div className="d-flex gap-2">
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="Preset name..."
-                              value={presetName}
-                              onChange={(event) =>
-                                setPresetName(event.target.value)
-                              }
-                              disabled={presetsLoading || unitsLoading}
-                            />
-
-                            <button
-                              type="button"
-                              className="btn btn-outline-success"
-                              onClick={handleSavePreset}
-                              disabled={presetsLoading || unitsLoading}
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <CrewPresetsSection
+                  crewPresets={crewPresets}
+                  selectedPresetId={selectedPresetId}
+                  presetName={presetName}
+                  presetsLoading={presetsLoading}
+                  unitsLoading={unitsLoading}
+                  onApplyPreset={handleApplyPreset}
+                  onPresetNameChange={setPresetName}
+                  onSavePreset={handleSavePreset}
+                />
 
                 {/* Role-based crew selectors. */}
                 {renderCrewSelect("driver", "Driver")}
