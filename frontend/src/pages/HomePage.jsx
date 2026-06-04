@@ -4,11 +4,12 @@ import { Link } from "react-router-dom";
 const HomePage = ({ currentUser }) => {
   const modules = [
     {
-      title: "Call Form",
-      description: "Create a new EMS call record and document trip details.",
+      title: "Start Taking Call",
+      description: "Quickly start a new EMS call intake record.",
       path: "/call-form",
       roles: ["admin", "supervisor", "dispatcher"],
-      buttonText: "Open Call Form",
+      buttonText: "Start Taking Call",
+      isPrimary: true,
     },
     {
       title: "Patients",
@@ -16,6 +17,7 @@ const HomePage = ({ currentUser }) => {
       path: "/patients",
       roles: ["admin", "supervisor", "dispatcher"],
       buttonText: "Open Patients",
+      isPrimary: false,
     },
     {
       title: "Calls",
@@ -23,6 +25,7 @@ const HomePage = ({ currentUser }) => {
       path: "/calls",
       roles: ["admin", "supervisor", "dispatcher"],
       buttonText: "Open Calls",
+      isPrimary: false,
     },
     {
       title: "Supervisor Dashboard",
@@ -31,6 +34,7 @@ const HomePage = ({ currentUser }) => {
       path: "/supervisor",
       roles: ["admin", "supervisor"],
       buttonText: "Open Supervisor",
+      isPrimary: false,
     },
     {
       title: "Employees",
@@ -39,14 +43,16 @@ const HomePage = ({ currentUser }) => {
       path: "/employees",
       roles: ["admin", "supervisor", "hr"],
       buttonText: "Open Employees",
+      isPrimary: false,
     },
     {
       title: "Crew Planner",
       description:
         "Plan BLS, ALS, and assist units using employee eligibility checks.",
       path: "/crew-planner",
-      roles: ["admin", "supervisor", "hr"],
+      roles: ["admin", "supervisor", "dispatcher", "hr"],
       buttonText: "Open Crew Planner",
+      isPrimary: false,
     },
     {
       title: "Users",
@@ -55,6 +61,7 @@ const HomePage = ({ currentUser }) => {
       path: "/users",
       roles: ["admin"],
       buttonText: "Open Users",
+      isPrimary: false,
     },
     {
       title: "User Manual",
@@ -62,12 +69,16 @@ const HomePage = ({ currentUser }) => {
       path: "/manual",
       roles: ["admin", "supervisor", "dispatcher", "hr"],
       buttonText: "Open Manual",
+      isPrimary: false,
     },
   ];
 
   const availableModules = modules.filter((module) =>
     module.roles.includes(currentUser?.role)
   );
+
+  const primaryModules = availableModules.filter((module) => module.isPrimary);
+  const secondaryModules = availableModules.filter((module) => !module.isPrimary);
 
   return (
     <div className="container mt-4 mb-5">
@@ -86,25 +97,65 @@ const HomePage = ({ currentUser }) => {
           administrator.
         </div>
       ) : (
-        <div className="row g-3">
-          {availableModules.map((module) => (
-            <div className="col-md-6 col-lg-4" key={module.path}>
-              <div className="card h-100 shadow-sm">
-                <div className="card-body d-flex flex-column">
-                  <h5 className="card-title">{module.title}</h5>
+        <>
+          {primaryModules.length > 0 && (
+            <div className="mb-4">
+              <h5 className="mb-3">Primary Actions</h5>
 
-                  <p className="card-text text-muted flex-grow-1">
-                    {module.description}
-                  </p>
+              <div className="row g-3">
+                {primaryModules.map((module) => (
+                  <div className="col-md-6 col-lg-4" key={module.path}>
+                    <div className="card h-100 shadow-sm border-primary">
+                      <div className="card-body d-flex flex-column">
+                        <h5 className="card-title">{module.title}</h5>
 
-                  <Link to={module.path} className="btn btn-primary mt-2">
-                    {module.buttonText}
-                  </Link>
-                </div>
+                        <p className="card-text text-muted flex-grow-1">
+                          {module.description}
+                        </p>
+
+                        <Link
+                          to={module.path}
+                          className="btn btn-primary mt-2"
+                        >
+                          {module.buttonText}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+
+          {secondaryModules.length > 0 && (
+            <div>
+              <h5 className="mb-3">Modules</h5>
+
+              <div className="row g-3">
+                {secondaryModules.map((module) => (
+                  <div className="col-md-6 col-lg-4" key={module.path}>
+                    <div className="card h-100 shadow-sm">
+                      <div className="card-body d-flex flex-column">
+                        <h5 className="card-title">{module.title}</h5>
+
+                        <p className="card-text text-muted flex-grow-1">
+                          {module.description}
+                        </p>
+
+                        <Link
+                          to={module.path}
+                          className="btn btn-outline-primary mt-2"
+                        >
+                          {module.buttonText}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

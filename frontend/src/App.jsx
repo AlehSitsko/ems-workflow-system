@@ -16,8 +16,10 @@ import {
   getCurrentUser,
   logoutUser,
   hasSupervisorAccess,
-  hasWorkforceAccess,
   hasPatientAccess,
+  hasEmployeeAccess,
+  hasCrewPlannerAccess,
+  hasAdminAccess,
 } from "./api/authApi";
 
 function App() {
@@ -69,13 +71,26 @@ function App() {
     return children;
   };
 
-  // Protect pages that should only be available to workforce users.
-  const WorkforceRoute = ({ children }) => {
+  // Protect pages that should only be available to employee record users.
+  const EmployeeRoute = ({ children }) => {
     if (!currentUser) {
       return <Navigate to="/login" replace />;
     }
 
-    if (!hasWorkforceAccess(currentUser)) {
+    if (!hasEmployeeAccess(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return children;
+  };
+
+  // Protect pages that should only be available to crew planning users.
+  const CrewPlannerRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!hasCrewPlannerAccess(currentUser)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -101,7 +116,7 @@ function App() {
       return <Navigate to="/login" replace />;
     }
 
-    if (currentUser.role !== "admin") {
+    if (!hasAdminAccess(currentUser)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -145,19 +160,19 @@ function App() {
                   </NavLink>
                 )}
 
-                {hasWorkforceAccess(currentUser) && (
-                  <>
-                    <NavLink to="/employees" className={getNavLinkClass}>
-                      Employees
-                    </NavLink>
-
-                    <NavLink to="/crew-planner" className={getNavLinkClass}>
-                      Crew Planner
-                    </NavLink>
-                  </>
+                {hasEmployeeAccess(currentUser) && (
+                  <NavLink to="/employees" className={getNavLinkClass}>
+                    Employees
+                  </NavLink>
                 )}
 
-                {currentUser.role === "admin" && (
+                {hasCrewPlannerAccess(currentUser) && (
+                  <NavLink to="/crew-planner" className={getNavLinkClass}>
+                    Crew Planner
+                  </NavLink>
+                )}
+
+                {hasAdminAccess(currentUser) && (
                   <NavLink to="/users" className={getNavLinkClass}>
                     Users
                   </NavLink>
@@ -255,9 +270,9 @@ function App() {
         <Route
           path="/employees"
           element={
-            <WorkforceRoute>
+            <EmployeeRoute>
               <EmployeesPage />
-            </WorkforceRoute>
+            </EmployeeRoute>
           }
         />
 
@@ -273,9 +288,9 @@ function App() {
         <Route
           path="/crew-planner"
           element={
-            <WorkforceRoute>
+            <CrewPlannerRoute>
               <CrewPlannerPage />
-            </WorkforceRoute>
+            </CrewPlannerRoute>
           }
         />
 
