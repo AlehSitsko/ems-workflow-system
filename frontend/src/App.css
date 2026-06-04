@@ -5,7 +5,11 @@
   padding: 0;
 }
 
-/* Main application shell */
+/* =========================
+   Main application shell
+   ========================= */
+
+/* Main wrapper for the authenticated application layout. */
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -13,7 +17,25 @@
   background: #f5f7fb;
 }
 
-/* Left sidebar */
+/* Main content area to the right of the sidebar. */
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Shared page content padding. */
+.app-content {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+/* =========================
+   Sidebar
+   ========================= */
+
+/* Fixed left navigation panel. */
 .app-sidebar {
   position: sticky;
   top: 0;
@@ -28,6 +50,7 @@
   overflow-y: auto;
 }
 
+/* Sidebar logo and application name area. */
 .sidebar-brand {
   display: flex;
   align-items: center;
@@ -36,6 +59,7 @@
   margin-bottom: 0.5rem;
 }
 
+/* Icon block used in the sidebar brand. */
 .sidebar-brand-icon {
   width: 42px;
   height: 42px;
@@ -58,14 +82,17 @@
   color: #aebfd8;
 }
 
+/* Sidebar navigation fills available vertical space. */
 .sidebar-nav {
   flex: 1;
 }
 
+/* Group wrapper for related sidebar links. */
 .sidebar-group {
   margin-bottom: 1.25rem;
 }
 
+/* Small uppercase group title, such as Operations or Staff. */
 .sidebar-group-title {
   padding: 0 0.65rem;
   margin-bottom: 0.45rem;
@@ -76,6 +103,7 @@
   color: #8ea4c6;
 }
 
+/* Default sidebar navigation link. */
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -89,18 +117,21 @@
   transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
+/* Sidebar link hover state. */
 .sidebar-link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   transform: translateX(2px);
 }
 
+/* Active route highlight in sidebar. */
 .sidebar-link.active {
   background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
   color: #ffffff;
   box-shadow: 0 8px 20px rgba(13, 110, 253, 0.25);
 }
 
+/* Fixed width icon area for sidebar links. */
 .sidebar-link-icon {
   width: 22px;
   display: inline-flex;
@@ -108,15 +139,18 @@
   font-size: 1rem;
 }
 
+/* Prevent sidebar link labels from wrapping. */
 .sidebar-link-label {
   white-space: nowrap;
 }
 
+/* Footer area reserved for future sidebar collapse control. */
 .sidebar-footer {
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+/* Future collapse button. Currently visual only. */
 .sidebar-collapse-button {
   width: 100%;
   border: 0;
@@ -136,15 +170,11 @@
   color: #ffffff;
 }
 
-/* Main area */
-.app-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
+/* =========================
+   Topbar
+   ========================= */
 
-/* Topbar */
+/* Sticky top navigation bar above page content. */
 .app-topbar {
   position: sticky;
   top: 0;
@@ -160,12 +190,14 @@
   backdrop-filter: blur(10px);
 }
 
+/* Left side of the topbar: menu button and page title. */
 .topbar-left {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
+/* Future mobile/sidebar menu button. Currently visual only. */
 .topbar-menu-button {
   width: 42px;
   height: 42px;
@@ -178,6 +210,7 @@
   justify-content: center;
 }
 
+/* Current page title in the topbar. */
 .topbar-title {
   margin: 0;
   font-size: 1.2rem;
@@ -185,18 +218,21 @@
   color: #101828;
 }
 
+/* Current page subtitle in the topbar. */
 .topbar-subtitle {
   margin: 0;
   font-size: 0.85rem;
   color: #667085;
 }
 
+/* Right side of the topbar: search, actions, user info. */
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 0.8rem;
 }
 
+/* Search box wrapper. Search is visual-only for now. */
 .topbar-search {
   position: relative;
   width: 320px;
@@ -216,6 +252,7 @@
   color: #667085;
 }
 
+/* Primary call intake shortcut. */
 .topbar-call-button {
   display: inline-flex;
   align-items: center;
@@ -226,6 +263,7 @@
   box-shadow: 0 8px 18px rgba(220, 53, 69, 0.22);
 }
 
+/* Notification button. Currently visual-only. */
 .topbar-icon-button {
   position: relative;
   width: 42px;
@@ -239,6 +277,7 @@
   justify-content: center;
 }
 
+/* Notification badge placeholder. */
 .topbar-notification-badge {
   position: absolute;
   top: -6px;
@@ -254,6 +293,7 @@
   line-height: 18px;
 }
 
+/* Logged-in user display area. */
 .topbar-user {
   display: flex;
   align-items: center;
@@ -261,6 +301,7 @@
   padding-left: 0.25rem;
 }
 
+/* User initials avatar. */
 .topbar-user-avatar {
   width: 42px;
   height: 42px;
@@ -286,6 +327,7 @@
   text-transform: capitalize;
 }
 
+/* Logout button inside the topbar. */
 .topbar-logout-button {
   display: inline-flex;
   align-items: center;
@@ -293,78 +335,18 @@
   border-radius: 10px;
 }
 
-/* Page content */
-.app-content {
-  flex: 1;
-  padding: 1.5rem;
-}
+/* =========================
+   Dashboard page
+   ========================= */
 
-/* Responsive layout */
-@media (max-width: 1100px) {
-  .topbar-search {
-    display: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .app-shell {
-    flex-direction: column;
-  }
-
-  .app-sidebar {
-    position: relative;
-    width: 100%;
-    min-width: 100%;
-    height: auto;
-  }
-
-  .sidebar-nav {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.5rem;
-  }
-
-  .sidebar-group {
-    margin-bottom: 0.5rem;
-  }
-
-  .sidebar-footer {
-    display: none;
-  }
-
-  .app-topbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .topbar-right {
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 600px) {
-  .app-content {
-    padding: 1rem;
-  }
-
-  .topbar-user-info,
-  .topbar-logout-button span {
-    display: none;
-  }
-
-  .topbar-call-button {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-/* Dashboard page */
+/* Dashboard root layout. */
 .dashboard-page {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
+/* Welcome panel at the top of the dashboard. */
 .dashboard-hero {
   display: flex;
   justify-content: space-between;
@@ -399,6 +381,7 @@
   color: #667085;
 }
 
+/* Large dashboard call intake button. */
 .dashboard-hero-button {
   display: inline-flex;
   align-items: center;
@@ -411,6 +394,7 @@
   box-shadow: 0 10px 22px rgba(220, 53, 69, 0.24);
 }
 
+/* Dashboard status cards grid. */
 .dashboard-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -443,6 +427,7 @@
   color: #667085;
 }
 
+/* Dashboard section wrapper. */
 .dashboard-section {
   padding: 1.35rem;
   border-radius: 22px;
@@ -470,6 +455,7 @@
   color: #667085;
 }
 
+/* Dashboard module cards grid. */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
@@ -535,7 +521,183 @@
   font-weight: 700;
 }
 
-/* Dashboard responsive */
+/* =========================
+   Shared page panels
+   ========================= */
+
+/* Shared vertical stack for redesigned pages. */
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Summary cards grid used at the top of content pages. */
+.page-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.page-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #e4e8f0;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
+}
+
+.page-summary-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+  font-size: 1.25rem;
+}
+
+.page-summary-icon.warning {
+  background: #fff4e5;
+  color: #f59f00;
+}
+
+.page-summary-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #101828;
+  line-height: 1;
+}
+
+.page-summary-label {
+  margin-top: 0.35rem;
+  color: #667085;
+  font-weight: 600;
+}
+
+/* Shared white content panel. */
+.content-panel {
+  padding: 1.35rem;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid #e4e8f0;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
+}
+
+.content-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.content-panel-header h4 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+.content-panel-header p {
+  margin: 0.25rem 0 0;
+  color: #667085;
+}
+
+/* Shared empty state block. */
+.empty-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: #667085;
+}
+
+.empty-state svg {
+  margin-bottom: 0.85rem;
+  font-size: 2rem;
+  color: #98a2b3;
+}
+
+.empty-state h5 {
+  margin-bottom: 0.35rem;
+  color: #344054;
+  font-weight: 800;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+/* =========================
+   Compact calls list
+   ========================= */
+
+/* Compact card list replacing the old wide call table. */
+.compact-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.compact-call-card {
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+/* Main visible row for each call record. */
+.compact-call-main {
+  display: grid;
+  grid-template-columns: 130px 150px minmax(260px, 1fr) 100px 90px 110px auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+}
+
+.compact-call-date {
+  font-weight: 800;
+  color: #101828;
+}
+
+.compact-call-muted {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  color: #667085;
+}
+
+.compact-call-label {
+  margin-bottom: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #98a2b3;
+}
+
+.compact-call-address {
+  min-width: 0;
+}
+
+/* Expanded call details area. */
+.compact-call-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 0.6rem 1.25rem;
+  padding: 1rem;
+  background: #f8fafd;
+  border-top: 1px solid #e4e8f0;
+  color: #344054;
+}
+
+/* =========================
+   Responsive layout
+   ========================= */
+
 @media (max-width: 1200px) {
   .dashboard-stats-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
@@ -543,6 +705,60 @@
 
   .dashboard-grid {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  .compact-call-main {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .topbar-search {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    position: relative;
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+  }
+
+  .sidebar-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .sidebar-group {
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+
+  .app-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-right {
+    flex-wrap: wrap;
+  }
+
+  .page-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .content-panel {
+    padding: 1rem;
   }
 }
 
@@ -557,11 +773,29 @@
   }
 
   .dashboard-stats-grid,
-  .dashboard-grid {
+  .dashboard-grid,
+  .compact-call-main,
+  .compact-call-details {
     grid-template-columns: 1fr;
   }
 
   .dashboard-card {
     min-height: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-content {
+    padding: 1rem;
+  }
+
+  .topbar-user-info,
+  .topbar-logout-button span {
+    display: none;
+  }
+
+  .topbar-call-button {
+    width: 100%;
+    justify-content: center;
   }
 }
