@@ -9,15 +9,13 @@
    Main application shell
    ========================= */
 
-/* Main wrapper for the authenticated application layout. */
 .app-shell {
   display: flex;
-  min-height: 100vh;
   width: 100%;
+  min-height: 100vh;
   background: #f5f7fb;
 }
 
-/* Main content area to the right of the sidebar. */
 .app-main {
   flex: 1;
   min-width: 0;
@@ -25,7 +23,6 @@
   flex-direction: column;
 }
 
-/* Shared page content padding. */
 .app-content {
   flex: 1;
   padding: 1.5rem;
@@ -35,7 +32,6 @@
    Sidebar
    ========================= */
 
-/* Fixed left navigation panel. */
 .app-sidebar {
   position: sticky;
   top: 0;
@@ -44,13 +40,12 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #07172f 0%, #0b1f3a 100%);
-  color: #ffffff;
   padding: 1rem 0.85rem;
   overflow-y: auto;
+  color: #ffffff;
+  background: linear-gradient(180deg, #07172f 0%, #0b1f3a 100%);
 }
 
-/* Sidebar logo and application name area. */
 .sidebar-brand {
   display: flex;
   align-items: center;
@@ -59,7 +54,6 @@
   margin-bottom: 0.5rem;
 }
 
-/* Icon block used in the sidebar brand. */
 .sidebar-brand-icon {
   width: 42px;
   height: 42px;
@@ -82,17 +76,14 @@
   color: #aebfd8;
 }
 
-/* Sidebar navigation fills available vertical space. */
 .sidebar-nav {
   flex: 1;
 }
 
-/* Group wrapper for related sidebar links. */
 .sidebar-group {
   margin-bottom: 1.25rem;
 }
 
-/* Small uppercase group title, such as Operations or Staff. */
 .sidebar-group-title {
   padding: 0 0.65rem;
   margin-bottom: 0.45rem;
@@ -103,7 +94,6 @@
   color: #8ea4c6;
 }
 
-/* Default sidebar navigation link. */
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -117,21 +107,18 @@
   transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-/* Sidebar link hover state. */
 .sidebar-link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   transform: translateX(2px);
 }
 
-/* Active route highlight in sidebar. */
 .sidebar-link.active {
   background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
   color: #ffffff;
   box-shadow: 0 8px 20px rgba(13, 110, 253, 0.25);
 }
 
-/* Fixed width icon area for sidebar links. */
 .sidebar-link-icon {
   width: 22px;
   display: inline-flex;
@@ -139,29 +126,26 @@
   font-size: 1rem;
 }
 
-/* Prevent sidebar link labels from wrapping. */
 .sidebar-link-label {
   white-space: nowrap;
 }
 
-/* Footer area reserved for future sidebar collapse control. */
 .sidebar-footer {
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* Future collapse button. Currently visual only. */
 .sidebar-collapse-button {
   width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
   border: 0;
   border-radius: 12px;
   background: transparent;
   color: #aebfd8;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 42px;
-  padding: 0.65rem 0.75rem;
   font-weight: 500;
 }
 
@@ -174,7 +158,6 @@
    Topbar
    ========================= */
 
-/* Sticky top navigation bar above page content. */
 .app-topbar {
   position: sticky;
   top: 0;
@@ -190,15 +173,28 @@
   backdrop-filter: blur(10px);
 }
 
-/* Left side of the topbar: menu button and page title. */
-.topbar-left {
+.topbar-left,
+.topbar-right,
+.topbar-user {
   display: flex;
   align-items: center;
+}
+
+.topbar-left {
   gap: 1rem;
 }
 
-/* Future mobile/sidebar menu button. Currently visual only. */
-.topbar-menu-button {
+.topbar-right {
+  gap: 0.8rem;
+}
+
+.topbar-user {
+  gap: 0.65rem;
+  padding-left: 0.25rem;
+}
+
+.topbar-menu-button,
+.topbar-icon-button {
   width: 42px;
   height: 42px;
   border: 1px solid #dce3ee;
@@ -210,7 +206,10 @@
   justify-content: center;
 }
 
-/* Current page title in the topbar. */
+.topbar-icon-button {
+  position: relative;
+}
+
 .topbar-title {
   margin: 0;
   font-size: 1.2rem;
@@ -218,21 +217,12 @@
   color: #101828;
 }
 
-/* Current page subtitle in the topbar. */
 .topbar-subtitle {
   margin: 0;
   font-size: 0.85rem;
   color: #667085;
 }
 
-/* Right side of the topbar: search, actions, user info. */
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-/* Search box wrapper. Search is visual-only for now. */
 .topbar-search {
   position: relative;
   width: 320px;
@@ -252,7 +242,6 @@
   color: #667085;
 }
 
-/* Primary call intake shortcut. */
 .topbar-call-button {
   display: inline-flex;
   align-items: center;
@@ -263,21 +252,6 @@
   box-shadow: 0 8px 18px rgba(220, 53, 69, 0.22);
 }
 
-/* Notification button. Currently visual-only. */
-.topbar-icon-button {
-  position: relative;
-  width: 42px;
-  height: 42px;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #1f2a44;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Notification badge placeholder. */
 .topbar-notification-badge {
   position: absolute;
   top: -6px;
@@ -293,15 +267,6 @@
   line-height: 18px;
 }
 
-/* Logged-in user display area. */
-.topbar-user {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding-left: 0.25rem;
-}
-
-/* User initials avatar. */
 .topbar-user-avatar {
   width: 42px;
   height: 42px;
@@ -327,7 +292,6 @@
   text-transform: capitalize;
 }
 
-/* Logout button inside the topbar. */
 .topbar-logout-button {
   display: inline-flex;
   align-items: center;
@@ -339,14 +303,12 @@
    Dashboard page
    ========================= */
 
-/* Dashboard root layout. */
 .dashboard-page {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-/* Welcome panel at the top of the dashboard. */
 .dashboard-hero {
   display: flex;
   justify-content: space-between;
@@ -381,7 +343,6 @@
   color: #667085;
 }
 
-/* Large dashboard call intake button. */
 .dashboard-hero-button {
   display: inline-flex;
   align-items: center;
@@ -394,19 +355,30 @@
   box-shadow: 0 10px 22px rgba(220, 53, 69, 0.24);
 }
 
-/* Dashboard status cards grid. */
-.dashboard-stats-grid {
+.dashboard-stats-grid,
+.dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: 1rem;
+}
+
+.dashboard-stats-grid {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+}
+
+.dashboard-stat-card,
+.dashboard-section {
+  background: #ffffff;
+  border: 1px solid #e4e8f0;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
 }
 
 .dashboard-stat-card {
   padding: 1.15rem;
   border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid #e4e8f0;
-  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
 }
 
 .dashboard-stat-value {
@@ -427,13 +399,9 @@
   color: #667085;
 }
 
-/* Dashboard section wrapper. */
 .dashboard-section {
   padding: 1.35rem;
   border-radius: 22px;
-  background: #ffffff;
-  border: 1px solid #e4e8f0;
-  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
 }
 
 .dashboard-section-header {
@@ -453,13 +421,6 @@
 .dashboard-section-header p {
   margin: 0.25rem 0 0;
   color: #667085;
-}
-
-/* Dashboard module cards grid. */
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-  gap: 1rem;
 }
 
 .dashboard-card {
@@ -525,14 +486,12 @@
    Shared page panels
    ========================= */
 
-/* Shared vertical stack for redesigned pages. */
 .page-stack {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-/* Summary cards grid used at the top of content pages. */
 .page-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -581,7 +540,6 @@
   font-weight: 600;
 }
 
-/* Shared white content panel. */
 .content-panel {
   padding: 1.35rem;
   border-radius: 22px;
@@ -609,7 +567,6 @@
   color: #667085;
 }
 
-/* Shared empty state block. */
 .empty-state {
   padding: 2.5rem 1rem;
   text-align: center;
@@ -636,7 +593,6 @@
    Compact calls list
    ========================= */
 
-/* Compact card list replacing the old wide call table. */
 .compact-call-list {
   display: flex;
   flex-direction: column;
@@ -650,7 +606,6 @@
   overflow: hidden;
 }
 
-/* Main visible row for each call record. */
 .compact-call-main {
   display: grid;
   grid-template-columns: 130px 150px minmax(260px, 1fr) 100px 90px 110px auto;
@@ -664,14 +619,25 @@
   color: #101828;
 }
 
-.compact-call-muted {
+.compact-call-muted,
+.patient-call-muted,
+.patient-list-muted,
+.employee-muted,
+.guided-patient-muted,
+.call-form-search-muted {
   margin-top: 0.2rem;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: #667085;
 }
 
-.compact-call-label {
-  margin-bottom: 0.15rem;
+.compact-call-label,
+.patient-call-label,
+.patient-detail-label,
+.employee-section-label,
+.employee-license-name,
+.crew-member-label,
+.guided-review-label {
+  margin-bottom: 0.25rem;
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -683,7 +649,6 @@
   min-width: 0;
 }
 
-/* Expanded call details area. */
 .compact-call-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(240px, 1fr));
@@ -695,8 +660,877 @@
 }
 
 /* =========================
+   Patients page
+   ========================= */
+
+.patient-form-section,
+.employee-form-section,
+.crew-form-section,
+.call-form-section,
+.price-calculator-modern {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e7edf6;
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+.patient-form-section-header,
+.employee-form-section-header,
+.crew-form-section-header,
+.call-form-section-header,
+.price-calculator-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.patient-form-section-icon,
+.employee-form-section-icon,
+.crew-form-section-icon,
+.call-form-section-icon,
+.price-calculator-icon,
+.call-intake-note-icon {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+}
+
+.patient-form-section-header h5,
+.employee-form-section-header h5,
+.crew-form-section-header h5,
+.call-form-section-header h5,
+.price-calculator-header h5 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+.call-form-section-header p,
+.price-calculator-header p {
+  margin: 0.2rem 0 0;
+  color: #667085;
+}
+
+.patient-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+.patient-detail-item {
+  padding: 0.85rem;
+  border: 1px solid #e7edf6;
+  border-radius: 14px;
+  background: #f8fafd;
+}
+
+.patient-detail-value {
+  color: #344054;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.patient-call-list,
+.patient-list,
+.employee-card-list,
+.planned-unit-list,
+.guided-intake-grid,
+.guided-patient-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.patient-call-card {
+  display: grid;
+  grid-template-columns: 160px minmax(260px, 1fr) 120px minmax(220px, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.patient-call-date,
+.patient-list-name,
+.employee-name,
+.crew-employee-name,
+.guided-patient-name,
+.call-form-search-name {
+  font-weight: 800;
+  color: #101828;
+}
+
+.patient-list-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(220px, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.patient-list-card.selected {
+  border-color: #198754;
+  box-shadow: 0 8px 22px rgba(25, 135, 84, 0.12);
+}
+
+.patient-list-main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.patient-list-avatar,
+.employee-avatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+  font-weight: 800;
+}
+
+.employee-avatar {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+}
+
+.patient-list-meta,
+.patient-list-actions,
+.employee-card-badges,
+.employee-actions,
+.planned-unit-badges,
+.planned-unit-actions,
+.price-calculator-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.patient-list-actions,
+.employee-actions,
+.price-calculator-actions {
+  justify-content: flex-end;
+}
+
+/* =========================
+   Employee role badges
+   ========================= */
+
+.employee-role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.employee-role-badge.role-driver {
+  background: #eaf2ff;
+  color: #0d6efd;
+  border-color: #bfd7ff;
+}
+
+.employee-role-badge.role-emt {
+  background: #e9f8ef;
+  color: #198754;
+  border-color: #bfe8cf;
+}
+
+.employee-role-badge.role-paramedic {
+  background: #f1e9ff;
+  color: #6f42c1;
+  border-color: #d8c5ff;
+}
+
+.employee-role-badge.role-dispatcher {
+  background: #e8edff;
+  color: #3d50b3;
+  border-color: #c5d0ff;
+}
+
+.employee-role-badge.role-supervisor {
+  background: #fff4e5;
+  color: #f59f00;
+  border-color: #ffe0a6;
+}
+
+.employee-role-badge.role-manager {
+  background: #fff0f0;
+  color: #dc3545;
+  border-color: #ffc7c7;
+}
+
+.employee-role-badge.role-admin {
+  background: #e9ecef;
+  color: #212529;
+  border-color: #ced4da;
+}
+
+.employee-role-badge.role-hr {
+  background: #e6fbf7;
+  color: #0f766e;
+  border-color: #b8eee5;
+}
+
+.employee-role-badge.role-assist {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #dbe4ee;
+}
+
+.employee-role-badge.role-unknown {
+  background: #f8f9fa;
+  color: #6c757d;
+  border-color: #dee2e6;
+}
+
+/* =========================
+   Employees page
+   ========================= */
+
+.employee-license-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.employee-license-form-card {
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.employee-license-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.employee-license-form-header h6 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+.employee-license-extra-fields {
+  margin-top: 0.75rem;
+}
+
+.employee-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.15fr) minmax(220px, 1fr) minmax(170px, 0.75fr) minmax(260px, 1.2fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.employee-card:hover,
+.planned-unit-card:hover {
+  border-color: #cfd8e6;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
+  transform: translateY(-1px);
+}
+
+.employee-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.employee-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #344054;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.employee-positions {
+  min-width: 0;
+}
+
+.employee-license-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+
+.employee-license-pill {
+  padding: 0.6rem;
+  border: 1px solid #e7edf6;
+  border-radius: 14px;
+  background: #f8fafd;
+}
+
+.employee-license-details {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: #667085;
+}
+
+/* =========================
+   Shared drawers
+   ========================= */
+
+.employee-drawer-overlay,
+.patient-drawer-overlay,
+.crew-drawer-overlay,
+.guided-lookup-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.employee-drawer,
+.patient-drawer,
+.crew-drawer,
+.guided-lookup-drawer {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f7fb;
+  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
+  animation: appDrawerSlideIn 0.18s ease-out;
+}
+
+.employee-drawer,
+.patient-drawer {
+  width: min(760px, 100%);
+}
+
+.crew-drawer {
+  width: min(820px, 100%);
+}
+
+.guided-lookup-drawer {
+  width: min(620px, 100%);
+}
+
+@keyframes appDrawerSlideIn {
+  from {
+    transform: translateX(28px);
+    opacity: 0.75;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.employee-drawer-header,
+.patient-drawer-header,
+.crew-drawer-header,
+.guided-lookup-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e4e8f0;
+}
+
+.employee-drawer-header h4,
+.patient-drawer-header h4,
+.crew-drawer-header h4,
+.guided-lookup-drawer-header h4 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+.employee-drawer-header p,
+.patient-drawer-header p,
+.crew-drawer-header p,
+.guided-lookup-drawer-header p {
+  margin: 0.25rem 0 0;
+  color: #667085;
+}
+
+.employee-drawer-form,
+.patient-drawer-form,
+.crew-drawer-form {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.employee-drawer-body,
+.patient-drawer-body,
+.crew-drawer-body,
+.guided-lookup-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.employee-drawer-footer,
+.patient-drawer-footer,
+.crew-drawer-footer,
+.guided-lookup-drawer-footer {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #e4e8f0;
+}
+
+/* =========================
+   Crew Planner page
+   ========================= */
+
+.crew-employee-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.crew-employee-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.crew-employee-chip.has-warning {
+  border-color: #ffd0d0;
+  background: #fff7f7;
+}
+
+.crew-employee-chip-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.crew-employee-name {
+  white-space: nowrap;
+}
+
+.planned-unit-card {
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.planned-unit-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.planned-unit-title {
+  font-weight: 800;
+  color: #101828;
+  font-size: 1.05rem;
+}
+
+.planned-unit-section {
+  margin-top: 1rem;
+}
+
+.crew-member-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.crew-member-card {
+  padding: 0.85rem;
+  border: 1px solid #e7edf6;
+  border-radius: 14px;
+  background: #f8fafd;
+}
+
+.crew-member-card.empty {
+  background: #ffffff;
+  border-style: dashed;
+}
+
+.crew-member-name {
+  margin-bottom: 0.45rem;
+  font-weight: 800;
+  color: #101828;
+}
+
+.planned-patient-list {
+  margin-bottom: 0;
+  color: #344054;
+}
+
+/* =========================
+   Call Form page and guided intake
+   ========================= */
+
+.call-intake-start-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #ffd0d0;
+  border-radius: 18px;
+  background: #fff7f7;
+}
+
+.call-intake-start-card h5,
+.call-intake-note-card h6,
+.guided-step-card h5 {
+  margin: 0 0 0.35rem;
+  font-weight: 800;
+  color: #101828;
+}
+
+.call-intake-start-card p,
+.call-intake-note-card p,
+.guided-step-card p {
+  margin: 0;
+  color: #667085;
+}
+
+.call-intake-note-card {
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.guided-step-card {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.guided-step-card.active {
+  border-color: #0d6efd;
+  box-shadow: 0 10px 24px rgba(13, 110, 253, 0.1);
+}
+
+.guided-step-card.muted {
+  background: #f8fafd;
+}
+
+.guided-step-number {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+  font-weight: 900;
+}
+
+.guided-stepper {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.guided-stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #667085;
+}
+
+.guided-stepper-item.active {
+  border-color: #0d6efd;
+  background: #eaf2ff;
+  color: #0d6efd;
+}
+
+.guided-stepper-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.guided-stepper-item.active .guided-stepper-number {
+  background: #0d6efd;
+  color: #ffffff;
+}
+
+.guided-stepper-label {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.guided-review-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.guided-review-card {
+  padding: 0.85rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #344054;
+  font-weight: 700;
+}
+
+.guided-review-muted {
+  margin-top: 0.25rem;
+  color: #667085;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.guided-patient-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+/* =========================
+   Modern Classic Call Form
+   ========================= */
+
+.call-form-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.call-form-search-results {
+  padding: 0.85rem;
+  border: 1px solid #d7e5ff;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.call-form-search-title {
+  margin-bottom: 0.75rem;
+  font-weight: 800;
+  color: #101828;
+}
+
+.call-form-search-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #eef2f7;
+}
+
+.call-form-search-card:first-of-type {
+  border-top: 0;
+}
+
+.call-service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.call-service-card {
+  padding: 0.9rem;
+  border: 1px solid #d7e5ff;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0d6efd;
+  font-weight: 800;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.call-service-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 10px 24px rgba(13, 110, 253, 0.1);
+  transform: translateY(-1px);
+}
+
+.call-service-card.active {
+  background: #0d6efd;
+  color: #ffffff;
+  border-color: #0d6efd;
+}
+
+.call-quality-panel {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid #e4e8f0;
+  background: #ffffff;
+}
+
+.call-quality-panel.danger {
+  border-color: #f5b7bd;
+  background: #fff1f3;
+}
+
+.call-quality-panel.warning {
+  border-color: #ffe08a;
+  background: #fff9e6;
+}
+
+.call-quality-panel.success {
+  border-color: #b7ebc6;
+  background: #f0fff4;
+}
+
+.call-quality-score {
+  width: 78px;
+  height: 78px;
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #101828;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.call-quality-title {
+  font-weight: 900;
+  color: #101828;
+}
+
+.call-quality-line {
+  margin-top: 0.35rem;
+  color: #344054;
+}
+
+.call-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+
+/* =========================
+   Modern Price Calculator
+   ========================= */
+
+.price-calculator-modern {
+  margin-top: 1rem;
+}
+
+.price-calculator-result {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.price-calculator-result > div {
+  min-width: 220px;
+  padding: 1rem;
+  border: 1px solid #b7ebc6;
+  border-radius: 18px;
+  background: #f0fff4;
+}
+
+.price-calculator-result-label {
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #667085;
+}
+
+.price-calculator-result-value {
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #198754;
+}
+
+.price-calculator-actions {
+  margin-top: 1rem;
+}
+
+/* =========================
    Responsive layout
    ========================= */
+
+@media (max-width: 1400px) {
+  .employee-card {
+    grid-template-columns: minmax(260px, 1fr) minmax(220px, 1fr);
+  }
+
+  .employee-actions {
+    justify-content: flex-start;
+  }
+}
 
 @media (max-width: 1200px) {
   .dashboard-stats-grid {
@@ -709,6 +1543,23 @@
 
   .compact-call-main {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .patient-detail-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .patient-call-card,
+  .patient-list-card {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-list-actions {
+    justify-content: flex-start;
+  }
+
+  .crew-member-grid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 }
 
@@ -753,34 +1604,107 @@
     flex-wrap: wrap;
   }
 
-  .page-summary-grid {
+  .page-summary-grid,
+  .employee-license-form-grid,
+  .employee-card {
     grid-template-columns: 1fr;
   }
 
   .content-panel {
     padding: 1rem;
   }
+
+  .guided-review-grid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 850px) {
+  .crew-drawer {
+    width: 100%;
+  }
+}
+
+@media (max-width: 800px) {
+  .employee-drawer,
+  .patient-drawer {
+    width: 100%;
+  }
+
+  .call-service-grid,
+  .call-quality-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .call-form-search-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 700px) {
-  .dashboard-hero {
+  .dashboard-hero,
+  .call-intake-start-card,
+  .guided-patient-card {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .dashboard-hero-button {
+  .dashboard-hero-button,
+  .price-calculator-actions .btn {
     justify-content: center;
   }
 
   .dashboard-stats-grid,
   .dashboard-grid,
   .compact-call-main,
-  .compact-call-details {
+  .compact-call-details,
+  .patient-detail-grid,
+  .employee-license-summary,
+  .crew-member-grid,
+  .guided-step-card,
+  .guided-review-grid {
     grid-template-columns: 1fr;
   }
 
   .dashboard-card {
     min-height: auto;
+  }
+
+  .patient-form-section,
+  .employee-form-section {
+    padding: 0.85rem;
+  }
+
+  .planned-unit-header {
+    flex-direction: column;
+  }
+
+  .crew-employee-chip {
+    width: 100%;
+    border-radius: 16px;
+    justify-content: space-between;
+  }
+
+  .crew-employee-chip-main {
+    flex-wrap: wrap;
+  }
+
+  .guided-lookup-drawer {
+    width: 100%;
+  }
+
+  .price-calculator-result {
+    justify-content: stretch;
+  }
+
+  .price-calculator-result > div,
+  .price-calculator-actions .btn {
+    width: 100%;
+  }
+
+  .price-calculator-actions {
+    justify-content: stretch;
   }
 }
 
@@ -797,1042 +1721,5 @@
   .topbar-call-button {
     width: 100%;
     justify-content: center;
-  }
-}
-
-/* =========================
-   Patients page
-   ========================= */
-
-/* Form section wrapper used inside the patient create/edit form. */
-.patient-form-section {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid #e7edf6;
-  border-radius: 18px;
-  background: #f8fafd;
-}
-
-/* Header for each patient form section. */
-.patient-form-section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 1rem;
-}
-
-/* Small icon block used in patient form section headers. */
-.patient-form-section-icon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #eaf2ff;
-  color: #0d6efd;
-}
-
-/* Section title inside patient form blocks. */
-.patient-form-section-header h5 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Selected patient details grid. */
-.patient-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
-  gap: 0.85rem;
-}
-
-/* Individual selected patient detail cell. */
-.patient-detail-item {
-  padding: 0.85rem;
-  border: 1px solid #e7edf6;
-  border-radius: 14px;
-  background: #f8fafd;
-}
-
-/* Label inside selected patient detail cells. */
-.patient-detail-label {
-  margin-bottom: 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #98a2b3;
-}
-
-/* Value inside selected patient detail cells. */
-.patient-detail-value {
-  color: #344054;
-  font-weight: 600;
-  word-break: break-word;
-}
-
-/* Compact call history list for the selected patient. */
-.patient-call-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* Single patient call history card. */
-.patient-call-card {
-  display: grid;
-  grid-template-columns: 160px minmax(260px, 1fr) 120px minmax(220px, 1fr);
-  gap: 1rem;
-  align-items: start;
-  padding: 1rem;
-  border: 1px solid #e4e8f0;
-  border-radius: 16px;
-  background: #ffffff;
-}
-
-/* Primary date text in patient call history card. */
-.patient-call-date {
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Muted secondary text in patient call history card. */
-.patient-call-muted {
-  margin-top: 0.2rem;
-  font-size: 0.82rem;
-  color: #667085;
-}
-
-/* Small label inside patient call history cards. */
-.patient-call-label {
-  margin-bottom: 0.15rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #98a2b3;
-}
-
-/* Patient search results list. */
-.patient-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* Patient result card. */
-.patient-list-card {
-  display: grid;
-  grid-template-columns: minmax(260px, 1.4fr) minmax(220px, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-  padding: 1rem;
-  border: 1px solid #e4e8f0;
-  border-radius: 16px;
-  background: #ffffff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-/* Highlight selected patient result card. */
-.patient-list-card.selected {
-  border-color: #198754;
-  box-shadow: 0 8px 22px rgba(25, 135, 84, 0.12);
-}
-
-/* Left side of patient result card with avatar and name. */
-.patient-list-main {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  min-width: 0;
-}
-
-/* Patient initials avatar. */
-.patient-list-avatar {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #eaf2ff;
-  color: #0d6efd;
-  font-weight: 800;
-}
-
-/* Patient full name in result card. */
-.patient-list-name {
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Secondary patient data in result card. */
-.patient-list-muted {
-  margin-top: 0.2rem;
-  font-size: 0.85rem;
-  color: #667085;
-}
-
-/* Middle metadata area in patient result card. */
-.patient-list-meta {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-/* Action buttons area in patient result card. */
-.patient-list-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* Patients page responsive behavior. */
-@media (max-width: 1200px) {
-  .patient-detail-grid {
-    grid-template-columns: repeat(2, minmax(180px, 1fr));
-  }
-
-  .patient-call-card,
-  .patient-list-card {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-list-actions {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 700px) {
-  .patient-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-form-section {
-    padding: 0.85rem;
-  }
-}
-
-/* =========================
-   Employee role badges
-   ========================= */
-
-/* Shared employee role badge style. */
-.employee-role-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 24px;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  border: 1px solid transparent;
-}
-
-/* Driver role: operational driving role. */
-.employee-role-badge.role-driver {
-  background: #eaf2ff;
-  color: #0d6efd;
-  border-color: #bfd7ff;
-}
-
-/* EMT role: basic medical provider. */
-.employee-role-badge.role-emt {
-  background: #e9f8ef;
-  color: #198754;
-  border-color: #bfe8cf;
-}
-
-/* Paramedic role: advanced medical provider. */
-.employee-role-badge.role-paramedic {
-  background: #f1e9ff;
-  color: #6f42c1;
-  border-color: #d8c5ff;
-}
-
-/* Dispatcher role: call intake and operations coordination. */
-.employee-role-badge.role-dispatcher {
-  background: #e8edff;
-  color: #3d50b3;
-  border-color: #c5d0ff;
-}
-
-/* Supervisor role: operational supervision. */
-.employee-role-badge.role-supervisor {
-  background: #fff4e5;
-  color: #f59f00;
-  border-color: #ffe0a6;
-}
-
-/* Manager role: management-level employee. */
-.employee-role-badge.role-manager {
-  background: #fff0f0;
-  color: #dc3545;
-  border-color: #ffc7c7;
-}
-
-/* Admin role: system administration. */
-.employee-role-badge.role-admin {
-  background: #e9ecef;
-  color: #212529;
-  border-color: #ced4da;
-}
-
-/* HR role: employee records and HR workflows. */
-.employee-role-badge.role-hr {
-  background: #e6fbf7;
-  color: #0f766e;
-  border-color: #b8eee5;
-}
-
-/* Assist role: support crew position. */
-.employee-role-badge.role-assist {
-  background: #f1f5f9;
-  color: #475569;
-  border-color: #dbe4ee;
-}
-
-/* Unknown role fallback. */
-.employee-role-badge.role-unknown {
-  background: #f8f9fa;
-  color: #6c757d;
-  border-color: #dee2e6;
-}
-
-/* =========================
-   Employees page
-   ========================= */
-
-/* Form section wrapper used inside employee create/edit form. */
-.employee-form-section {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid #e7edf6;
-  border-radius: 18px;
-  background: #f8fafd;
-}
-
-/* Header for each employee form section. */
-.employee-form-section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 1rem;
-}
-
-/* Small icon block used in employee form section headers. */
-.employee-form-section-icon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #eaf2ff;
-  color: #0d6efd;
-}
-
-/* Section title inside employee form blocks. */
-.employee-form-section-header h5 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Grid for certification cards inside the employee form. */
-.employee-license-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-  gap: 1rem;
-}
-
-/* Individual certification edit card. */
-.employee-license-form-card {
-  padding: 1rem;
-  border: 1px solid #e4e8f0;
-  border-radius: 16px;
-  background: #ffffff;
-}
-
-/* Header inside each certification edit card. */
-.employee-license-form-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-/* Certification title inside the edit card. */
-.employee-license-form-header h6 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Employee card list. */
-.employee-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-/* Main employee result card. */
-.employee-card {
-  display: grid;
-  grid-template-columns: minmax(260px, 1.15fr) minmax(220px, 1fr) minmax(170px, 0.75fr) minmax(260px, 1.2fr) auto;
-  gap: 1rem;
-  align-items: start;
-  padding: 1rem;
-  border: 1px solid #e4e8f0;
-  border-radius: 18px;
-  background: #ffffff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-/* Employee card hover state. */
-.employee-card:hover {
-  border-color: #cfd8e6;
-  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
-  transform: translateY(-1px);
-}
-
-/* Left side of employee card with avatar and name. */
-.employee-card-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-  min-width: 0;
-}
-
-/* Employee initials avatar. */
-.employee-avatar {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #eaf2ff;
-  color: #0d6efd;
-  font-weight: 800;
-}
-
-/* Employee full name. */
-.employee-name {
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Muted employee metadata line. */
-.employee-muted {
-  margin-top: 0.2rem;
-  font-size: 0.85rem;
-  color: #667085;
-}
-
-/* Wrapper for role/status/position badges. */
-.employee-card-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-/* Contact and notes column. */
-.employee-contact {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  color: #344054;
-  font-size: 0.9rem;
-  word-break: break-word;
-}
-
-/* Allowed positions column. */
-.employee-positions {
-  min-width: 0;
-}
-
-/* Small uppercase section label inside employee cards. */
-.employee-section-label {
-  margin-bottom: 0.4rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #98a2b3;
-}
-
-/* Certification summary grid inside employee cards. */
-.employee-license-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(110px, 1fr));
-  gap: 0.5rem;
-}
-
-/* Compact certification pill. */
-.employee-license-pill {
-  padding: 0.6rem;
-  border: 1px solid #e7edf6;
-  border-radius: 14px;
-  background: #f8fafd;
-}
-
-/* Certification name inside compact pill. */
-.employee-license-name {
-  margin-bottom: 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #667085;
-}
-
-/* Certification expiration text. */
-.employee-license-details {
-  margin-top: 0.35rem;
-  font-size: 0.78rem;
-  color: #667085;
-}
-
-/* Employee card action buttons. */
-.employee-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* Employees page responsive behavior. */
-@media (max-width: 1400px) {
-  .employee-card {
-    grid-template-columns: minmax(260px, 1fr) minmax(220px, 1fr);
-  }
-
-  .employee-actions {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 900px) {
-  .employee-license-form-grid,
-  .employee-card {
-    grid-template-columns: 1fr;
-  }
-
-  .employee-license-summary {
-    grid-template-columns: repeat(2, minmax(110px, 1fr));
-  }
-}
-
-@media (max-width: 600px) {
-  .employee-form-section {
-    padding: 0.85rem;
-  }
-
-  .employee-license-summary {
-    grid-template-columns: 1fr;
-  }
-}
-
-.employee-license-extra-fields {
-  margin-top: 0.75rem;
-}
-
-/* =========================
-   Employee drawer
-   ========================= */
-
-/* Full-screen overlay used when the employee add/edit drawer is open. */
-.employee-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(2px);
-}
-
-/* Right-side drawer for employee add/edit workflow. */
-.employee-drawer {
-  width: min(760px, 100%);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f5f7fb;
-  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
-  animation: employeeDrawerSlideIn 0.18s ease-out;
-}
-
-/* Drawer slide-in animation. */
-@keyframes employeeDrawerSlideIn {
-  from {
-    transform: translateX(28px);
-    opacity: 0.75;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Drawer header with title and close button. */
-.employee-drawer-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e8f0;
-}
-
-.employee-drawer-header h4 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-.employee-drawer-header p {
-  margin: 0.25rem 0 0;
-  color: #667085;
-}
-
-/* Drawer form uses flex so footer can stay visible. */
-.employee-drawer-form {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Scrollable drawer form body. */
-.employee-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.25rem;
-}
-
-/* Sticky drawer footer with save/cancel actions. */
-.employee-drawer-footer {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 1rem 1.25rem;
-  background: #ffffff;
-  border-top: 1px solid #e4e8f0;
-}
-
-/* Additional spacing for conditional license fields. */
-.employee-license-extra-fields {
-  margin-top: 0.75rem;
-}
-
-@media (max-width: 800px) {
-  .employee-drawer {
-    width: 100%;
-  }
-}
-
-/* =========================
-   Patient drawer
-   ========================= */
-
-/* Full-screen overlay used when the patient add/edit drawer is open. */
-.patient-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(2px);
-}
-
-/* Right-side drawer for patient add/edit workflow. */
-.patient-drawer {
-  width: min(760px, 100%);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f5f7fb;
-  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
-  animation: patientDrawerSlideIn 0.18s ease-out;
-}
-
-/* Drawer slide-in animation. */
-@keyframes patientDrawerSlideIn {
-  from {
-    transform: translateX(28px);
-    opacity: 0.75;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Drawer header with title and close button. */
-.patient-drawer-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e8f0;
-}
-
-.patient-drawer-header h4 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-.patient-drawer-header p {
-  margin: 0.25rem 0 0;
-  color: #667085;
-}
-
-/* Drawer form uses flex so footer can stay visible. */
-.patient-drawer-form {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Scrollable drawer form body. */
-.patient-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.25rem;
-}
-
-/* Sticky drawer footer with save/cancel actions. */
-.patient-drawer-footer {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 1rem 1.25rem;
-  background: #ffffff;
-  border-top: 1px solid #e4e8f0;
-}
-
-@media (max-width: 800px) {
-  .patient-drawer {
-    width: 100%;
-  }
-}
-
-/* =========================
-   Crew Planner page
-   ========================= */
-
-/* Compact list of unassigned employee chips. */
-.crew-employee-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-/* Unassigned employee chip with role badge and optional CPR warning. */
-.crew-employee-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid #e4e8f0;
-  border-radius: 999px;
-  background: #ffffff;
-}
-
-/* Highlight unassigned employees with CPR warnings. */
-.crew-employee-chip.has-warning {
-  border-color: #ffd0d0;
-  background: #fff7f7;
-}
-
-/* Main employee name and role area inside unassigned chip. */
-.crew-employee-chip-main {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Employee name inside unassigned chip. */
-.crew-employee-name {
-  font-weight: 800;
-  color: #101828;
-  white-space: nowrap;
-}
-
-/* Planned unit card list. */
-.planned-unit-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* Saved unit card. */
-.planned-unit-card {
-  padding: 1rem;
-  border: 1px solid #e4e8f0;
-  border-radius: 18px;
-  background: #ffffff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-/* Saved unit card hover state. */
-.planned-unit-card:hover {
-  border-color: #cfd8e6;
-  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
-  transform: translateY(-1px);
-}
-
-/* Saved unit header with title and actions. */
-.planned-unit-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-/* Saved unit title. */
-.planned-unit-title {
-  font-weight: 800;
-  color: #101828;
-  font-size: 1.05rem;
-}
-
-/* Badge row inside planned unit cards. */
-.planned-unit-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.45rem;
-}
-
-/* Saved unit action buttons. */
-.planned-unit-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-/* Section inside planned unit card. */
-.planned-unit-section {
-  margin-top: 1rem;
-}
-
-/* Crew member assignment grid inside planned unit card. */
-.crew-member-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
-  gap: 0.75rem;
-}
-
-/* Individual assigned crew member card. */
-.crew-member-card {
-  padding: 0.85rem;
-  border: 1px solid #e7edf6;
-  border-radius: 14px;
-  background: #f8fafd;
-}
-
-/* Empty crew slot card. */
-.crew-member-card.empty {
-  background: #ffffff;
-  border-style: dashed;
-}
-
-/* Crew role label. */
-.crew-member-label {
-  margin-bottom: 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #98a2b3;
-}
-
-/* Crew member display name. */
-.crew-member-name {
-  margin-bottom: 0.45rem;
-  font-weight: 800;
-  color: #101828;
-}
-
-/* Patient order list inside planned unit card. */
-.planned-patient-list {
-  margin-bottom: 0;
-  color: #344054;
-}
-
-@media (max-width: 1200px) {
-  .crew-member-grid {
-    grid-template-columns: repeat(2, minmax(160px, 1fr));
-  }
-}
-
-@media (max-width: 700px) {
-  .planned-unit-header {
-    flex-direction: column;
-  }
-
-  .crew-member-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .crew-employee-chip {
-    width: 100%;
-    border-radius: 16px;
-    justify-content: space-between;
-  }
-
-  .crew-employee-chip-main {
-    flex-wrap: wrap;
-  }
-}
-
-/* =========================
-   Crew Planner drawer
-   ========================= */
-
-/* Full-screen overlay used when the crew unit drawer is open. */
-.crew-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(2px);
-}
-
-/* Right-side drawer for creating and editing planned units. */
-.crew-drawer {
-  width: min(820px, 100%);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f5f7fb;
-  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
-  animation: crewDrawerSlideIn 0.18s ease-out;
-}
-
-/* Drawer slide-in animation. */
-@keyframes crewDrawerSlideIn {
-  from {
-    transform: translateX(28px);
-    opacity: 0.75;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Drawer header with title and close button. */
-.crew-drawer-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e8f0;
-}
-
-.crew-drawer-header h4 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-.crew-drawer-header p {
-  margin: 0.25rem 0 0;
-  color: #667085;
-}
-
-/* Drawer form uses flex so footer can stay visible. */
-.crew-drawer-form {
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Scrollable drawer form body. */
-.crew-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.25rem;
-}
-
-/* Sticky drawer footer with save/cancel actions. */
-.crew-drawer-footer {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 1rem 1.25rem;
-  background: #ffffff;
-  border-top: 1px solid #e4e8f0;
-}
-
-/* Form section wrapper inside the crew drawer. */
-.crew-form-section {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid #e7edf6;
-  border-radius: 18px;
-  background: #f8fafd;
-}
-
-/* Header for each crew drawer form section. */
-.crew-form-section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 1rem;
-}
-
-/* Small icon block used in crew form section headers. */
-.crew-form-section-icon {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #eaf2ff;
-  color: #0d6efd;
-}
-
-/* Section title inside crew drawer form blocks. */
-.crew-form-section-header h5 {
-  margin: 0;
-  font-weight: 800;
-  color: #101828;
-}
-
-@media (max-width: 850px) {
-  .crew-drawer {
-    width: 100%;
   }
 }
