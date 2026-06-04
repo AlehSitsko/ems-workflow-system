@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   FaBars,
   FaBell,
@@ -10,7 +10,53 @@ import {
 
 import { hasCallIntakeAccess } from "../../api/authApi";
 
+const pageTitles = {
+  "/home": {
+    title: "Dashboard",
+    subtitle: "Overview of today's operations",
+  },
+  "/call-form": {
+    title: "Call Form",
+    subtitle: "Start and document EMS call intake",
+  },
+  "/patients": {
+    title: "Patients",
+    subtitle: "Search, review, and manage patient records",
+  },
+  "/calls": {
+    title: "Calls",
+    subtitle: "Review saved call records and call history",
+  },
+  "/employees": {
+    title: "Employees",
+    subtitle: "Manage staff records, certifications, and HR information",
+  },
+  "/crew-planner": {
+    title: "Crew Planner",
+    subtitle: "Create and manage unit assignments",
+  },
+  "/supervisor": {
+    title: "Supervisor Dashboard",
+    subtitle: "Review dispatcher analytics and call quality",
+  },
+  "/users": {
+    title: "User Management",
+    subtitle: "Create and manage system user accounts",
+  },
+  "/manual": {
+    title: "User Manual",
+    subtitle: "Workflow instructions and system usage notes",
+  },
+};
+
 function Topbar({ currentUser, onLogout }) {
+  const location = useLocation();
+
+  const currentPage = pageTitles[location.pathname] || {
+    title: "EMS Workflow System",
+    subtitle: "Operational management platform",
+  };
+
   const userInitials = currentUser?.display_name
     ? currentUser.display_name
         .split(" ")
@@ -28,8 +74,8 @@ function Topbar({ currentUser, onLogout }) {
         </button>
 
         <div>
-          <h1 className="topbar-title">Dashboard</h1>
-          <p className="topbar-subtitle">Overview of today's operations</p>
+          <h1 className="topbar-title">{currentPage.title}</h1>
+          <p className="topbar-subtitle">{currentPage.subtitle}</p>
         </div>
       </div>
 

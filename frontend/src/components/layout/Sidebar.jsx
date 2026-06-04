@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FaAmbulance, FaChevronLeft } from "react-icons/fa";
+import { FaChevronLeft, FaStarOfLife } from "react-icons/fa";
 
 import { navigationGroups } from "./navigationConfig";
 
@@ -19,7 +19,7 @@ function Sidebar({ currentUser }) {
     <aside className="app-sidebar">
       <div className="sidebar-brand">
         <div className="sidebar-brand-icon">
-          <FaAmbulance />
+          <FaStarOfLife />
         </div>
 
         <div>
