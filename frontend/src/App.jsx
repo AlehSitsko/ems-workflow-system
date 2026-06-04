@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { HashRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+
+import "./App.css";
+
+import AppLayout from "./components/layout/AppLayout";
 
 import HomePage from "./pages/HomePage";
 import CallFormPage from "./pages/CallFormPage";
@@ -25,10 +29,6 @@ import {
 function App() {
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
 
-  // Add Bootstrap active styling to the current navigation link.
-  const getNavLinkClass = ({ isActive }) =>
-    `nav-link${isActive ? " active fw-semibold" : ""}`;
-
   // Save logged-in user in application state.
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -40,13 +40,17 @@ function App() {
     setCurrentUser(null);
   };
 
-  // Protect pages from being opened without login.
-  const ProtectedRoute = ({ children }) => {
+  // Wrap protected pages inside the shared application layout.
+  const ProtectedLayout = ({ children }) => {
     if (!currentUser) {
       return <Navigate to="/login" replace />;
     }
 
-    return children;
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
   };
 
   // Prevent logged-in users from staying on the login page.
@@ -68,7 +72,11 @@ function App() {
       return <Navigate to="/home" replace />;
     }
 
-    return children;
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
   };
 
   // Protect pages that should only be available to employee record users.
@@ -81,7 +89,11 @@ function App() {
       return <Navigate to="/home" replace />;
     }
 
-    return children;
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
   };
 
   // Protect pages that should only be available to crew planning users.
@@ -94,7 +106,11 @@ function App() {
       return <Navigate to="/home" replace />;
     }
 
-    return children;
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
   };
 
   // Protect supervisor-level pages.
@@ -107,7 +123,11 @@ function App() {
       return <Navigate to="/home" replace />;
     }
 
-    return children;
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
   };
 
   // Protect admin-only pages.
@@ -120,87 +140,17 @@ function App() {
       return <Navigate to="/home" replace />;
     }
 
-    return children;
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
   };
 
   return (
     // HashRouter is used because the app is deployed to GitHub Pages.
     // It keeps routes after the # symbol and prevents 404 errors on refresh.
     <HashRouter>
-      <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div className="container-fluid px-3">
-          <span className="navbar-brand fw-bold">EMS Workflow System</span>
-
-          {currentUser && (
-            <>
-              <div className="navbar-nav ms-3">
-                <NavLink to="/home" className={getNavLinkClass}>
-                  Home
-                </NavLink>
-
-                {hasPatientAccess(currentUser) && (
-                  <>
-                    <NavLink to="/call-form" className={getNavLinkClass}>
-                      Call Form
-                    </NavLink>
-
-                    <NavLink to="/patients" className={getNavLinkClass}>
-                      Patients
-                    </NavLink>
-
-                    <NavLink to="/calls" className={getNavLinkClass}>
-                      Calls
-                    </NavLink>
-                  </>
-                )}
-
-                {hasSupervisorAccess(currentUser) && (
-                  <NavLink to="/supervisor" className={getNavLinkClass}>
-                    Supervisor
-                  </NavLink>
-                )}
-
-                {hasEmployeeAccess(currentUser) && (
-                  <NavLink to="/employees" className={getNavLinkClass}>
-                    Employees
-                  </NavLink>
-                )}
-
-                {hasCrewPlannerAccess(currentUser) && (
-                  <NavLink to="/crew-planner" className={getNavLinkClass}>
-                    Crew Planner
-                  </NavLink>
-                )}
-
-                {hasAdminAccess(currentUser) && (
-                  <NavLink to="/users" className={getNavLinkClass}>
-                    Users
-                  </NavLink>
-                )}
-
-                <NavLink to="/manual" className={getNavLinkClass}>
-                  User Manual
-                </NavLink>
-              </div>
-
-              <div className="ms-auto d-flex align-items-center gap-3">
-                <span className="text-light small">
-                  {currentUser.display_name} ({currentUser.role})
-                </span>
-
-                <button
-                  type="button"
-                  className="btn btn-outline-light btn-sm"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </nav>
-
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
 
@@ -216,9 +166,9 @@ function App() {
         <Route
           path="/home"
           element={
-            <ProtectedRoute>
+            <ProtectedLayout>
               <HomePage currentUser={currentUser} />
-            </ProtectedRoute>
+            </ProtectedLayout>
           }
         />
 
@@ -261,9 +211,9 @@ function App() {
         <Route
           path="/manual"
           element={
-            <ProtectedRoute>
+            <ProtectedLayout>
               <UserManualPage />
-            </ProtectedRoute>
+            </ProtectedLayout>
           }
         />
 
