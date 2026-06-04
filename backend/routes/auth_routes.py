@@ -8,6 +8,10 @@ from models import db, User
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
+# Allowed system roles.
+ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr"]
+
+
 # Handle user login and return authenticated user data.
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -60,8 +64,6 @@ def create_user():
     role = data.get("role", "dispatcher").strip()
     is_active = bool(data.get("is_active", True))
 
-    allowed_roles = ["admin", "supervisor", "dispatcher"]
-
     if not username:
         return jsonify({"error": "Username is required"}), 400
 
@@ -71,7 +73,7 @@ def create_user():
     if not display_name:
         return jsonify({"error": "Display name is required"}), 400
 
-    if role not in allowed_roles:
+    if role not in ALLOWED_ROLES:
         return jsonify({"error": "Invalid user role"}), 400
 
     existing_user = User.query.filter_by(username=username).first()
@@ -112,15 +114,13 @@ def update_user(id):
     role = data.get("role", "dispatcher").strip()
     is_active = bool(data.get("is_active", True))
 
-    allowed_roles = ["admin", "supervisor", "dispatcher"]
-
     if not username:
         return jsonify({"error": "Username is required"}), 400
 
     if not display_name:
         return jsonify({"error": "Display name is required"}), 400
 
-    if role not in allowed_roles:
+    if role not in ALLOWED_ROLES:
         return jsonify({"error": "Invalid user role"}), 400
 
     existing_user = User.query.filter(

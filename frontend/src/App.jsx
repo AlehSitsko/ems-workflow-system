@@ -16,6 +16,8 @@ import {
   getCurrentUser,
   logoutUser,
   hasSupervisorAccess,
+  hasWorkforceAccess,
+  hasPatientAccess,
 } from "./api/authApi";
 
 function App() {
@@ -48,6 +50,32 @@ function App() {
   // Prevent logged-in users from staying on the login page.
   const LoginRoute = ({ children }) => {
     if (currentUser) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return children;
+  };
+
+  // Protect pages that should only be available to patient/call users.
+  const PatientRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!hasPatientAccess(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return children;
+  };
+
+  // Protect pages that should only be available to workforce users.
+  const WorkforceRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!hasWorkforceAccess(currentUser)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -95,26 +123,36 @@ function App() {
                   Home
                 </NavLink>
 
-                <NavLink to="/call-form" className={getNavLinkClass}>
-                  Call Form
-                </NavLink>
-
-                <NavLink to="/patients" className={getNavLinkClass}>
-                  Patients
-                </NavLink>
-
-                <NavLink to="/calls" className={getNavLinkClass}>
-                  Calls
-                </NavLink>
-
-                {hasSupervisorAccess(currentUser) && (
+                {hasPatientAccess(currentUser) && (
                   <>
-                    <NavLink to="/supervisor" className={getNavLinkClass}>
-                      Supervisor
+                    <NavLink to="/call-form" className={getNavLinkClass}>
+                      Call Form
                     </NavLink>
 
+                    <NavLink to="/patients" className={getNavLinkClass}>
+                      Patients
+                    </NavLink>
+
+                    <NavLink to="/calls" className={getNavLinkClass}>
+                      Calls
+                    </NavLink>
+                  </>
+                )}
+
+                {hasSupervisorAccess(currentUser) && (
+                  <NavLink to="/supervisor" className={getNavLinkClass}>
+                    Supervisor
+                  </NavLink>
+                )}
+
+                {hasWorkforceAccess(currentUser) && (
+                  <>
                     <NavLink to="/employees" className={getNavLinkClass}>
                       Employees
+                    </NavLink>
+
+                    <NavLink to="/crew-planner" className={getNavLinkClass}>
+                      Crew Planner
                     </NavLink>
                   </>
                 )}
@@ -124,10 +162,6 @@ function App() {
                     Users
                   </NavLink>
                 )}
-
-                <NavLink to="/crew-planner" className={getNavLinkClass}>
-                  Crew Planner
-                </NavLink>
 
                 <NavLink to="/manual" className={getNavLinkClass}>
                   User Manual
@@ -176,27 +210,27 @@ function App() {
         <Route
           path="/call-form"
           element={
-            <ProtectedRoute>
+            <PatientRoute>
               <CallFormPage />
-            </ProtectedRoute>
+            </PatientRoute>
           }
         />
 
         <Route
           path="/patients"
           element={
-            <ProtectedRoute>
+            <PatientRoute>
               <PatientsPage />
-            </ProtectedRoute>
+            </PatientRoute>
           }
         />
 
         <Route
           path="/calls"
           element={
-            <ProtectedRoute>
+            <PatientRoute>
               <CallsPage />
-            </ProtectedRoute>
+            </PatientRoute>
           }
         />
 
@@ -221,9 +255,9 @@ function App() {
         <Route
           path="/employees"
           element={
-            <SupervisorRoute>
+            <WorkforceRoute>
               <EmployeesPage />
-            </SupervisorRoute>
+            </WorkforceRoute>
           }
         />
 
@@ -239,9 +273,9 @@ function App() {
         <Route
           path="/crew-planner"
           element={
-            <ProtectedRoute>
+            <WorkforceRoute>
               <CrewPlannerPage />
-            </ProtectedRoute>
+            </WorkforceRoute>
           }
         />
 

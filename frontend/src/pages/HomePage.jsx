@@ -35,10 +35,18 @@ const HomePage = ({ currentUser }) => {
     {
       title: "Employees",
       description:
-        "Manage employee records, certifications, and active status.",
+        "Manage employee records, certifications, HR information, and active status.",
       path: "/employees",
-      roles: ["admin", "supervisor"],
+      roles: ["admin", "supervisor", "hr"],
       buttonText: "Open Employees",
+    },
+    {
+      title: "Crew Planner",
+      description:
+        "Plan BLS, ALS, and assist units using employee eligibility checks.",
+      path: "/crew-planner",
+      roles: ["admin", "supervisor", "hr"],
+      buttonText: "Open Crew Planner",
     },
     {
       title: "Users",
@@ -49,18 +57,10 @@ const HomePage = ({ currentUser }) => {
       buttonText: "Open Users",
     },
     {
-      title: "Crew Planner",
-      description:
-        "Plan BLS, ALS, and assist units using employee eligibility checks.",
-      path: "/crew-planner",
-      roles: ["admin", "supervisor", "dispatcher"],
-      buttonText: "Open Crew Planner",
-    },
-    {
       title: "User Manual",
       description: "Read workflow instructions and system usage notes.",
       path: "/manual",
-      roles: ["admin", "supervisor", "dispatcher"],
+      roles: ["admin", "supervisor", "dispatcher", "hr"],
       buttonText: "Open Manual",
     },
   ];
@@ -80,25 +80,32 @@ const HomePage = ({ currentUser }) => {
         </p>
       </div>
 
-      <div className="row g-3">
-        {availableModules.map((module) => (
-          <div className="col-md-6 col-lg-4" key={module.path}>
-            <div className="card h-100 shadow-sm">
-              <div className="card-body d-flex flex-column">
-                <h5 className="card-title">{module.title}</h5>
+      {availableModules.length === 0 ? (
+        <div className="alert alert-warning">
+          No modules are currently available for your role. Please contact an
+          administrator.
+        </div>
+      ) : (
+        <div className="row g-3">
+          {availableModules.map((module) => (
+            <div className="col-md-6 col-lg-4" key={module.path}>
+              <div className="card h-100 shadow-sm">
+                <div className="card-body d-flex flex-column">
+                  <h5 className="card-title">{module.title}</h5>
 
-                <p className="card-text text-muted flex-grow-1">
-                  {module.description}
-                </p>
+                  <p className="card-text text-muted flex-grow-1">
+                    {module.description}
+                  </p>
 
-                <Link to={module.path} className="btn btn-primary mt-2">
-                  {module.buttonText}
-                </Link>
+                  <Link to={module.path} className="btn btn-primary mt-2">
+                    {module.buttonText}
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

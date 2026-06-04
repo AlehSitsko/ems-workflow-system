@@ -55,13 +55,39 @@ export function logoutUser() {
   localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
 }
 
-// Check whether a user has supervisor-level access.
+// Check whether a user has access to supervisor-only features.
 export function hasSupervisorAccess(user) {
   if (!user) {
     return false;
   }
 
   return user.role === "admin" || user.role === "supervisor";
+}
+
+// Check whether a user has access to workforce-related features.
+export function hasWorkforceAccess(user) {
+  if (!user) {
+    return false;
+  }
+
+  return (
+    user.role === "admin" ||
+    user.role === "supervisor" ||
+    user.role === "hr"
+  );
+}
+
+// Check whether a user has access to PHI-related operational features.
+export function hasPatientAccess(user) {
+  if (!user) {
+    return false;
+  }
+
+  return (
+    user.role === "admin" ||
+    user.role === "supervisor" ||
+    user.role === "dispatcher"
+  );
 }
 
 // Check whether a user has admin-only access.

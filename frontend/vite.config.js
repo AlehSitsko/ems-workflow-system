@@ -1,8 +1,8 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vitejs.dev/config/
+// Vite configuration for the EMS Workflow System frontend.
 export default defineConfig({
-  base: '/Call-Taking-Form-React/',
+  base: "/ems-workflow-system/",
   plugins: [react()],
-})
+});

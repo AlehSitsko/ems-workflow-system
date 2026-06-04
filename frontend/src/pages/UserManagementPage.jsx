@@ -284,6 +284,7 @@ function UserManagementPage() {
                   disabled={loading}
                 >
                   <option value="dispatcher">Dispatcher</option>
+                  <option value="hr">HR</option>
                   <option value="supervisor">Supervisor</option>
                   <option value="admin">Admin</option>
                 </select>
