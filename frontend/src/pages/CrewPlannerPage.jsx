@@ -1,4 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  FaAmbulance,
+  FaCalendarDay,
+  FaExclamationTriangle,
+  FaPlus,
+  FaRedo,
+  FaTimes,
+  FaUsers,
+} from "react-icons/fa";
 
 import { getEmployees } from "../api/employeesApi";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
@@ -13,10 +22,9 @@ import {
   updateCrewUnit,
 } from "../api/crewApi";
 
-import {
-  createCrewPreset,
-  getCrewPresets,
-} from "../api/crewPresetApi";
+import { createCrewPreset, getCrewPresets } from "../api/crewPresetApi";
+
+import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 
 /*
   Available unit types for the planner.
@@ -94,6 +102,11 @@ function CrewPlannerPage() {
     ...initialUnitForm,
     shiftDate: selectedDate,
   });
+
+  /*
+    Drawer state for create/edit unit form.
+  */
+  const [showUnitDrawer, setShowUnitDrawer] = useState(false);
 
   /*
     Stores the ID of the unit currently being edited.
@@ -179,6 +192,7 @@ function CrewPlannerPage() {
     }));
 
     setEditingUnitId(null);
+    setShowUnitDrawer(false);
   }, [selectedDate]);
 
   /*
@@ -573,7 +587,7 @@ function CrewPlannerPage() {
   };
 
   /*
-    Resets the unit form and leaves edit mode.
+    Resets the unit form, leaves edit mode, and closes the drawer.
   */
   const resetUnitForm = () => {
     setUnitForm({
@@ -583,10 +597,29 @@ function CrewPlannerPage() {
 
     setEditingUnitId(null);
     setSelectedPresetId("");
+    setPresetName("");
+    setShowUnitDrawer(false);
   };
 
   /*
-    Loads an existing unit into the form for editing.
+    Opens the drawer in create mode.
+  */
+  const handleShowCreateUnit = () => {
+    setUnitForm({
+      ...initialUnitForm,
+      shiftDate: selectedDate,
+    });
+
+    setEditingUnitId(null);
+    setSelectedPresetId("");
+    setPresetName("");
+    setUnitsMessage("");
+    setUnitsError("");
+    setShowUnitDrawer(true);
+  };
+
+  /*
+    Loads an existing unit into the drawer for editing.
   */
   const handleEditUnit = (unit) => {
     setEditingUnitId(unit.id);
@@ -612,11 +645,7 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setUnitsMessage("");
     setUnitsError("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setShowUnitDrawer(true);
   };
 
   /*
@@ -843,13 +872,14 @@ function CrewPlannerPage() {
 
   /*
     Renders one crew selection dropdown.
+    Native select cannot render colored badges inside options, so the role is included in text.
   */
   const renderCrewSelect = (role, label) => {
     const availableEmployees = getAvailableEmployeesForRole(role);
     const selectedEmployeeId = unitForm.crew[role];
 
     return (
-      <div className="col-md-6 col-xl-3">
+      <div className="col-md-6">
         <label className="form-label fw-semibold">
           {label}
 
@@ -875,7 +905,8 @@ function CrewPlannerPage() {
 
             return (
               <option key={employee.id} value={employee.id}>
-                {employee.firstName} {employee.lastName}
+                {employee.firstName} {employee.lastName} —{" "}
+                {getEmployeeRoleLabel(employee.role)}
                 {isAlreadyAssigned ? " [ALREADY ASSIGNED]" : ""}
               </option>
             );
@@ -886,52 +917,98 @@ function CrewPlannerPage() {
   };
 
   return (
-    <div className="container mt-4">
-      {/* Page header. */}
-      <div className="mb-4">
-        <h1 className="mb-2">Unit Planner</h1>
+    <div className="page-stack">
+      <div className="page-summary-grid">
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaAmbulance />
+          </div>
 
-        <p className="text-muted mb-0">
-          Create and manage EMS units by shift date with crew assignment and
-          patient order.
-        </p>
-      </div>
-
-      {/* Employee loading error. */}
-      {employeesError && (
-        <div className="alert alert-danger">{employeesError}</div>
-      )}
-
-      {/* Unit loading or saving error. */}
-      {unitsError && <div className="alert alert-danger">{unitsError}</div>}
-
-      {/* Successful unit operation message. */}
-      {unitsMessage && (
-        <div className="alert alert-success">{unitsMessage}</div>
-      )}
-
-      {/* Current module status message. */}
-      <div className="alert alert-info">
-        <h5 className="mb-2">Current Stage</h5>
-
-        <p className="mb-0">
-          Crew Planner stores planned units by shift date and supports reusable
-          crew presets.
-        </p>
-      </div>
-
-      {/* Shift date selector. */}
-      <div className="card shadow-sm mb-4">
-        <div className="card-header">
-          <h5 className="mb-0">Shift Date</h5>
+          <div>
+            <div className="page-summary-value">{units.length}</div>
+            <div className="page-summary-label">Planned Units</div>
+          </div>
         </div>
 
-        <div className="card-body">
-          <div className="row g-3 align-items-end">
-            <div className="col-md-4">
-              <label htmlFor="selectedDate" className="form-label fw-semibold">
-                Planning Date
-              </label>
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaUsers />
+          </div>
+
+          <div>
+            <div className="page-summary-value">
+              {unassignedEmployees.length}
+            </div>
+            <div className="page-summary-label">Unassigned Employees</div>
+          </div>
+        </div>
+
+        <div className="page-summary-card">
+          <div className="page-summary-icon warning">
+            <FaExclamationTriangle />
+          </div>
+
+          <div>
+            <div className="page-summary-value">
+              {unitWarningMessages.length}
+            </div>
+            <div className="page-summary-label">Current Warnings</div>
+          </div>
+        </div>
+      </div>
+
+      {employeesError && (
+        <div className="alert alert-danger mb-0">{employeesError}</div>
+      )}
+
+      {unitsError && <div className="alert alert-danger mb-0">{unitsError}</div>}
+
+      {unitsMessage && (
+        <div className="alert alert-success mb-0">{unitsMessage}</div>
+      )}
+
+      <section className="content-panel">
+        <div className="content-panel-header">
+          <div>
+            <h4>Shift Planning</h4>
+            <p>
+              Review and manage planned units for the selected shift date.
+            </p>
+          </div>
+
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+              onClick={handleShowCreateUnit}
+              disabled={unitsLoading || employeesLoading}
+            >
+              <FaPlus />
+              Create Unit
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1"
+              onClick={loadUnits}
+              disabled={unitsLoading}
+            >
+              <FaRedo />
+              Refresh Units
+            </button>
+          </div>
+        </div>
+
+        <div className="row g-3 align-items-end">
+          <div className="col-md-4">
+            <label htmlFor="selectedDate" className="form-label fw-semibold">
+              Planning Date
+            </label>
+
+            <div className="input-group">
+              <span className="input-group-text">
+                <FaCalendarDay />
+              </span>
 
               <input
                 id="selectedDate"
@@ -942,222 +1019,18 @@ function CrewPlannerPage() {
                 disabled={unitsLoading}
               />
             </div>
+          </div>
 
-            <div className="col-md-8">
-              <p className="text-muted mb-0">
-                Use this date to review current, previous, or future crew
-                assignments.
-              </p>
-            </div>
+          <div className="col-md-8">
+            <p className="text-muted mb-0">
+              Use this date to review current, previous, or future crew
+              assignments. Planned units are shown first because they are the
+              main working view.
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Unassigned employees summary. */}
-      <UnassignedEmployeesCard
-        unassignedEmployees={unassignedEmployees}
-        employeesLoading={employeesLoading}
-        getCprWarning={getCprWarning}
-      />
-
-      {/* Hard validation errors that block saving. */}
-      {unitValidationErrors.length > 0 && (
-        <div className="alert alert-danger">
-          <h5 className="mb-2">Unit Validation Errors</h5>
-
-          <ul className="mb-0">
-            {unitValidationErrors.map((message, index) => (
-              <li key={`unit-error-${index}`}>{message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Non-blocking warning messages. */}
-      {unitWarningMessages.length > 0 && (
-        <div className="alert alert-warning">
-          <h5 className="mb-2">Unit Warnings</h5>
-
-          <ul className="mb-0">
-            {unitWarningMessages.map((message, index) => (
-              <li key={`unit-warning-${index}`}>{message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Create/edit unit form. */}
-      <div className="card shadow-sm mb-4">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            {editingUnitId ? "Edit Unit" : "Create New Unit"}
-          </h5>
-
-          {editingUnitId && (
-            <span className="badge text-bg-info">Editing Mode</span>
-          )}
-        </div>
-
-        <div className="card-body">
-          {employeesLoading ? (
-            <p className="text-muted mb-0">Loading employees...</p>
-          ) : employees.length === 0 ? (
-            <p className="text-muted mb-0">
-              No employees found. Add employees on the Employees page first.
-            </p>
-          ) : (
-            <form onSubmit={handleSaveUnit}>
-              <div className="row g-3">
-                {/* Basic unit information. */}
-                <div className="col-md-3">
-                  <label htmlFor="shiftDate" className="form-label fw-semibold">
-                    Shift Date
-                  </label>
-
-                  <input
-                    id="shiftDate"
-                    name="shiftDate"
-                    type="date"
-                    className="form-control"
-                    value={unitForm.shiftDate}
-                    onChange={handleUnitFieldChange}
-                    disabled={unitsLoading}
-                  />
-                </div>
-
-                <div className="col-md-3">
-                  <label htmlFor="unitType" className="form-label fw-semibold">
-                    Unit Type
-                  </label>
-
-                  <select
-                    id="unitType"
-                    name="unitType"
-                    className="form-select"
-                    value={unitForm.unitType}
-                    onChange={handleUnitFieldChange}
-                    disabled={unitsLoading}
-                  >
-                    {UNIT_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="col-md-3">
-                  <label
-                    htmlFor="truckNumber"
-                    className="form-label fw-semibold"
-                  >
-                    Truck Number
-                  </label>
-
-                  <input
-                    id="truckNumber"
-                    name="truckNumber"
-                    type="text"
-                    className="form-control"
-                    value={unitForm.truckNumber}
-                    onChange={handleUnitFieldChange}
-                    disabled={unitsLoading}
-                  />
-                </div>
-
-                <div className="col-md-3">
-                  <label htmlFor="startTime" className="form-label fw-semibold">
-                    Start Time
-                  </label>
-
-                  <input
-                    id="startTime"
-                    name="startTime"
-                    type="time"
-                    className="form-control"
-                    value={unitForm.startTime}
-                    onChange={handleUnitFieldChange}
-                    disabled={unitsLoading}
-                  />
-                </div>
-
-                {/* Crew assignment section. */}
-                <div className="col-12">
-                  <hr />
-                  <h5 className="mb-0">Crew Assignment</h5>
-                </div>
-
-                {/* Crew presets block. */}
-                <CrewPresetsSection
-                  crewPresets={crewPresets}
-                  selectedPresetId={selectedPresetId}
-                  presetName={presetName}
-                  presetsLoading={presetsLoading}
-                  unitsLoading={unitsLoading}
-                  onApplyPreset={handleApplyPreset}
-                  onPresetNameChange={setPresetName}
-                  onSavePreset={handleSavePreset}
-                />
-
-                {/* Role-based crew selectors. */}
-                {renderCrewSelect("driver", "Driver")}
-
-                {isMedicalSlotVisible(unitForm.unitType) &&
-                  renderCrewSelect(
-                    "medical",
-                    getMedicalSlotLabel(unitForm.unitType)
-                  )}
-
-                {renderCrewSelect("assist1", "Assist 1")}
-
-                {renderCrewSelect("assist2", "Assist 2")}
-
-                {/* Patient order section. */}
-                <PatientOrderSection
-                  firstPatient={unitForm.firstPatient}
-                  nextPatients={unitForm.nextPatients}
-                  onFirstPatientChange={handleFirstPatientChange}
-                  onNextPatientChange={handleNextPatientChange}
-                  onAddNextPatientField={handleAddNextPatientField}
-                  onRemoveNextPatientField={handleRemoveNextPatientField}
-                  disabled={unitsLoading}
-                />
-
-                {/* Form actions. */}
-                <div className="col-12 d-flex gap-2">
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={unitsLoading}
-                  >
-                    {editingUnitId ? "Update Unit" : "Create Unit"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={resetUnitForm}
-                    disabled={unitsLoading}
-                  >
-                    {editingUnitId ? "Cancel Edit" : "Clear Form"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-outline-info"
-                    onClick={loadUnits}
-                    disabled={unitsLoading}
-                  >
-                    Refresh Units
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-
-      {/* Planned units list. */}
       <PlannedUnitsList
         selectedDate={selectedDate}
         units={units}
@@ -1165,9 +1038,253 @@ function CrewPlannerPage() {
         onEditUnit={handleEditUnit}
         onDeleteUnit={handleDeleteUnit}
         getEmployeeName={getEmployeeName}
+        getEmployeeById={getEmployeeById}
         isMedicalSlotVisible={isMedicalSlotVisible}
         getMedicalSlotLabel={getMedicalSlotLabel}
       />
+
+      <UnassignedEmployeesCard
+        unassignedEmployees={unassignedEmployees}
+        employeesLoading={employeesLoading}
+        getCprWarning={getCprWarning}
+      />
+
+      {showUnitDrawer && (
+        <div className="crew-drawer-overlay" onClick={resetUnitForm}>
+          <aside
+            className="crew-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="crew-drawer-header">
+              <div>
+                <h4>{editingUnitId ? "Edit Unit" : "Create Unit"}</h4>
+
+                <p>
+                  Assign truck information, crew members, presets, and patient
+                  order.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={resetUnitForm}
+                disabled={unitsLoading}
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUnit} className="crew-drawer-form">
+              <div className="crew-drawer-body">
+                {employeesLoading ? (
+                  <div className="empty-state">
+                    <FaUsers />
+                    <h5>Loading employees</h5>
+                    <p>Please wait while employee records are loaded.</p>
+                  </div>
+                ) : employees.length === 0 ? (
+                  <div className="empty-state">
+                    <FaUsers />
+                    <h5>No employees found</h5>
+                    <p>Add employees on the Employees page first.</p>
+                  </div>
+                ) : (
+                  <>
+                    {unitValidationErrors.length > 0 && (
+                      <div className="alert alert-danger">
+                        <h5 className="mb-2">Unit Validation Errors</h5>
+
+                        <ul className="mb-0">
+                          {unitValidationErrors.map((message, index) => (
+                            <li key={`unit-error-${index}`}>{message}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {unitWarningMessages.length > 0 && (
+                      <div className="alert alert-warning">
+                        <h5 className="mb-2">Unit Warnings</h5>
+
+                        <ul className="mb-0">
+                          {unitWarningMessages.map((message, index) => (
+                            <li key={`unit-warning-${index}`}>{message}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="crew-form-section">
+                      <div className="crew-form-section-header">
+                        <span className="crew-form-section-icon">
+                          <FaAmbulance />
+                        </span>
+
+                        <h5>Unit Information</h5>
+                      </div>
+
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label
+                            htmlFor="shiftDate"
+                            className="form-label fw-semibold"
+                          >
+                            Shift Date
+                          </label>
+
+                          <input
+                            id="shiftDate"
+                            name="shiftDate"
+                            type="date"
+                            className="form-control"
+                            value={unitForm.shiftDate}
+                            onChange={handleUnitFieldChange}
+                            disabled={unitsLoading}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label
+                            htmlFor="unitType"
+                            className="form-label fw-semibold"
+                          >
+                            Unit Type
+                          </label>
+
+                          <select
+                            id="unitType"
+                            name="unitType"
+                            className="form-select"
+                            value={unitForm.unitType}
+                            onChange={handleUnitFieldChange}
+                            disabled={unitsLoading}
+                          >
+                            {UNIT_TYPES.map((type) => (
+                              <option key={type} value={type}>
+                                {type}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="col-md-6">
+                          <label
+                            htmlFor="truckNumber"
+                            className="form-label fw-semibold"
+                          >
+                            Truck Number
+                          </label>
+
+                          <input
+                            id="truckNumber"
+                            name="truckNumber"
+                            type="text"
+                            className="form-control"
+                            value={unitForm.truckNumber}
+                            onChange={handleUnitFieldChange}
+                            disabled={unitsLoading}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label
+                            htmlFor="startTime"
+                            className="form-label fw-semibold"
+                          >
+                            Start Time
+                          </label>
+
+                          <input
+                            id="startTime"
+                            name="startTime"
+                            type="time"
+                            className="form-control"
+                            value={unitForm.startTime}
+                            onChange={handleUnitFieldChange}
+                            disabled={unitsLoading}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="crew-form-section">
+                      <div className="crew-form-section-header">
+                        <span className="crew-form-section-icon">
+                          <FaUsers />
+                        </span>
+
+                        <h5>Crew Assignment</h5>
+                      </div>
+
+                      <div className="row g-3">
+                        <CrewPresetsSection
+                          crewPresets={crewPresets}
+                          selectedPresetId={selectedPresetId}
+                          presetName={presetName}
+                          presetsLoading={presetsLoading}
+                          unitsLoading={unitsLoading}
+                          onApplyPreset={handleApplyPreset}
+                          onPresetNameChange={setPresetName}
+                          onSavePreset={handleSavePreset}
+                        />
+
+                        {renderCrewSelect("driver", "Driver")}
+
+                        {isMedicalSlotVisible(unitForm.unitType) &&
+                          renderCrewSelect(
+                            "medical",
+                            getMedicalSlotLabel(unitForm.unitType)
+                          )}
+
+                        {renderCrewSelect("assist1", "Assist 1")}
+                        {renderCrewSelect("assist2", "Assist 2")}
+                      </div>
+                    </div>
+
+                    <div className="crew-form-section">
+                      <PatientOrderSection
+                        firstPatient={unitForm.firstPatient}
+                        nextPatients={unitForm.nextPatients}
+                        onFirstPatientChange={handleFirstPatientChange}
+                        onNextPatientChange={handleNextPatientChange}
+                        onAddNextPatientField={handleAddNextPatientField}
+                        onRemoveNextPatientField={handleRemoveNextPatientField}
+                        disabled={unitsLoading}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="crew-drawer-footer">
+                <button
+                  type="submit"
+                  className="btn btn-primary d-inline-flex align-items-center gap-2"
+                  disabled={unitsLoading || employeesLoading}
+                >
+                  <FaPlus />
+                  {unitsLoading
+                    ? "Saving..."
+                    : editingUnitId
+                    ? "Update Unit"
+                    : "Create Unit"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+                  onClick={resetUnitForm}
+                  disabled={unitsLoading}
+                >
+                  <FaTimes />
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
