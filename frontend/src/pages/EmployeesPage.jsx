@@ -1,4 +1,16 @@
 import React, { useEffect, useState } from "react";
+import {
+  FaBriefcaseMedical,
+  FaEdit,
+  FaIdBadge,
+  FaPlus,
+  FaRedo,
+  FaTimes,
+  FaTrash,
+  FaUserCheck,
+  FaUsers,
+  FaVial,
+} from "react-icons/fa";
 
 import {
   createEmployee,
@@ -6,6 +18,11 @@ import {
   getEmployees,
   updateEmployee,
 } from "../api/employeesApi";
+
+import {
+  getEmployeeRoleClass,
+  getEmployeeRoleLabel,
+} from "../utils/employeeRoleUtils";
 
 /*
   Separate storage key for Crew Planner units.
@@ -161,6 +178,7 @@ const initialFormData = {
 function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
 
   const [loading, setLoading] = useState(false);
@@ -220,14 +238,6 @@ function EmployeesPage() {
   };
 
   /*
-    Resets the form back to the initial state and exits edit mode.
-  */
-  const resetForm = () => {
-    setFormData(initialFormData);
-    setEditingEmployeeId(null);
-  };
-
-  /*
     Ensures that older employee records still work.
   */
   const normalizeLicense = (license) => {
@@ -243,7 +253,27 @@ function EmployeesPage() {
   };
 
   /*
-    Loads selected employee data into the form for editing.
+    Resets the form back to the initial state, exits edit mode, and closes the drawer.
+  */
+  const resetForm = () => {
+    setFormData(initialFormData);
+    setEditingEmployeeId(null);
+    setShowEmployeeForm(false);
+  };
+
+  /*
+    Opens the drawer in add mode.
+  */
+  const handleShowAddForm = () => {
+    setFormData(initialFormData);
+    setEditingEmployeeId(null);
+    setMessage("");
+    setError("");
+    setShowEmployeeForm(true);
+  };
+
+  /*
+    Loads selected employee data into the drawer for editing.
   */
   const handleEdit = (employee) => {
     setFormData({
@@ -269,9 +299,9 @@ function EmployeesPage() {
     });
 
     setEditingEmployeeId(employee.id);
+    setShowEmployeeForm(true);
     setMessage("");
     setError("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   /*
@@ -303,7 +333,7 @@ function EmployeesPage() {
   };
 
   /*
-    Maps status values to Bootstrap badge classes.
+    Maps certification status values to Bootstrap badge classes.
   */
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -382,16 +412,28 @@ function EmployeesPage() {
   };
 
   /*
-    Renders allowed positions as Bootstrap badges.
+    Renders an employee role badge using centralized role colors.
+  */
+  const renderEmployeeRoleBadge = (role) => (
+    <span className={`employee-role-badge ${getEmployeeRoleClass(role)}`}>
+      {getEmployeeRoleLabel(role)}
+    </span>
+  );
+
+  /*
+    Renders allowed positions as role-style badges.
   */
   const renderAllowedPositions = (employee) => {
     const positions = getAllowedPositions(employee);
 
     return (
-      <div className="d-flex flex-wrap gap-1">
+      <div className="employee-card-badges">
         {positions.map((position) => (
-          <span key={position} className="badge text-bg-primary">
-            {position}
+          <span
+            key={position}
+            className={`employee-role-badge ${getEmployeeRoleClass(position)}`}
+          >
+            {getEmployeeRoleLabel(position)}
           </span>
         ))}
       </div>
@@ -399,26 +441,23 @@ function EmployeesPage() {
   };
 
   /*
-    Renders a license summary block.
+    Renders a compact license badge in employee cards.
   */
-  const renderLicenseSummary = (license) => {
+  const renderLicenseBadge = (licenseType, license) => {
     const normalizedLicense = normalizeLicense(license);
     const status = getLicenseStatus(normalizedLicense);
 
     return (
-      <div>
-        <span className={`badge ${getStatusBadgeClass(status)} me-2`}>
-          {status}
-        </span>
+      <div className="employee-license-pill">
+        <div className="employee-license-name">{licenseType.toUpperCase()}</div>
+
+        <span className={`badge ${getStatusBadgeClass(status)}`}>{status}</span>
 
         {normalizedLicense.hasLicense && (
-          <div className="small mt-1">
-            <div>{normalizedLicense.licenseName.trim() || "Unnamed License"}</div>
-            <div>
-              {normalizedLicense.expirationDate
-                ? `Exp: ${normalizedLicense.expirationDate}`
-                : "No expiration date"}
-            </div>
+          <div className="employee-license-details">
+            {normalizedLicense.expirationDate
+              ? `Exp: ${normalizedLicense.expirationDate}`
+              : "No expiration"}
           </div>
         )}
       </div>
@@ -432,7 +471,7 @@ function EmployeesPage() {
     const warning = getCprWarning(employee);
 
     if (!warning) {
-      return <span className="badge text-bg-success">OK</span>;
+      return <span className="badge text-bg-success">CPR OK</span>;
     }
 
     if (warning === "CPR Expiring Soon") {
@@ -579,326 +618,82 @@ function EmployeesPage() {
     }
   };
 
+  const activeEmployees = employees.filter((employee) => employee.isActive).length;
+
+  const employeesWithCprWarnings = employees.filter((employee) =>
+    getCprWarning(employee)
+  ).length;
+
   return (
-    <div className="container mt-4">
-      <div className="mb-4">
-        <h1 className="mb-2">Employees</h1>
-        <p className="text-muted mb-0">
-          Add and manage employee records for future scheduling and crew planning.
-        </p>
-      </div>
+    <div className="page-stack">
+      <div className="page-summary-grid">
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaUsers />
+          </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      {message && <div className="alert alert-success">{message}</div>}
-
-      <div className="card shadow-sm mb-4">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            {editingEmployeeId ? "Edit Employee" : "Add Employee"}
-          </h5>
-
-          {editingEmployeeId && (
-            <span className="badge text-bg-info">Editing Mode</span>
-          )}
+          <div>
+            <div className="page-summary-value">{employees.length}</div>
+            <div className="page-summary-label">Total Employees</div>
+          </div>
         </div>
 
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <div className="row g-3">
-              <div className="col-md-6">
-                <label htmlFor="firstName" className="form-label">
-                  First Name
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  className="form-control"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  placeholder="e.g. John"
-                  disabled={loading}
-                />
-              </div>
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaUserCheck />
+          </div>
 
-              <div className="col-md-6">
-                <label htmlFor="lastName" className="form-label">
-                  Last Name
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  className="form-control"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  placeholder="e.g. Smith"
-                  disabled={loading}
-                />
-              </div>
+          <div>
+            <div className="page-summary-value">{activeEmployees}</div>
+            <div className="page-summary-label">Active Employees</div>
+          </div>
+        </div>
 
-              <div className="col-md-6">
-                <label htmlFor="phone" className="form-label">
-                  Phone Number
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="text"
-                  className="form-control"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="e.g. 555-123-4567"
-                  disabled={loading}
-                />
-              </div>
+        <div className="page-summary-card">
+          <div className="page-summary-icon warning">
+            <FaBriefcaseMedical />
+          </div>
 
-              <div className="col-md-6">
-                <label htmlFor="email" className="form-label">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  className="form-control"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="e.g. john@example.com"
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <label htmlFor="employeeNumber" className="form-label">
-                  Employee Number
-                </label>
-                <input
-                  id="employeeNumber"
-                  name="employeeNumber"
-                  type="text"
-                  className="form-control"
-                  value={formData.employeeNumber}
-                  onChange={handleChange}
-                  placeholder="e.g. EMT-102"
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <label htmlFor="hireDate" className="form-label">
-                  Hire Date
-                </label>
-                <input
-                  id="hireDate"
-                  name="hireDate"
-                  type="date"
-                  className="form-control"
-                  value={formData.hireDate}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="col-md-3">
-                <label htmlFor="role" className="form-label">
-                  Role
-                </label>
-                <select
-                  id="role"
-                  name="role"
-                  className="form-select"
-                  value={formData.role}
-                  onChange={handleChange}
-                  disabled={loading}
-                >
-                  <option value="EMT">EMT</option>
-                  <option value="Paramedic">Paramedic</option>
-                  <option value="Dispatcher">Dispatcher</option>
-                  <option value="Driver">Driver</option>
-                  <option value="Supervisor">Supervisor</option>
-                  <option value="Manager">Manager</option>
-                </select>
-              </div>
-
-              <div className="col-md-3">
-                <label htmlFor="status" className="form-label">
-                  Employee Status
-                </label>
-                <select
-                  id="status"
-                  name="status"
-                  className="form-select"
-                  value={formData.status}
-                  onChange={handleChange}
-                  disabled={loading}
-                >
-                  <option value="active">Active</option>
-                  <option value="vacation">Vacation</option>
-                  <option value="sick">Sick</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="terminated">Terminated</option>
-                </select>
-              </div>
-
-              <div className="col-md-6 d-flex align-items-end">
-                <div className="form-check mb-2">
-                  <input
-                    id="isActive"
-                    name="isActive"
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={formData.isActive}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-                  <label htmlFor="isActive" className="form-check-label">
-                    Active Employee
-                  </label>
-                </div>
-              </div>
-
-              <div className="col-12">
-                <label htmlFor="notes" className="form-label">
-                  Notes
-                </label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  className="form-control"
-                  rows="3"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  placeholder="Optional notes about this employee"
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="col-12">
-                <hr />
-                <h5 className="mb-3">Licenses / Certifications</h5>
-              </div>
-
-              {["cpr", "evoc", "emt", "paramedic"].map((licenseType) => (
-                <div className="col-12" key={licenseType}>
-                  <div className="card border-light-subtle">
-                    <div className="card-body">
-                      <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h6 className="mb-0 text-uppercase">{licenseType}</h6>
-
-                        {licenseType === "cpr" && (
-                          <span className="badge text-bg-warning">
-                            Required for all employees
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="row g-3">
-                        <div className="col-md-3">
-                          <div className="form-check mt-2">
-                            <input
-                              id={`${licenseType}HasLicense`}
-                              name="hasLicense"
-                              type="checkbox"
-                              className="form-check-input"
-                              checked={formData[licenseType].hasLicense}
-                              onChange={(event) =>
-                                handleLicenseChange(event, licenseType)
-                              }
-                              disabled={loading}
-                            />
-                            <label
-                              htmlFor={`${licenseType}HasLicense`}
-                              className="form-check-label"
-                            >
-                              Has {licenseType.toUpperCase()}
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="col-md-5">
-                          <label
-                            htmlFor={`${licenseType}LicenseName`}
-                            className="form-label"
-                          >
-                            Certification Name
-                          </label>
-                          <input
-                            id={`${licenseType}LicenseName`}
-                            name="licenseName"
-                            type="text"
-                            className="form-control"
-                            value={formData[licenseType].licenseName}
-                            onChange={(event) =>
-                              handleLicenseChange(event, licenseType)
-                            }
-                            placeholder={`e.g. ${licenseType.toUpperCase()} Certification`}
-                            disabled={!formData[licenseType].hasLicense || loading}
-                          />
-                        </div>
-
-                        <div className="col-md-4">
-                          <label
-                            htmlFor={`${licenseType}ExpirationDate`}
-                            className="form-label"
-                          >
-                            Expiration Date
-                          </label>
-                          <input
-                            id={`${licenseType}ExpirationDate`}
-                            name="expirationDate"
-                            type="date"
-                            className="form-control"
-                            value={formData[licenseType].expirationDate}
-                            onChange={(event) =>
-                              handleLicenseChange(event, licenseType)
-                            }
-                            disabled={!formData[licenseType].hasLicense || loading}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <div className="col-12 d-flex gap-2">
-                <button type="submit" className="btn btn-primary" disabled={loading}>
-                  {editingEmployeeId ? "Update Employee" : "Add Employee"}
-                </button>
-
-                {editingEmployeeId && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={resetForm}
-                    disabled={loading}
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn-outline-info"
-                  onClick={loadEmployees}
-                  disabled={loading}
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-          </form>
+          <div>
+            <div className="page-summary-value">{employeesWithCprWarnings}</div>
+            <div className="page-summary-label">CPR Warnings</div>
+          </div>
         </div>
       </div>
 
-      <div className="card shadow-sm">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Employee List</h5>
+      {error && <div className="alert alert-danger mb-0">{error}</div>}
 
-          <div className="d-flex align-items-center gap-2">
+      {message && <div className="alert alert-success mb-0">{message}</div>}
+
+      <section className="content-panel">
+        <div className="content-panel-header">
+          <div>
+            <h4>Employee List</h4>
+            <p>Operational staff, certifications, and crew eligibility.</p>
+          </div>
+
+          <div className="d-flex align-items-center gap-2 flex-wrap">
             <span className="badge text-bg-secondary">{employees.length}</span>
+
+            <button
+              type="button"
+              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+              onClick={handleShowAddForm}
+              disabled={loading}
+            >
+              <FaPlus />
+              Add Employee
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1"
+              onClick={loadEmployees}
+              disabled={loading}
+            >
+              <FaRedo />
+              Refresh
+            </button>
 
             <button
               type="button"
@@ -911,117 +706,470 @@ function EmployeesPage() {
           </div>
         </div>
 
-        <div className="card-body">
-          {loading && employees.length === 0 ? (
-            <p className="text-muted mb-0">Loading employees...</p>
-          ) : employees.length === 0 ? (
-            <p className="text-muted mb-0">No employees added yet.</p>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-striped table-bordered align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Employee #</th>
-                    <th>Hire Date</th>
-                    <th>Role</th>
-                    <th>Employee Status</th>
-                    <th>Active</th>
-                    <th>Allowed Positions</th>
-                    <th>CPR Warning</th>
-                    <th>CPR</th>
-                    <th>EVOC</th>
-                    <th>EMT</th>
-                    <th>Paramedic</th>
-                    <th>Notes</th>
-                    <th style={{ width: "170px" }}>Actions</th>
-                  </tr>
-                </thead>
+        {loading && employees.length === 0 ? (
+          <div className="empty-state">
+            <FaUsers />
 
-                <tbody>
-                  {employees.map((employee) => (
-                    <tr key={employee.id}>
-                      <td>
-                        {employee.firstName} {employee.lastName}
-                      </td>
+            <h5>Loading employees</h5>
 
-                      <td>{employee.phone || "—"}</td>
+            <p>Please wait while employee records are loaded.</p>
+          </div>
+        ) : employees.length === 0 ? (
+          <div className="empty-state">
+            <FaUsers />
 
-                      <td>{employee.email || "—"}</td>
+            <h5>No employees added yet</h5>
 
-                      <td>{employee.employeeNumber || "—"}</td>
+            <p>Add an employee manually or load test crew records.</p>
+          </div>
+        ) : (
+          <div className="employee-card-list">
+            {employees.map((employee) => (
+              <div className="employee-card" key={employee.id}>
+                <div className="employee-card-main">
+                  <div className="employee-avatar">
+                    {(employee.firstName?.[0] || "E").toUpperCase()}
+                  </div>
 
-                      <td>{employee.hireDate || "—"}</td>
+                  <div>
+                    <div className="employee-name">
+                      {employee.firstName} {employee.lastName}
+                    </div>
 
-                      <td>{employee.role || "—"}</td>
+                    <div className="employee-muted">
+                      #{employee.employeeNumber || "—"} · Hired:{" "}
+                      {employee.hireDate || "—"}
+                    </div>
 
-                      <td>
-                        <span
-                          className={`badge ${getEmployeeStatusBadgeClass(
-                            employee.status || "active"
-                          )}`}
-                        >
-                          {employee.status || "active"}
-                        </span>
-                      </td>
+                    <div className="employee-card-badges mt-2">
+                      {renderEmployeeRoleBadge(employee.role)}
 
-                      <td>
-                        <span
-                          className={`badge ${
-                            employee.isActive
-                              ? "text-bg-success"
-                              : "text-bg-secondary"
-                          }`}
-                        >
-                          {employee.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
+                      <span
+                        className={`badge ${getEmployeeStatusBadgeClass(
+                          employee.status || "active"
+                        )}`}
+                      >
+                        {employee.status || "active"}
+                      </span>
 
-                      <td>{renderAllowedPositions(employee)}</td>
+                      <span
+                        className={`badge ${
+                          employee.isActive
+                            ? "text-bg-success"
+                            : "text-bg-secondary"
+                        }`}
+                      >
+                        {employee.isActive ? "Active" : "Inactive"}
+                      </span>
 
-                      <td>{renderCprWarning(employee)}</td>
+                      {renderCprWarning(employee)}
+                    </div>
+                  </div>
+                </div>
 
-                      <td>{renderLicenseSummary(employee.cpr)}</td>
+                <div className="employee-contact">
+                  <div>
+                    <strong>Phone:</strong> {employee.phone || "—"}
+                  </div>
 
-                      <td>{renderLicenseSummary(employee.evoc)}</td>
+                  <div>
+                    <strong>Email:</strong> {employee.email || "—"}
+                  </div>
 
-                      <td>{renderLicenseSummary(employee.emt)}</td>
+                  <div>
+                    <strong>Notes:</strong> {employee.notes || "—"}
+                  </div>
+                </div>
 
-                      <td>{renderLicenseSummary(employee.paramedic)}</td>
+                <div className="employee-positions">
+                  <div className="employee-section-label">Allowed Positions</div>
 
-                      <td>{employee.notes || "—"}</td>
+                  {renderAllowedPositions(employee)}
+                </div>
 
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => handleEdit(employee)}
-                            disabled={loading}
-                          >
-                            Edit
-                          </button>
+                <div className="employee-license-summary">
+                  {renderLicenseBadge("cpr", employee.cpr)}
+                  {renderLicenseBadge("evoc", employee.evoc)}
+                  {renderLicenseBadge("emt", employee.emt)}
+                  {renderLicenseBadge("paramedic", employee.paramedic)}
+                </div>
 
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDelete(employee.id)}
-                            disabled={loading}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                <div className="employee-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                    onClick={() => handleEdit(employee)}
+                    disabled={loading}
+                  >
+                    <FaEdit />
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                    onClick={() => handleDelete(employee.id)}
+                    disabled={loading}
+                  >
+                    <FaTrash />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {showEmployeeForm && (
+        <div className="employee-drawer-overlay" onClick={resetForm}>
+          <aside
+            className="employee-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="employee-drawer-header">
+              <div>
+                <h4>{editingEmployeeId ? "Edit Employee" : "Add Employee"}</h4>
+
+                <p>
+                  Maintain employee profile, operational role, status, and
+                  certifications.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={resetForm}
+                disabled={loading}
+              >
+                <FaTimes />
+              </button>
             </div>
-          )}
+
+            <form onSubmit={handleSubmit} className="employee-drawer-form">
+              <div className="employee-drawer-body">
+                <div className="employee-form-section">
+                  <div className="employee-form-section-header">
+                    <span className="employee-form-section-icon">
+                      <FaIdBadge />
+                    </span>
+
+                    <h5>Basic Information</h5>
+                  </div>
+
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label htmlFor="firstName" className="form-label">
+                        First Name
+                      </label>
+
+                      <input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        className="form-control"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        placeholder="e.g. John"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label htmlFor="lastName" className="form-label">
+                        Last Name
+                      </label>
+
+                      <input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        className="form-control"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        placeholder="e.g. Smith"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label htmlFor="phone" className="form-label">
+                        Phone Number
+                      </label>
+
+                      <input
+                        id="phone"
+                        name="phone"
+                        type="text"
+                        className="form-control"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="e.g. 555-123-4567"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label htmlFor="email" className="form-label">
+                        Email
+                      </label>
+
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        className="form-control"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="e.g. john@example.com"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label htmlFor="employeeNumber" className="form-label">
+                        Employee Number
+                      </label>
+
+                      <input
+                        id="employeeNumber"
+                        name="employeeNumber"
+                        type="text"
+                        className="form-control"
+                        value={formData.employeeNumber}
+                        onChange={handleChange}
+                        placeholder="e.g. EMT-102"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label htmlFor="hireDate" className="form-label">
+                        Hire Date
+                      </label>
+
+                      <input
+                        id="hireDate"
+                        name="hireDate"
+                        type="date"
+                        className="form-control"
+                        value={formData.hireDate}
+                        onChange={handleChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label htmlFor="role" className="form-label">
+                        Role
+                      </label>
+
+                      <select
+                        id="role"
+                        name="role"
+                        className="form-select"
+                        value={formData.role}
+                        onChange={handleChange}
+                        disabled={loading}
+                      >
+                        <option value="EMT">EMT</option>
+                        <option value="Paramedic">Paramedic</option>
+                        <option value="Dispatcher">Dispatcher</option>
+                        <option value="Driver">Driver</option>
+                        <option value="Supervisor">Supervisor</option>
+                        <option value="Manager">Manager</option>
+                      </select>
+                    </div>
+
+                    <div className="col-md-4">
+                      <label htmlFor="status" className="form-label">
+                        Employee Status
+                      </label>
+
+                      <select
+                        id="status"
+                        name="status"
+                        className="form-select"
+                        value={formData.status}
+                        onChange={handleChange}
+                        disabled={loading}
+                      >
+                        <option value="active">Active</option>
+                        <option value="vacation">Vacation</option>
+                        <option value="sick">Sick</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="terminated">Terminated</option>
+                      </select>
+                    </div>
+
+                    <div className="col-md-8 d-flex align-items-end">
+                      <div className="form-check mb-2">
+                        <input
+                          id="isActive"
+                          name="isActive"
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={formData.isActive}
+                          onChange={handleChange}
+                          disabled={loading}
+                        />
+
+                        <label htmlFor="isActive" className="form-check-label">
+                          Active Employee
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-12">
+                      <label htmlFor="notes" className="form-label">
+                        Notes
+                      </label>
+
+                      <textarea
+                        id="notes"
+                        name="notes"
+                        className="form-control"
+                        rows="3"
+                        value={formData.notes}
+                        onChange={handleChange}
+                        placeholder="Optional notes about this employee"
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="employee-form-section">
+                  <div className="employee-form-section-header">
+                    <span className="employee-form-section-icon">
+                      <FaVial />
+                    </span>
+
+                    <h5>Licenses / Certifications</h5>
+                  </div>
+
+                  <div className="employee-license-form-grid">
+                    {["cpr", "evoc", "emt", "paramedic"].map((licenseType) => {
+                      const hasLicense = formData[licenseType].hasLicense;
+
+                      return (
+                        <div
+                          className="employee-license-form-card"
+                          key={licenseType}
+                        >
+                          <div className="employee-license-form-header">
+                            <h6>{licenseType.toUpperCase()}</h6>
+
+                            {licenseType === "cpr" && (
+                              <span className="badge text-bg-warning">
+                                Required
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="form-check mb-0">
+                            <input
+                              id={`${licenseType}HasLicense`}
+                              name="hasLicense"
+                              type="checkbox"
+                              className="form-check-input"
+                              checked={hasLicense}
+                              onChange={(event) =>
+                                handleLicenseChange(event, licenseType)
+                              }
+                              disabled={loading}
+                            />
+
+                            <label
+                              htmlFor={`${licenseType}HasLicense`}
+                              className="form-check-label"
+                            >
+                              Has {licenseType.toUpperCase()}
+                            </label>
+                          </div>
+
+                          {hasLicense && (
+                            <div className="employee-license-extra-fields">
+                              <div className="mt-3">
+                                <label
+                                  htmlFor={`${licenseType}LicenseName`}
+                                  className="form-label"
+                                >
+                                  Certification Name
+                                </label>
+
+                                <input
+                                  id={`${licenseType}LicenseName`}
+                                  name="licenseName"
+                                  type="text"
+                                  className="form-control"
+                                  value={formData[licenseType].licenseName}
+                                  onChange={(event) =>
+                                    handleLicenseChange(event, licenseType)
+                                  }
+                                  placeholder={`e.g. ${licenseType.toUpperCase()} Certification`}
+                                  disabled={loading}
+                                />
+                              </div>
+
+                              <div className="mt-3">
+                                <label
+                                  htmlFor={`${licenseType}ExpirationDate`}
+                                  className="form-label"
+                                >
+                                  Expiration Date
+                                </label>
+
+                                <input
+                                  id={`${licenseType}ExpirationDate`}
+                                  name="expirationDate"
+                                  type="date"
+                                  className="form-control"
+                                  value={formData[licenseType].expirationDate}
+                                  onChange={(event) =>
+                                    handleLicenseChange(event, licenseType)
+                                  }
+                                  disabled={loading}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="employee-drawer-footer">
+                <button
+                  type="submit"
+                  className="btn btn-primary d-inline-flex align-items-center gap-2"
+                  disabled={loading}
+                >
+                  <FaPlus />
+                  {loading
+                    ? "Saving..."
+                    : editingEmployeeId
+                    ? "Update Employee"
+                    : "Add Employee"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+                  onClick={resetForm}
+                  disabled={loading}
+                >
+                  <FaTimes />
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </aside>
         </div>
-      </div>
+      )}
     </div>
   );
 }

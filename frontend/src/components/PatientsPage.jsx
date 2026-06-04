@@ -1,10 +1,26 @@
 import React, { useState } from "react";
 import {
+  FaAddressCard,
+  FaAmbulance,
+  FaEdit,
+  FaFileMedical,
+  FaHistory,
+  FaIdCard,
+  FaPlus,
+  FaSearch,
+  FaTimes,
+  FaTrash,
+  FaUserInjured,
+  FaUsers,
+} from "react-icons/fa";
+
+import {
   getPatients,
   createPatient,
   updatePatient,
   deletePatient,
 } from "../api/patientsApi";
+
 import { getPatientCalls } from "../api/callsApi";
 
 // Empty patient template used for create, reset, and cancel edit.
@@ -42,6 +58,27 @@ const emptyPatient = {
   notes: "",
 };
 
+const DetailItem = ({ label, value }) => (
+  <div className="patient-detail-item">
+    <div className="patient-detail-label">{label}</div>
+    <div className="patient-detail-value">{value || "—"}</div>
+  </div>
+);
+
+const PatientFormSection = ({ title, icon: Icon, children }) => (
+  <div className="patient-form-section">
+    <div className="patient-form-section-header">
+      <span className="patient-form-section-icon">
+        <Icon />
+      </span>
+
+      <h5>{title}</h5>
+    </div>
+
+    {children}
+  </div>
+);
+
 // Main patient management component.
 const PatientsPage = () => {
   const [searchName, setSearchName] = useState("");
@@ -51,16 +88,27 @@ const PatientsPage = () => {
   const [patients, setPatients] = useState([]);
   const [patientCalls, setPatientCalls] = useState([]);
 
+  const [showPatientForm, setShowPatientForm] = useState(false);
+  const [editingPatientId, setEditingPatientId] = useState(null);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const [editingPatientId, setEditingPatientId] = useState(null);
 
-  // Reset the add/edit patient form.
+  // Reset the add/edit patient form and close the drawer.
   const resetPatientForm = () => {
     setNewPatient(emptyPatient);
     setEditingPatientId(null);
+    setShowPatientForm(false);
+  };
+
+  // Open the drawer in add mode.
+  const handleShowAddForm = () => {
+    setNewPatient(emptyPatient);
+    setEditingPatientId(null);
+    setError("");
+    setShowPatientForm(true);
   };
 
   // Handle text, select, and checkbox field changes.
@@ -100,7 +148,9 @@ const PatientsPage = () => {
         savedPatient = await createPatient(newPatient);
       }
 
-      resetPatientForm();
+      setNewPatient(emptyPatient);
+      setEditingPatientId(null);
+      setShowPatientForm(false);
       setSelectedPatient(savedPatient);
       setHasSearched(true);
 
@@ -202,7 +252,7 @@ const PatientsPage = () => {
     await loadPatientCalls(patient.id);
   };
 
-  // Start editing an existing patient and load call history.
+  // Start editing an existing patient and open the drawer.
   const handleEditPatient = async (patient) => {
     setEditingPatientId(patient.id);
 
@@ -241,6 +291,7 @@ const PatientsPage = () => {
     });
 
     setSelectedPatient(patient);
+    setShowPatientForm(true);
     await loadPatientCalls(patient.id);
   };
 
@@ -257,648 +308,796 @@ const PatientsPage = () => {
   };
 
   return (
-    <div className="container mt-4">
-      <div className="card shadow-sm p-3 mb-4">
-        <h4 className="mb-3">
-          {editingPatientId ? "Edit Patient" : "Add New Patient"}
-        </h4>
+    <div className="page-stack">
+      <div className="page-summary-grid">
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaUsers />
+          </div>
 
-        <form onSubmit={handleCreatePatient}>
-          <h5>Basic Information</h5>
+          <div>
+            <div className="page-summary-value">{patients.length}</div>
+            <div className="page-summary-label">Loaded Patients</div>
+          </div>
+        </div>
 
-          <div className="row">
-            <div className="col-md-4 mb-3">
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaUserInjured />
+          </div>
+
+          <div>
+            <div className="page-summary-value">
+              {selectedPatient ? "Selected" : "—"}
+            </div>
+            <div className="page-summary-label">Current Patient</div>
+          </div>
+        </div>
+
+        <div className="page-summary-card">
+          <div className="page-summary-icon warning">
+            <FaHistory />
+          </div>
+
+          <div>
+            <div className="page-summary-value">{patientCalls.length}</div>
+            <div className="page-summary-label">Patient Calls</div>
+          </div>
+        </div>
+      </div>
+
+      <section className="content-panel">
+        <div className="content-panel-header">
+          <div>
+            <h4>Patient Search</h4>
+            <p>Find patient records by name, date of birth, or load all records.</p>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+            onClick={handleShowAddForm}
+            disabled={loading}
+          >
+            <FaPlus />
+            Add Patient
+          </button>
+        </div>
+
+        <form onSubmit={handleSearch}>
+          <div className="row g-3">
+            <div className="col-md-5">
+              <label className="form-label">Patient Name</label>
+
               <input
-                name="first_name"
                 className="form-control"
-                placeholder="First Name *"
-                value={newPatient.first_name}
-                onChange={handleNewPatientChange}
+                placeholder="Search by first or last name"
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
                 disabled={loading}
-                required
               />
             </div>
 
-            <div className="col-md-4 mb-3">
-              <input
-                name="last_name"
-                className="form-control"
-                placeholder="Last Name *"
-                value={newPatient.last_name}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-                required
-              />
-            </div>
+            <div className="col-md-3">
+              <label className="form-label">Date of Birth</label>
 
-            <div className="col-md-2 mb-3">
               <input
                 type="date"
-                name="dob"
                 className="form-control"
-                value={newPatient.dob}
-                onChange={handleNewPatientChange}
+                value={searchDob}
+                onChange={(e) => setSearchDob(e.target.value)}
                 disabled={loading}
               />
             </div>
 
-            <div className="col-md-2 mb-3">
-              <select
-                name="gender"
-                className="form-select"
-                value={newPatient.gender}
-                onChange={handleNewPatientChange}
+            <div className="col-md-4 d-flex align-items-end gap-2 flex-wrap">
+              <button
+                type="submit"
+                className="btn btn-primary d-inline-flex align-items-center gap-2"
                 disabled={loading}
               >
-                <option value="">Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-                <option value="Unknown">Unknown</option>
-              </select>
-            </div>
-          </div>
+                <FaSearch />
+                Search
+              </button>
 
-          <hr />
-
-          <h5>Contact / Address</h5>
-
-          <div className="row">
-            <div className="col-md-4 mb-3">
-              <input
-                name="phone"
-                className="form-control"
-                placeholder="Primary Phone"
-                value={newPatient.phone}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="secondary_phone"
-                className="form-control"
-                placeholder="Secondary Phone"
-                value={newPatient.secondary_phone}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="address"
-                className="form-control"
-                placeholder="Street Address"
-                value={newPatient.address}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="city"
-                className="form-control"
-                placeholder="City"
-                value={newPatient.city}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="state"
-                className="form-control"
-                placeholder="State"
-                value={newPatient.state}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="zip_code"
-                className="form-control"
-                placeholder="ZIP Code"
-                value={newPatient.zip_code}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <hr />
-
-          <h5>Insurance</h5>
-
-          <div className="row">
-            <div className="col-md-4 mb-3">
-              <input
-                name="insurance"
-                className="form-control"
-                placeholder="Insurance Company"
-                value={newPatient.insurance}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="member_id"
-                className="form-control"
-                placeholder="Member ID"
-                value={newPatient.member_id}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="policy_number"
-                className="form-control"
-                placeholder="Policy Number"
-                value={newPatient.policy_number}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-6 mb-3">
-              <textarea
-                name="insurance_notes"
-                className="form-control"
-                placeholder="Insurance Notes"
-                value={newPatient.insurance_notes}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-6 mb-3">
-              <div className="form-check">
-                <input
-                  type="checkbox"
-                  name="requires_auth"
-                  className="form-check-input"
-                  checked={newPatient.requires_auth}
-                  onChange={handleNewPatientChange}
-                  disabled={loading}
-                />
-                <label className="form-check-label">
-                  Requires Authorization
-                </label>
-              </div>
-
-              <div className="form-check mt-2">
-                <input
-                  type="checkbox"
-                  name="copay_required"
-                  className="form-check-input"
-                  checked={newPatient.copay_required}
-                  onChange={handleNewPatientChange}
-                  disabled={loading}
-                />
-                <label className="form-check-label">Copay Required</label>
-              </div>
-            </div>
-          </div>
-
-          <hr />
-
-          <h5>EMS Details</h5>
-
-          <div className="row">
-            <div className="col-md-4 mb-3">
-              <select
-                name="default_service_level"
-                className="form-select"
-                value={newPatient.default_service_level}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              >
-                <option value="">Default Service Level</option>
-                <option value="BLS">BLS</option>
-                <option value="ALS">ALS</option>
-                <option value="Wheelchair">Wheelchair</option>
-                <option value="Stretcher">Stretcher</option>
-              </select>
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <input
-                name="weight"
-                className="form-control"
-                placeholder="Weight"
-                value={newPatient.weight}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-4 mb-3">
-              <div className="form-check">
-                <input
-                  type="checkbox"
-                  name="oxygen_required"
-                  className="form-check-input"
-                  checked={newPatient.oxygen_required}
-                  onChange={handleNewPatientChange}
-                  disabled={loading}
-                />
-                <label className="form-check-label">Oxygen Required</label>
-              </div>
-
-              <div className="form-check mt-2">
-                <input
-                  type="checkbox"
-                  name="stairs"
-                  className="form-check-input"
-                  checked={newPatient.stairs}
-                  onChange={handleNewPatientChange}
-                  disabled={loading}
-                />
-                <label className="form-check-label">Stairs</label>
-              </div>
-            </div>
-
-            <div className="col-md-12 mb-3">
-              <textarea
-                name="special_equipment_notes"
-                className="form-control"
-                placeholder="Special Equipment Notes"
-                value={newPatient.special_equipment_notes}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <hr />
-
-          <h5>Facility / Emergency Contact</h5>
-
-          <div className="row">
-            <div className="col-md-3 mb-3">
-              <input
-                name="facility_name"
-                className="form-control"
-                placeholder="Facility Name"
-                value={newPatient.facility_name}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-3 mb-3">
-              <input
-                name="room_number"
-                className="form-control"
-                placeholder="Room Number"
-                value={newPatient.room_number}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-3 mb-3">
-              <input
-                name="emergency_contact_name"
-                className="form-control"
-                placeholder="Emergency Contact Name"
-                value={newPatient.emergency_contact_name}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-3 mb-3">
-              <input
-                name="emergency_contact_phone"
-                className="form-control"
-                placeholder="Emergency Contact Phone"
-                value={newPatient.emergency_contact_phone}
-                onChange={handleNewPatientChange}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <hr />
-
-          <h5>General Notes</h5>
-
-          <div className="mb-3">
-            <textarea
-              name="notes"
-              className="form-control"
-              placeholder="General patient notes"
-              value={newPatient.notes}
-              onChange={handleNewPatientChange}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="d-flex gap-2">
-            <button type="submit" className="btn btn-success" disabled={loading}>
-              {loading
-                ? "Saving..."
-                : editingPatientId
-                ? "Update Patient"
-                : "Add Patient"}
-            </button>
-
-            {editingPatientId && (
               <button
                 type="button"
-                className="btn btn-outline-secondary"
+                className="btn btn-outline-info"
+                onClick={handleShowAll}
+                disabled={loading}
+              >
+                Show All
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+                onClick={handleClear}
+                disabled={loading}
+              >
+                <FaTimes />
+                Clear
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
+
+        {!hasSearched && !loading && !error && (
+          <div className="alert alert-info mt-3 mb-0">
+            Enter a patient name, date of birth, or both. You can also use Show
+            All.
+          </div>
+        )}
+
+        {loading && (
+          <div className="alert alert-secondary mt-3 mb-0">
+            Loading patient records...
+          </div>
+        )}
+
+        {hasSearched && !loading && !error && patients.length === 0 && (
+          <div className="alert alert-warning mt-3 mb-0">
+            No patients found.
+          </div>
+        )}
+      </section>
+
+      {patients.length > 0 && (
+        <section className="content-panel">
+          <div className="content-panel-header">
+            <div>
+              <h4>Patient List</h4>
+              <p>Search results and available patient records.</p>
+            </div>
+
+            <span className="badge text-bg-secondary">{patients.length}</span>
+          </div>
+
+          <div className="patient-list">
+            {patients.map((patient) => {
+              const isSelected = selectedPatient?.id === patient.id;
+
+              return (
+                <div
+                  className={`patient-list-card ${
+                    isSelected ? "selected" : ""
+                  }`}
+                  key={patient.id}
+                >
+                  <div className="patient-list-main">
+                    <div className="patient-list-avatar">
+                      {(patient.first_name?.[0] || "P").toUpperCase()}
+                    </div>
+
+                    <div>
+                      <div className="patient-list-name">
+                        {patient.first_name} {patient.last_name}
+                      </div>
+
+                      <div className="patient-list-muted">
+                        DOB: {patient.dob || "—"} · Phone:{" "}
+                        {patient.phone || "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="patient-list-meta">
+                    <span className="badge text-bg-light">
+                      {patient.insurance || "No Insurance"}
+                    </span>
+
+                    <span className="badge text-bg-primary">
+                      {patient.default_service_level || "No Service"}
+                    </span>
+                  </div>
+
+                  <div className="patient-list-actions">
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${
+                        isSelected ? "btn-success" : "btn-outline-primary"
+                      }`}
+                      onClick={() => handleSelectPatient(patient)}
+                      disabled={loading}
+                    >
+                      {isSelected ? "Selected" : "Select"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
+                      onClick={() => handleEditPatient(patient)}
+                      disabled={loading}
+                    >
+                      <FaEdit />
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                      onClick={() => handleDeletePatient(patient.id)}
+                      disabled={loading}
+                    >
+                      <FaTrash />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {selectedPatient && (
+        <section className="content-panel">
+          <div className="content-panel-header">
+            <div>
+              <h4>Selected Patient</h4>
+              <p>Quick view of the currently selected patient record.</p>
+            </div>
+
+            <span className="badge text-bg-success">Selected</span>
+          </div>
+
+          <div className="patient-detail-grid">
+            <DetailItem
+              label="Name"
+              value={`${selectedPatient.first_name || ""} ${
+                selectedPatient.last_name || ""
+              }`.trim()}
+            />
+
+            <DetailItem label="DOB" value={selectedPatient.dob} />
+            <DetailItem label="Gender" value={selectedPatient.gender} />
+            <DetailItem label="Phone" value={selectedPatient.phone} />
+            <DetailItem
+              label="Secondary Phone"
+              value={selectedPatient.secondary_phone}
+            />
+
+            <DetailItem
+              label="Address"
+              value={`${selectedPatient.address || ""}, ${
+                selectedPatient.city || ""
+              } ${selectedPatient.state || ""} ${
+                selectedPatient.zip_code || ""
+              }`.trim()}
+            />
+
+            <DetailItem label="Insurance" value={selectedPatient.insurance} />
+            <DetailItem label="Member ID" value={selectedPatient.member_id} />
+            <DetailItem
+              label="Policy Number"
+              value={selectedPatient.policy_number}
+            />
+
+            <DetailItem
+              label="Requires Auth"
+              value={selectedPatient.requires_auth ? "Yes" : "No"}
+            />
+
+            <DetailItem
+              label="Copay Required"
+              value={selectedPatient.copay_required ? "Yes" : "No"}
+            />
+
+            <DetailItem
+              label="Default Service"
+              value={selectedPatient.default_service_level}
+            />
+
+            <DetailItem label="Weight" value={selectedPatient.weight} />
+
+            <DetailItem
+              label="Oxygen Required"
+              value={selectedPatient.oxygen_required ? "Yes" : "No"}
+            />
+
+            <DetailItem
+              label="Stairs"
+              value={selectedPatient.stairs ? "Yes" : "No"}
+            />
+
+            <DetailItem label="Facility" value={selectedPatient.facility_name} />
+            <DetailItem label="Room" value={selectedPatient.room_number} />
+
+            <DetailItem
+              label="Emergency Contact"
+              value={`${selectedPatient.emergency_contact_name || ""} ${
+                selectedPatient.emergency_contact_phone || ""
+              }`.trim()}
+            />
+
+            <DetailItem label="Notes" value={selectedPatient.notes} />
+          </div>
+        </section>
+      )}
+
+      {selectedPatient && (
+        <section className="content-panel">
+          <div className="content-panel-header">
+            <div>
+              <h4>Patient Call History</h4>
+              <p>Previous calls linked to the selected patient.</p>
+            </div>
+
+            <span className="badge text-bg-secondary">
+              {patientCalls.length}
+            </span>
+          </div>
+
+          {patientCalls.length === 0 ? (
+            <div className="empty-state">
+              <FaHistory />
+
+              <h5>No calls found</h5>
+
+              <p>No call records are currently linked to this patient.</p>
+            </div>
+          ) : (
+            <div className="patient-call-list">
+              {patientCalls.map((call) => (
+                <div className="patient-call-card" key={call.id}>
+                  <div>
+                    <div className="patient-call-date">
+                      {call.date_of_call || "—"}
+                    </div>
+
+                    <div className="patient-call-muted">
+                      Trip: {call.trip_date || "—"}{" "}
+                      {call.pickup_time ? `at ${call.pickup_time}` : ""}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="patient-call-label">Route</div>
+                    <div>
+                      {call.pickup_address || "—"} →{" "}
+                      {call.dropoff_address || "—"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="patient-call-label">Service</div>
+                    <div>{call.service_level || "—"}</div>
+                  </div>
+
+                  <div>
+                    <div className="patient-call-label">Notes</div>
+                    <div>{call.notes || "—"}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {showPatientForm && (
+        <div className="patient-drawer-overlay" onClick={resetPatientForm}>
+          <aside
+            className="patient-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="patient-drawer-header">
+              <div>
+                <h4>{editingPatientId ? "Edit Patient" : "Add Patient"}</h4>
+
+                <p>
+                  Maintain patient demographics, contact information, insurance,
+                  and EMS-specific details.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
                 onClick={resetPatientForm}
                 disabled={loading}
               >
-                Cancel Edit
+                <FaTimes />
               </button>
-            )}
-          </div>
-        </form>
-      </div>
-
-      <form onSubmit={handleSearch} className="card shadow-sm p-3 mb-4">
-        <div className="row">
-          <div className="col-md-6 mb-3 mb-md-0">
-            <input
-              className="form-control"
-              placeholder="Search Name"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="col-md-6">
-            <input
-              type="date"
-              className="form-control"
-              value={searchDob}
-              onChange={(e) => setSearchDob(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 d-flex gap-2 flex-wrap">
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            Search
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-info"
-            onClick={handleShowAll}
-            disabled={loading}
-          >
-            Show All
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleClear}
-            disabled={loading}
-          >
-            Clear
-          </button>
-        </div>
-      </form>
-
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      {!hasSearched && !loading && (
-        <div className="alert alert-info">
-          Enter a patient name, date of birth, or both, then click Search. You
-          can also use Show All.
-        </div>
-      )}
-
-      {loading && (
-        <div className="alert alert-secondary">Loading patient records...</div>
-      )}
-
-      {hasSearched && !loading && !error && patients.length === 0 && (
-        <div className="alert alert-warning">No patients found.</div>
-      )}
-
-      {selectedPatient && (
-        <div className="card border-success shadow-sm mb-4">
-          <div className="card-body">
-            <h5 className="card-title text-success mb-3">Selected Patient</h5>
-
-            <p>
-              <strong>Name:</strong> {selectedPatient.first_name}{" "}
-              {selectedPatient.last_name}
-            </p>
-            <p>
-              <strong>DOB:</strong> {selectedPatient.dob || "—"}
-            </p>
-            <p>
-              <strong>Gender:</strong> {selectedPatient.gender || "—"}
-            </p>
-            <p>
-              <strong>Phone:</strong> {selectedPatient.phone || "—"}
-            </p>
-            <p>
-              <strong>Secondary Phone:</strong>{" "}
-              {selectedPatient.secondary_phone || "—"}
-            </p>
-            <p>
-              <strong>Address:</strong> {selectedPatient.address || "—"},{" "}
-              {selectedPatient.city || ""} {selectedPatient.state || ""}{" "}
-              {selectedPatient.zip_code || ""}
-            </p>
-
-            <hr />
-
-            <p>
-              <strong>Insurance:</strong> {selectedPatient.insurance || "—"}
-            </p>
-            <p>
-              <strong>Member ID:</strong> {selectedPatient.member_id || "—"}
-            </p>
-            <p>
-              <strong>Policy Number:</strong>{" "}
-              {selectedPatient.policy_number || "—"}
-            </p>
-            <p>
-              <strong>Requires Auth:</strong>{" "}
-              {selectedPatient.requires_auth ? "Yes" : "No"}
-            </p>
-            <p>
-              <strong>Copay Required:</strong>{" "}
-              {selectedPatient.copay_required ? "Yes" : "No"}
-            </p>
-
-            <hr />
-
-            <p>
-              <strong>Default Service Level:</strong>{" "}
-              {selectedPatient.default_service_level || "—"}
-            </p>
-            <p>
-              <strong>Weight:</strong> {selectedPatient.weight || "—"}
-            </p>
-            <p>
-              <strong>Oxygen Required:</strong>{" "}
-              {selectedPatient.oxygen_required ? "Yes" : "No"}
-            </p>
-            <p>
-              <strong>Stairs:</strong> {selectedPatient.stairs ? "Yes" : "No"}
-            </p>
-
-            <hr />
-
-            <p>
-              <strong>Facility:</strong>{" "}
-              {selectedPatient.facility_name || "—"}
-            </p>
-            <p>
-              <strong>Room:</strong> {selectedPatient.room_number || "—"}
-            </p>
-            <p>
-              <strong>Emergency Contact:</strong>{" "}
-              {selectedPatient.emergency_contact_name || "—"}{" "}
-              {selectedPatient.emergency_contact_phone || ""}
-            </p>
-            <p>
-              <strong>Notes:</strong> {selectedPatient.notes || "—"}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {selectedPatient && (
-        <div className="card shadow-sm mb-4">
-          <div className="card-body">
-            <h5 className="card-title mb-3">Call History</h5>
-
-            {patientCalls.length === 0 ? (
-              <div className="alert alert-light mb-0">
-                No calls found for this patient.
-              </div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-sm table-bordered table-hover mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Date of Call</th>
-                      <th>Trip Date</th>
-                      <th>Pickup Time</th>
-                      <th>Pickup</th>
-                      <th>Dropoff</th>
-                      <th>Caller Type</th>
-                      <th>Call Type</th>
-                      <th>Service</th>
-                      <th>Notes</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {patientCalls.map((call) => (
-                      <tr key={call.id}>
-                        <td>{call.date_of_call || "—"}</td>
-                        <td>{call.trip_date || "—"}</td>
-                        <td>{call.pickup_time || "—"}</td>
-                        <td>{call.pickup_address || "—"}</td>
-                        <td>{call.dropoff_address || "—"}</td>
-                        <td>{call.caller_type || "—"}</td>
-                        <td>{call.call_type || "—"}</td>
-                        <td>{call.service_level || "—"}</td>
-                        <td>{call.notes || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {patients.length > 0 && (
-        <div className="card shadow-sm">
-          <div className="card-body">
-            <h5 className="card-title mb-3">Patient List</h5>
-
-            <div className="table-responsive">
-              <table className="table table-bordered table-hover align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>Full Name</th>
-                    <th>DOB</th>
-                    <th>Phone</th>
-                    <th>Insurance</th>
-                    <th>Service</th>
-                    <th style={{ width: "230px" }}>Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {patients.map((patient) => {
-                    const isSelected = selectedPatient?.id === patient.id;
-
-                    return (
-                      <tr key={patient.id}>
-                        <td>
-                          {patient.first_name} {patient.last_name}
-                        </td>
-                        <td>{patient.dob || "—"}</td>
-                        <td>{patient.phone || "—"}</td>
-                        <td>{patient.insurance || "—"}</td>
-                        <td>{patient.default_service_level || "—"}</td>
-                        <td>
-                          <div className="d-flex gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${
-                                isSelected
-                                  ? "btn-success"
-                                  : "btn-outline-primary"
-                              }`}
-                              onClick={() => handleSelectPatient(patient)}
-                              disabled={loading}
-                            >
-                              {isSelected ? "Selected" : "Select"}
-                            </button>
-
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-warning"
-                              onClick={() => handleEditPatient(patient)}
-                              disabled={loading}
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger"
-                              onClick={() => handleDeletePatient(patient.id)}
-                              disabled={loading}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
-          </div>
+
+            <form onSubmit={handleCreatePatient} className="patient-drawer-form">
+              <div className="patient-drawer-body">
+                <PatientFormSection title="Basic Information" icon={FaIdCard}>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label">First Name *</label>
+
+                      <input
+                        name="first_name"
+                        className="form-control"
+                        value={newPatient.first_name}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Last Name *</label>
+
+                      <input
+                        name="last_name"
+                        className="form-control"
+                        value={newPatient.last_name}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">DOB</label>
+
+                      <input
+                        type="date"
+                        name="dob"
+                        className="form-control"
+                        value={newPatient.dob}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Gender</label>
+
+                      <select
+                        name="gender"
+                        className="form-select"
+                        value={newPatient.gender}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      >
+                        <option value="">Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                        <option value="Unknown">Unknown</option>
+                      </select>
+                    </div>
+                  </div>
+                </PatientFormSection>
+
+                <PatientFormSection title="Contact / Address" icon={FaAddressCard}>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label">Primary Phone</label>
+
+                      <input
+                        name="phone"
+                        className="form-control"
+                        value={newPatient.phone}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Secondary Phone</label>
+
+                      <input
+                        name="secondary_phone"
+                        className="form-control"
+                        value={newPatient.secondary_phone}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-12">
+                      <label className="form-label">Street Address</label>
+
+                      <input
+                        name="address"
+                        className="form-control"
+                        value={newPatient.address}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label">City</label>
+
+                      <input
+                        name="city"
+                        className="form-control"
+                        value={newPatient.city}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label">State</label>
+
+                      <input
+                        name="state"
+                        className="form-control"
+                        value={newPatient.state}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label className="form-label">ZIP Code</label>
+
+                      <input
+                        name="zip_code"
+                        className="form-control"
+                        value={newPatient.zip_code}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                </PatientFormSection>
+
+                <PatientFormSection title="Insurance" icon={FaFileMedical}>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label">Insurance Company</label>
+
+                      <input
+                        name="insurance"
+                        className="form-control"
+                        value={newPatient.insurance}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Member ID</label>
+
+                      <input
+                        name="member_id"
+                        className="form-control"
+                        value={newPatient.member_id}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Policy Number</label>
+
+                      <input
+                        name="policy_number"
+                        className="form-control"
+                        value={newPatient.policy_number}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6 d-flex flex-column justify-content-end gap-2">
+                      <div className="form-check">
+                        <input
+                          type="checkbox"
+                          name="requires_auth"
+                          className="form-check-input"
+                          checked={newPatient.requires_auth}
+                          onChange={handleNewPatientChange}
+                          disabled={loading}
+                        />
+
+                        <label className="form-check-label">
+                          Requires Authorization
+                        </label>
+                      </div>
+
+                      <div className="form-check">
+                        <input
+                          type="checkbox"
+                          name="copay_required"
+                          className="form-check-input"
+                          checked={newPatient.copay_required}
+                          onChange={handleNewPatientChange}
+                          disabled={loading}
+                        />
+
+                        <label className="form-check-label">
+                          Copay Required
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-12">
+                      <label className="form-label">Insurance Notes</label>
+
+                      <textarea
+                        name="insurance_notes"
+                        className="form-control"
+                        value={newPatient.insurance_notes}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                </PatientFormSection>
+
+                <PatientFormSection title="EMS Details" icon={FaAmbulance}>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label">Default Service Level</label>
+
+                      <select
+                        name="default_service_level"
+                        className="form-select"
+                        value={newPatient.default_service_level}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      >
+                        <option value="">Select</option>
+                        <option value="BLS">BLS</option>
+                        <option value="ALS">ALS</option>
+                        <option value="Wheelchair">Wheelchair</option>
+                        <option value="Stretcher">Stretcher</option>
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Weight</label>
+
+                      <input
+                        name="weight"
+                        className="form-control"
+                        value={newPatient.weight}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-12 d-flex flex-wrap gap-3">
+                      <div className="form-check">
+                        <input
+                          type="checkbox"
+                          name="oxygen_required"
+                          className="form-check-input"
+                          checked={newPatient.oxygen_required}
+                          onChange={handleNewPatientChange}
+                          disabled={loading}
+                        />
+
+                        <label className="form-check-label">
+                          Oxygen Required
+                        </label>
+                      </div>
+
+                      <div className="form-check">
+                        <input
+                          type="checkbox"
+                          name="stairs"
+                          className="form-check-input"
+                          checked={newPatient.stairs}
+                          onChange={handleNewPatientChange}
+                          disabled={loading}
+                        />
+
+                        <label className="form-check-label">Stairs</label>
+                      </div>
+                    </div>
+
+                    <div className="col-12">
+                      <label className="form-label">Special Equipment Notes</label>
+
+                      <textarea
+                        name="special_equipment_notes"
+                        className="form-control"
+                        value={newPatient.special_equipment_notes}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                </PatientFormSection>
+
+                <PatientFormSection
+                  title="Facility / Emergency Contact"
+                  icon={FaAddressCard}
+                >
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label">Facility Name</label>
+
+                      <input
+                        name="facility_name"
+                        className="form-control"
+                        value={newPatient.facility_name}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">Room Number</label>
+
+                      <input
+                        name="room_number"
+                        className="form-control"
+                        value={newPatient.room_number}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Emergency Contact Name
+                      </label>
+
+                      <input
+                        name="emergency_contact_name"
+                        className="form-control"
+                        value={newPatient.emergency_contact_name}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Emergency Contact Phone
+                      </label>
+
+                      <input
+                        name="emergency_contact_phone"
+                        className="form-control"
+                        value={newPatient.emergency_contact_phone}
+                        onChange={handleNewPatientChange}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                </PatientFormSection>
+
+                <PatientFormSection title="General Notes" icon={FaEdit}>
+                  <textarea
+                    name="notes"
+                    className="form-control"
+                    value={newPatient.notes}
+                    onChange={handleNewPatientChange}
+                    disabled={loading}
+                  />
+                </PatientFormSection>
+              </div>
+
+              <div className="patient-drawer-footer">
+                <button
+                  type="submit"
+                  className="btn btn-primary d-inline-flex align-items-center gap-2"
+                  disabled={loading}
+                >
+                  <FaPlus />
+                  {loading
+                    ? "Saving..."
+                    : editingPatientId
+                    ? "Update Patient"
+                    : "Add Patient"}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+                  onClick={resetPatientForm}
+                  disabled={loading}
+                >
+                  <FaTimes />
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </aside>
         </div>
       )}
     </div>

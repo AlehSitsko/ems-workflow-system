@@ -799,3 +799,740 @@
     justify-content: center;
   }
 }
+
+/* =========================
+   Patients page
+   ========================= */
+
+/* Form section wrapper used inside the patient create/edit form. */
+.patient-form-section {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e7edf6;
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+/* Header for each patient form section. */
+.patient-form-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+/* Small icon block used in patient form section headers. */
+.patient-form-section-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+}
+
+/* Section title inside patient form blocks. */
+.patient-form-section-header h5 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+/* Selected patient details grid. */
+.patient-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+/* Individual selected patient detail cell. */
+.patient-detail-item {
+  padding: 0.85rem;
+  border: 1px solid #e7edf6;
+  border-radius: 14px;
+  background: #f8fafd;
+}
+
+/* Label inside selected patient detail cells. */
+.patient-detail-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #98a2b3;
+}
+
+/* Value inside selected patient detail cells. */
+.patient-detail-value {
+  color: #344054;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+/* Compact call history list for the selected patient. */
+.patient-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Single patient call history card. */
+.patient-call-card {
+  display: grid;
+  grid-template-columns: 160px minmax(260px, 1fr) 120px minmax(220px, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+/* Primary date text in patient call history card. */
+.patient-call-date {
+  font-weight: 800;
+  color: #101828;
+}
+
+/* Muted secondary text in patient call history card. */
+.patient-call-muted {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  color: #667085;
+}
+
+/* Small label inside patient call history cards. */
+.patient-call-label {
+  margin-bottom: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #98a2b3;
+}
+
+/* Patient search results list. */
+.patient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Patient result card. */
+.patient-list-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(220px, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Highlight selected patient result card. */
+.patient-list-card.selected {
+  border-color: #198754;
+  box-shadow: 0 8px 22px rgba(25, 135, 84, 0.12);
+}
+
+/* Left side of patient result card with avatar and name. */
+.patient-list-main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+/* Patient initials avatar. */
+.patient-list-avatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+  font-weight: 800;
+}
+
+/* Patient full name in result card. */
+.patient-list-name {
+  font-weight: 800;
+  color: #101828;
+}
+
+/* Secondary patient data in result card. */
+.patient-list-muted {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  color: #667085;
+}
+
+/* Middle metadata area in patient result card. */
+.patient-list-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Action buttons area in patient result card. */
+.patient-list-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Patients page responsive behavior. */
+@media (max-width: 1200px) {
+  .patient-detail-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .patient-call-card,
+  .patient-list-card {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-list-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .patient-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-form-section {
+    padding: 0.85rem;
+  }
+}
+
+/* =========================
+   Employee role badges
+   ========================= */
+
+/* Shared employee role badge style. */
+.employee-role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Driver role: operational driving role. */
+.employee-role-badge.role-driver {
+  background: #eaf2ff;
+  color: #0d6efd;
+  border-color: #bfd7ff;
+}
+
+/* EMT role: basic medical provider. */
+.employee-role-badge.role-emt {
+  background: #e9f8ef;
+  color: #198754;
+  border-color: #bfe8cf;
+}
+
+/* Paramedic role: advanced medical provider. */
+.employee-role-badge.role-paramedic {
+  background: #f1e9ff;
+  color: #6f42c1;
+  border-color: #d8c5ff;
+}
+
+/* Dispatcher role: call intake and operations coordination. */
+.employee-role-badge.role-dispatcher {
+  background: #e8edff;
+  color: #3d50b3;
+  border-color: #c5d0ff;
+}
+
+/* Supervisor role: operational supervision. */
+.employee-role-badge.role-supervisor {
+  background: #fff4e5;
+  color: #f59f00;
+  border-color: #ffe0a6;
+}
+
+/* Manager role: management-level employee. */
+.employee-role-badge.role-manager {
+  background: #fff0f0;
+  color: #dc3545;
+  border-color: #ffc7c7;
+}
+
+/* Admin role: system administration. */
+.employee-role-badge.role-admin {
+  background: #e9ecef;
+  color: #212529;
+  border-color: #ced4da;
+}
+
+/* HR role: employee records and HR workflows. */
+.employee-role-badge.role-hr {
+  background: #e6fbf7;
+  color: #0f766e;
+  border-color: #b8eee5;
+}
+
+/* Assist role: support crew position. */
+.employee-role-badge.role-assist {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #dbe4ee;
+}
+
+/* Unknown role fallback. */
+.employee-role-badge.role-unknown {
+  background: #f8f9fa;
+  color: #6c757d;
+  border-color: #dee2e6;
+}
+
+/* =========================
+   Employees page
+   ========================= */
+
+/* Form section wrapper used inside employee create/edit form. */
+.employee-form-section {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #e7edf6;
+  border-radius: 18px;
+  background: #f8fafd;
+}
+
+/* Header for each employee form section. */
+.employee-form-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+/* Small icon block used in employee form section headers. */
+.employee-form-section-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+}
+
+/* Section title inside employee form blocks. */
+.employee-form-section-header h5 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+/* Grid for certification cards inside the employee form. */
+.employee-license-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+/* Individual certification edit card. */
+.employee-license-form-card {
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+/* Header inside each certification edit card. */
+.employee-license-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* Certification title inside the edit card. */
+.employee-license-form-header h6 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+/* Employee card list. */
+.employee-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* Main employee result card. */
+.employee-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.15fr) minmax(220px, 1fr) minmax(170px, 0.75fr) minmax(260px, 1.2fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #e4e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+/* Employee card hover state. */
+.employee-card:hover {
+  border-color: #cfd8e6;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
+  transform: translateY(-1px);
+}
+
+/* Left side of employee card with avatar and name. */
+.employee-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+/* Employee initials avatar. */
+.employee-avatar {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf2ff;
+  color: #0d6efd;
+  font-weight: 800;
+}
+
+/* Employee full name. */
+.employee-name {
+  font-weight: 800;
+  color: #101828;
+}
+
+/* Muted employee metadata line. */
+.employee-muted {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  color: #667085;
+}
+
+/* Wrapper for role/status/position badges. */
+.employee-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* Contact and notes column. */
+.employee-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #344054;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+/* Allowed positions column. */
+.employee-positions {
+  min-width: 0;
+}
+
+/* Small uppercase section label inside employee cards. */
+.employee-section-label {
+  margin-bottom: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #98a2b3;
+}
+
+/* Certification summary grid inside employee cards. */
+.employee-license-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+
+/* Compact certification pill. */
+.employee-license-pill {
+  padding: 0.6rem;
+  border: 1px solid #e7edf6;
+  border-radius: 14px;
+  background: #f8fafd;
+}
+
+/* Certification name inside compact pill. */
+.employee-license-name {
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #667085;
+}
+
+/* Certification expiration text. */
+.employee-license-details {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: #667085;
+}
+
+/* Employee card action buttons. */
+.employee-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Employees page responsive behavior. */
+@media (max-width: 1400px) {
+  .employee-card {
+    grid-template-columns: minmax(260px, 1fr) minmax(220px, 1fr);
+  }
+
+  .employee-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .employee-license-form-grid,
+  .employee-card {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-license-summary {
+    grid-template-columns: repeat(2, minmax(110px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .employee-form-section {
+    padding: 0.85rem;
+  }
+
+  .employee-license-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.employee-license-extra-fields {
+  margin-top: 0.75rem;
+}
+
+/* =========================
+   Employee drawer
+   ========================= */
+
+/* Full-screen overlay used when the employee add/edit drawer is open. */
+.employee-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+/* Right-side drawer for employee add/edit workflow. */
+.employee-drawer {
+  width: min(760px, 100%);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f7fb;
+  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
+  animation: employeeDrawerSlideIn 0.18s ease-out;
+}
+
+/* Drawer slide-in animation. */
+@keyframes employeeDrawerSlideIn {
+  from {
+    transform: translateX(28px);
+    opacity: 0.75;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Drawer header with title and close button. */
+.employee-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e4e8f0;
+}
+
+.employee-drawer-header h4 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+.employee-drawer-header p {
+  margin: 0.25rem 0 0;
+  color: #667085;
+}
+
+/* Drawer form uses flex so footer can stay visible. */
+.employee-drawer-form {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollable drawer form body. */
+.employee-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+/* Sticky drawer footer with save/cancel actions. */
+.employee-drawer-footer {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #e4e8f0;
+}
+
+/* Additional spacing for conditional license fields. */
+.employee-license-extra-fields {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 800px) {
+  .employee-drawer {
+    width: 100%;
+  }
+}
+
+/* =========================
+   Patient drawer
+   ========================= */
+
+/* Full-screen overlay used when the patient add/edit drawer is open. */
+.patient-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+/* Right-side drawer for patient add/edit workflow. */
+.patient-drawer {
+  width: min(760px, 100%);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f7fb;
+  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
+  animation: patientDrawerSlideIn 0.18s ease-out;
+}
+
+/* Drawer slide-in animation. */
+@keyframes patientDrawerSlideIn {
+  from {
+    transform: translateX(28px);
+    opacity: 0.75;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Drawer header with title and close button. */
+.patient-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e4e8f0;
+}
+
+.patient-drawer-header h4 {
+  margin: 0;
+  font-weight: 800;
+  color: #101828;
+}
+
+.patient-drawer-header p {
+  margin: 0.25rem 0 0;
+  color: #667085;
+}
+
+/* Drawer form uses flex so footer can stay visible. */
+.patient-drawer-form {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollable drawer form body. */
+.patient-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+/* Sticky drawer footer with save/cancel actions. */
+.patient-drawer-footer {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #e4e8f0;
+}
+
+@media (max-width: 800px) {
+  .patient-drawer {
+    width: 100%;
+  }
+}
