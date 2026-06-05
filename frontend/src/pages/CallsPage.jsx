@@ -65,6 +65,46 @@ const CallsPage = () => {
     return <span className="badge text-bg-success">Complete</span>;
   };
 
+  const formatServiceLevel = (serviceLevel) => {
+    if (!serviceLevel) {
+      return "—";
+    }
+
+    if (serviceLevel === "bls") {
+      return "BLS";
+    }
+
+    if (serviceLevel === "als") {
+      return "ALS";
+    }
+
+    if (serviceLevel === "emergency") {
+      return "Emergency";
+    }
+
+    if (serviceLevel === "stretcher") {
+      return "Stretcher";
+    }
+
+    return serviceLevel;
+  };
+
+  const renderServiceBadge = (serviceLevel) => {
+    if (!serviceLevel) {
+      return <span className="badge text-bg-secondary">—</span>;
+    }
+
+    if (serviceLevel === "emergency") {
+      return <span className="badge text-bg-danger">Emergency</span>;
+    }
+
+    return (
+      <span className="badge text-bg-primary">
+        {formatServiceLevel(serviceLevel)}
+      </span>
+    );
+  };
+
   // Return date in YYYY-MM-DD format.
   const formatDate = (date) => date.toISOString().split("T")[0];
 
@@ -145,6 +185,10 @@ const CallsPage = () => {
     (call) => call.missing_critical_fields
   ).length;
 
+  const emergencyCalls = calls.filter(
+    (call) => call.service_level === "emergency"
+  ).length;
+
   const averageQualityScore =
     calls.length > 0
       ? Math.round(
@@ -192,6 +236,17 @@ const CallsPage = () => {
               {callsWithCriticalMissing}
             </div>
             <div className="page-summary-label">Critical Missing</div>
+          </div>
+        </div>
+
+        <div className="page-summary-card">
+          <div className="page-summary-icon danger">
+            <FaClipboardList />
+          </div>
+
+          <div>
+            <div className="page-summary-value">{emergencyCalls}</div>
+            <div className="page-summary-label">Emergency Calls</div>
           </div>
         </div>
       </div>
@@ -375,7 +430,7 @@ const CallsPage = () => {
                     <div>
                       <div className="compact-call-label">Service</div>
 
-                      <div>{call.service_level || "—"}</div>
+                      {renderServiceBadge(call.service_level)}
                     </div>
 
                     <div>
@@ -409,6 +464,11 @@ const CallsPage = () => {
                       <div>
                         <strong>Call Type:</strong>{" "}
                         {call.call_type || "—"}
+                      </div>
+
+                      <div>
+                        <strong>Service Level:</strong>{" "}
+                        {formatServiceLevel(call.service_level)}
                       </div>
 
                       <div>

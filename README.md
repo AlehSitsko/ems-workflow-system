@@ -2,15 +2,17 @@
 
 ## Overview
 
-EMS Workflow System is a modular operational platform designed to support EMS and medical transportation organizations with dispatcher workflows, patient records, employee management, crew planning, operational continuity, and supervisor oversight.
+EMS Workflow System is a modular operational platform designed to support EMS and medical transportation organizations with dispatcher workflows, patient records, employee management, crew planning, operational continuity, supervisor oversight, and structured operational record keeping.
 
-The system is designed as an operational support platform. It is not intended to replace primary dispatch software, EMR systems, or clinical documentation systems.
+The system is designed as an operational support platform. It is not intended to replace primary dispatch software, CAD systems, EMR systems, clinical documentation systems, or billing platforms.
 
 ## Primary Objectives
 
 * Fast and reliable call intake
 * Structured dispatcher workflows
+* Guided call-taking support
 * Patient record lookup and management
+* Automatic patient creation during call intake
 * Employee and certification management
 * Daily crew planning
 * Crew preset workflows
@@ -20,7 +22,7 @@ The system is designed as an operational support platform. It is not intended to
 * Operational continuity during workflow disruptions
 * Modular architecture for future expansion
 
-The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, and high-volume operational periods.
+The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, high-volume operational periods, and dispatcher training workflows.
 
 ## Technology Stack
 
@@ -217,14 +219,23 @@ Current features:
 * Caller information
 * Patient information
 * Patient search
+* Existing patient selection
+* Automatic new patient creation during call submission
 * Trip details
+* Date of call
+* Date of trip
+* Pickup time
+* Appointment time
 * Return ride support
 * Service level selection
+* Emergency service level selection
+* Emergency warning when Emergency is selected
 * Call quality scoring
 * Missing critical field detection
 * Missing optional field detection
 * Required dispatcher explanation when critical information is missing
 * Backend call persistence
+* Patient-to-call linking
 * Price calculator
 * Print and clear controls
 * Modernized section-based UI
@@ -236,28 +247,92 @@ Guided Intake is a step-by-step call workflow designed for faster and more struc
 Current features:
 
 * Start Taking Call workflow
+
 * Patient lookup step
+
 * Patient search by:
 
   * Date of birth
   * Last name
   * Phone number
+
 * Right-side patient lookup drawer
+
 * Select existing patient
+
 * Continue as new patient
+
+* Automatic new patient creation during guided call save
+
 * Trip details step
+
+* Date of call
+
+* Date of trip
+
+* Pickup time
+
+* Appointment time
+
+* Return ride support
+
+* Service level selection
+
+* Emergency service level selection
+
+* Emergency warning in trip step
+
+* Emergency warning in review step
+
 * Review and save step
+
 * Call quality review before saving
+
 * Required explanation for missing critical information
+
 * Backend call persistence
+
+* Patient-to-call linking
 
 Planned improvements:
 
-* Create new patient directly from Guided Intake
-* Automatic patient creation during intake
-* More advanced step validation
+* More advanced guided step validation
 * Better dispatcher training flow
 * Optional guided templates by call type
+* Improved autocomplete
+* Better duplicate patient prevention
+
+## Price Calculator
+
+The Price Calculator provides a simple operational estimate for trip pricing.
+
+Current features:
+
+* Base price
+* Mileage
+* Rate per mile
+* Crew size adjustment
+* Return ride / round trip calculation
+* Waiting Time Requested option
+* Manual Waiting Time Fee entry
+* Waiting Time Fee is added once and is not multiplied by return ride
+* Price breakdown
+* Clear calculator action
+
+Current calculation model:
+
+```text
+oneWayTripTotal = base price + mileage fee + crew adjustment
+
+if return ride:
+    tripSubtotal = oneWayTripTotal * 2
+else:
+    tripSubtotal = oneWayTripTotal
+
+total = tripSubtotal + waiting time fee
+```
+
+The calculator is an operational estimate tool and is not intended to be a full billing system.
 
 ## Patients
 
@@ -276,6 +351,8 @@ Current features:
 * Modern card-based patient list
 * Add/edit patient drawer
 * Patient data used by call intake workflows
+* New patient records can be created automatically from call intake
+* Calls can be linked to patient records
 
 ## Calls
 
@@ -292,11 +369,16 @@ Current features:
 * Today shortcut
 * Load all shortcut
 * Expandable call details
+* Appointment time display
+* Service level display
+* Emergency calls displayed with a danger badge
+* Emergency call count summary
 * Quality score badges
 * Missing critical field tracking
 * Missing optional field tracking
 * Dispatcher explanation review
 * Operational notes review
+* Linked patient ID stored when patient record exists
 
 ## Employees
 
@@ -352,6 +434,11 @@ Current features:
 * CPR warnings
 * Crew preset support
 * Backend persistence
+
+Important note:
+
+* Emergency is currently implemented as a call service level.
+* Emergency is not currently implemented as a Crew Planner unit type.
 
 ## Crew Presets
 
@@ -448,6 +535,7 @@ Optional quality fields currently include:
 * Drop Off Address
 * Date of Trip
 * Pickup Time
+* Appointment Time
 * Caller Type
 * Service Level
 * Additional Information
@@ -460,6 +548,44 @@ The current scoring model uses:
 * Optional fields: 30% of total score
 
 The score is saved with each call record.
+
+## Backend Data Model Highlights
+
+### Call
+
+The Call model currently supports:
+
+* Linked patient ID
+* Dispatcher name
+* Date of call
+* Trip date
+* Pickup time
+* Appointment time
+* Pickup address
+* Dropoff address
+* Caller type
+* Call type
+* Service level
+* Quality score
+* Missing critical fields
+* Missing optional fields
+* Missing information explanation
+* Notes
+
+### Patient
+
+The Patient model currently supports:
+
+* Basic demographics
+* Date of birth
+* Contact information
+* Address
+* Insurance information
+* EMS-specific notes
+* Default service level
+* Facility information
+* Emergency contact information
+* General notes
 
 ## Backend API
 
@@ -559,6 +685,33 @@ Frontend runs on:
 http://localhost:5173
 ```
 
+## Database Notes
+
+The project currently uses SQLite for local development.
+
+If a new backend model field is added to an existing table, the local SQLite database may require a manual schema update or database reset during development.
+
+Recent schema addition:
+
+```text
+call.appointment_time
+```
+
+Example local SQLite update:
+
+```python
+from app import app
+from models import db
+
+with app.app_context():
+    db.session.execute(
+        db.text("ALTER TABLE call ADD COLUMN appointment_time VARCHAR(20)")
+    )
+    db.session.commit()
+```
+
+If the column already exists, SQLite may return a duplicate column error. That means the schema was already updated.
+
 ## Development Workflow
 
 ## Branch Strategy
@@ -574,6 +727,18 @@ After testing:
 
 ```text
 dev → main
+```
+
+Recommended workflow:
+
+```text
+1. Work in dev
+2. Test backend
+3. Test frontend
+4. Smoke test core workflows
+5. Commit changes
+6. Push dev
+7. Merge into main only after stable testing
 ```
 
 ## Current Development Direction
@@ -603,6 +768,7 @@ Completed:
 * Employees page redesign
 * Employee add/edit drawer
 * Calls page compact list
+* Calls page emergency badge display
 * Crew Planner planned unit cards
 * Crew Planner create/edit drawer
 * Unassigned employee chips
@@ -610,7 +776,11 @@ Completed:
 * Classic Call Form visual redesign
 * Guided Call Intake workflow
 * Patient lookup drawer
+* Automatic patient creation from call intake
+* Appointment Time field in call intake
 * Price Calculator visual redesign
+* Waiting Time Fee support in Price Calculator
+* Emergency service level support in call intake
 
 Extracted Crew Planner components:
 
@@ -672,13 +842,16 @@ Planned improvements:
 
 Planned improvements:
 
-* Add new patient directly from Guided Intake
 * More advanced guided step validation
 * Call type templates
 * Better autocomplete
+* Better duplicate patient prevention
 * Better trip duplication workflow
 * More structured return ride workflow
 * Call status tracking
+* Billing estimate persistence
+* Emergency workflow expansion
+* Emergency-specific validation or checklist
 
 ## Workforce and Scheduling
 
@@ -718,6 +891,7 @@ Planned improvements:
 * Operational history
 * Patient risk score
 * Patient notes and alerts
+* Duplicate patient detection
 
 ## Backend and Security
 
@@ -731,6 +905,8 @@ Planned improvements:
 * Backup strategy
 * Audit logging
 * API authorization middleware
+* Backend validation for protected workflows
+* Backend permission enforcement by role
 
 ## Advanced Future Features
 
@@ -761,10 +937,11 @@ Possible long-term features:
 ## This System Is Not
 
 * A replacement for primary dispatch software
+* A CAD platform
 * An EMR platform
 * A hospital management system
 * A clinical documentation system
-* A billing system
+* A full billing system
 * A CAD replacement
 
 ## Current Status
@@ -788,6 +965,8 @@ Call Intake
 ↓
 Guided Intake
 ↓
+Automatic Patient Creation
+↓
 Patient Management
 ↓
 Call History
@@ -800,6 +979,17 @@ Crew Presets
 ↓
 Supervisor Analytics
 ```
+
+Recently completed:
+
+* Automatic patient creation during call intake
+* Appointment Time field for calls
+* Appointment Time display in call history
+* Waiting Time Fee support in Price Calculator
+* Emergency service level in Classic Call Form
+* Emergency service level in Guided Intake
+* Emergency badge display in Call History
+* Emergency call count summary
 
 ## Long-Term Direction
 
@@ -826,4 +1016,6 @@ Future deployment targets:
 
 ## Author
 
-Aleh Sitsko
+Created by Aleh Sitsko
+Built from real EMS dispatch experience.
+Made by an EMD for EMDs.

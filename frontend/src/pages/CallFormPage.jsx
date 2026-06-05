@@ -103,6 +103,13 @@ function CallFormPage() {
   const [guidedSaveMessage, setGuidedSaveMessage] = useState("");
   const [missingInfoExplanation, setMissingInfoExplanation] = useState("");
 
+  const guidedServiceLevelOptions = [
+    { value: "stretcher", label: "STRETCHER" },
+    { value: "bls", label: "BLS" },
+    { value: "als", label: "ALS" },
+    { value: "emergency", label: "EMERGENCY" },
+  ];
+
   // Clear both the form and the calculator at the same time.
   const handleClearAll = () => {
     if (callFormRef.current) {
@@ -428,6 +435,9 @@ function CallFormPage() {
             : "",
           guidedCallData.appointmentTime
             ? `Appointment Time: ${guidedCallData.appointmentTime}`
+            : "",
+          guidedCallData.serviceLevel === "emergency"
+            ? "Emergency service level selected."
             : "",
           guidedCallData.returnRideOption !== "none"
             ? `Return pickup: ${guidedCallData.returnPickup}; Return destination: ${guidedCallData.returnDestination}; Return time: ${
@@ -952,23 +962,34 @@ function CallFormPage() {
                     <label className="form-label">Service Level</label>
 
                     <div className="d-flex gap-3 flex-wrap">
-                      {["stretcher", "bls", "als"].map((serviceLevel) => (
+                      {guidedServiceLevelOptions.map((serviceLevel) => (
                         <button
-                          key={serviceLevel}
+                          key={serviceLevel.value}
                           type="button"
                           className={`btn ${
-                            guidedCallData.serviceLevel === serviceLevel
-                              ? "btn-primary"
-                              : "btn-outline-primary"
+                            guidedCallData.serviceLevel === serviceLevel.value
+                              ? serviceLevel.value === "emergency"
+                                ? "btn-danger"
+                                : "btn-primary"
+                              : serviceLevel.value === "emergency"
+                                ? "btn-outline-danger"
+                                : "btn-outline-primary"
                           }`}
                           onClick={() =>
-                            handleGuidedServiceLevelChange(serviceLevel)
+                            handleGuidedServiceLevelChange(serviceLevel.value)
                           }
                         >
-                          {serviceLevel.toUpperCase()}
+                          {serviceLevel.label}
                         </button>
                       ))}
                     </div>
+
+                    {guidedCallData.serviceLevel === "emergency" && (
+                      <div className="alert alert-danger mt-3 mb-0">
+                        Emergency selected. Confirm dispatch priority, caller
+                        details, and operational instructions before saving.
+                      </div>
+                    )}
                   </div>
 
                   <div className="col-12">
@@ -1053,7 +1074,11 @@ function CallFormPage() {
 
                   <div className="guided-review-card">
                     <div className="guided-review-label">Service</div>
-                    <div>{guidedCallData.serviceLevel || "—"}</div>
+                    <div>
+                      {guidedCallData.serviceLevel === "emergency"
+                        ? "Emergency"
+                        : guidedCallData.serviceLevel || "—"}
+                    </div>
                     <div className="guided-review-muted">
                       Caller: {guidedCallData.callerType || "—"}
                     </div>
@@ -1068,6 +1093,16 @@ function CallFormPage() {
                     </div>
                   </div>
                 </div>
+
+                {guidedCallData.serviceLevel === "emergency" && (
+                  <div className="alert alert-danger mt-3">
+                    <strong>Emergency Service Level</strong>
+                    <div className="mt-2">
+                      Confirm dispatch priority, caller details, pickup
+                      information, and operational instructions before saving.
+                    </div>
+                  </div>
+                )}
 
                 <div
                   className={`alert ${

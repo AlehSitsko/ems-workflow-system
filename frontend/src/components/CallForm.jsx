@@ -72,6 +72,13 @@ const CallForm = forwardRef((props, ref) => {
     serviceLevel: "",
   };
 
+  const serviceLevelOptions = [
+    { value: "stretcher", label: "Stretcher Base" },
+    { value: "bls", label: "BLS" },
+    { value: "als", label: "ALS" },
+    { value: "emergency", label: "Emergency" },
+  ];
+
   const [formData, setFormData] = useState(initialFormData);
   const [patientSearchResults, setPatientSearchResults] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
@@ -378,6 +385,9 @@ const CallForm = forwardRef((props, ref) => {
           formData.pickupTime ? `Pickup Time: ${formData.pickupTime}` : "",
           formData.appointmentTime
             ? `Appointment Time: ${formData.appointmentTime}`
+            : "",
+          formData.serviceLevel === "emergency"
+            ? "Emergency service level selected."
             : "",
           formData.returnRideOption !== "none"
             ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
@@ -891,11 +901,7 @@ const CallForm = forwardRef((props, ref) => {
           </div>
 
           <div className="call-service-grid">
-            {[
-              { value: "stretcher", label: "Stretcher Base" },
-              { value: "bls", label: "BLS" },
-              { value: "als", label: "ALS" },
-            ].map((service) => (
+            {serviceLevelOptions.map((service) => (
               <button
                 key={service.value}
                 type="button"
@@ -909,6 +915,13 @@ const CallForm = forwardRef((props, ref) => {
               </button>
             ))}
           </div>
+
+          {formData.serviceLevel === "emergency" && (
+            <div className="alert alert-danger mt-3 mb-0">
+              Emergency selected. Confirm dispatch priority, caller details,
+              and operational instructions before saving.
+            </div>
+          )}
         </section>
 
         <section className="call-form-section">
