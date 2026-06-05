@@ -17,7 +17,7 @@ import {
 } from "react-icons/fa";
 
 import { createCall } from "../api/callsApi";
-import { getPatients } from "../api/patientsApi";
+import { createPatient, getPatients } from "../api/patientsApi";
 
 // Read logged-in user from localStorage.
 // This is MVP-level auth state until backend sessions or tokens are added.
@@ -61,6 +61,7 @@ const CallForm = forwardRef((props, ref) => {
     callDate: getTodayDate(),
     tripDate: "",
     pickupTime: "",
+    appointmentTime: "",
     additionalInfo: "",
 
     returnRideOption: "none",
@@ -118,6 +119,11 @@ const CallForm = forwardRef((props, ref) => {
     if (!formData.dropoffAddress.trim()) nonCriticalMissing.push("Drop Off Address");
     if (!formData.tripDate.trim()) nonCriticalMissing.push("Date of Trip");
     if (!formData.pickupTime.trim()) nonCriticalMissing.push("Pickup Time");
+
+    if (!formData.appointmentTime.trim()) {
+      nonCriticalMissing.push("Appointment Time");
+    }
+
     if (!formData.callerType.trim()) nonCriticalMissing.push("Caller Type");
     if (!formData.serviceLevel.trim()) nonCriticalMissing.push("Service Level");
 
@@ -126,7 +132,7 @@ const CallForm = forwardRef((props, ref) => {
     }
 
     const totalCritical = 4;
-    const totalOptional = 7;
+    const totalOptional = 8;
 
     const criticalScore =
       ((totalCritical - criticalMissing.length) / totalCritical) * 70;
@@ -141,6 +147,45 @@ const CallForm = forwardRef((props, ref) => {
       nonCriticalMissing,
       score,
     };
+  };
+
+  const buildPatientPayloadFromForm = () => ({
+    first_name: formData.firstName.trim(),
+    last_name: formData.lastName.trim(),
+    dob: formData.dob || null,
+    phone: formData.phoneNumber.trim(),
+    address: formData.pickupAddress.trim(),
+    default_service_level: formData.serviceLevel || null,
+    notes: [
+      formData.additionalInfo.trim(),
+      formData.callerNote.trim()
+        ? `Caller note from intake: ${formData.callerNote.trim()}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  });
+
+  const shouldCreatePatientFromForm = () => {
+    return (
+      !formData.patientId &&
+      formData.firstName.trim() &&
+      formData.lastName.trim()
+    );
+  };
+
+  const ensurePatientRecord = async () => {
+    if (formData.patientId) {
+      return formData.patientId;
+    }
+
+    if (!shouldCreatePatientFromForm()) {
+      return null;
+    }
+
+    const createdPatient = await createPatient(buildPatientPayloadFromForm());
+
+    return createdPatient.id;
   };
 
   const handleFindPatient = async () => {
@@ -290,65 +335,78 @@ const CallForm = forwardRef((props, ref) => {
     setSubmitMessage("");
     setIsSubmitting(true);
 
-    const callPayload = {
-      patient_id: formData.patientId,
-
-      dispatcher_name: formData.dispatcherName,
-
-      date_of_call: formData.callDate,
-      trip_date: formData.tripDate,
-      pickup_time: formData.pickupTime,
-
-      pickup_address: formData.pickupAddress,
-      dropoff_address: formData.dropoffAddress,
-
-      caller_type: formData.callerType,
-      call_type: formData.returnRideOption,
-      service_level: formData.serviceLevel,
-
-      quality_score: currentQualityReport.score,
-      missing_critical_fields: currentQualityReport.criticalMissing.join(", "),
-      missing_optional_fields: currentQualityReport.nonCriticalMissing.join(", "),
-      missing_info_explanation: missingInfoExplanation.trim(),
-
-      notes: [
-        formData.additionalInfo,
-        formData.callerNote ? `Caller note: ${formData.callerNote}` : "",
-        formData.dispatcherName ? `Dispatcher: ${formData.dispatcherName}` : "",
-        formData.firstName || formData.lastName
-          ? `Patient: ${formData.firstName} ${formData.lastName}`
-          : "",
-        formData.dob ? `DOB: ${formData.dob}` : "",
-        formData.phoneNumber ? `Phone: ${formData.phoneNumber}` : "",
-        formData.returnRideOption !== "none"
-          ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
-              formData.returnTime || "Will Call"
-            }`
-          : "",
-        `Call Quality Score: ${currentQualityReport.score}%`,
-        currentQualityReport.criticalMissing.length > 0
-          ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
-              ", "
-            )}`
-          : "",
-        currentQualityReport.nonCriticalMissing.length > 0
-          ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
-              ", "
-            )}`
-          : "",
-        missingInfoExplanation.trim()
-          ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    };
-
     try {
+      const finalPatientId = await ensurePatientRecord();
+
+      const callPayload = {
+        patient_id: finalPatientId,
+
+        dispatcher_name: formData.dispatcherName,
+
+        date_of_call: formData.callDate,
+        trip_date: formData.tripDate,
+        pickup_time: formData.pickupTime,
+        appointment_time: formData.appointmentTime,
+
+        pickup_address: formData.pickupAddress,
+        dropoff_address: formData.dropoffAddress,
+
+        caller_type: formData.callerType,
+        call_type: formData.returnRideOption,
+        service_level: formData.serviceLevel,
+
+        quality_score: currentQualityReport.score,
+        missing_critical_fields: currentQualityReport.criticalMissing.join(", "),
+        missing_optional_fields:
+          currentQualityReport.nonCriticalMissing.join(", "),
+        missing_info_explanation: missingInfoExplanation.trim(),
+
+        notes: [
+          formData.additionalInfo,
+          formData.callerNote ? `Caller note: ${formData.callerNote}` : "",
+          formData.dispatcherName
+            ? `Dispatcher: ${formData.dispatcherName}`
+            : "",
+          formData.firstName || formData.lastName
+            ? `Patient: ${formData.firstName} ${formData.lastName}`
+            : "",
+          finalPatientId
+            ? `Linked Patient ID: ${finalPatientId}`
+            : "Patient record was not created because required patient name fields were incomplete.",
+          formData.dob ? `DOB: ${formData.dob}` : "",
+          formData.phoneNumber ? `Phone: ${formData.phoneNumber}` : "",
+          formData.pickupTime ? `Pickup Time: ${formData.pickupTime}` : "",
+          formData.appointmentTime
+            ? `Appointment Time: ${formData.appointmentTime}`
+            : "",
+          formData.returnRideOption !== "none"
+            ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
+                formData.returnTime || "Will Call"
+              }`
+            : "",
+          `Call Quality Score: ${currentQualityReport.score}%`,
+          currentQualityReport.criticalMissing.length > 0
+            ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
+                ", "
+              )}`
+            : "",
+          currentQualityReport.nonCriticalMissing.length > 0
+            ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
+                ", "
+              )}`
+            : "",
+          missingInfoExplanation.trim()
+            ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      };
+
       const savedCall = await createCall(callPayload);
 
       console.log("Call saved:", savedCall);
-      setSubmitMessage("Call saved successfully.");
+      setSubmitMessage("Call and patient record saved successfully.");
 
       clearFormData();
     } catch (err) {
@@ -635,7 +693,7 @@ const CallForm = forwardRef((props, ref) => {
               />
             </div>
 
-            <div className="col-md-4">
+            <div className="col-md-3">
               <label htmlFor="callDate" className="form-label">
                 Date of Call
               </label>
@@ -651,7 +709,7 @@ const CallForm = forwardRef((props, ref) => {
               />
             </div>
 
-            <div className="col-md-4">
+            <div className="col-md-3">
               <label htmlFor="tripDate" className="form-label">
                 Date of Trip
               </label>
@@ -667,7 +725,7 @@ const CallForm = forwardRef((props, ref) => {
               />
             </div>
 
-            <div className="col-md-4">
+            <div className="col-md-3">
               <label htmlFor="pickupTime" className="form-label">
                 Pickup Time
               </label>
@@ -678,6 +736,22 @@ const CallForm = forwardRef((props, ref) => {
                 id="pickupTime"
                 name="pickupTime"
                 value={formData.pickupTime}
+                onChange={handleChange}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="col-md-3">
+              <label htmlFor="appointmentTime" className="form-label">
+                Appointment Time
+              </label>
+
+              <input
+                type="time"
+                className="form-control"
+                id="appointmentTime"
+                name="appointmentTime"
+                value={formData.appointmentTime}
                 onChange={handleChange}
                 disabled={isSubmitting}
               />

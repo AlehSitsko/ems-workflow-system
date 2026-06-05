@@ -13,7 +13,7 @@ import {
 } from "react-icons/fa";
 
 import { createCall } from "../api/callsApi";
-import { getPatients } from "../api/patientsApi";
+import { createPatient, getPatients } from "../api/patientsApi";
 
 // Import the main call intake form component.
 import CallForm from "../components/CallForm";
@@ -63,6 +63,7 @@ const getInitialGuidedCallData = () => ({
   callDate: getTodayDate(),
   tripDate: "",
   pickupTime: "",
+  appointmentTime: "",
   additionalInfo: "",
 
   returnRideOption: "none",
@@ -216,7 +217,8 @@ function CallFormPage() {
     setGuidedStep("trip");
   };
 
-  // Continue guided intake without linking an existing patient record.
+  // Continue guided intake without selecting an existing patient.
+  // The patient will be created automatically before the call is saved.
   const handleContinueAsNewPatient = () => {
     setGuidedCallData((prev) => ({
       ...prev,
@@ -257,6 +259,7 @@ function CallFormPage() {
     if (!guidedCallData.firstName.trim()) criticalMissing.push("First Name");
     if (!guidedCallData.lastName.trim()) criticalMissing.push("Last Name");
     if (!guidedCallData.dob.trim()) criticalMissing.push("Date of Birth");
+
     if (!guidedCallData.pickupAddress.trim()) {
       criticalMissing.push("Pick Up Address");
     }
@@ -277,6 +280,10 @@ function CallFormPage() {
       nonCriticalMissing.push("Pickup Time");
     }
 
+    if (!guidedCallData.appointmentTime.trim()) {
+      nonCriticalMissing.push("Appointment Time");
+    }
+
     if (!guidedCallData.callerType.trim()) {
       nonCriticalMissing.push("Caller Type");
     }
@@ -290,7 +297,7 @@ function CallFormPage() {
     }
 
     const totalCritical = 4;
-    const totalOptional = 7;
+    const totalOptional = 8;
 
     const criticalScore =
       ((totalCritical - criticalMissing.length) / totalCritical) * 70;
@@ -315,6 +322,45 @@ function CallFormPage() {
     setGuidedSaveMessage("");
   };
 
+  const buildPatientPayloadFromGuidedData = () => ({
+    first_name: guidedCallData.firstName.trim(),
+    last_name: guidedCallData.lastName.trim(),
+    dob: guidedCallData.dob || null,
+    phone: guidedCallData.phoneNumber.trim(),
+    address: guidedCallData.pickupAddress.trim(),
+    default_service_level: guidedCallData.serviceLevel || null,
+    notes: [
+      guidedCallData.additionalInfo.trim(),
+      guidedCallData.callerNote.trim()
+        ? `Caller note from guided intake: ${guidedCallData.callerNote.trim()}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  });
+
+  const shouldCreateGuidedPatient = () => {
+    return (
+      !guidedCallData.patientId &&
+      guidedCallData.firstName.trim() &&
+      guidedCallData.lastName.trim()
+    );
+  };
+
+  const ensureGuidedPatientRecord = async () => {
+    if (guidedCallData.patientId) {
+      return guidedCallData.patientId;
+    }
+
+    if (!shouldCreateGuidedPatient()) {
+      return null;
+    }
+
+    const createdPatient = await createPatient(buildPatientPayloadFromGuidedData());
+
+    return createdPatient.id;
+  };
+
   // Save guided call to backend.
   const handleGuidedSaveCall = async () => {
     const currentQualityReport = analyzeGuidedCallQuality();
@@ -332,71 +378,83 @@ function CallFormPage() {
     setGuidedSaveLoading(true);
     setGuidedSaveMessage("");
 
-    const callPayload = {
-      patient_id: guidedCallData.patientId,
-
-      dispatcher_name: guidedCallData.dispatcherName,
-
-      date_of_call: guidedCallData.callDate,
-      trip_date: guidedCallData.tripDate,
-      pickup_time: guidedCallData.pickupTime,
-
-      pickup_address: guidedCallData.pickupAddress,
-      dropoff_address: guidedCallData.dropoffAddress,
-
-      caller_type: guidedCallData.callerType,
-      call_type: guidedCallData.returnRideOption,
-      service_level: guidedCallData.serviceLevel,
-
-      quality_score: currentQualityReport.score,
-      missing_critical_fields:
-        currentQualityReport.criticalMissing.join(", "),
-      missing_optional_fields:
-        currentQualityReport.nonCriticalMissing.join(", "),
-      missing_info_explanation: missingInfoExplanation.trim(),
-
-      notes: [
-        guidedCallData.additionalInfo,
-        guidedCallData.callerNote
-          ? `Caller note: ${guidedCallData.callerNote}`
-          : "",
-        guidedCallData.dispatcherName
-          ? `Dispatcher: ${guidedCallData.dispatcherName}`
-          : "",
-        guidedCallData.firstName || guidedCallData.lastName
-          ? `Patient: ${guidedCallData.firstName} ${guidedCallData.lastName}`
-          : "",
-        guidedCallData.dob ? `DOB: ${guidedCallData.dob}` : "",
-        guidedCallData.phoneNumber
-          ? `Phone: ${guidedCallData.phoneNumber}`
-          : "",
-        guidedCallData.returnRideOption !== "none"
-          ? `Return pickup: ${guidedCallData.returnPickup}; Return destination: ${guidedCallData.returnDestination}; Return time: ${
-              guidedCallData.returnTime || "Will Call"
-            }`
-          : "",
-        `Call Quality Score: ${currentQualityReport.score}%`,
-        currentQualityReport.criticalMissing.length > 0
-          ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
-              ", "
-            )}`
-          : "",
-        currentQualityReport.nonCriticalMissing.length > 0
-          ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
-              ", "
-            )}`
-          : "",
-        missingInfoExplanation.trim()
-          ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    };
-
     try {
+      const finalPatientId = await ensureGuidedPatientRecord();
+
+      const callPayload = {
+        patient_id: finalPatientId,
+
+        dispatcher_name: guidedCallData.dispatcherName,
+
+        date_of_call: guidedCallData.callDate,
+        trip_date: guidedCallData.tripDate,
+        pickup_time: guidedCallData.pickupTime,
+        appointment_time: guidedCallData.appointmentTime,
+
+        pickup_address: guidedCallData.pickupAddress,
+        dropoff_address: guidedCallData.dropoffAddress,
+
+        caller_type: guidedCallData.callerType,
+        call_type: guidedCallData.returnRideOption,
+        service_level: guidedCallData.serviceLevel,
+
+        quality_score: currentQualityReport.score,
+        missing_critical_fields:
+          currentQualityReport.criticalMissing.join(", "),
+        missing_optional_fields:
+          currentQualityReport.nonCriticalMissing.join(", "),
+        missing_info_explanation: missingInfoExplanation.trim(),
+
+        notes: [
+          guidedCallData.additionalInfo,
+          guidedCallData.callerNote
+            ? `Caller note: ${guidedCallData.callerNote}`
+            : "",
+          guidedCallData.dispatcherName
+            ? `Dispatcher: ${guidedCallData.dispatcherName}`
+            : "",
+          guidedCallData.firstName || guidedCallData.lastName
+            ? `Patient: ${guidedCallData.firstName} ${guidedCallData.lastName}`
+            : "",
+          finalPatientId
+            ? `Linked Patient ID: ${finalPatientId}`
+            : "Patient record was not created because required patient name fields were incomplete.",
+          guidedCallData.dob ? `DOB: ${guidedCallData.dob}` : "",
+          guidedCallData.phoneNumber
+            ? `Phone: ${guidedCallData.phoneNumber}`
+            : "",
+          guidedCallData.pickupTime
+            ? `Pickup Time: ${guidedCallData.pickupTime}`
+            : "",
+          guidedCallData.appointmentTime
+            ? `Appointment Time: ${guidedCallData.appointmentTime}`
+            : "",
+          guidedCallData.returnRideOption !== "none"
+            ? `Return pickup: ${guidedCallData.returnPickup}; Return destination: ${guidedCallData.returnDestination}; Return time: ${
+                guidedCallData.returnTime || "Will Call"
+              }`
+            : "",
+          `Call Quality Score: ${currentQualityReport.score}%`,
+          currentQualityReport.criticalMissing.length > 0
+            ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
+                ", "
+              )}`
+            : "",
+          currentQualityReport.nonCriticalMissing.length > 0
+            ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
+                ", "
+              )}`
+            : "",
+          missingInfoExplanation.trim()
+            ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      };
+
       await createCall(callPayload);
-      setGuidedSaveMessage("Guided call saved successfully.");
+      setGuidedSaveMessage("Guided call and patient record saved successfully.");
       resetGuidedWorkflow();
     } catch (err) {
       console.error("Failed to save guided call:", err);
@@ -773,7 +831,7 @@ function CallFormPage() {
                     />
                   </div>
 
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <label className="form-label">Date of Call</label>
 
                     <input
@@ -785,7 +843,7 @@ function CallFormPage() {
                     />
                   </div>
 
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <label className="form-label">Trip Date</label>
 
                     <input
@@ -797,7 +855,7 @@ function CallFormPage() {
                     />
                   </div>
 
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <label className="form-label">Pickup Time</label>
 
                     <input
@@ -805,6 +863,18 @@ function CallFormPage() {
                       className="form-control"
                       name="pickupTime"
                       value={guidedCallData.pickupTime}
+                      onChange={handleGuidedChange}
+                    />
+                  </div>
+
+                  <div className="col-md-3">
+                    <label className="form-label">Appointment Time</label>
+
+                    <input
+                      type="time"
+                      className="form-control"
+                      name="appointmentTime"
+                      value={guidedCallData.appointmentTime}
                       onChange={handleGuidedChange}
                     />
                   </div>
@@ -960,6 +1030,12 @@ function CallFormPage() {
                       DOB: {guidedCallData.dob || "—"} · Phone:{" "}
                       {guidedCallData.phoneNumber || "—"}
                     </div>
+                    <div className="guided-review-muted">
+                      Record:{" "}
+                      {guidedCallData.patientId
+                        ? `Linked #${guidedCallData.patientId}`
+                        : "New patient will be created on save"}
+                    </div>
                   </div>
 
                   <div className="guided-review-card">
@@ -970,7 +1046,8 @@ function CallFormPage() {
                     </div>
                     <div className="guided-review-muted">
                       Trip date: {guidedCallData.tripDate || "—"} · Pickup:{" "}
-                      {guidedCallData.pickupTime || "—"}
+                      {guidedCallData.pickupTime || "—"} · Appointment:{" "}
+                      {guidedCallData.appointmentTime || "—"}
                     </div>
                   </div>
 

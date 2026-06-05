@@ -357,6 +357,10 @@ const CallsPage = () => {
                         {call.trip_date || "—"}{" "}
                         {call.pickup_time ? `at ${call.pickup_time}` : ""}
                       </div>
+
+                      <div className="compact-call-muted">
+                        Appointment: {call.appointment_time || "—"}
+                      </div>
                     </div>
 
                     <div className="compact-call-address">
@@ -405,6 +409,16 @@ const CallsPage = () => {
                       <div>
                         <strong>Call Type:</strong>{" "}
                         {call.call_type || "—"}
+                      </div>
+
+                      <div>
+                        <strong>Pickup Time:</strong>{" "}
+                        {call.pickup_time || "—"}
+                      </div>
+
+                      <div>
+                        <strong>Appointment Time:</strong>{" "}
+                        {call.appointment_time || "—"}
                       </div>
 
                       <div>

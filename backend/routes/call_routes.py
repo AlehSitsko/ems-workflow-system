@@ -56,6 +56,7 @@ def create_call():
         date_of_call=data.get("date_of_call"),
         trip_date=data.get("trip_date"),
         pickup_time=data.get("pickup_time"),
+        appointment_time=data.get("appointment_time"),
 
         pickup_address=data.get("pickup_address"),
         dropoff_address=data.get("dropoff_address"),

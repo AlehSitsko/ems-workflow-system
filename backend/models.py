@@ -321,6 +321,7 @@ class Call(db.Model):
     date_of_call = db.Column(db.String(20))
     trip_date = db.Column(db.String(20))
     pickup_time = db.Column(db.String(20))
+    appointment_time = db.Column(db.String(20))
 
     pickup_address = db.Column(db.Text)
     dropoff_address = db.Column(db.Text)
@@ -349,6 +350,7 @@ class Call(db.Model):
             "date_of_call": self.date_of_call,
             "trip_date": self.trip_date,
             "pickup_time": self.pickup_time,
+            "appointment_time": self.appointment_time,
 
             "pickup_address": self.pickup_address,
             "dropoff_address": self.dropoff_address,
