@@ -8,10 +8,13 @@ const PriceCalculator = forwardRef((props, ref) => {
     mileage: "",
     ratePerMile: "",
     returnRide: false,
+    waitingTimeRequested: false,
+    waitingFee: "",
   };
 
   const [calculatorData, setCalculatorData] = useState(initialCalculatorData);
   const [calculatedPrice, setCalculatedPrice] = useState(null);
+  const [priceBreakdown, setPriceBreakdown] = useState(null);
 
   // Handle text, number, select, and checkbox changes.
   const handleChange = (event) => {
@@ -27,6 +30,7 @@ const PriceCalculator = forwardRef((props, ref) => {
   const clearCalculator = () => {
     setCalculatorData(initialCalculatorData);
     setCalculatedPrice(null);
+    setPriceBreakdown(null);
   };
 
   // Expose clearCalculator to the parent page.
@@ -43,20 +47,38 @@ const PriceCalculator = forwardRef((props, ref) => {
     const ratePerMile = Number(calculatorData.ratePerMile) || 0;
     const crewSize = Number(calculatorData.crewSize) || 2;
 
-    let total = basePrice + mileage * ratePerMile;
+    const mileageFee = mileage * ratePerMile;
 
     // Simple crew adjustment placeholder.
     // Larger crews can increase the estimate if needed.
-    if (crewSize > 2) {
-      total += (crewSize - 2) * 25;
-    }
+    const crewAdjustment = crewSize > 2 ? (crewSize - 2) * 25 : 0;
 
-    // Return ride is estimated as a round trip.
-    if (calculatorData.returnRide) {
-      total *= 2;
-    }
+    // Waiting fee is added once and is not multiplied by return ride.
+    const waitingFee = calculatorData.waitingTimeRequested
+      ? Number(calculatorData.waitingFee) || 0
+      : 0;
+
+    const oneWayTripTotal = basePrice + mileageFee + crewAdjustment;
+
+    // Return ride is estimated as a round trip for trip-related charges only.
+    const tripSubtotal = calculatorData.returnRide
+      ? oneWayTripTotal * 2
+      : oneWayTripTotal;
+
+    const total = tripSubtotal + waitingFee;
 
     setCalculatedPrice(total.toFixed(2));
+
+    setPriceBreakdown({
+      basePrice: basePrice.toFixed(2),
+      mileageFee: mileageFee.toFixed(2),
+      crewAdjustment: crewAdjustment.toFixed(2),
+      oneWayTripTotal: oneWayTripTotal.toFixed(2),
+      tripSubtotal: tripSubtotal.toFixed(2),
+      waitingFee: waitingFee.toFixed(2),
+      returnRide: calculatorData.returnRide,
+      waitingTimeRequested: calculatorData.waitingTimeRequested,
+    });
   };
 
   return (
@@ -68,7 +90,10 @@ const PriceCalculator = forwardRef((props, ref) => {
 
         <div>
           <h5>Price Calculator</h5>
-          <p>Estimate trip pricing based on base rate, mileage, crew size, and return ride.</p>
+          <p>
+            Estimate trip pricing based on base rate, mileage, crew size,
+            waiting time, and return ride.
+          </p>
         </div>
       </div>
 
@@ -158,6 +183,52 @@ const PriceCalculator = forwardRef((props, ref) => {
         <div className="col-12">
           <div className="form-check">
             <input
+              id="waitingTimeRequested"
+              name="waitingTimeRequested"
+              type="checkbox"
+              className="form-check-input"
+              checked={calculatorData.waitingTimeRequested}
+              onChange={handleChange}
+            />
+
+            <label
+              htmlFor="waitingTimeRequested"
+              className="form-check-label"
+            >
+              Waiting Time Requested
+            </label>
+          </div>
+        </div>
+
+        {calculatorData.waitingTimeRequested && (
+          <div className="col-md-6">
+            <label htmlFor="waitingFee" className="form-label">
+              Waiting Time Fee ($)
+            </label>
+
+            <div className="input-group">
+              <span className="input-group-text">
+                <FaDollarSign />
+              </span>
+
+              <input
+                id="waitingFee"
+                name="waitingFee"
+                type="number"
+                min="0"
+                step="0.01"
+                className="form-control"
+                value={calculatorData.waitingFee}
+                onChange={handleChange}
+                placeholder="Additional waiting charge"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="col-12">
+          <div className="form-check">
+            <input
               id="returnRide"
               name="returnRide"
               type="checkbox"
@@ -176,10 +247,42 @@ const PriceCalculator = forwardRef((props, ref) => {
       {calculatedPrice !== null && (
         <div className="price-calculator-result">
           <div>
-            <div className="price-calculator-result-label">Estimated Price</div>
+            <div className="price-calculator-result-label">
+              Estimated Price
+            </div>
+
             <div className="price-calculator-result-value">
               ${calculatedPrice}
             </div>
+
+            {priceBreakdown && (
+              <div className="price-calculator-breakdown mt-2">
+                <div>Base price: ${priceBreakdown.basePrice}</div>
+                <div>Mileage fee: ${priceBreakdown.mileageFee}</div>
+
+                {Number(priceBreakdown.crewAdjustment) > 0 && (
+                  <div>
+                    Crew adjustment: ${priceBreakdown.crewAdjustment}
+                  </div>
+                )}
+
+                {priceBreakdown.returnRide ? (
+                  <div>
+                    Round trip subtotal: ${priceBreakdown.tripSubtotal}
+                  </div>
+                ) : (
+                  <div>
+                    One-way trip subtotal: ${priceBreakdown.oneWayTripTotal}
+                  </div>
+                )}
+
+                {priceBreakdown.waitingTimeRequested && (
+                  <div>
+                    Waiting time fee: ${priceBreakdown.waitingFee}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
