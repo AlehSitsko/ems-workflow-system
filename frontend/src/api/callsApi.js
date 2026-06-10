@@ -25,6 +25,11 @@ export async function getCalls(filters = {}) {
     params.append("max_quality_score", filters.max_quality_score);
   }
 
+  // Filter by call lifecycle status.
+  if (filters.status) {
+    params.append("status", filters.status);
+  }
+
   const queryString = params.toString();
 
   const url = queryString

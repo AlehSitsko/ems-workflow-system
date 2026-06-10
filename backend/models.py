@@ -318,6 +318,12 @@ class Call(db.Model):
 
     dispatcher_name = db.Column(db.String(100))
 
+    # Exact timestamp when the call was received or created.
+    received_at = db.Column(db.String(50))
+
+    # Initial operational status for future dispatch lifecycle tracking.
+    status = db.Column(db.String(50), default="new")
+
     date_of_call = db.Column(db.String(20))
     trip_date = db.Column(db.String(20))
     pickup_time = db.Column(db.String(20))
@@ -346,6 +352,9 @@ class Call(db.Model):
             "patient_id": self.patient_id,
 
             "dispatcher_name": self.dispatcher_name,
+
+            "received_at": self.received_at,
+            "status": self.status or "new",
 
             "date_of_call": self.date_of_call,
             "trip_date": self.trip_date,

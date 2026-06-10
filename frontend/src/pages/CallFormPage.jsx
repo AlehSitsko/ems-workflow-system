@@ -382,46 +382,8 @@ function CallFormPage() {
     return createdPatient.id;
   };
 
-  // Prevent saving a completely empty guided call record.
-  const isGuidedCallEmpty = () => {
-    const meaningfulFields = [
-      guidedCallData.patientId,
-      guidedCallData.firstName,
-      guidedCallData.lastName,
-      guidedCallData.dob,
-      guidedCallData.phoneNumber,
-      guidedCallData.callerType,
-      guidedCallData.callerNote,
-      guidedCallData.pickupAddress,
-      guidedCallData.dropoffAddress,
-      guidedCallData.tripDate,
-      guidedCallData.pickupTime,
-      guidedCallData.appointmentTime,
-      guidedCallData.additionalInfo,
-      guidedCallData.returnPickup,
-      guidedCallData.returnDestination,
-      guidedCallData.returnTime,
-      guidedCallData.serviceLevel,
-    ];
-
-    const hasMeaningfulField = meaningfulFields.some((value) =>
-      String(value || "").trim()
-    );
-
-    const hasReturnRideSelected = guidedCallData.returnRideOption !== "none";
-
-    return !hasMeaningfulField && !hasReturnRideSelected;
-  };
-
   // Save guided call to backend.
   const handleGuidedSaveCall = async () => {
-    if (isGuidedCallEmpty()) {
-      setGuidedSaveMessage(
-        "Empty guided call cannot be saved. Please enter patient, caller, trip, or service information before saving."
-      );
-      return;
-    }
-
     const currentQualityReport = analyzeGuidedCallQuality();
 
     if (
@@ -444,6 +406,9 @@ function CallFormPage() {
         patient_id: finalPatientId,
 
         dispatcher_name: guidedCallData.dispatcherName,
+
+        received_at: new Date().toISOString(),
+        status: "new",
 
         date_of_call: guidedCallData.callDate,
         trip_date: guidedCallData.tripDate,

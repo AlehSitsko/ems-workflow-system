@@ -186,27 +186,28 @@ const CallForm = forwardRef((props, ref) => {
     );
   };
 
-const ensurePatientRecord = async () => {
-  if (formData.patientId) {
-    return formData.patientId;
-  }
+  const ensurePatientRecord = async () => {
+    if (formData.patientId) {
+      return formData.patientId;
+    }
 
-  if (!shouldCreatePatientFromForm()) {
-    return null;
-  }
+    if (!shouldCreatePatientFromForm()) {
+      return null;
+    }
 
-  const patientPayload = buildPatientPayloadFromForm();
+    const patientPayload = buildPatientPayloadFromForm();
 
-  // Prevent duplicate patient creation before saving a new call.
-  const duplicatePatient = await findDuplicatePatient(patientPayload);
+    // Prevent duplicate patient creation before saving a new call.
+    const duplicatePatient = await findDuplicatePatient(patientPayload);
 
-  if (duplicatePatient) {
-    return duplicatePatient.id;
-  }
+    if (duplicatePatient) {
+      return duplicatePatient.id;
+    }
 
-  const createdPatient = await createPatient(patientPayload);
-  return createdPatient.id;
-};
+    const createdPatient = await createPatient(patientPayload);
+    return createdPatient.id;
+  };
+
   const handleFindPatient = async () => {
     const trimmedLastName = formData.lastName.trim();
     const trimmedDob = formData.dob.trim();
@@ -336,46 +337,8 @@ const ensurePatientRecord = async () => {
   const hasAnyQualityIssues =
     criticalMissing.length > 0 || nonCriticalMissing.length > 0;
 
-  // Prevent saving a completely empty call record.
-  const isCallFormEmpty = () => {
-    const meaningfulFields = [
-      formData.callerType,
-      formData.callerNote,
-      formData.patientId,
-      formData.firstName,
-      formData.lastName,
-      formData.dob,
-      formData.phoneNumber,
-      formData.pickupAddress,
-      formData.dropoffAddress,
-      formData.tripDate,
-      formData.pickupTime,
-      formData.appointmentTime,
-      formData.additionalInfo,
-      formData.returnPickup,
-      formData.returnDestination,
-      formData.returnTime,
-      formData.serviceLevel,
-    ];
-
-    const hasMeaningfulField = meaningfulFields.some((value) =>
-      String(value || "").trim()
-    );
-
-    const hasReturnRideSelected = formData.returnRideOption !== "none";
-
-    return !hasMeaningfulField && !hasReturnRideSelected;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (isCallFormEmpty()) {
-      setSubmitMessage(
-        "Empty call cannot be saved. Please enter patient, caller, trip, or service information before submitting."
-      );
-      return;
-    }
 
     const currentQualityReport = analyzeCallQuality();
 
@@ -399,6 +362,9 @@ const ensurePatientRecord = async () => {
         patient_id: finalPatientId,
 
         dispatcher_name: formData.dispatcherName,
+
+        received_at: new Date().toISOString(),
+        status: "new",
 
         date_of_call: formData.callDate,
         trip_date: formData.tripDate,

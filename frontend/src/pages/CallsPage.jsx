@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   FaCalendarDay,
+  FaClock,
   FaClipboardList,
   FaFilter,
   FaSearch,
@@ -15,6 +16,7 @@ const CallsPage = () => {
 
   const [dateOfCall, setDateOfCall] = useState("");
   const [dispatcherName, setDispatcherName] = useState("");
+  const [status, setStatus] = useState("");
   const [minQualityScore, setMinQualityScore] = useState("");
   const [maxQualityScore, setMaxQualityScore] = useState("");
 
@@ -105,6 +107,62 @@ const CallsPage = () => {
     );
   };
 
+  const formatCallStatus = (status) => {
+    const normalizedStatus = status || "new";
+
+    const labels = {
+      new: "New",
+      pending_assignment: "Pending Assignment",
+      assigned: "Assigned",
+      en_route: "En Route",
+      arrived_pickup: "Arrived Pickup",
+      patient_onboard: "Patient Onboard",
+      arrived_destination: "Arrived Destination",
+      completed: "Completed",
+      cancelled: "Cancelled",
+      no_show: "No Show",
+      refused: "Refused",
+    };
+
+    return labels[normalizedStatus] || normalizedStatus;
+  };
+
+  const renderStatusBadge = (status) => {
+    const normalizedStatus = status || "new";
+
+    if (normalizedStatus === "new") {
+      return <span className="badge text-bg-secondary">New</span>;
+    }
+
+    if (normalizedStatus === "completed") {
+      return <span className="badge text-bg-success">Completed</span>;
+    }
+
+    if (normalizedStatus === "cancelled") {
+      return <span className="badge text-bg-danger">Cancelled</span>;
+    }
+
+    return (
+      <span className="badge text-bg-info">
+        {formatCallStatus(normalizedStatus)}
+      </span>
+    );
+  };
+
+  const formatReceivedAt = (receivedAt) => {
+    if (!receivedAt) {
+      return "—";
+    }
+
+    const parsedDate = new Date(receivedAt);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return receivedAt;
+    }
+
+    return parsedDate.toLocaleString();
+  };
+
   // Return date in YYYY-MM-DD format.
   const formatDate = (date) => date.toISOString().split("T")[0];
 
@@ -116,6 +174,7 @@ const CallsPage = () => {
     return {
       date_of_call: dateOfCall,
       dispatcher_name: dispatcherName,
+      status,
       min_quality_score: minQualityScore,
       max_quality_score: maxQualityScore,
     };
@@ -146,6 +205,7 @@ const CallsPage = () => {
   const handleLoadAll = () => {
     setDateOfCall("");
     setDispatcherName("");
+    setStatus("");
     setMinQualityScore("");
     setMaxQualityScore("");
 
@@ -161,6 +221,7 @@ const CallsPage = () => {
     loadCalls({
       date_of_call: today,
       dispatcher_name: dispatcherName,
+      status,
       min_quality_score: minQualityScore,
       max_quality_score: maxQualityScore,
     });
@@ -170,6 +231,7 @@ const CallsPage = () => {
   const handleClear = () => {
     setDateOfCall("");
     setDispatcherName("");
+    setStatus("");
     setMinQualityScore("");
     setMaxQualityScore("");
     setCalls([]);
@@ -188,6 +250,9 @@ const CallsPage = () => {
   const emergencyCalls = calls.filter(
     (call) => call.service_level === "emergency"
   ).length;
+
+  const newCalls = calls.filter((call) => !call.status || call.status === "new")
+    .length;
 
   const averageQualityScore =
     calls.length > 0
@@ -210,6 +275,17 @@ const CallsPage = () => {
           <div>
             <div className="page-summary-value">{calls.length}</div>
             <div className="page-summary-label">Loaded Calls</div>
+          </div>
+        </div>
+
+        <div className="page-summary-card">
+          <div className="page-summary-icon">
+            <FaClock />
+          </div>
+
+          <div>
+            <div className="page-summary-value">{newCalls}</div>
+            <div className="page-summary-label">New Calls</div>
           </div>
         </div>
 
@@ -289,6 +365,27 @@ const CallsPage = () => {
               onChange={(e) => setDispatcherName(e.target.value)}
               disabled={loading}
             />
+          </div>
+
+          <div className="col-md-3">
+            <label className="form-label">Status</label>
+
+            <select
+              className="form-select"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              disabled={loading}
+            >
+              <option value="">All Statuses</option>
+              <option value="new">New</option>
+              <option value="pending_assignment">Pending Assignment</option>
+              <option value="assigned">Assigned</option>
+              <option value="en_route">En Route</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="no_show">No Show</option>
+              <option value="refused">Refused</option>
+            </select>
           </div>
 
           <div className="col-md-3">
@@ -403,6 +500,10 @@ const CallsPage = () => {
                       <div className="compact-call-muted">
                         Dispatcher: {call.dispatcher_name || "—"}
                       </div>
+
+                      <div className="compact-call-muted">
+                        Received: {formatReceivedAt(call.received_at)}
+                      </div>
                     </div>
 
                     <div>
@@ -425,6 +526,12 @@ const CallsPage = () => {
                         {call.pickup_address || "—"} →{" "}
                         {call.dropoff_address || "—"}
                       </div>
+                    </div>
+
+                    <div>
+                      <div className="compact-call-label">Status</div>
+
+                      {renderStatusBadge(call.status)}
                     </div>
 
                     <div>
@@ -456,6 +563,16 @@ const CallsPage = () => {
 
                   {isExpanded && (
                     <div className="compact-call-details">
+                      <div>
+                        <strong>Received At:</strong>{" "}
+                        {formatReceivedAt(call.received_at)}
+                      </div>
+
+                      <div>
+                        <strong>Status:</strong>{" "}
+                        {formatCallStatus(call.status)}
+                      </div>
+
                       <div>
                         <strong>Caller Type:</strong>{" "}
                         {call.caller_type || "—"}

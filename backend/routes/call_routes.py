@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request
 
 from models import db, Call
@@ -12,6 +14,7 @@ call_bp = Blueprint("call", __name__, url_prefix="/api/calls")
 def get_calls():
     date_of_call = request.args.get("date_of_call", "").strip()
     dispatcher_name = request.args.get("dispatcher_name", "").strip()
+    status = request.args.get("status", "").strip()
 
     min_quality_score = request.args.get("min_quality_score")
     max_quality_score = request.args.get("max_quality_score")
@@ -25,6 +28,9 @@ def get_calls():
         query = query.filter(
             Call.dispatcher_name.ilike(f"%{dispatcher_name}%")
         )
+
+    if status:
+        query = query.filter(Call.status == status)
 
     if min_quality_score:
         query = query.filter(
@@ -52,6 +58,13 @@ def create_call():
     new_call = Call(
         patient_id=data.get("patient_id"),
         dispatcher_name=data.get("dispatcher_name"),
+
+        # Store exact intake timestamp for future dispatch lifecycle analytics.
+        received_at=data.get("received_at")
+        or datetime.now().isoformat(timespec="seconds"),
+
+        # New calls start as "new" until assignment/status tracking is added.
+        status=data.get("status") or "new",
 
         date_of_call=data.get("date_of_call"),
         trip_date=data.get("trip_date"),
