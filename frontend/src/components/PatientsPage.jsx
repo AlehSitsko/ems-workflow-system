@@ -121,6 +121,37 @@ const PatientsPage = () => {
     }));
   };
 
+  // Check whether the add/edit patient form has unsaved changes.
+  const isPatientFormDirty = () => {
+    return Object.keys(emptyPatient).some((key) => {
+      return newPatient[key] !== emptyPatient[key];
+    });
+  };
+
+  // Close the patient drawer only after confirming unsaved changes.
+  const closePatientFormSafely = () => {
+    if (loading) {
+      return;
+    }
+
+    if (isPatientFormDirty()) {
+      const shouldClose = window.confirm(
+        "Discard unsaved patient changes? All entered patient information will be lost."
+      );
+
+      if (!shouldClose) {
+        return;
+      }
+    }
+
+    resetPatientForm();
+  };
+
+  // Prevent accidental data loss when the user clicks outside the drawer.
+  const handlePatientDrawerOverlayClick = () => {
+    closePatientFormSafely();
+  };
+
   // Load call history for a selected patient.
   const loadPatientCalls = async (patientId) => {
     try {
@@ -477,8 +508,7 @@ const PatientsPage = () => {
                       </div>
 
                       <div className="patient-list-muted">
-                        DOB: {patient.dob || "—"} · Phone:{" "}
-                        {patient.phone || "—"}
+                        DOB: {patient.dob || "—"} · Phone: {patient.phone || "—"}
                       </div>
                     </div>
                   </div>
@@ -648,7 +678,7 @@ const PatientsPage = () => {
                     </div>
 
                     <div className="patient-call-muted">
-                      Trip: {call.trip_date || "—"}{" "}
+                      Trip: {call.trip_date || "—"} {" "}
                       {call.pickup_time ? `at ${call.pickup_time}` : ""}
                     </div>
                   </div>
@@ -656,8 +686,7 @@ const PatientsPage = () => {
                   <div>
                     <div className="patient-call-label">Route</div>
                     <div>
-                      {call.pickup_address || "—"} →{" "}
-                      {call.dropoff_address || "—"}
+                      {call.pickup_address || "—"} → {call.dropoff_address || "—"}
                     </div>
                   </div>
 
@@ -678,7 +707,10 @@ const PatientsPage = () => {
       )}
 
       {showPatientForm && (
-        <div className="patient-drawer-overlay" onClick={resetPatientForm}>
+        <div
+          className="patient-drawer-overlay"
+          onClick={handlePatientDrawerOverlayClick}
+        >
           <aside
             className="patient-drawer"
             onClick={(event) => event.stopPropagation()}
@@ -696,7 +728,7 @@ const PatientsPage = () => {
               <button
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
-                onClick={resetPatientForm}
+                onClick={closePatientFormSafely}
                 disabled={loading}
               >
                 <FaTimes />
@@ -1089,7 +1121,7 @@ const PatientsPage = () => {
                 <button
                   type="button"
                   className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                  onClick={resetPatientForm}
+                  onClick={closePatientFormSafely}
                   disabled={loading}
                 >
                   <FaTimes />
