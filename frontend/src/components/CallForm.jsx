@@ -17,7 +17,12 @@ import {
 } from "react-icons/fa";
 
 import { createCall } from "../api/callsApi";
-import { createPatient, getPatients } from "../api/patientsApi";
+
+import {
+  createPatient,
+  findDuplicatePatient,
+  getPatients,
+} from "../api/patientsApi";
 
 // Read logged-in user from localStorage.
 // This is MVP-level auth state until backend sessions or tokens are added.
@@ -123,7 +128,11 @@ const CallForm = forwardRef((props, ref) => {
     if (!formData.pickupAddress.trim()) criticalMissing.push("Pick Up Address");
 
     if (!formData.phoneNumber.trim()) nonCriticalMissing.push("Phone Number");
-    if (!formData.dropoffAddress.trim()) nonCriticalMissing.push("Drop Off Address");
+
+    if (!formData.dropoffAddress.trim()) {
+      nonCriticalMissing.push("Drop Off Address");
+    }
+
     if (!formData.tripDate.trim()) nonCriticalMissing.push("Date of Trip");
     if (!formData.pickupTime.trim()) nonCriticalMissing.push("Pickup Time");
 
@@ -190,8 +199,16 @@ const CallForm = forwardRef((props, ref) => {
       return null;
     }
 
-    const createdPatient = await createPatient(buildPatientPayloadFromForm());
+    const patientPayload = buildPatientPayloadFromForm();
 
+    // Prevent duplicate patient creation before saving a new call.
+    const duplicatePatient = await findDuplicatePatient(patientPayload);
+
+    if (duplicatePatient) {
+      return duplicatePatient.id;
+    }
+
+    const createdPatient = await createPatient(patientPayload);
     return createdPatient.id;
   };
 
@@ -992,7 +1009,11 @@ const CallForm = forwardRef((props, ref) => {
         </section>
 
         <div className="call-form-actions">
-          <button type="submit" className="btn btn-success" disabled={isSubmitting}>
+          <button
+            type="submit"
+            className="btn btn-success"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? "Saving..." : "Submit Call"}
           </button>
         </div>

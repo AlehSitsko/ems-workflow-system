@@ -13,7 +13,12 @@ import {
 } from "react-icons/fa";
 
 import { createCall } from "../api/callsApi";
-import { createPatient, getPatients } from "../api/patientsApi";
+
+import {
+  createPatient,
+  findDuplicatePatient,
+  getPatients,
+} from "../api/patientsApi";
 
 // Import the main call intake form component.
 import CallForm from "../components/CallForm";
@@ -320,6 +325,7 @@ function CallFormPage() {
   };
 
   const guidedQualityReport = analyzeGuidedCallQuality();
+
   const hasGuidedCriticalIssues =
     guidedQualityReport.criticalMissing.length > 0;
 
@@ -363,8 +369,16 @@ function CallFormPage() {
       return null;
     }
 
-    const createdPatient = await createPatient(buildPatientPayloadFromGuidedData());
+    const patientPayload = buildPatientPayloadFromGuidedData();
 
+    // Prevent duplicate patient creation before saving a guided call.
+    const duplicatePatient = await findDuplicatePatient(patientPayload);
+
+    if (duplicatePatient) {
+      return duplicatePatient.id;
+    }
+
+    const createdPatient = await createPatient(patientPayload);
     return createdPatient.id;
   };
 

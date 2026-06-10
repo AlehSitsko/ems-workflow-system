@@ -1,5 +1,11 @@
 const API_BASE_URL = "http://127.0.0.1:5050";
 
+// Normalize text values before comparing patient records.
+// This helps avoid duplicates caused by different capitalization or extra spaces.
+function normalizePatientText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 // Fetch patients from the backend.
 // Optional filters are sent as query parameters.
 export async function getPatients(filters = {}) {
@@ -26,6 +32,38 @@ export async function getPatients(filters = {}) {
   }
 
   return response.json();
+}
+
+// Find an existing patient before creating a new one.
+// MVP duplicate rule:
+// first name + last name + DOB must match exactly after normalization.
+export async function findDuplicatePatient(patientData) {
+  const firstName = normalizePatientText(patientData.first_name);
+  const lastName = normalizePatientText(patientData.last_name);
+  const dob = String(patientData.dob || "").trim();
+
+  if (!firstName || !lastName || !dob) {
+    return null;
+  }
+
+  const results = await getPatients({
+    name: patientData.last_name,
+    dob,
+  });
+
+  return (
+    results.find((patient) => {
+      const existingFirstName = normalizePatientText(patient.first_name);
+      const existingLastName = normalizePatientText(patient.last_name);
+      const existingDob = String(patient.dob || "").trim();
+
+      return (
+        existingFirstName === firstName &&
+        existingLastName === lastName &&
+        existingDob === dob
+      );
+    }) || null
+  );
 }
 
 // Create a new patient record in the backend database.
