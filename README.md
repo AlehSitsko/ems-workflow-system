@@ -12,15 +12,17 @@ The system is designed as an operational support platform. It is not intended to
 * Structured dispatcher workflows
 * Guided call-taking support
 * Patient record lookup and management
-* Automatic patient creation during call intake
+* Duplicate patient prevention during call intake
+* Automatic patient creation during call intake when no existing patient is found
 * Employee and certification management
 * Daily crew planning
 * Crew preset workflows
 * Role-based access control
 * Supervisor analytics
 * Call quality tracking
+* Operational call status tracking
 * Operational continuity during workflow disruptions
-* Modular architecture for future expansion
+* Modular architecture for future dispatch board expansion
 
 The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, high-volume operational periods, and dispatcher training workflows.
 
@@ -220,7 +222,8 @@ Current features:
 * Patient information
 * Patient search
 * Existing patient selection
-* Automatic new patient creation during call submission
+* Duplicate patient prevention before automatic patient creation
+* Automatic new patient creation only when no existing patient is matched
 * Trip details
 * Date of call
 * Date of trip
@@ -234,7 +237,10 @@ Current features:
 * Missing critical field detection
 * Missing optional field detection
 * Required dispatcher explanation when critical information is missing
+* Empty call save protection
 * Backend call persistence
+* Received timestamp persistence
+* Initial call status persistence
 * Patient-to-call linking
 * Price calculator
 * Print and clear controls
@@ -247,9 +253,7 @@ Guided Intake is a step-by-step call workflow designed for faster and more struc
 Current features:
 
 * Start Taking Call workflow
-
 * Patient lookup step
-
 * Patient search by:
 
   * Date of birth
@@ -257,41 +261,27 @@ Current features:
   * Phone number
 
 * Right-side patient lookup drawer
-
 * Select existing patient
-
 * Continue as new patient
-
-* Automatic new patient creation during guided call save
-
+* Duplicate patient prevention before automatic patient creation
+* Automatic new patient creation only when no existing patient is matched
 * Trip details step
-
 * Date of call
-
 * Date of trip
-
 * Pickup time
-
 * Appointment time
-
 * Return ride support
-
 * Service level selection
-
 * Emergency service level selection
-
 * Emergency warning in trip step
-
 * Emergency warning in review step
-
 * Review and save step
-
 * Call quality review before saving
-
 * Required explanation for missing critical information
-
+* Empty guided call save protection
 * Backend call persistence
-
+* Received timestamp persistence
+* Initial call status persistence
 * Patient-to-call linking
 
 Planned improvements:
@@ -300,7 +290,7 @@ Planned improvements:
 * Better dispatcher training flow
 * Optional guided templates by call type
 * Improved autocomplete
-* Better duplicate patient prevention
+* More structured return ride workflow
 
 ## Price Calculator
 
@@ -350,8 +340,11 @@ Current features:
 * Patient call history
 * Modern card-based patient list
 * Add/edit patient drawer
+* Unsaved patient form protection
+* Confirmation before closing a dirty patient drawer
 * Patient data used by call intake workflows
 * New patient records can be created automatically from call intake
+* Duplicate patient prevention during call intake
 * Calls can be linked to patient records
 
 ## Calls
@@ -364,11 +357,14 @@ Current features:
 * Compact call cards
 * Date filtering
 * Dispatcher filtering
+* Status filtering
 * Minimum quality score filtering
 * Maximum quality score filtering
 * Today shortcut
 * Load all shortcut
 * Expandable call details
+* Received timestamp display
+* Initial status display
 * Appointment time display
 * Service level display
 * Emergency calls displayed with a danger badge
@@ -379,6 +375,11 @@ Current features:
 * Dispatcher explanation review
 * Operational notes review
 * Linked patient ID stored when patient record exists
+
+Important note:
+
+* Calls History is an audit and history module.
+* Future live dispatch execution should be handled by the planned Dispatch Board module, not by expanding Calls History into a live dispatch screen.
 
 ## Employees
 
@@ -549,6 +550,11 @@ The current scoring model uses:
 
 The score is saved with each call record.
 
+Important note:
+
+* Call quality tracking belongs to call intake, call history, audit, and supervisor review.
+* Quality score should not be a primary field on the future live Dispatch Board screen.
+
 ## Backend Data Model Highlights
 
 ### Call
@@ -557,6 +563,8 @@ The Call model currently supports:
 
 * Linked patient ID
 * Dispatcher name
+* Received timestamp
+* Operational status
 * Date of call
 * Trip date
 * Pickup time
@@ -586,6 +594,29 @@ The Patient model currently supports:
 * Facility information
 * Emergency contact information
 * General notes
+
+### Planned CallAssignment
+
+The future Dispatch Board should use a separate assignment model instead of overloading the Call model.
+
+Planned fields:
+
+* Call ID
+* Crew unit ID
+* Assignment date
+* Sequence order
+* Assignment status
+* Assigned timestamp
+* En route timestamp
+* Arrived pickup timestamp
+* Patient onboard timestamp
+* Arrived destination timestamp
+* Completed timestamp
+* Cancelled timestamp
+* Cancel / no-show / refused reason
+* Service mismatch flag
+* Service mismatch note
+* Assignment notes
 
 ## Backend API
 
@@ -626,6 +657,14 @@ GET   /api/calls
 POST  /api/calls
 ```
 
+Current call filters:
+
+* date_of_call
+* dispatcher_name
+* status
+* min_quality_score
+* max_quality_score
+
 ### Crew Planner
 
 ```text
@@ -648,6 +687,17 @@ DELETE  /api/crew-presets/<preset_id>
 
 ```text
 GET  /api/analytics/dispatchers
+```
+
+### Planned Dispatch Board API
+
+```text
+GET     /api/dispatch-board?date=<YYYY-MM-DD>
+POST    /api/dispatch-assignments
+PATCH   /api/dispatch-assignments/<assignment_id>/status
+PATCH   /api/dispatch-assignments/<assignment_id>/unit
+PATCH   /api/dispatch-assignments/reorder
+DELETE  /api/dispatch-assignments/<assignment_id>
 ```
 
 ## Installation
@@ -691,10 +741,12 @@ The project currently uses SQLite for local development.
 
 If a new backend model field is added to an existing table, the local SQLite database may require a manual schema update or database reset during development.
 
-Recent schema addition:
+Recent schema additions:
 
 ```text
 call.appointment_time
+call.received_at
+call.status
 ```
 
 Example local SQLite update:
@@ -702,11 +754,34 @@ Example local SQLite update:
 ```python
 from app import app
 from models import db
+from sqlalchemy import text
 
 with app.app_context():
+    columns = db.session.execute(
+        text("PRAGMA table_info('call')")
+    ).fetchall()
+
+    existing_columns = [column[1] for column in columns]
+
+    if "appointment_time" not in existing_columns:
+        db.session.execute(
+            text("ALTER TABLE call ADD COLUMN appointment_time VARCHAR(20)")
+        )
+
+    if "received_at" not in existing_columns:
+        db.session.execute(
+            text("ALTER TABLE call ADD COLUMN received_at VARCHAR(50)")
+        )
+
+    if "status" not in existing_columns:
+        db.session.execute(
+            text("ALTER TABLE call ADD COLUMN status VARCHAR(50) DEFAULT 'new'")
+        )
+
     db.session.execute(
-        db.text("ALTER TABLE call ADD COLUMN appointment_time VARCHAR(20)")
+        text("UPDATE call SET status = 'new' WHERE status IS NULL OR status = ''")
     )
+
     db.session.commit()
 ```
 
@@ -745,6 +820,11 @@ Recommended workflow:
 
 Current focus areas:
 
+* Dispatch Board planning and implementation
+* Operational call assignment workflow
+* Drag-and-drop call-to-unit assignment
+* Inline assignment status updates
+* Unit-based operational workflow
 * Frontend interface redesign
 * Component decomposition
 * Guided call intake workflow
@@ -765,10 +845,14 @@ Completed:
 * Role-aware module navigation
 * Patients page redesign
 * Patient add/edit drawer
+* Unsaved patient drawer protection
 * Employees page redesign
 * Employee add/edit drawer
 * Calls page compact list
 * Calls page emergency badge display
+* Calls page received timestamp display
+* Calls page initial status display
+* Calls page status filter
 * Crew Planner planned unit cards
 * Crew Planner create/edit drawer
 * Unassigned employee chips
@@ -777,7 +861,11 @@ Completed:
 * Guided Call Intake workflow
 * Patient lookup drawer
 * Automatic patient creation from call intake
+* Duplicate patient prevention during call intake
+* Empty call save protection
 * Appointment Time field in call intake
+* Received timestamp persistence
+* Initial call status persistence
 * Price Calculator visual redesign
 * Waiting Time Fee support in Price Calculator
 * Emergency service level support in call intake
@@ -791,6 +879,10 @@ Extracted Crew Planner components:
 
 Remaining frontend targets:
 
+* Dispatch Board page
+* Dispatch Board compact table-based UI
+* Dispatch Board drag-and-drop call assignment
+* Dispatch Board inline status updates
 * Additional Crew Planner component cleanup
 * Shared generic drawer component
 * Shared form section component
@@ -799,9 +891,324 @@ Remaining frontend targets:
 * Functional notification system
 * More dashboard widgets
 
+## Dispatch Board Design Plan
+
+The next major feature is a dedicated Dispatch Board.
+
+The Dispatch Board should be separate from Calls History.
+
+### Purpose
+
+Calls History is for:
+
+* Audit
+* Historical review
+* Call quality review
+* Supervisor review
+* Filtering and reporting
+
+Dispatch Board is for:
+
+* Live operational assignment
+* Dispatch execution
+* Unit tracking
+* Call-to-unit assignment
+* Status progression
+* Operational awareness
+
+### Approved UI Direction
+
+The Dispatch Board should be inspired by compact legacy ambulance dispatch software, but styled with the modern EMS Workflow System interface.
+
+The screen should use compact, table-based work zones instead of large dashboard cards.
+
+### Main Layout
+
+The Dispatch Board should have three main areas:
+
+```text
+1. Open Calls
+2. Vehicle Listing
+3. Selected Call / Trip Details
+```
+
+### Open Calls
+
+Open Calls should display unassigned calls for the selected day.
+
+Design rules:
+
+* Compact rows
+* Table-like layout
+* Minimal information only
+* Calls should be draggable
+* No quality score display
+* No large cards
+* No permanent action-heavy buttons
+
+Recommended visible fields:
+
+* Priority / emergency marker
+* Call type or service level
+* Pickup time
+* Trip number or call ID
+* Patient / call name
+* Pickup address
+* Pickup city
+* Dropoff address or short destination
+
+### Vehicle Listing
+
+Vehicle Listing should be the main operational work area.
+
+Design rules:
+
+* Vehicles should be visible as compact rows or compact expandable panels
+* Each vehicle should be a drop target
+* Calls should be dragged directly onto the vehicle
+* Assigned calls should appear inside the selected or expanded vehicle
+* There should not be a separate permanent Assigned Calls zone
+* Clicking a vehicle should reveal its assigned calls
+* Vehicle rows should show only essential unit information
+
+Recommended visible vehicle fields:
+
+* Unit number
+* Status
+* Unit type
+* Current area or location
+* Crew member 1
+* Crew member 2
+* Crew member 3
+* Assigned call count
+* Warning count
+
+### Assigned Calls Inside Vehicle
+
+Assigned calls should appear inside the selected or expanded vehicle.
+
+Design rules:
+
+* Compact rows
+* Inline status control
+* No large call cards
+* No quick action side panel
+* Status should be changeable directly from the assigned call row
+* Status dropdown or compact next-status button is preferred
+
+Recommended visible fields:
+
+* Sequence order
+* Pickup time
+* Patient / call name
+* Pickup address
+* Dropoff address
+* Current status
+* Warning indicator if service mismatch exists
+
+### Selected Call / Trip Details
+
+Trip details should only include dispatcher-relevant operational information.
+
+Do not show:
+
+* Quality score
+* Missing critical fields
+* Missing optional fields
+* Quality explanation
+* Billing-heavy details
+* Supervisor audit details
+* Non-operational analytics
+
+Recommended dispatcher-relevant details:
+
+* Pickup address
+* Pickup city / state / ZIP
+* Pickup phone
+* Apartment / room / facility
+* Dropoff address
+* Dropoff city / state / ZIP
+* Dropoff phone
+* Facility / destination
+* Pickup time
+* Appointment time
+* Requested time
+* Return ride / will-call information
+* Service level
+* Priority
+* Transport type
+* Assigned unit
+* Current dispatch status
+* Dispatcher notes
+* Special instructions
+
+### Drag-and-Drop Assignment
+
+Primary assignment flow:
+
+```text
+Open call row → drag onto vehicle row → assignment saved
+```
+
+Expected behavior:
+
+* Call disappears from Open Calls after assignment
+* Call appears under the selected or expanded vehicle
+* Vehicle call count updates
+* Assignment order is saved
+* Call status changes from new to assigned
+
+### Service Mismatch Handling
+
+Service mismatch should warn but not block.
+
+Example:
+
+```text
+ALS call assigned to BLS unit
+```
+
+Expected behavior:
+
+* Show warning before assignment
+* Allow user to continue
+* Save mismatch flag
+* Save mismatch note
+* Display small warning indicator on the assigned call row
+* Display warning count on the vehicle row
+
+### Status Progression
+
+Planned operational statuses:
+
+```text
+new
+assigned
+en_route
+arrived_pickup
+patient_onboard
+arrived_destination
+completed
+cancelled
+no_show
+refused
+```
+
+Suggested visible labels:
+
+```text
+New
+Assigned
+En Route
+Arrived Pickup
+Patient Onboard
+Arrived Destination
+Completed
+Cancelled
+No Show
+Refused
+```
+
+### Status Update UX
+
+Status should be changed directly on the assigned call row inside the vehicle.
+
+Preferred options:
+
+* Small status dropdown
+* Compact "Next" button
+* Context menu on assigned call row
+
+Avoid:
+
+* Large quick action panels
+* Permanent status button groups
+* Too many visible action buttons
+
+### Implementation Notes
+
+Recommended frontend library:
+
+```text
+@dnd-kit/core
+@dnd-kit/sortable
+@dnd-kit/utilities
+```
+
+Recommended first UI version:
+
+* No drag reorder at first
+* Drag from Open Calls to Vehicle Listing first
+* Add reorder later through sequence_order
+* Add drag reorder after the basic assignment workflow is stable
+
 ## Roadmap
 
-## High Priority
+## Priority 1 — Dispatch Board Foundation
+
+* Create CallAssignment model
+* Add Dispatch Board backend routes
+* Register dispatch routes in Flask app
+* Add frontend dispatch API
+* Add Dispatch Board route and sidebar navigation
+* Add role access for admin, supervisor, and dispatcher
+* Exclude HR from Dispatch Board access
+* Build initial Dispatch Board page shell
+* Load selected date
+* Load open calls for selected date
+* Load vehicle listing from Crew Planner units
+* Display assigned calls inside selected or expanded vehicle rows
+
+## Priority 2 — Drag-and-Drop Assignment
+
+* Install and configure dnd-kit
+* Make open calls draggable
+* Make vehicle rows droppable
+* Assign call by dragging it onto a vehicle
+* Save CallAssignment
+* Update Call.status to assigned
+* Remove assigned call from Open Calls
+* Add assigned call under vehicle
+* Save sequence order
+* Refresh board after assignment
+
+## Priority 3 — Status Tracking
+
+* Add inline status control inside assigned call rows
+* Update assignment status
+* Sync Call.status with assignment status
+* Save status timestamps
+* Add status progression logic
+* Add cancelled / no-show / refused outcomes
+* Add reason capture for cancelled / no-show / refused
+
+## Priority 4 — Service Mismatch Warnings
+
+* Compare call service level with vehicle unit type
+* Show mismatch confirmation before assignment
+* Allow assignment anyway
+* Save mismatch flag
+* Save mismatch note
+* Show warning indicator on assigned call row
+* Show warning count on vehicle row
+
+## Priority 5 — Dispatch Board Details Panel
+
+* Show dispatcher-relevant trip details only
+* Remove quality score from Dispatch Board details
+* Remove missing field analysis from Dispatch Board details
+* Remove supervisor audit fields from Dispatch Board details
+* Add pickup/dropoff/phone/facility/schedule/status/notes
+* Add selected vehicle details when vehicle is clicked
+* Keep full quality/audit details in Calls History and Supervisor Dashboard
+
+## Priority 6 — Reorder Assigned Calls
+
+* Add move up / move down buttons
+* Save sequence_order
+* Add drag reorder later after base dispatch workflow is stable
+
+## Priority 7 — Security and Backend Enforcement
 
 * JWT authentication
 * Backend permission middleware
@@ -809,24 +1216,27 @@ Remaining frontend targets:
 * Route protection
 * Security hardening
 * Backend role enforcement
+* HR backend permission enforcement
+* Patient data access restrictions
+
+## Priority 8 — Infrastructure
+
 * PostgreSQL migration
 * Docker support
 * Docker Compose deployment
+* Backup strategy
+* Production-ready environment configuration
 
-## Authentication and Roles
+## Additional Planned Improvements
 
-Planned improvements:
+### Authentication and Roles
 
 * JWT or secure session-based authentication
 * Backend permission checks
 * Role-specific API restrictions
-* HR backend permission enforcement
-* Patient data access restrictions
 * Audit trail for sensitive actions
 
-## UI / UX
-
-Planned improvements:
+### UI / UX
 
 * Shared drawer component
 * Shared page panel components
@@ -838,24 +1248,18 @@ Planned improvements:
 * Better print layout
 * More compact operator-focused screens
 
-## Call Taking Form Evolution
-
-Planned improvements:
+### Call Taking Form Evolution
 
 * More advanced guided step validation
 * Call type templates
 * Better autocomplete
-* Better duplicate patient prevention
 * Better trip duplication workflow
 * More structured return ride workflow
-* Call status tracking
 * Billing estimate persistence
 * Emergency workflow expansion
 * Emergency-specific validation or checklist
 
-## Workforce and Scheduling
-
-Planned improvements:
+### Workforce and Scheduling
 
 * Shift scheduling
 * Employee availability tracking
@@ -866,9 +1270,7 @@ Planned improvements:
 * HR document tracking
 * Employee file attachments
 
-## Crew System Expansion
-
-Planned improvements:
+### Crew System Expansion
 
 * Ambulance unit definitions
 * Dynamic staffing templates
@@ -879,9 +1281,7 @@ Planned improvements:
 * Auto-fill available crew slots
 * Better conflict resolution
 
-## Patient Operations
-
-Planned improvements:
+### Patient Operations
 
 * Patient flags
 * Cancellation tracking
@@ -891,11 +1291,9 @@ Planned improvements:
 * Operational history
 * Patient risk score
 * Patient notes and alerts
-* Duplicate patient detection
+* Duplicate patient merge workflow
 
-## Backend and Security
-
-Planned improvements:
+### Backend and Security
 
 * PostgreSQL migration
 * Docker support
@@ -908,9 +1306,7 @@ Planned improvements:
 * Backend validation for protected workflows
 * Backend permission enforcement by role
 
-## Advanced Future Features
-
-Possible long-term features:
+### Advanced Future Features
 
 * Offline mode
 * PWA support
@@ -965,11 +1361,17 @@ Call Intake
 ↓
 Guided Intake
 ↓
+Duplicate Patient Prevention
+↓
 Automatic Patient Creation
 ↓
 Patient Management
 ↓
 Call History
+↓
+Received Timestamp Tracking
+↓
+Initial Call Status Tracking
 ↓
 Employee Management
 ↓
@@ -983,13 +1385,25 @@ Supervisor Analytics
 Recently completed:
 
 * Automatic patient creation during call intake
+* Duplicate patient prevention during Classic Call Form submission
+* Duplicate patient prevention during Guided Intake save
 * Appointment Time field for calls
 * Appointment Time display in call history
+* Received timestamp field for calls
+* Initial call status field for calls
+* Status display in Calls History
+* Status filter in Calls History
+* Empty Classic Call save protection
+* Empty Guided Call save protection
+* Unsaved patient drawer close confirmation
 * Waiting Time Fee support in Price Calculator
 * Emergency service level in Classic Call Form
 * Emergency service level in Guided Intake
 * Emergency badge display in Call History
 * Emergency call count summary
+* Dispatch Board visual and workflow planning
+* Dispatch Board drag-and-drop assignment concept
+* Dispatch Board compact RescueNet-inspired layout direction
 
 ## Long-Term Direction
 
