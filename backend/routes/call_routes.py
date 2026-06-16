@@ -78,6 +78,9 @@ def create_call():
         call_type=data.get("call_type"),
         service_level=data.get("service_level"),
 
+        caller_phone=data.get("caller_phone"),
+        caller_note=data.get("caller_note"),
+
         quality_score=data.get("quality_score"),
         missing_critical_fields=data.get("missing_critical_fields"),
         missing_optional_fields=data.get("missing_optional_fields"),

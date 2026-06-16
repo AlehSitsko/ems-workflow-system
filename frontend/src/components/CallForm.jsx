@@ -370,50 +370,15 @@ const CallForm = forwardRef((props, ref) => {
         call_type: formData.returnRideOption !== "none" ? "scheduled" : "none",
         service_level: formData.serviceLevel,
 
+        caller_phone: formData.phoneNumber || null,
+        caller_note: formData.callerNote || null,
+
         quality_score: currentQualityReport.score,
         missing_critical_fields: currentQualityReport.criticalMissing.join(", "),
-        missing_optional_fields:
-          currentQualityReport.nonCriticalMissing.join(", "),
-        missing_info_explanation: missingInfoExplanation.trim(),
+        missing_optional_fields: currentQualityReport.nonCriticalMissing.join(", "),
+        missing_info_explanation: missingInfoExplanation.trim() || null,
 
-        notes: [
-          formData.additionalInfo,
-          formData.callerNote ? `Caller note: ${formData.callerNote}` : "",
-          formData.dispatcherName
-            ? `Dispatcher: ${formData.dispatcherName}`
-            : "",
-          formData.firstName || formData.lastName
-            ? `Patient: ${formData.firstName} ${formData.lastName}`
-            : "",
-          finalPatientId
-            ? `Linked Patient ID: ${finalPatientId}`
-            : "Patient record was not created because required patient name fields were incomplete.",
-          formData.dob ? `DOB: ${formData.dob}` : "",
-          formData.phoneNumber ? `Phone: ${formData.phoneNumber}` : "",
-          formData.pickupTime ? `Pickup Time: ${formData.pickupTime}` : "",
-          formData.appointmentTime
-            ? `Appointment Time: ${formData.appointmentTime}`
-            : "",
-          formData.serviceLevel === "emergency"
-            ? "Emergency service level selected."
-            : "",
-          `Call Quality Score: ${currentQualityReport.score}%`,
-          currentQualityReport.criticalMissing.length > 0
-            ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
-                ", "
-              )}`
-            : "",
-          currentQualityReport.nonCriticalMissing.length > 0
-            ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
-                ", "
-              )}`
-            : "",
-          missingInfoExplanation.trim()
-            ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
+        notes: formData.additionalInfo || null,
       };
 
       const savedCall = await createCall(callPayload);
@@ -434,15 +399,13 @@ const CallForm = forwardRef((props, ref) => {
           caller_type: formData.callerType,
           call_type: "return",
           service_level: formData.serviceLevel,
+          caller_phone: formData.phoneNumber || null,
+          caller_note: null,
           quality_score: 0,
           missing_critical_fields: "",
           missing_optional_fields: "",
           missing_info_explanation: "",
-          notes: [
-            `Return leg for call #${savedCall.id}`,
-            formData.dispatcherName ? `Dispatcher: ${formData.dispatcherName}` : "",
-            formData.returnTime ? `Pickup Time: ${formData.returnTime}` : "Pickup Time: Will Call",
-          ].filter(Boolean).join("\n"),
+          notes: `Return leg for call #${savedCall.id}`,
         };
         await createCall(returnPayload);
       }

@@ -23,6 +23,8 @@ def _call_with_patient(call):
         patient = Patient.query.get(call.patient_id)
         if patient:
             d["patient_name"] = f"{patient.first_name} {patient.last_name}"
+            d["patient_dob"] = patient.dob or ""
+            d["patient_phone"] = patient.phone or ""
     return d
 
 

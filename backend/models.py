@@ -343,6 +343,10 @@ class Call(db.Model):
     call_type = db.Column(db.String(100))
     service_level = db.Column(db.String(100))
 
+    # Captured at intake — may differ from patient record.
+    caller_phone = db.Column(db.String(30))
+    caller_note = db.Column(db.Text)
+
     quality_score = db.Column(db.Integer)
 
     missing_critical_fields = db.Column(db.Text)
@@ -374,6 +378,9 @@ class Call(db.Model):
             "caller_type": self.caller_type,
             "call_type": self.call_type,
             "service_level": self.service_level,
+
+            "caller_phone": self.caller_phone or "",
+            "caller_note": self.caller_note or "",
 
             "quality_score": self.quality_score,
 
