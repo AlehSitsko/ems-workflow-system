@@ -1,5 +1,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash
 
 from models import db, User
@@ -24,8 +26,23 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Connect SQLAlchemy to the Flask app.
 db.init_app(app)
 
+# Rate limiter — in-memory storage, keyed by client IP.
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://",
+)
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({"error": "Too many login attempts. Please wait a minute and try again."}), 429
+
 # Register authentication and user management routes.
 app.register_blueprint(auth_bp)
+
+# Apply rate limit to login endpoint: 10 attempts per minute per IP.
+limiter.limit("10 per minute")(app.view_functions["auth.login"])
 
 # Register employee management routes.
 app.register_blueprint(employee_bp)
