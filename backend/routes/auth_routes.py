@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import db, User
+from limiter import limiter
 
 
 # Blueprint for authentication and user management routes.
@@ -14,6 +15,7 @@ ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr"]
 
 # Handle user login and return authenticated user data.
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json()
 
