@@ -331,6 +331,16 @@ const CallForm = forwardRef((props, ref) => {
     previousReturnRideOption.current = currentOption;
   }, [formData.returnRideOption]);
 
+  // Re-sync return addresses when pickup/dropoff change while return ride is active.
+  useEffect(() => {
+    if (formData.returnRideOption === "none") return;
+    setFormData((prev) => ({
+      ...prev,
+      returnPickup: prev.dropoffAddress,
+      returnDestination: prev.pickupAddress,
+    }));
+  }, [formData.pickupAddress, formData.dropoffAddress]);
+
   const { criticalMissing, nonCriticalMissing, score } = analyzeCallQuality();
 
   const hasCriticalIssues = criticalMissing.length > 0;

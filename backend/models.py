@@ -156,6 +156,9 @@ class DailyCrewUnit(db.Model):
     # Optional notes.
     notes = db.Column(db.Text)
 
+    # Dispatch operational status.
+    dispatch_status = db.Column(db.String(50), default="available")
+
     # Timestamps.
     created_at = db.Column(db.String(50))
     updated_at = db.Column(db.String(50))
@@ -189,6 +192,8 @@ class DailyCrewUnit(db.Model):
             "nextPatients": parsed_next_patients,
 
             "notes": self.notes or "",
+
+            "dispatchStatus": self.dispatch_status or "available",
 
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
@@ -375,4 +380,35 @@ class Call(db.Model):
             "missing_info_explanation": self.missing_info_explanation,
 
             "notes": self.notes,
+        }
+
+
+class CallAssignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    call_id = db.Column(
+        db.Integer,
+        db.ForeignKey("call.id"),
+        nullable=False,
+    )
+
+    unit_id = db.Column(
+        db.Integer,
+        db.ForeignKey("daily_crew_unit.id"),
+        nullable=False,
+    )
+
+    assigned_at = db.Column(db.String(50))
+    assigned_by = db.Column(db.String(150))
+
+    is_active = db.Column(db.Boolean, default=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "callId": self.call_id,
+            "unitId": self.unit_id,
+            "assignedAt": self.assigned_at,
+            "assignedBy": self.assigned_by,
+            "isActive": self.is_active,
         }

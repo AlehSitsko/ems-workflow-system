@@ -15,6 +15,7 @@ import CrewPlannerPage from "./pages/CrewPlannerPage";
 import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import LoginPage from "./pages/LoginPage";
 import UserManagementPage from "./pages/UserManagementPage";
+import DispatchBoardPage from "./pages/DispatchBoardPage";
 
 import {
   getCurrentUser,
@@ -241,6 +242,15 @@ function App() {
             <CrewPlannerRoute>
               <CrewPlannerPage />
             </CrewPlannerRoute>
+          }
+        />
+
+        <Route
+          path="/dispatch"
+          element={
+            <ProtectedLayout>
+              <DispatchBoardPage />
+            </ProtectedLayout>
           }
         />
 

@@ -350,7 +350,9 @@ function CrewPlannerPage() {
     }
 
     if (role === "driver") {
-      return Boolean(employee.evoc?.hasLicense);
+      const hasEvoc = Boolean(employee.evoc?.hasLicense);
+      const isDriverRole = String(employee.role || "").toLowerCase() === "driver";
+      return hasEvoc || isDriverRole;
     }
 
     if (role === "medical") {
@@ -599,6 +601,34 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setPresetName("");
     setShowUnitDrawer(false);
+  };
+
+  /*
+    Returns true if the user has entered any data into the unit form.
+  */
+  const isUnitFormDirty = () => {
+    if (unitForm.truckNumber.trim()) return true;
+    if (unitForm.startTime.trim()) return true;
+    if (unitForm.firstPatient.trim()) return true;
+    if (unitForm.crew.driver) return true;
+    if (unitForm.crew.medical) return true;
+    if (unitForm.crew.assist1) return true;
+    if (unitForm.crew.assist2) return true;
+    if (unitForm.nextPatients.some((p) => p.trim())) return true;
+    return false;
+  };
+
+  /*
+    Closes the drawer with a confirmation prompt if the form has unsaved data.
+  */
+  const handleCloseDrawer = () => {
+    if (isUnitFormDirty()) {
+      const confirmed = window.confirm(
+        "You have unsaved changes. Are you sure you want to close without saving?"
+      );
+      if (!confirmed) return;
+    }
+    resetUnitForm();
   };
 
   /*
@@ -1050,7 +1080,7 @@ function CrewPlannerPage() {
       />
 
       {showUnitDrawer && (
-        <div className="crew-drawer-overlay" onClick={resetUnitForm}>
+        <div className="crew-drawer-overlay" onClick={handleCloseDrawer}>
           <aside
             className="crew-drawer"
             onClick={(event) => event.stopPropagation()}
@@ -1068,7 +1098,7 @@ function CrewPlannerPage() {
               <button
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
-                onClick={resetUnitForm}
+                onClick={handleCloseDrawer}
                 disabled={unitsLoading}
               >
                 <FaTimes />
@@ -1274,7 +1304,7 @@ function CrewPlannerPage() {
                 <button
                   type="button"
                   className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                  onClick={resetUnitForm}
+                  onClick={handleCloseDrawer}
                   disabled={unitsLoading}
                 >
                   <FaTimes />

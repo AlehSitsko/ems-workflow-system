@@ -8,6 +8,7 @@ import {
   FaChartBar,
   FaUserCog,
   FaBookOpen,
+  FaTh,
 } from "react-icons/fa";
 
 import {
@@ -33,6 +34,12 @@ export const navigationGroups = [
   {
     title: "Operations",
     items: [
+      {
+        label: "Dispatch Board",
+        path: "/dispatch",
+        icon: FaTh,
+        canAccess: () => true,
+      },
       {
         label: "Call Form",
         path: "/call-form",
