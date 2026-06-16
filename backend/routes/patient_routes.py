@@ -109,8 +109,16 @@ def update_patient(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
+    ALLOWED_FIELDS = {
+        "first_name", "last_name", "dob", "gender",
+        "phone", "secondary_phone", "address", "city", "state", "zip_code",
+        "insurance", "member_id", "policy_number", "requires_auth", "copay_required", "insurance_notes",
+        "default_service_level", "weight", "oxygen_required", "stairs", "special_equipment_notes",
+        "facility_name", "room_number", "emergency_contact_name", "emergency_contact_phone",
+        "notes",
+    }
     for key, value in data.items():
-        if hasattr(patient, key):
+        if key in ALLOWED_FIELDS:
             setattr(patient, key, value)
 
     db.session.commit()
