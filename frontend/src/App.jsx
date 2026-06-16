@@ -25,6 +25,7 @@ import {
   hasEmployeeAccess,
   hasCrewPlannerAccess,
   hasAdminAccess,
+  hasDispatchAccess,
 } from "./api/authApi";
 
 function App() {
@@ -104,6 +105,23 @@ function App() {
     }
 
     if (!hasCrewPlannerAccess(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
+  };
+
+  // Protect dispatch board — not accessible to HR.
+  const DispatchRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!hasDispatchAccess(currentUser)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -248,9 +266,9 @@ function App() {
         <Route
           path="/dispatch"
           element={
-            <ProtectedLayout>
+            <DispatchRoute>
               <DispatchBoardPage />
-            </ProtectedLayout>
+            </DispatchRoute>
           }
         />
 

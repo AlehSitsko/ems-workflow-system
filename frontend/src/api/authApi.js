@@ -59,6 +59,16 @@ export function logoutUser() {
 // ROLE ACCESS HELPERS
 // =========================
 
+// Check whether a user has access to the dispatch board.
+export function hasDispatchAccess(user) {
+  if (!user) return false;
+  return (
+    user.role === "admin" ||
+    user.role === "supervisor" ||
+    user.role === "dispatcher"
+  );
+}
+
 // Check whether a user can start or manage call intake.
 export function hasCallIntakeAccess(user) {
   if (!user) {

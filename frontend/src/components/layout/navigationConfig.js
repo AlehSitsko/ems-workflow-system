@@ -13,6 +13,7 @@ import {
 
 import {
   hasPatientAccess,
+  hasDispatchAccess,
   hasEmployeeAccess,
   hasCrewPlannerAccess,
   hasSupervisorAccess,
@@ -38,7 +39,7 @@ export const navigationGroups = [
         label: "Dispatch Board",
         path: "/dispatch",
         icon: FaTh,
-        canAccess: () => true,
+        canAccess: hasDispatchAccess,
       },
       {
         label: "Call Form",
