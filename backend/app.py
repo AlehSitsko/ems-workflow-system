@@ -15,6 +15,7 @@ from routes.patient_routes import patient_bp
 from routes.call_routes import call_bp
 from routes.analytics_routes import analytics_bp
 from routes.dispatch_routes import dispatch_bp
+from routes.notification_routes import notif_bp
 
 
 app = Flask(__name__)
@@ -60,6 +61,9 @@ app.register_blueprint(analytics_bp)
 
 # Register dispatch board routes.
 app.register_blueprint(dispatch_bp)
+
+# Register notification routes.
+app.register_blueprint(notif_bp)
 
 
 @app.route("/")

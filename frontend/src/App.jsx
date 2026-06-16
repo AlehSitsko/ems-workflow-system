@@ -16,6 +16,7 @@ import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import LoginPage from "./pages/LoginPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import DispatchBoardPage from "./pages/DispatchBoardPage";
+import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 
 import {
   getCurrentUser,
@@ -269,6 +270,15 @@ function App() {
             <DispatchRoute>
               <DispatchBoardPage />
             </DispatchRoute>
+          }
+        />
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedLayout>
+              <NotificationSettingsPage currentUser={currentUser} />
+            </ProtectedLayout>
           }
         />
 

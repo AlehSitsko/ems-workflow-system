@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, Employee
 from utils.employee_utils import apply_employee_data
+from notification_utils import create_notification
 
 
 # Blueprint for employee management routes.
@@ -38,6 +39,13 @@ def create_employee():
 
     db.session.add(employee)
     db.session.commit()
+
+    create_notification(
+        "employee_added", "info",
+        f"New employee added: {employee.first_name} {employee.last_name}",
+        f"Role: {employee.role or 'EMT'}",
+        entity_type="employee", entity_id=employee.id,
+    )
 
     return jsonify(employee.to_dict()), 201
 

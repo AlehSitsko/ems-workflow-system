@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, DailyCrewUnit
 from utils.employee_utils import parse_optional_employee_id
+from notification_utils import create_notification
 
 
 # Blueprint for daily crew unit routes.
@@ -78,6 +79,15 @@ def create_daily_crew_unit():
 
     db.session.add(unit)
     db.session.commit()
+
+    # Warn if unit has no crew members assigned.
+    if not any([unit.driver_id, unit.medical_id, unit.assist1_id, unit.assist2_id]):
+        create_notification(
+            "unit_understaffed", "warning",
+            f"Unit {unit.truck_number} has no crew for {unit.shift_date}",
+            f"Unit type: {unit.unit_type}. Please assign crew members.",
+            entity_type="unit", entity_id=unit.id,
+        )
 
     return jsonify(unit.to_dict()), 201
 

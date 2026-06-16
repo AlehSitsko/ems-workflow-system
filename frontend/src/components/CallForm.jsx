@@ -200,10 +200,8 @@ const CallForm = forwardRef((props, ref) => {
     }
 
     try {
-      const results = await getPatients({
-        name: trimmedLastName,
-        dob: trimmedDob,
-      });
+      const data = await getPatients({ name: trimmedLastName, dob: trimmedDob }, 1, 100);
+      const results = data.items;
 
       setPatientSearchResults(results);
 
@@ -746,21 +744,23 @@ const CallForm = forwardRef((props, ref) => {
               />
             </div>
 
-            <div className="col-md-3">
-              <label htmlFor="appointmentTime" className="form-label">
-                Appointment Time
-              </label>
+            {formData.serviceLevel !== "emergency" && (
+              <div className="col-md-3">
+                <label htmlFor="appointmentTime" className="form-label">
+                  Appointment Time
+                </label>
 
-              <input
-                type="time"
-                className="form-control"
-                id="appointmentTime"
-                name="appointmentTime"
-                value={formData.appointmentTime}
-                onChange={handleChange}
-                disabled={isSubmitting}
-              />
-            </div>
+                <input
+                  type="time"
+                  className="form-control"
+                  id="appointmentTime"
+                  name="appointmentTime"
+                  value={formData.appointmentTime}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
 
             <div className="col-12">
               <label htmlFor="additionalInfo" className="form-label">

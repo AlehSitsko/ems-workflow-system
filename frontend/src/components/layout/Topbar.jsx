@@ -2,13 +2,13 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   FaBars,
-  FaBell,
   FaPhoneAlt,
   FaSearch,
   FaSignOutAlt,
 } from "react-icons/fa";
 
 import { hasCallIntakeAccess } from "../../api/authApi";
+import NotificationBell from "./NotificationBell";
 
 const pageTitles = {
   "/home": {
@@ -43,13 +43,17 @@ const pageTitles = {
     title: "User Management",
     subtitle: "Create and manage system user accounts",
   },
+  "/notifications": {
+    title: "Notification Settings",
+    subtitle: "Configure which alerts you receive",
+  },
   "/manual": {
     title: "User Manual",
     subtitle: "Workflow instructions and system usage notes",
   },
 };
 
-function Topbar({ currentUser, onLogout }) {
+function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, markRead, markAllRead }) {
   const location = useLocation();
 
   const currentPage = pageTitles[location.pathname] || {
@@ -98,10 +102,12 @@ function Topbar({ currentUser, onLogout }) {
           </Link>
         )}
 
-        <button type="button" className="topbar-icon-button">
-          <FaBell />
-          <span className="topbar-notification-badge">3</span>
-        </button>
+        <NotificationBell
+          notifications={notifications}
+          unreadCount={unreadCount}
+          markRead={markRead}
+          markAllRead={markAllRead}
+        />
 
         <div className="topbar-user">
           <div className="topbar-user-avatar">{userInitials}</div>

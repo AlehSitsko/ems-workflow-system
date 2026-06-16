@@ -9,6 +9,7 @@ import {
   FaUserCog,
   FaBookOpen,
   FaTh,
+  FaBell,
 } from "react-icons/fa";
 
 import {
@@ -103,6 +104,12 @@ export const navigationGroups = [
   {
     title: "Help",
     items: [
+      {
+        label: "Notifications",
+        path: "/notifications",
+        icon: FaBell,
+        canAccess: () => true,
+      },
       {
         label: "User Manual",
         path: "/manual",

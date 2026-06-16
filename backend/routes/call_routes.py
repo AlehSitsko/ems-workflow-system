@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models import db, Call
+from notification_utils import create_notification
 
 
 # Blueprint for call history and call intake routes.
@@ -102,5 +103,21 @@ def create_call():
 
     db.session.add(new_call)
     db.session.commit()
+
+    # Notify if this call is scheduled for today.
+    today = datetime.now().strftime("%Y-%m-%d")
+    if new_call.trip_date == today:
+        from models import Patient
+        patient_name = ""
+        if new_call.patient_id:
+            p = Patient.query.get(new_call.patient_id)
+            if p:
+                patient_name = f"{p.first_name} {p.last_name} — "
+        create_notification(
+            "call_new_today", "info",
+            f"New call for today — {new_call.service_level or 'BLS'}",
+            f"{patient_name}{new_call.pickup_address or '?'} → {new_call.dropoff_address or '?'} at {new_call.pickup_time or '?'}",
+            entity_type="call", entity_id=new_call.id,
+        )
 
     return jsonify(new_call.to_dict()), 201

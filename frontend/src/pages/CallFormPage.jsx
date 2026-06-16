@@ -162,10 +162,11 @@ function CallFormPage() {
     setShowPatientLookupDrawer(true);
 
     try {
-      const results = await getPatients({
+      const data = await getPatients({
         name: trimmedLastName,
         dob: trimmedDob,
-      });
+      }, 1, 100);
+      const results = data.items;
 
       const filteredResults = trimmedPhone
         ? results.filter((patient) =>
@@ -856,17 +857,19 @@ function CallFormPage() {
                     />
                   </div>
 
-                  <div className="col-md-3">
-                    <label className="form-label">Appointment Time</label>
+                  {guidedCallData.serviceLevel !== "emergency" && (
+                    <div className="col-md-3">
+                      <label className="form-label">Appointment Time</label>
 
-                    <input
-                      type="time"
-                      className="form-control"
-                      name="appointmentTime"
-                      value={guidedCallData.appointmentTime}
-                      onChange={handleGuidedChange}
-                    />
-                  </div>
+                      <input
+                        type="time"
+                        className="form-control"
+                        name="appointmentTime"
+                        value={guidedCallData.appointmentTime}
+                        onChange={handleGuidedChange}
+                      />
+                    </div>
+                  )}
 
                   <div className="col-md-6">
                     <label className="form-label">Return Ride</label>
