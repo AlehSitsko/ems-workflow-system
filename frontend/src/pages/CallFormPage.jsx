@@ -400,7 +400,7 @@ function CallFormPage() {
         dropoff_address: guidedCallData.dropoffAddress,
 
         caller_type: guidedCallData.callerType,
-        call_type: guidedCallData.returnRideOption,
+        call_type: guidedCallData.returnRideOption !== "none" ? "scheduled" : "none",
         service_level: guidedCallData.serviceLevel,
 
         quality_score: currentQualityReport.score,
@@ -437,11 +437,6 @@ function CallFormPage() {
           guidedCallData.serviceLevel === "emergency"
             ? "Emergency service level selected."
             : "",
-          guidedCallData.returnRideOption !== "none"
-            ? `Return pickup: ${guidedCallData.returnPickup}; Return destination: ${guidedCallData.returnDestination}; Return time: ${
-                guidedCallData.returnTime || "Will Call"
-              }`
-            : "",
           `Call Quality Score: ${currentQualityReport.score}%`,
           currentQualityReport.criticalMissing.length > 0
             ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
@@ -461,7 +456,37 @@ function CallFormPage() {
           .join("\n"),
       };
 
-      await createCall(callPayload);
+      const savedCall = await createCall(callPayload);
+
+      // Create a separate return leg call when return ride is selected
+      if (guidedCallData.returnRideOption !== "none" && guidedCallData.returnPickup) {
+        const returnPayload = {
+          patient_id: finalPatientId,
+          dispatcher_name: guidedCallData.dispatcherName,
+          received_at: new Date().toISOString(),
+          status: "new",
+          date_of_call: guidedCallData.callDate,
+          trip_date: guidedCallData.tripDate,
+          pickup_time: guidedCallData.returnTime || "",
+          appointment_time: "",
+          pickup_address: guidedCallData.returnPickup,
+          dropoff_address: guidedCallData.returnDestination,
+          caller_type: guidedCallData.callerType,
+          call_type: "return",
+          service_level: guidedCallData.serviceLevel,
+          quality_score: 0,
+          missing_critical_fields: "",
+          missing_optional_fields: "",
+          missing_info_explanation: "",
+          notes: [
+            `Return leg for call #${savedCall.id}`,
+            guidedCallData.dispatcherName ? `Dispatcher: ${guidedCallData.dispatcherName}` : "",
+            guidedCallData.returnTime ? `Pickup Time: ${guidedCallData.returnTime}` : "Pickup Time: Will Call",
+          ].filter(Boolean).join("\n"),
+        };
+        await createCall(returnPayload);
+      }
+
       setGuidedSaveMessage("Guided call and patient record saved successfully.");
       resetGuidedWorkflow();
     } catch (err) {

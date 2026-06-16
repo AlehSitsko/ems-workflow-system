@@ -83,22 +83,29 @@ function timeToMinutes(t) {
   return 99999;
 }
 
-// Expand return ride calls into outbound + return slots, sorted by pickup_time
+// Expand return ride calls into outbound + return slots, sorted by pickup_time.
+// Old-style records embed return info in notes and expand into 2 slots.
+// New-style records are already 2 separate Call rows (call_type="return").
 function expandAndSort(calls) {
   const result = [];
   for (const call of calls) {
-    result.push({ ...call, _slot: "outbound", _sortTime: timeToMinutes(call.pickup_time) });
-    if (hasReturnRide(call)) {
-      const ret = parseReturnInfo(call.notes);
+    const ret = parseReturnInfo(call.notes);
+    if (ret) {
+      // Old-style: return info embedded in notes — expand into two virtual slots
+      result.push({ ...call, _slot: "outbound", _sortTime: timeToMinutes(call.pickup_time) });
       result.push({
         ...call,
         _slot: "return",
         _returnInfo: ret,
-        pickup_address: ret?.returnPickup || "—",
-        dropoff_address: ret?.returnDestination || "—",
-        pickup_time: ret?.returnTime || "",
-        _sortTime: timeToMinutes(ret?.returnTime || call.appointment_time),
+        pickup_address: ret.returnPickup || "—",
+        dropoff_address: ret.returnDestination || "—",
+        pickup_time: ret.returnTime || "",
+        _sortTime: timeToMinutes(ret.returnTime || call.appointment_time),
       });
+    } else {
+      // New-style or single-leg call — one slot, type determined by call_type
+      const slot = (call.call_type || "").toLowerCase() === "return" ? "return" : "outbound";
+      result.push({ ...call, _slot: slot, _sortTime: timeToMinutes(call.pickup_time) });
     }
   }
   return result.sort((a, b) => a._sortTime - b._sortTime);
@@ -200,15 +207,17 @@ function CallCard({ call, onDragStart }) {
 function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
-  const ret = hasReturnRide(call) ? parseReturnInfo(call.notes) : null;
+  const isReturnCall = (call.call_type || "").toLowerCase() === "return";
+  // Only show embedded return section for old-style records with return info in notes
+  const ret = parseReturnInfo(call.notes);
 
   return (
     <div className="mb-2">
-      {/* Outbound leg */}
+      {/* Primary leg */}
       <div style={{
         background: "#151b27",
         borderRadius: 6,
-        borderLeft: `3px solid ${emergency ? "#dc3545" : "#495057"}`,
+        borderLeft: `3px solid ${emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : "#495057"}`,
         padding: "8px 10px",
         marginBottom: ret ? 2 : 0,
       }}>
@@ -218,8 +227,8 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete 
               <span className="text-white fw-semibold" style={{ fontSize: 13 }}>
                 {call.patient_name || `Call #${call.id}`}
               </span>
-              <span style={{ fontSize: 10, color: "#adb5bd", background: "#2a3347", padding: "1px 6px", borderRadius: 4 }}>
-                OUTBOUND
+              <span style={{ fontSize: 10, color: isReturnCall ? "#6ea8fe" : "#adb5bd", background: isReturnCall ? "rgba(13,110,253,0.15)" : "#2a3347", padding: "1px 6px", borderRadius: 4 }}>
+                {isReturnCall ? "RETURN" : "OUTBOUND"}
               </span>
               {als && <span className="badge badge-als" style={{ fontSize: 10 }}>ALS</span>}
               {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
@@ -293,7 +302,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete 
 }
 
 function CompletedCallCard({ call }) {
-  const ret = hasReturnRide(call) ? parseReturnInfo(call.notes) : null;
+  const ret = parseReturnInfo(call.notes);
   return (
     <div className="mb-2" style={{ opacity: 0.45 }}>
       <div style={{
@@ -372,22 +381,37 @@ export default function DispatchBoardPage() {
   const [warning, setWarning] = useState(null);
   const [pendingAssign, setPendingAssign] = useState(null);
 
-  // Resizable left panel
+  // Resizable left panel (horizontal)
   const [leftWidth, setLeftWidth] = useState(280);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartW = useRef(280);
   const leftWidthRef = useRef(280);
 
+  // Resizable bottom panel (vertical)
+  const [bottomHeight, setBottomHeight] = useState(300);
+  const isRowDragging = useRef(false);
+  const rowDragStartY = useRef(0);
+  const rowDragStartH = useRef(300);
+  const bottomHeightRef = useRef(300);
+
   useEffect(() => {
     function onMove(e) {
-      if (!isDragging.current) return;
-      const delta = e.clientX - dragStartX.current;
-      const next = Math.max(180, Math.min(520, dragStartW.current + delta));
-      leftWidthRef.current = next;
-      setLeftWidth(next);
+      if (isDragging.current) {
+        const delta = e.clientX - dragStartX.current;
+        const next = Math.max(180, Math.min(520, dragStartW.current + delta));
+        leftWidthRef.current = next;
+        setLeftWidth(next);
+      }
+      if (isRowDragging.current) {
+        // Drag up = bigger bottom panel
+        const delta = rowDragStartY.current - e.clientY;
+        const next = Math.max(120, Math.min(600, rowDragStartH.current + delta));
+        bottomHeightRef.current = next;
+        setBottomHeight(next);
+      }
     }
-    function onUp() { isDragging.current = false; }
+    function onUp() { isDragging.current = false; isRowDragging.current = false; }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
@@ -398,6 +422,13 @@ export default function DispatchBoardPage() {
     isDragging.current = true;
     dragStartX.current = e.clientX;
     dragStartW.current = leftWidthRef.current;
+  }
+
+  function handleRowDividerMouseDown(e) {
+    e.preventDefault();
+    isRowDragging.current = true;
+    rowDragStartY.current = e.clientY;
+    rowDragStartH.current = bottomHeightRef.current;
   }
 
   const currentUser = getCurrentUser();
@@ -587,7 +618,7 @@ export default function DispatchBoardPage() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#151b27" }}>
 
           {/* Unit table */}
-          <div style={{ flex: 1, overflowY: "auto", background: "#151b27" }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "#151b27" }}>
             <table className="table table-dark table-hover mb-0" style={{ fontSize: 13 }}>
               <thead style={{ position: "sticky", top: 0, background: "#0f1520", zIndex: 1 }}>
                 <tr>
@@ -683,9 +714,19 @@ export default function DispatchBoardPage() {
             </table>
           </div>
 
+          {/* Row drag divider */}
+          {selectedUnit && (
+            <div
+              onMouseDown={handleRowDividerMouseDown}
+              style={{ height: 5, flexShrink: 0, background: "#2a3347", cursor: "row-resize" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#6ea8fe55")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#2a3347")}
+            />
+          )}
+
           {/* Selected unit bottom panel */}
           {selectedUnit && (
-            <div style={{ borderTop: "2px solid #2a3347", background: "#0f1520", maxHeight: 340, overflowY: "auto", flexShrink: 0 }}>
+            <div style={{ background: "#0f1520", height: bottomHeight, overflowY: "auto", flexShrink: 0 }}>
               {/* Unit header */}
               <div className="px-3 py-2 d-flex align-items-center gap-3 flex-wrap" style={{ borderBottom: "1px solid #2a3347" }}>
                 <span className="fw-bold text-white">Unit {selectedUnit.truckNumber}</span>
