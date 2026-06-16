@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash
 
 from limiter import limiter
@@ -25,6 +26,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Connect SQLAlchemy to the Flask app.
 db.init_app(app)
+
+# Alembic migrations via Flask-Migrate.
+migrate = Migrate(app, db)
 
 # Rate limiter — in-memory storage, keyed by client IP.
 limiter.init_app(app)
