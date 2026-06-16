@@ -11,6 +11,7 @@ from routes.crew_preset_routes import crew_preset_bp
 from routes.patient_routes import patient_bp
 from routes.call_routes import call_bp
 from routes.analytics_routes import analytics_bp
+from routes.dispatch_routes import dispatch_bp
 
 
 app = Flask(__name__)
@@ -43,6 +44,9 @@ app.register_blueprint(call_bp)
 
 # Register supervisor analytics routes.
 app.register_blueprint(analytics_bp)
+
+# Register dispatch board routes.
+app.register_blueprint(dispatch_bp)
 
 
 @app.route("/")

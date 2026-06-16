@@ -9,6 +9,7 @@ import {
   FaBookOpen,
   FaChartBar,
   FaUserCog,
+  FaTh,
 } from "react-icons/fa";
 
 import {
@@ -95,6 +96,12 @@ function HomePage({ currentUser }) {
       </div>
 
       <div className="dashboard-stats-grid">
+        <StatCard
+          label="Dispatch Board"
+          value="Live"
+          helper="Assign calls to units and track status"
+        />
+
         {canTakeCalls && (
           <>
             <StatCard
@@ -139,12 +146,20 @@ function HomePage({ currentUser }) {
 
           <div className="dashboard-grid">
             <DashboardCard
+              title="Dispatch Board"
+              description="Assign calls to units, track unit status, and manage active trips."
+              path="/dispatch"
+              buttonText="Open Dispatch"
+              icon={FaTh}
+              variant="primary"
+            />
+
+            <DashboardCard
               title="Start Taking Call"
               description="Create a new EMS call record and document trip details."
               path="/call-form"
               buttonText="Start Call"
               icon={FaPhoneAlt}
-              variant="primary"
             />
 
             {canAccessPatients && (
