@@ -1,5 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
+  FaMapMarkerAlt,
+  FaClock,
+  FaUser,
+  FaAmbulance,
+  FaPhoneAlt,
+  FaClipboardList,
+  FaArrowRight,
+  FaCalendarAlt,
+  FaIdBadge,
+} from "react-icons/fa";
+import {
   fetchBoard,
   assignCall,
   unassignCall,
@@ -352,94 +363,207 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
 
+  // Pull structured fields from notes (they're stored inline as text)
+  const notesLines = (call.notes || "").split("\n").filter(Boolean);
+  const dispatcher = notesLines.find((l) => l.startsWith("Dispatcher:"))?.replace("Dispatcher:", "").trim();
+  const phone = notesLines.find((l) => l.startsWith("Phone:"))?.replace("Phone:", "").trim();
+  const dob = notesLines.find((l) => l.startsWith("DOB:"))?.replace("DOB:", "").trim();
+  const callerNote = notesLines.find((l) => l.startsWith("Caller note:"))?.replace("Caller note:", "").trim();
+  const cleanNotes = notesLines
+    .filter((l) => !l.startsWith("Dispatcher:") && !l.startsWith("Phone:") && !l.startsWith("DOB:") &&
+      !l.startsWith("Patient:") && !l.startsWith("Linked Patient") && !l.startsWith("Pickup Time:") &&
+      !l.startsWith("Appointment Time:") && !l.startsWith("Call Quality") && !l.startsWith("Missing") &&
+      !l.startsWith("Caller note:") && !l.startsWith("Return leg"))
+    .join("\n").trim();
+
+  const accentColor = emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : isCompleted ? "#6c757d" : "#0d6efd";
+  const slColor = { bls: "#75b798", als: "#6ea8fe", emergency: "#ea868f", stretcher: "#c29ffa" }[call.service_level?.toLowerCase()] || "#adb5bd";
+
+  const Section = ({ icon: Icon, title, children }) => (
+    <div style={{ marginBottom: 14 }}>
+      <div className="d-flex align-items-center gap-2 mb-2">
+        <span style={{ color: "#6c757d", fontSize: 12 }}><Icon /></span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#6c757d", textTransform: "uppercase" }}>{title}</span>
+        <div style={{ flex: 1, height: 1, background: "#2a3347" }} />
+      </div>
+      {children}
+    </div>
+  );
+
   return (
-    <div className="modal d-block" style={{ background: "rgba(0,0,0,0.72)", zIndex: 1060 }} tabIndex={-1} onClick={onClose}>
-      <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-content" style={{ background: "#1a2236", border: "1px solid #2a3347", borderRadius: 12 }}>
-          <div className="modal-header" style={{ borderBottom: "1px solid #2a3347", padding: "12px 16px" }}>
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              <h6 className="modal-title text-white mb-0 fw-bold">
-                {call.patient_name || `Call #${call.id}`}
-              </h6>
-              {isReturnCall && <span style={{ fontSize: 10, color: "#6ea8fe", background: "rgba(13,110,253,0.15)", padding: "1px 6px", borderRadius: 4 }}>RETURN</span>}
-              {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMERGENCY</span>}
-              {als && <span className="badge badge-als" style={{ fontSize: 10 }}>ALS</span>}
-              {isCompleted && <span className="badge bg-secondary" style={{ fontSize: 10 }}>COMPLETED</span>}
+    <div className="modal d-block" style={{ background: "rgba(0,0,0,0.78)", zIndex: 1060 }} tabIndex={-1} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-content" style={{ background: "#131d2e", border: `1px solid ${accentColor}44`, borderRadius: 14, overflow: "hidden" }}>
+
+          {/* Color bar + header */}
+          <div style={{ background: `linear-gradient(135deg, ${accentColor}22 0%, #1a2236 100%)`, borderBottom: `1px solid ${accentColor}33`, padding: "14px 18px" }}>
+            <div className="d-flex align-items-start justify-content-between">
+              <div>
+                <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
+                  <span className="fw-bold text-white" style={{ fontSize: 17 }}>
+                    {call.patient_name || `Call #${call.id}`}
+                  </span>
+                  {isReturnCall && (
+                    <span style={{ fontSize: 11, color: "#6ea8fe", background: "rgba(13,110,253,0.18)", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>RETURN</span>
+                  )}
+                  {emergency && (
+                    <span style={{ fontSize: 11, background: "rgba(220,53,69,0.2)", color: "#ea868f", padding: "2px 8px", borderRadius: 20, fontWeight: 700, border: "1px solid #dc354555" }}>⚡ EMERGENCY</span>
+                  )}
+                </div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <span style={{ fontSize: 12, color: slColor, background: `${slColor}18`, padding: "2px 10px", borderRadius: 20, fontWeight: 700, border: `1px solid ${slColor}44` }}>
+                    {(call.service_level || "—").toUpperCase()}
+                  </span>
+                  {isCompleted ? (
+                    <span style={{ fontSize: 11, color: "#adb5bd", background: "rgba(108,117,125,0.2)", padding: "2px 8px", borderRadius: 20, border: "1px solid #49505744" }}>✓ Completed</span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "#75b798", background: "rgba(25,135,84,0.15)", padding: "2px 8px", borderRadius: 20, border: "1px solid #75b79844" }}>● Active</span>
+                  )}
+                  <span style={{ fontSize: 11, color: "#6c757d" }}>#{call.id}</span>
+                </div>
+              </div>
+              <button className="btn-close btn-close-white" style={{ fontSize: 11, opacity: 0.6 }} onClick={onClose} />
             </div>
-            <button className="btn-close btn-close-white ms-auto" style={{ fontSize: 12 }} onClick={onClose} />
           </div>
 
-          <div className="modal-body" style={{ padding: "14px 16px" }}>
-            <div className="row g-2" style={{ fontSize: 13 }}>
-              <div className="col-6">
-                <div className="text-muted" style={{ fontSize: 11 }}>Pickup Time</div>
-                <div className="text-white">{call.pickup_time || "—"}</div>
-              </div>
-              <div className="col-6">
-                <div className="text-muted" style={{ fontSize: 11 }}>Appt Time</div>
-                <div className="text-white">{call.appointment_time || "—"}</div>
-              </div>
-              <div className="col-12">
-                <div className="text-muted" style={{ fontSize: 11 }}>From</div>
-                <div className="text-white">{call.pickup_address || "—"}</div>
-              </div>
-              <div className="col-12">
-                <div className="text-muted" style={{ fontSize: 11 }}>To</div>
-                <div className="text-white">{call.dropoff_address || "—"}</div>
-              </div>
-              <div className="col-6">
-                <div className="text-muted" style={{ fontSize: 11 }}>Service Level</div>
-                <div className="text-white">{(call.service_level || "—").toUpperCase()}</div>
-              </div>
-              <div className="col-6">
-                <div className="text-muted" style={{ fontSize: 11 }}>Call Type</div>
-                <div className="text-white">{call.call_type || "—"}</div>
-              </div>
-              <div className="col-6">
-                <div className="text-muted" style={{ fontSize: 11 }}>Trip Date</div>
-                <div className="text-white">{call.trip_date || "—"}</div>
-              </div>
-              <div className="col-6">
-                <div className="text-muted" style={{ fontSize: 11 }}>Call #</div>
-                <div className="text-white">{call.id}</div>
-              </div>
-              {call.notes && (
-                <div className="col-12 mt-1">
-                  <div className="text-muted" style={{ fontSize: 11 }}>Notes</div>
-                  <div style={{ fontSize: 12, color: "#adb5bd", whiteSpace: "pre-wrap", maxHeight: 90, overflowY: "auto", background: "#151b27", borderRadius: 6, padding: "6px 8px", marginTop: 4 }}>
-                    {call.notes}
+          <div style={{ padding: "16px 18px", maxHeight: "65vh", overflowY: "auto" }}>
+
+            {/* Trip route */}
+            <Section icon={FaMapMarkerAlt} title="Route">
+              <div style={{ background: "#1a2236", borderRadius: 10, padding: "10px 14px" }}>
+                <div className="d-flex align-items-start gap-3">
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 3 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#75b798", border: "2px solid #75b798" }} />
+                    <div style={{ width: 1, height: 28, background: "#2a3347", margin: "3px 0" }} />
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor, border: `2px solid ${accentColor}` }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>PICKUP</div>
+                      <div style={{ fontSize: 13, color: "#e9ecef", fontWeight: 500 }}>{call.pickup_address || "—"}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>DROP-OFF</div>
+                      <div style={{ fontSize: 13, color: "#e9ecef", fontWeight: 500 }}>{call.dropoff_address || "—"}</div>
+                    </div>
                   </div>
                 </div>
-              )}
-              {ret && (
-                <div className="col-12 mt-1">
-                  <div className="text-muted" style={{ fontSize: 11 }}>Return Leg (legacy)</div>
+              </div>
+            </Section>
+
+            {/* Time */}
+            <Section icon={FaClock} title="Schedule">
+              <div className="d-flex gap-2">
+                <div style={{ flex: 1, background: "#1a2236", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 3 }}>PICKUP TIME</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#e9ecef" }}>{call.pickup_time || "—"}</div>
+                </div>
+                <div style={{ flex: 1, background: "#1a2236", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 3 }}>APPT TIME</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#e9ecef" }}>{call.appointment_time || "—"}</div>
+                </div>
+                <div style={{ flex: 1, background: "#1a2236", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 3 }}>TRIP DATE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#adb5bd" }}>{call.trip_date || "—"}</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* Patient / contact */}
+            {(dob || phone || dispatcher) && (
+              <Section icon={FaUser} title="Patient & Contact">
+                <div className="d-flex gap-2 flex-wrap">
+                  {dob && (
+                    <div style={{ background: "#1a2236", borderRadius: 8, padding: "7px 12px", minWidth: 120 }}>
+                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>DATE OF BIRTH</div>
+                      <div style={{ fontSize: 13, color: "#e9ecef" }}>{dob}</div>
+                    </div>
+                  )}
+                  {phone && (
+                    <div style={{ background: "#1a2236", borderRadius: 8, padding: "7px 12px", minWidth: 140 }}>
+                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>PHONE</div>
+                      <div style={{ fontSize: 13, color: "#e9ecef" }}><FaPhoneAlt style={{ fontSize: 10, marginRight: 4 }} />{phone}</div>
+                    </div>
+                  )}
+                  {dispatcher && (
+                    <div style={{ background: "#1a2236", borderRadius: 8, padding: "7px 12px", minWidth: 120 }}>
+                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>DISPATCHER</div>
+                      <div style={{ fontSize: 13, color: "#e9ecef" }}><FaIdBadge style={{ fontSize: 10, marginRight: 4 }} />{dispatcher}</div>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {/* Caller note */}
+            {callerNote && (
+              <Section icon={FaPhoneAlt} title="Caller Note">
+                <div style={{ background: "rgba(255,193,7,0.08)", border: "1px solid rgba(255,193,7,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#ffe69c" }}>
+                  {callerNote}
+                </div>
+              </Section>
+            )}
+
+            {/* Return leg (legacy embedded) */}
+            {ret && (
+              <Section icon={FaArrowRight} title="Return Leg">
+                <div style={{ background: "rgba(13,110,253,0.08)", border: "1px solid rgba(110,168,254,0.2)", borderRadius: 8, padding: "8px 12px" }}>
                   <div style={{ fontSize: 12, color: "#6ea8fe" }}>
-                    {ret.returnPickup} → {ret.returnDestination}
-                    {ret.returnTime ? ` @ ${ret.returnTime}` : " (Will Call)"}
+                    {ret.returnPickup} <FaArrowRight style={{ fontSize: 9 }} /> {ret.returnDestination}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#adb5bd", marginTop: 3 }}>
+                    {ret.returnTime ? `@ ${ret.returnTime}` : "Will Call"}
                   </div>
                 </div>
-              )}
-            </div>
+              </Section>
+            )}
+
+            {/* Additional notes */}
+            {cleanNotes && (
+              <Section icon={FaClipboardList} title="Notes">
+                <div style={{ background: "#1a2236", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#adb5bd", whiteSpace: "pre-wrap", maxHeight: 80, overflowY: "auto" }}>
+                  {cleanNotes}
+                </div>
+              </Section>
+            )}
           </div>
 
-          <div className="modal-footer d-flex gap-2" style={{ borderTop: "1px solid #2a3347", padding: "10px 16px" }}>
+          {/* Footer actions */}
+          <div style={{ background: "#0f1520", borderTop: "1px solid #2a3347", padding: "12px 18px", display: "flex", gap: 8, alignItems: "center" }}>
             {!isCompleted && (
               <>
-                <button className="btn btn-sm btn-outline-success" onClick={() => { onComplete(call.assignment_id); onClose(); }}>
-                  ✓ Complete
+                <button
+                  className="btn btn-sm"
+                  style={{ background: "rgba(25,135,84,0.15)", color: "#75b798", border: "1px solid #75b79855", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
+                  onClick={() => { onComplete(call.assignment_id); onClose(); }}
+                >
+                  ✓ Mark Complete
                 </button>
-                <button className="btn btn-sm btn-outline-secondary" onClick={() => { onUnassign(call.assignment_id); onClose(); }}>
-                  Unassign
+                <button
+                  className="btn btn-sm"
+                  style={{ background: "rgba(108,117,125,0.12)", color: "#adb5bd", border: "1px solid #49505755", fontSize: 13, padding: "6px 14px" }}
+                  onClick={() => { onUnassign(call.assignment_id); onClose(); }}
+                >
+                  ↩ Unassign
                 </button>
               </>
             )}
             {isCompleted && (
-              <button className="btn btn-sm btn-outline-warning" onClick={() => { onReopen(call.assignment_id); onClose(); }}>
-                ↩ Reopen
+              <button
+                className="btn btn-sm"
+                style={{ background: "rgba(255,193,7,0.12)", color: "#ffc107", border: "1px solid #ffc10755", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
+                onClick={() => { onReopen(call.assignment_id); onClose(); }}
+              >
+                ↩ Reopen Call
               </button>
             )}
-            <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={onClose}>Close</button>
+            <button
+              className="btn btn-sm ms-auto"
+              style={{ background: "transparent", color: "#6c757d", border: "1px solid #2a3347", fontSize: 13, padding: "6px 14px" }}
+              onClick={onClose}
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
