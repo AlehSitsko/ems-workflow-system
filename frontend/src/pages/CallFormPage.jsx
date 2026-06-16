@@ -29,26 +29,7 @@ import PriceCalculator from "../components/PriceCalculator";
 // Import the export/print action buttons component.
 import ExportButtons from "../components/ExportButtons";
 
-// Read logged-in user from localStorage.
-// This mirrors the MVP auth behavior used by CallForm.
-const getLoggedDispatcherName = () => {
-  const storedUser = localStorage.getItem("ems_current_user");
-
-  if (!storedUser) {
-    return "";
-  }
-
-  try {
-    const user = JSON.parse(storedUser);
-    return user.display_name || user.username || "";
-  } catch (err) {
-    console.error("Failed to read logged dispatcher:", err);
-    return "";
-  }
-};
-
-// Return today's date in YYYY-MM-DD format.
-const getTodayDate = () => new Date().toISOString().split("T")[0];
+import { getLoggedDispatcherName, getTodayDate } from "../utils/callUtils";
 
 // Initial guided call state.
 const getInitialGuidedCallData = () => ({
@@ -109,10 +90,10 @@ function CallFormPage() {
   const [missingInfoExplanation, setMissingInfoExplanation] = useState("");
 
   const guidedServiceLevelOptions = [
-    { value: "stretcher", label: "STRETCHER" },
+    { value: "stretcher", label: "Stretcher" },
     { value: "bls", label: "BLS" },
     { value: "als", label: "ALS" },
-    { value: "emergency", label: "EMERGENCY" },
+    { value: "emergency", label: "Emergency" },
   ];
 
   // Clear both the form and the calculator at the same time.
