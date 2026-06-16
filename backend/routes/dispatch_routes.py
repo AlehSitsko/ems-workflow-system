@@ -174,6 +174,22 @@ def complete_assignment(assignment_id):
     return jsonify({"ok": True})
 
 
+@dispatch_bp.route("/assign/<int:assignment_id>/reopen", methods=["PATCH"])
+def reopen_assignment(assignment_id):
+    assignment = db.session.get(CallAssignment, assignment_id)
+    if not assignment:
+        return jsonify({"error": "Assignment not found"}), 404
+
+    assignment.is_active = True
+
+    call = db.session.get(Call, assignment.call_id)
+    if call:
+        call.status = "assigned"
+
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 @dispatch_bp.route("/units/<int:unit_id>/status", methods=["PATCH"])
 def update_unit_status(unit_id):
     unit = db.session.get(DailyCrewUnit, unit_id)

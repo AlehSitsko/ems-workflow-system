@@ -154,6 +154,56 @@
   color: #ffffff;
 }
 
+/* Collapsed sidebar */
+.app-sidebar {
+  transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease;
+}
+
+.app-sidebar.collapsed {
+  width: 64px;
+  min-width: 64px;
+  padding: 1rem 0.5rem;
+  overflow: visible;
+}
+
+.app-sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  padding: 0.75rem 0 1.25rem;
+}
+
+.app-sidebar.collapsed .sidebar-brand-title,
+.app-sidebar.collapsed .sidebar-brand-subtitle,
+.app-sidebar.collapsed .sidebar-group-title,
+.app-sidebar.collapsed .sidebar-link-label,
+.app-sidebar.collapsed .sidebar-collapse-text {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-link {
+  justify-content: center;
+  padding: 0.65rem 0;
+  gap: 0;
+}
+
+.app-sidebar.collapsed .sidebar-link:hover {
+  transform: none;
+}
+
+.app-sidebar.collapsed .sidebar-collapse-button {
+  justify-content: center;
+  padding: 0.65rem 0;
+  gap: 0;
+}
+
+.app-sidebar.collapsed .sidebar-collapse-chevron {
+  transform: rotate(180deg);
+}
+
+.sidebar-collapse-chevron {
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
 /* =========================
    Topbar
    ========================= */
