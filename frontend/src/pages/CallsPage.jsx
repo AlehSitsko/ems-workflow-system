@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   FaCalendarDay,
   FaClock,
@@ -21,8 +21,13 @@ const CallsPage = () => {
   const [maxQualityScore, setMaxQualityScore] = useState("");
 
   const [expandedCallId, setExpandedCallId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const lastFilters = useRef({});
 
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
   // Return Bootstrap badge color based on quality score.
@@ -180,54 +185,49 @@ const CallsPage = () => {
     };
   };
 
-  // Load calls with current filters.
-  const loadCalls = async (filters = buildFilters()) => {
-    setLoading(true);
+  const PER_PAGE = 25;
+
+  // Load calls. append=true adds to existing list (Load more); false replaces.
+  const loadCalls = async (filters = buildFilters(), pageNum = 1, append = false) => {
+    lastFilters.current = filters;
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setError("");
 
     try {
-      const data = await getCalls(filters);
-      setCalls(data);
+      const data = await getCalls(filters, pageNum, PER_PAGE);
+      setCalls((prev) => append ? [...prev, ...data.items] : data.items);
+      setPage(data.page);
+      setTotal(data.total);
     } catch (err) {
       console.error("Failed to load calls:", err);
       setError("Failed to load calls.");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
-  // Load calls using all currently selected filters.
-  const handleApplyFilters = () => {
-    loadCalls();
-  };
+  const handleApplyFilters = () => loadCalls(buildFilters(), 1, false);
 
-  // Load all calls without filtering.
   const handleLoadAll = () => {
     setDateOfCall("");
     setDispatcherName("");
     setStatus("");
     setMinQualityScore("");
     setMaxQualityScore("");
-
-    loadCalls({});
+    loadCalls({}, 1, false);
   };
 
-  // Load today's calls.
   const handleToday = () => {
     const today = getTodayDate();
-
     setDateOfCall(today);
-
-    loadCalls({
-      date_of_call: today,
-      dispatcher_name: dispatcherName,
-      status,
-      min_quality_score: minQualityScore,
-      max_quality_score: maxQualityScore,
-    });
+    const filters = { date_of_call: today, dispatcher_name: dispatcherName, status, min_quality_score: minQualityScore, max_quality_score: maxQualityScore };
+    loadCalls(filters, 1, false);
   };
 
-  // Clear filters and table results.
+  const handleLoadMore = () => loadCalls(lastFilters.current, page + 1, true);
+
   const handleClear = () => {
     setDateOfCall("");
     setDispatcherName("");
@@ -236,6 +236,8 @@ const CallsPage = () => {
     setMaxQualityScore("");
     setCalls([]);
     setExpandedCallId(null);
+    setPage(1);
+    setTotal(0);
     setError("");
   };
 
@@ -273,8 +275,8 @@ const CallsPage = () => {
           </div>
 
           <div>
-            <div className="page-summary-value">{calls.length}</div>
-            <div className="page-summary-label">Loaded Calls</div>
+            <div className="page-summary-value">{total || calls.length}</div>
+            <div className="page-summary-label">Total Calls</div>
           </div>
         </div>
 
@@ -469,7 +471,7 @@ const CallsPage = () => {
           </div>
 
           <span className="badge text-bg-secondary">
-            {calls.length}
+            {calls.length} / {total}
           </span>
         </div>
 
@@ -622,6 +624,19 @@ const CallsPage = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {calls.length > 0 && calls.length < total && (
+          <div className="text-center mt-3">
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Loading..." : `Load more (${calls.length} of ${total})`}
+            </button>
           </div>
         )}
       </section>
