@@ -25,17 +25,9 @@ import {
 import { createCrewPreset, getCrewPresets } from "../api/crewPresetApi";
 
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
+import { getTodayDate } from "../utils/callUtils";
 
-/*
-  Available unit types for the planner.
-  These values are used by validation and crew slot visibility rules.
-*/
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
-
-/*
-  Returns today's date in YYYY-MM-DD format for date inputs.
-*/
-const getTodayDate = () => new Date().toISOString().split("T")[0];
 
 /*
   Default empty crew object.

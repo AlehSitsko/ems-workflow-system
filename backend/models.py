@@ -168,7 +168,9 @@ class DailyCrewUnit(db.Model):
             parsed_next_patients = json.loads(
                 self.next_patients
             ) if self.next_patients else []
-        except Exception:
+        except Exception as e:
+            import sys
+            print(f"[WARN] DailyCrewUnit {self.id} next_patients parse error: {e}", file=sys.stderr)
             parsed_next_patients = []
 
         return {

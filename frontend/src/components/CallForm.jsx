@@ -24,30 +24,12 @@ import {
   getPatients,
 } from "../api/patientsApi";
 
-// Read logged-in user from localStorage.
-// This is MVP-level auth state until backend sessions or tokens are added.
-const getLoggedDispatcherName = () => {
-  const storedUser = localStorage.getItem("ems_current_user");
-
-  if (!storedUser) {
-    return "";
-  }
-
-  try {
-    const user = JSON.parse(storedUser);
-    return user.display_name || user.username || "";
-  } catch (err) {
-    console.error("Failed to read logged dispatcher:", err);
-    return "";
-  }
-};
+import { getLoggedDispatcherName, getTodayDate } from "../utils/callUtils";
 
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger exposed methods externally.
 const CallForm = forwardRef((props, ref) => {
   const formRef = useRef(null);
-
-  const getTodayDate = () => new Date().toISOString().split("T")[0];
 
   const initialFormData = {
     dispatcherName: getLoggedDispatcherName(),
@@ -78,7 +60,7 @@ const CallForm = forwardRef((props, ref) => {
   };
 
   const serviceLevelOptions = [
-    { value: "stretcher", label: "Stretcher Base" },
+    { value: "stretcher", label: "Stretcher" },
     { value: "bls", label: "BLS" },
     { value: "als", label: "ALS" },
     { value: "emergency", label: "Emergency" },
