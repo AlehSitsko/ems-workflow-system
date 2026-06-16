@@ -499,8 +499,19 @@ export default function DispatchBoardPage() {
   }
 
   async function handleUnitDoubleClick(unit) {
-    const next = STATUS_NEXT[unit.dispatchStatus] || "available";
-    await handleStatusChange(unit.id, next);
+    if (unit.dispatchStatus === "at_destination") {
+      // Complete the current (first) assigned call and return unit to available
+      const sorted = [...(unit.assignedCalls || [])].sort(
+        (a, b) => timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time)
+      );
+      if (sorted.length > 0) {
+        await handleComplete(sorted[0].assignment_id);
+      }
+      await handleStatusChange(unit.id, "available");
+    } else {
+      const next = STATUS_NEXT[unit.dispatchStatus] || "available";
+      await handleStatusChange(unit.id, next);
+    }
   }
 
   async function handleStatusChange(unitId, status) {
@@ -659,8 +670,8 @@ export default function DispatchBoardPage() {
                       <td className="align-middle">
                         <div className="d-flex align-items-center gap-2">
                           <StatusPill status={unit.dispatchStatus} />
-                          <span style={{ fontSize: 10, color: "#495057" }}>
-                            → {STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}
+                          <span style={{ fontSize: 10, color: unit.dispatchStatus === "at_destination" ? "#75b798" : "#495057" }}>
+                            {unit.dispatchStatus === "at_destination" ? "→ Complete Call" : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
                           </span>
                         </div>
                       </td>
