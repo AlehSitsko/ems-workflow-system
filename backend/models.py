@@ -343,6 +343,10 @@ class Call(db.Model):
     call_type = db.Column(db.String(100))
     service_level = db.Column(db.String(100))
 
+    # Captured at intake — may differ from patient record.
+    caller_phone = db.Column(db.String(30))
+    caller_note = db.Column(db.Text)
+
     quality_score = db.Column(db.Integer)
 
     missing_critical_fields = db.Column(db.Text)
@@ -375,6 +379,9 @@ class Call(db.Model):
             "call_type": self.call_type,
             "service_level": self.service_level,
 
+            "caller_phone": self.caller_phone or "",
+            "caller_note": self.caller_note or "",
+
             "quality_score": self.quality_score,
 
             "missing_critical_fields": self.missing_critical_fields,
@@ -383,6 +390,55 @@ class Call(db.Model):
 
             "notes": self.notes,
         }
+
+
+class NotificationEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(100), nullable=False)
+    severity = db.Column(db.String(20), default="info")  # info | warning | critical
+    title = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text)
+    entity_type = db.Column(db.String(50))   # call | unit | employee
+    entity_id = db.Column(db.Integer)
+    created_at = db.Column(db.String(50), nullable=False)
+    expires_at = db.Column(db.String(50))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "severity": self.severity,
+            "title": self.title,
+            "body": self.body,
+            "entity_type": self.entity_type,
+            "entity_id": self.entity_id,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+        }
+
+
+class UserNotification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("notification_event.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.String(50), nullable=False)
+
+    def to_dict(self, event=None):
+        e = event or NotificationEvent.query.get(self.event_id)
+        base = e.to_dict() if e else {}
+        base.update({
+            "id": self.id,
+            "event_id": self.event_id,
+            "is_read": self.is_read,
+            "created_at": self.created_at,
+        })
+        return base
+
+
+class UserNotificationPrefs(db.Model):
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), primary_key=True)
+    prefs_json = db.Column(db.Text)  # JSON: {"call_new_today": true, ...}
 
 
 class CallAssignment(db.Model):

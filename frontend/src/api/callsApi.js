@@ -2,41 +2,19 @@ const API_BASE_URL = "http://127.0.0.1:5050";
 
 // Fetch all call records from the backend.
 // Optional filters are sent as query parameters.
-export async function getCalls(filters = {}) {
+// Returns { items, total, page, per_page, pages }
+export async function getCalls(filters = {}, page = 1, per_page = 25) {
   const params = new URLSearchParams();
 
-  // Filter by the date when the call was received.
-  if (filters.date_of_call) {
-    params.append("date_of_call", filters.date_of_call);
-  }
+  if (filters.date_of_call) params.append("date_of_call", filters.date_of_call);
+  if (filters.dispatcher_name) params.append("dispatcher_name", filters.dispatcher_name);
+  if (filters.min_quality_score) params.append("min_quality_score", filters.min_quality_score);
+  if (filters.max_quality_score) params.append("max_quality_score", filters.max_quality_score);
+  if (filters.status) params.append("status", filters.status);
+  params.append("page", page);
+  params.append("per_page", per_page);
 
-  // Filter by dispatcher name.
-  if (filters.dispatcher_name) {
-    params.append("dispatcher_name", filters.dispatcher_name);
-  }
-
-  // Filter by minimum quality score.
-  if (filters.min_quality_score) {
-    params.append("min_quality_score", filters.min_quality_score);
-  }
-
-  // Filter by maximum quality score.
-  if (filters.max_quality_score) {
-    params.append("max_quality_score", filters.max_quality_score);
-  }
-
-  // Filter by call lifecycle status.
-  if (filters.status) {
-    params.append("status", filters.status);
-  }
-
-  const queryString = params.toString();
-
-  const url = queryString
-    ? `${API_BASE_URL}/api/calls?${queryString}`
-    : `${API_BASE_URL}/api/calls`;
-
-  const response = await fetch(url);
+  const response = await fetch(`${API_BASE_URL}/api/calls?${params.toString()}`);
   const data = await response.json();
 
   if (!response.ok) {

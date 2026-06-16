@@ -162,10 +162,11 @@ function CallFormPage() {
     setShowPatientLookupDrawer(true);
 
     try {
-      const results = await getPatients({
+      const data = await getPatients({
         name: trimmedLastName,
         dob: trimmedDob,
-      });
+      }, 1, 100);
+      const results = data.items;
 
       const filteredResults = trimmedPhone
         ? results.filter((patient) =>
@@ -403,57 +404,15 @@ function CallFormPage() {
         call_type: guidedCallData.returnRideOption !== "none" ? "scheduled" : "none",
         service_level: guidedCallData.serviceLevel,
 
-        quality_score: currentQualityReport.score,
-        missing_critical_fields:
-          currentQualityReport.criticalMissing.join(", "),
-        missing_optional_fields:
-          currentQualityReport.nonCriticalMissing.join(", "),
-        missing_info_explanation: missingInfoExplanation.trim(),
+        caller_phone: guidedCallData.phoneNumber || null,
+        caller_note: guidedCallData.callerNote || null,
 
-        notes: [
-          guidedCallData.additionalInfo,
-          guidedCallData.callerNote
-            ? `Caller note: ${guidedCallData.callerNote}`
-            : "",
-          guidedCallData.dispatcherName
-            ? `Dispatcher: ${guidedCallData.dispatcherName}`
-            : "",
-          guidedCallData.firstName || guidedCallData.lastName
-            ? `Patient: ${guidedCallData.firstName} ${guidedCallData.lastName}`
-            : "",
-          finalPatientId
-            ? `Linked Patient ID: ${finalPatientId}`
-            : "Patient record was not created because required patient name fields were incomplete.",
-          guidedCallData.dob ? `DOB: ${guidedCallData.dob}` : "",
-          guidedCallData.phoneNumber
-            ? `Phone: ${guidedCallData.phoneNumber}`
-            : "",
-          guidedCallData.pickupTime
-            ? `Pickup Time: ${guidedCallData.pickupTime}`
-            : "",
-          guidedCallData.appointmentTime
-            ? `Appointment Time: ${guidedCallData.appointmentTime}`
-            : "",
-          guidedCallData.serviceLevel === "emergency"
-            ? "Emergency service level selected."
-            : "",
-          `Call Quality Score: ${currentQualityReport.score}%`,
-          currentQualityReport.criticalMissing.length > 0
-            ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
-                ", "
-              )}`
-            : "",
-          currentQualityReport.nonCriticalMissing.length > 0
-            ? `Missing Optional Fields: ${currentQualityReport.nonCriticalMissing.join(
-                ", "
-              )}`
-            : "",
-          missingInfoExplanation.trim()
-            ? `Missing Information Explanation: ${missingInfoExplanation.trim()}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
+        quality_score: currentQualityReport.score,
+        missing_critical_fields: currentQualityReport.criticalMissing.join(", "),
+        missing_optional_fields: currentQualityReport.nonCriticalMissing.join(", "),
+        missing_info_explanation: missingInfoExplanation.trim() || null,
+
+        notes: guidedCallData.additionalInfo || null,
       };
 
       const savedCall = await createCall(callPayload);
@@ -474,15 +433,13 @@ function CallFormPage() {
           caller_type: guidedCallData.callerType,
           call_type: "return",
           service_level: guidedCallData.serviceLevel,
+          caller_phone: guidedCallData.phoneNumber || null,
+          caller_note: null,
           quality_score: 0,
           missing_critical_fields: "",
           missing_optional_fields: "",
           missing_info_explanation: "",
-          notes: [
-            `Return leg for call #${savedCall.id}`,
-            guidedCallData.dispatcherName ? `Dispatcher: ${guidedCallData.dispatcherName}` : "",
-            guidedCallData.returnTime ? `Pickup Time: ${guidedCallData.returnTime}` : "Pickup Time: Will Call",
-          ].filter(Boolean).join("\n"),
+          notes: `Return leg for call #${savedCall.id}`,
         };
         await createCall(returnPayload);
       }
@@ -900,17 +857,19 @@ function CallFormPage() {
                     />
                   </div>
 
-                  <div className="col-md-3">
-                    <label className="form-label">Appointment Time</label>
+                  {guidedCallData.serviceLevel !== "emergency" && (
+                    <div className="col-md-3">
+                      <label className="form-label">Appointment Time</label>
 
-                    <input
-                      type="time"
-                      className="form-control"
-                      name="appointmentTime"
-                      value={guidedCallData.appointmentTime}
-                      onChange={handleGuidedChange}
-                    />
-                  </div>
+                      <input
+                        type="time"
+                        className="form-control"
+                        name="appointmentTime"
+                        value={guidedCallData.appointmentTime}
+                        onChange={handleGuidedChange}
+                      />
+                    </div>
+                  )}
 
                   <div className="col-md-6">
                     <label className="form-label">Return Ride</label>

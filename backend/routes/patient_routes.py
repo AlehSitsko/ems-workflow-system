@@ -26,9 +26,20 @@ def get_patients():
     if dob:
         query = query.filter(Patient.dob == dob)
 
-    patients = query.all()
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 25, type=int), 100)
 
-    return jsonify([patient.to_dict() for patient in patients])
+    pagination = query.order_by(Patient.last_name, Patient.first_name).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify({
+        "items": [patient.to_dict() for patient in pagination.items],
+        "total": pagination.total,
+        "page": pagination.page,
+        "per_page": pagination.per_page,
+        "pages": pagination.pages,
+    })
 
 
 # Create a new patient record.

@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient
+from notification_utils import create_notification
 
 
 dispatch_bp = Blueprint("dispatch", __name__, url_prefix="/api/dispatch")
@@ -23,6 +24,8 @@ def _call_with_patient(call):
         patient = Patient.query.get(call.patient_id)
         if patient:
             d["patient_name"] = f"{patient.first_name} {patient.last_name}"
+            d["patient_dob"] = patient.dob or ""
+            d["patient_phone"] = patient.phone or ""
     return d
 
 
@@ -138,6 +141,15 @@ def assign_call():
     db.session.add(assignment)
     call.status = "assigned"
     db.session.commit()
+
+    # Warn if ALS call assigned to BLS unit.
+    if (call.service_level or "").lower() == "als" and unit.unit_type.upper() == "BLS":
+        create_notification(
+            "call_als_on_bls", "warning",
+            f"ALS call #{call.id} assigned to BLS unit {unit.truck_number}",
+            f"{call.pickup_address or '?'} → {call.dropoff_address or '?'}",
+            entity_type="call", entity_id=call.id,
+        )
 
     return jsonify(assignment.to_dict()), 201
 

@@ -26,6 +26,7 @@ The system is designed as an operational support platform. It is not intended to
 * Operational call status tracking
 * Operational continuity during workflow disruptions
 * Modular architecture
+* In-app notification system with real-time polling
 
 The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, high-volume operational periods, and dispatcher training workflows.
 
@@ -36,9 +37,9 @@ The platform is intended to remain useful during normal operations, temporary so
 * React
 * Vite
 * JavaScript ES6+
-* React Router
+* React Router (HashRouter)
 * React Icons
-* Bootstrap
+* Bootstrap 5
 * Custom CSS layout system
 
 ### Backend
@@ -47,6 +48,8 @@ The platform is intended to remain useful during normal operations, temporary so
 * Flask
 * Flask Blueprints
 * Flask-CORS
+* Flask-Limiter (rate limiting)
+* Flask-Migrate (Alembic schema migrations)
 * SQLAlchemy
 
 ### Database
@@ -66,7 +69,10 @@ ems-workflow-system/
 ├── backend/
 │   ├── app.py
 │   ├── models.py
-│   ├── migrate.py
+│   ├── limiter.py
+│   ├── notification_utils.py
+│   ├── migrate.py                    (deprecated — use Flask-Migrate)
+│   ├── migrations/                   (Alembic migration files)
 │   ├── routes/
 │   │   ├── auth_routes.py
 │   │   ├── employee_routes.py
@@ -75,7 +81,8 @@ ems-workflow-system/
 │   │   ├── patient_routes.py
 │   │   ├── call_routes.py
 │   │   ├── analytics_routes.py
-│   │   └── dispatch_routes.py
+│   │   ├── dispatch_routes.py
+│   │   └── notification_routes.py
 │   └── utils/
 │
 ├── frontend/
@@ -91,7 +98,15 @@ ems-workflow-system/
 │   │   ├── components/
 │   │   │   ├── crew/
 │   │   │   └── layout/
+│   │   │       ├── AppLayout.jsx
+│   │   │       ├── Topbar.jsx
+│   │   │       ├── Sidebar.jsx
+│   │   │       ├── NotificationBell.jsx
+│   │   │       └── navigationConfig.js
+│   │   ├── hooks/
+│   │   │   └── useNotifications.js
 │   │   ├── pages/
+│   │   │   └── NotificationSettingsPage.jsx
 │   │   ├── styles/
 │   │   ├── utils/
 │   │   ├── App.jsx
@@ -115,7 +130,7 @@ The application currently uses an MVP authentication system with local user reco
 
 ### Current Features
 
-* Login system
+* Login system with rate limiting (10 attempts/minute per IP)
 * Role-aware navigation
 * Protected frontend routes
 * User management
@@ -129,7 +144,7 @@ The application currently uses an MVP authentication system with local user reco
 
 ### Admin
 
-Full system access.
+Full system access including notifications for all event types.
 
 Can access:
 
@@ -144,6 +159,8 @@ Can access:
 * Crew Presets
 * Supervisor Dashboard
 * Users
+* Notifications
+* Notification Settings
 * User Manual
 
 ### Supervisor
@@ -162,6 +179,8 @@ Can access:
 * Crew Planner
 * Crew Presets
 * Supervisor Dashboard
+* Notifications
+* Notification Settings
 * User Manual
 
 ### Dispatcher
@@ -177,6 +196,8 @@ Can access:
 * Patients
 * Calls
 * Crew Planner
+* Notifications
+* Notification Settings
 * User Manual
 
 Cannot access:
@@ -196,6 +217,8 @@ Can access:
 * Employees
 * Crew Planner
 * Crew Presets
+* Notifications (cert_expiring, employee_added only)
+* Notification Settings
 * User Manual
 
 Cannot access:
@@ -222,6 +245,7 @@ Current features:
 * Dispatch Board shortcut card
 * Start Taking Call shortcut for call-taking roles
 * Module cards organized by section
+* Collapsible sidebar
 * Responsive layout foundation
 
 ## Dispatch Board
@@ -235,6 +259,7 @@ Current features:
 * Emergency calls section (red left border) separated from Scheduled calls
 * Return ride calls displayed as two independent draggable slots (Outbound + Return)
 * Calls sorted by pickup time
+* Click on an open call to view full call details in a modal
 * Drag-and-drop assignment from Open Calls to unit rows
 * Service mismatch warning modal (ALS call on BLS unit)
 * Insufficient crew warning modal with override option
@@ -257,6 +282,7 @@ Current features:
 * Completed calls displayed at bottom of unit panel with strikethrough and reduced opacity
 * Unassign button to return call to Open Calls
 * Resizable Open Calls column via drag divider
+* Call detail modal with sections and visual hierarchy (icons, severity colors)
 * Dark operational theme throughout
 
 Operational rules enforced:
@@ -267,6 +293,7 @@ Operational rules enforced:
 * Emergency is a call priority, not a unit type
 * Out of Service always returns to Available
 * Return ride = two separate assignable trips
+* Dispatch Board is not accessible to HR role
 
 ## Call Taking Form
 
@@ -289,7 +316,7 @@ Current features:
 * Date of call
 * Date of trip
 * Pickup time
-* Appointment time
+* Appointment time (hidden when Emergency service level is selected)
 * Return ride support
 * Return ride address auto-fill (Dropoff → Return Pickup, Pickup → Return Destination)
 * Return addresses re-sync automatically when pickup or dropoff changes while return ride is active
@@ -327,7 +354,7 @@ Current features:
 * Date of call
 * Date of trip
 * Pickup time
-* Appointment time
+* Appointment time (hidden when Emergency service level is selected)
 * Return ride support
 * Service level selection
 * Emergency service level selection
@@ -341,6 +368,41 @@ Current features:
 * Received timestamp persistence
 * Initial call status persistence
 * Patient-to-call linking
+
+## Notifications
+
+The Notification System provides real-time operational alerts for all roles.
+
+Current features:
+
+* Bell icon in Topbar with unread badge (capped at "99+")
+* Dropdown list with all unread notifications
+* Per-notification: icon by type, title, body, time ago, severity color
+* Click to mark individual notification as read
+* "Mark all read" button
+* Polling every 10 seconds (no page refresh required)
+* Role-filtered event delivery (each role receives only relevant event types)
+* Per-user notification preferences (enable/disable by type)
+* Notification Settings page grouped by category
+
+### Notification Event Types
+
+| Type | Description | Roles |
+|------|-------------|-------|
+| call_unassigned_soon | Unassigned call with pickup < 30 min | admin, supervisor, dispatcher |
+| call_new_today | New call created for today | admin, supervisor, dispatcher |
+| call_als_on_bls | ALS call assigned to BLS unit | admin, supervisor, dispatcher |
+| unit_stuck_status | Unit in same status > N min | admin, supervisor, dispatcher |
+| unit_understaffed | Unit created with no crew | admin, supervisor |
+| cert_expiring | Employee certification expiring | admin, supervisor, hr |
+| employee_added | New employee added | admin, hr |
+
+### Notification Settings
+
+* Available at `/notifications` route
+* Toggle individual event types on/off per user
+* Grouped by category: Calls / Units / HR & Employees
+* Only shows types relevant to user's role
 
 ## Price Calculator
 
@@ -396,6 +458,7 @@ Current features:
 * New patient records can be created automatically from call intake
 * Duplicate patient prevention during call intake
 * Calls can be linked to patient records
+* Paginated list with "Load more" button
 
 ## Calls
 
@@ -425,6 +488,7 @@ Current features:
 * Dispatcher explanation review
 * Operational notes review
 * Linked patient ID stored when patient record exists
+* Paginated list with "Load more" button
 
 Important note:
 
@@ -671,12 +735,39 @@ The Patient model currently supports:
 * Emergency contact information
 * General notes
 
+### NotificationEvent
+
+The NotificationEvent model supports:
+
+* Event type (call_unassigned_soon, call_new_today, call_als_on_bls, unit_stuck_status, unit_understaffed, cert_expiring, employee_added)
+* Severity (info / warning / critical)
+* Title and body
+* Entity type and entity ID (for deduplication)
+* Created at timestamp
+* Optional expiry timestamp
+
+### UserNotification
+
+The UserNotification model supports:
+
+* Reference to NotificationEvent
+* Reference to User
+* Read status
+* Created at timestamp
+
+### UserNotificationPrefs
+
+The UserNotificationPrefs model supports:
+
+* Per-user JSON preferences keyed by event type
+* Defaults to all enabled
+
 ## Backend API
 
 ### Authentication
 
 ```text
-POST   /api/auth/login
+POST   /api/auth/login          (rate-limited: 10/min per IP)
 GET    /api/auth/users
 POST   /api/auth/users
 PUT    /api/auth/users/<user_id>
@@ -695,7 +786,7 @@ DELETE  /api/employees/<employee_id>
 ### Patients
 
 ```text
-GET     /api/patients
+GET     /api/patients           (?page=&per_page= supported)
 POST    /api/patients
 GET     /api/patient/<patient_id>
 PUT     /api/patient/<patient_id>
@@ -706,7 +797,7 @@ GET     /api/patient/<patient_id>/calls
 ### Calls
 
 ```text
-GET   /api/calls
+GET   /api/calls                (?page=&per_page= supported)
 POST  /api/calls
 ```
 
@@ -752,6 +843,16 @@ PATCH   /api/dispatch/assign/<assignment_id>/complete
 PATCH   /api/dispatch/units/<unit_id>/status
 ```
 
+### Notifications
+
+```text
+GET   /api/notifications?user_id=<id>
+POST  /api/notifications/read
+POST  /api/notifications/read-all
+GET   /api/notifications/prefs?user_id=<id>
+PUT   /api/notifications/prefs
+```
+
 ## Installation
 
 ## Backend
@@ -760,6 +861,7 @@ From the project root:
 
 ```powershell
 cd backend
+python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python app.py
@@ -789,25 +891,32 @@ http://localhost:5173
 
 ## Database Notes
 
-The project currently uses SQLite for local development.
+The project uses SQLite for local development and Flask-Migrate (Alembic) for schema migrations.
 
-If the backend database needs to be migrated after a schema change, run:
+### Running migrations
 
 ```powershell
 cd backend
-python migrate.py
+.\venv\Scripts\Activate.ps1
+flask --app app db upgrade
 ```
 
-The migrate.py script handles column additions without destroying existing data. It is safe to run multiple times.
+### Creating a new migration after model changes
 
-Recent schema additions:
-
-```text
-daily_crew_unit.dispatch_status
-call_assignment (new table)
+```powershell
+flask --app app db migrate -m "describe what changed"
+flask --app app db upgrade
 ```
 
-If starting fresh, deleting `backend/instance/database.db` and restarting the backend will recreate the full schema automatically.
+### Starting fresh
+
+Delete `backend/instance/database.db`, restart the backend, then stamp the baseline:
+
+```powershell
+flask --app app db stamp head
+```
+
+The legacy `migrate.py` is kept for reference only. Do not use it for schema changes.
 
 ## Development Workflow
 
@@ -838,202 +947,112 @@ Recommended workflow:
 7. Merge into main only after stable testing
 ```
 
-## Current Development Direction
+## Completed Features (as of Block 2 Phase 1)
 
-Current focus areas:
+### Block 1 — Tech Debt Stabilization (complete)
 
-* Dispatch Board refinement
-* Reorder assigned calls within a unit
-* Cancelled / no-show / refused call outcomes
-* Call status timestamps
-* JWT authentication
-* Backend permission middleware
-* PostgreSQL migration
-* Docker preparation
+* Task 1.1 — Caller phone and caller name stored in dedicated Call columns; click-to-open call detail modal on Dispatch Board
+* Task 1.2 — Pagination on Calls and Patients endpoints (`?page=&per_page=`); "Load more" button on frontend
+* Task 1.3 — Rate limiting on `/api/auth/login` (10 attempts/minute per IP, returns 429 JSON)
+* Task 1.4 — Flask-Migrate (Alembic) initialized with initial schema migration and notification models migration
 
-## Frontend Refactor Progress
+### Block 2 Phase 1 — In-App Notifications (complete)
 
-Completed:
-
-* Sidebar layout
-* Topbar layout
-* Dashboard redesign with Dispatch Board card
-* Role-aware module navigation
-* Patients page redesign
-* Patient add/edit drawer
-* Unsaved patient drawer protection
-* Employees page redesign
-* Employee add/edit drawer
-* Calls page compact list
-* Calls page emergency badge display
-* Calls page received timestamp display
-* Calls page initial status display
-* Calls page status filter
-* Crew Planner planned unit cards
-* Crew Planner create/edit drawer
-* Crew Planner unsaved changes confirmation
-* Unassigned employee chips
-* Role color badges
-* Classic Call Form visual redesign
-* Return ride address auto-fill on toggle and address change
-* Guided Call Intake workflow
-* Patient lookup drawer
-* Automatic patient creation from call intake
-* Duplicate patient prevention during call intake
-* Empty call save protection
-* Appointment Time field in call intake
-* Received timestamp persistence
-* Initial call status persistence
-* Price Calculator visual redesign
-* Waiting Time Fee support in Price Calculator
-* Emergency service level support in call intake
-* Dispatch Board page with drag-and-drop assignment
-* Dispatch Board open calls split into Emergency and Scheduled sections
-* Dispatch Board return ride as two independent trip slots
-* Dispatch Board calls sorted by pickup time
-* Dispatch Board service mismatch and crew warning modals
-* Dispatch Board unit type and status visual badges
-* Dispatch Board double-click to advance unit status
-* Dispatch Board resizable Open Calls column
-* Dispatch Board assigned call panel with current/queued distinction
-* Dispatch Board completed calls at bottom with strikethrough
-
-Extracted Crew Planner components:
-
-* PatientOrderSection
-* UnassignedEmployeesCard
-* PlannedUnitsList
-* CrewPresetsSection
-
-Remaining frontend targets:
-
-* Reorder assigned calls within a unit
-* Cancelled / no-show / refused outcomes on dispatch board
-* Additional Crew Planner component cleanup
-* Shared generic drawer component
-* Functional sidebar collapse
-* Functional notification system
-* More dashboard widgets
+* NotificationEvent, UserNotification, UserNotificationPrefs models
+* 7 event types with role-based routing
+* Deduplication logic (entity_id + time window)
+* Temporal polling checks (call_unassigned_soon, cert_expiring)
+* Notification bell in Topbar with 10-second polling
+* Mark as read / mark all read
+* Per-user notification preferences page at `/notifications`
 
 ## Roadmap
 
-## Priority 1 — Dispatch Board Refinements ← current
+### Next — Block 2 Phase 2
 
-* Reorder assigned calls (move up / move down)
-* Cancelled / no-show / refused call outcomes
-* Reason capture for non-completed outcomes
-* Call status timestamp recording (en route at, arrived at, etc.)
-* Service mismatch flag persistence
-* Warning indicator on assigned call row
+* Web Push notifications (pywebpush + service worker)
+* Auto-refresh Dispatch Board on a polling interval
+* Non-intrusive "Enable browser notifications?" banner on first login
 
-## Priority 2 — Security and Backend Enforcement
+### Block 3 — Time Tracking & Payroll
 
-* JWT authentication
-* Backend permission middleware
-* Audit logging
-* Route protection
-* Security hardening
-* Backend role enforcement
-* HR backend permission enforcement
-* Patient data access restrictions
+* TimeEntry model (clock_in, clock_out, break_minutes, status)
+* EmployeePayConfig (pay_type, hourly_rate, overtime rules)
+* Kiosk page at `/kiosk` — PIN-based clock in/out, no login required
+* Manual time entry for HR/supervisor
+* PayPeriod model and approval workflow
+* Payroll CSV export (Gusto / ADP format)
 
-## Priority 3 — Infrastructure
+### Block 4 — HR Documents
 
-* PostgreSQL migration
-* Docker support
-* Docker Compose deployment
-* Backup strategy
-* Production-ready environment configuration
+* EmployeeDocument model with storage abstraction (local → S3)
+* Document types: licenses, certs, HR docs, contracts
+* Documents tab in employee profile with color-coded expiry
+* Compliance Dashboard (employee × doc type grid)
 
-## Additional Planned Improvements
+### Block 5 — Operational Improvements
 
-### Authentication and Roles
+* AuditLog (who changed what and when)
+* Assignment conflict validation (overlap warnings)
+* Call export CSV (for billing / insurance / audit)
+* Repeat call / call templates
+* CallNote (append-only communication log per call)
 
-* JWT or secure session-based authentication
-* Backend permission checks
-* Role-specific API restrictions
-* Audit trail for sensitive actions
+### Tier 3 (Before Production)
 
-### UI / UX
+* JWT authentication (replace localStorage MVP)
+* PostgreSQL (replace SQLite)
+* Docker / Docker Compose deployment
 
-* Shared drawer component
-* Shared page panel components
-* Improved mobile layout
-* Functional sidebar collapse
-* Functional topbar search
-* Functional notifications
-* More dashboard widgets
-* Better print layout
-* More compact operator-focused screens
+### Developer Future Requests
 
-### Call Taking Form Evolution
+* Sound notification on new alert — play a sound when a new unread notification arrives during polling
 
-* More advanced guided step validation
-* Call type templates
-* Better autocomplete
-* Better trip duplication workflow
-* More structured return ride workflow
-* Billing estimate persistence
-* Emergency workflow expansion
-* Emergency-specific validation or checklist
+## Current Status
 
-### Workforce and Scheduling
+Development branch status:
 
-* Shift scheduling
-* Employee availability tracking
-* Staffing analytics
-* Certification alerts
-* Scheduling automation
-* Employee warnings
-* HR document tracking
-* Employee file attachments
+```text
+Stable — Block 1 complete, Block 2 Phase 1 complete
+```
 
-### Crew System Expansion
+Current implemented workflow:
 
-* Ambulance unit definitions
-* Dynamic staffing templates
-* Additional unit types
-* Crew recommendations
-* Auto-fill available crew slots
-* Better conflict resolution
-
-### Patient Operations
-
-* Patient flags
-* Cancellation tracking
-* No-show tracking
-* False call tracking
-* Reliability metrics
-* Operational history
-* Patient risk score
-* Patient notes and alerts
-* Duplicate patient merge workflow
-
-### Backend and Security
-
-* PostgreSQL migration
-* Docker support
-* Docker Compose deployment
-* Secure session handling
-* Database normalization
-* Backup strategy
-* Audit logging
-* API authorization middleware
-* Backend validation for protected workflows
-* Backend permission enforcement by role
-
-### Advanced Future Features
-
-* Offline mode
-* PWA support
-* Electron desktop application
-* SMTP integration
-* PDF generation
-* Notifications
-* Dashboard widgets
-* Reporting exports
-* Advanced analytics
-* Multi-organization support
+```text
+Authentication (rate-limited login)
+↓
+Role-Based Navigation
+↓
+Dashboard
+↓
+Call Intake (Classic + Guided)
+↓
+Duplicate Patient Prevention
+↓
+Automatic Patient Creation
+↓
+Patient Management (paginated)
+↓
+Call History (paginated)
+↓
+Employee Management
+↓
+Crew Planning
+↓
+Crew Presets
+↓
+Dispatch Board
+↓
+Call Assignment (drag-and-drop)
+↓
+Unit Status Tracking
+↓
+Call Completion
+↓
+Supervisor Analytics
+↓
+In-App Notifications (real-time polling)
+```
 
 ## This System Is
 
@@ -1056,90 +1075,6 @@ Remaining frontend targets:
 * A clinical documentation system
 * A full billing system
 * A CAD replacement
-
-## Current Status
-
-MVP status:
-
-```text
-Functional
-```
-
-Current implemented workflow:
-
-```text
-Authentication
-↓
-Role-Based Navigation
-↓
-Dashboard
-↓
-Call Intake (Classic + Guided)
-↓
-Duplicate Patient Prevention
-↓
-Automatic Patient Creation
-↓
-Patient Management
-↓
-Call History
-↓
-Employee Management
-↓
-Crew Planning
-↓
-Crew Presets
-↓
-Dispatch Board
-↓
-Call Assignment (drag-and-drop)
-↓
-Unit Status Tracking
-↓
-Call Completion
-↓
-Supervisor Analytics
-```
-
-Recently completed:
-
-* Dispatch Board live operational interface
-* CallAssignment backend model and routes
-* Drag-and-drop call-to-unit assignment
-* Unit dispatch status tracking and progression
-* Double-click unit row to advance status
-* Return ride displayed as two independent trip slots (Outbound + Return)
-* Calls sorted by pickup time on Dispatch Board
-* Current call vs queued call visual distinction in unit panel
-* Completed calls at bottom of unit panel with strikethrough
-* Done button to complete active assignments
-* Resizable Open Calls column on Dispatch Board
-* Driver eligibility fix: Driver role accepted in addition to EVOC certification
-* Crew Planner drawer unsaved changes confirmation
-* Return ride address auto-fill on toggle and address change
-
-## Long-Term Direction
-
-The long-term goal is to evolve EMS Workflow System into a modular operational platform capable of supporting:
-
-* EMS operations
-* Medical transportation
-* Logistics
-* Staff management
-* Scheduling
-* Dispatch operations
-* Operational coordination
-* Supervisor analytics
-* Quality improvement
-* Continuity workflows
-
-Future deployment targets:
-
-* Docker
-* Docker Compose
-* PostgreSQL
-* Self-hosted environments
-* Cloud environments
 
 ## Author
 

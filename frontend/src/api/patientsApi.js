@@ -6,26 +6,16 @@ function normalizePatientText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-// Fetch patients from the backend.
-// Optional filters are sent as query parameters.
-export async function getPatients(filters = {}) {
+// Returns { items, total, page, per_page, pages }
+export async function getPatients(filters = {}, page = 1, per_page = 25) {
   const params = new URLSearchParams();
 
-  if (filters.name) {
-    params.append("name", filters.name);
-  }
+  if (filters.name) params.append("name", filters.name);
+  if (filters.dob) params.append("dob", filters.dob);
+  params.append("page", page);
+  params.append("per_page", per_page);
 
-  if (filters.dob) {
-    params.append("dob", filters.dob);
-  }
-
-  const queryString = params.toString();
-
-  const url = queryString
-    ? `${API_BASE_URL}/api/patients?${queryString}`
-    : `${API_BASE_URL}/api/patients`;
-
-  const response = await fetch(url);
+  const response = await fetch(`${API_BASE_URL}/api/patients?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch patients");
@@ -46,13 +36,10 @@ export async function findDuplicatePatient(patientData) {
     return null;
   }
 
-  const results = await getPatients({
-    name: patientData.last_name,
-    dob,
-  });
+  const result = await getPatients({ name: patientData.last_name, dob }, 1, 100);
 
   return (
-    results.find((patient) => {
+    result.items.find((patient) => {
       const existingFirstName = normalizePatientText(patient.first_name);
       const existingLastName = normalizePatientText(patient.last_name);
       const existingDob = String(patient.dob || "").trim();

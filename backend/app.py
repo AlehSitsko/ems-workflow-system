@@ -1,6 +1,9 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash
+
+from limiter import limiter
 
 from models import db, User
 
@@ -12,6 +15,7 @@ from routes.patient_routes import patient_bp
 from routes.call_routes import call_bp
 from routes.analytics_routes import analytics_bp
 from routes.dispatch_routes import dispatch_bp
+from routes.notification_routes import notif_bp
 
 
 app = Flask(__name__)
@@ -23,6 +27,16 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Connect SQLAlchemy to the Flask app.
 db.init_app(app)
+
+# Alembic migrations via Flask-Migrate.
+migrate = Migrate(app, db)
+
+# Rate limiter — in-memory storage, keyed by client IP.
+limiter.init_app(app)
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({"error": "Too many login attempts. Please wait a minute and try again."}), 429
 
 # Register authentication and user management routes.
 app.register_blueprint(auth_bp)
@@ -47,6 +61,9 @@ app.register_blueprint(analytics_bp)
 
 # Register dispatch board routes.
 app.register_blueprint(dispatch_bp)
+
+# Register notification routes.
+app.register_blueprint(notif_bp)
 
 
 @app.route("/")

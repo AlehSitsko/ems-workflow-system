@@ -87,6 +87,9 @@ const PatientsPage = () => {
   const [newPatient, setNewPatient] = useState(emptyPatient);
   const [patients, setPatients] = useState([]);
   const [patientCalls, setPatientCalls] = useState([]);
+  const [paginationMeta, setPaginationMeta] = useState({ page: 1, total: 0, pages: 0 });
+  const [currentFilters, setCurrentFilters] = useState({});
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [showPatientForm, setShowPatientForm] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState(null);
@@ -95,6 +98,26 @@ const PatientsPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+
+  const PER_PAGE = 25;
+
+  const loadPatients = async (filters, pageNum = 1, append = false) => {
+    setCurrentFilters(filters);
+    if (append) setLoadingMore(true);
+    else setLoading(true);
+
+    try {
+      const data = await getPatients(filters, pageNum, PER_PAGE);
+      setPatients((prev) => append ? [...prev, ...data.items] : data.items);
+      setPaginationMeta({ page: data.page, total: data.total, pages: data.pages });
+    } catch (err) {
+      setError(err.message || "Failed to load patients.");
+      if (!append) setPatients([]);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
 
   // Reset the add/edit patient form and close the drawer.
   const resetPatientForm = () => {
@@ -185,9 +208,7 @@ const PatientsPage = () => {
       setSelectedPatient(savedPatient);
       setHasSearched(true);
 
-      const updatedPatients = await getPatients();
-      setPatients(updatedPatients);
-
+      await loadPatients(currentFilters, 1, false);
       await loadPatientCalls(savedPatient.id);
     } catch (err) {
       setError(err.message || "Operation failed.");
@@ -202,7 +223,6 @@ const PatientsPage = () => {
 
     setError("");
     setHasSearched(true);
-    setLoading(true);
 
     try {
       if (!searchName.trim() && !searchDob.trim()) {
@@ -213,12 +233,8 @@ const PatientsPage = () => {
         return;
       }
 
-      const filteredPatients = await getPatients({
-        name: searchName.trim(),
-        dob: searchDob.trim(),
-      });
-
-      setPatients(filteredPatients);
+      const filters = { name: searchName.trim(), dob: searchDob.trim() };
+      await loadPatients(filters, 1, false);
       setSelectedPatient(null);
       setPatientCalls([]);
     } catch (err) {
@@ -226,8 +242,6 @@ const PatientsPage = () => {
       setPatients([]);
       setSelectedPatient(null);
       setPatientCalls([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -235,18 +249,9 @@ const PatientsPage = () => {
   const handleShowAll = async () => {
     setError("");
     setHasSearched(true);
-    setLoading(true);
-
-    try {
-      const data = await getPatients();
-      setPatients(data);
-      setSelectedPatient(null);
-      setPatientCalls([]);
-    } catch (err) {
-      setError(err.message || "Failed to load patients.");
-    } finally {
-      setLoading(false);
-    }
+    setSelectedPatient(null);
+    setPatientCalls([]);
+    await loadPatients({}, 1, false);
   };
 
   // Delete a patient record.
@@ -254,13 +259,10 @@ const PatientsPage = () => {
     if (!window.confirm("Delete this patient?")) return;
 
     setError("");
-    setLoading(true);
 
     try {
       await deletePatient(id);
-
-      const updatedPatients = await getPatients();
-      setPatients(updatedPatients);
+      await loadPatients(currentFilters, 1, false);
 
       if (selectedPatient?.id === id) {
         setSelectedPatient(null);
@@ -272,8 +274,6 @@ const PatientsPage = () => {
       }
     } catch (err) {
       setError(err.message || "Delete failed.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -347,8 +347,8 @@ const PatientsPage = () => {
           </div>
 
           <div>
-            <div className="page-summary-value">{patients.length}</div>
-            <div className="page-summary-label">Loaded Patients</div>
+            <div className="page-summary-value">{paginationMeta.total || patients.length}</div>
+            <div className="page-summary-label">Total Patients</div>
           </div>
         </div>
 
@@ -483,7 +483,7 @@ const PatientsPage = () => {
               <p>Search results and available patient records.</p>
             </div>
 
-            <span className="badge text-bg-secondary">{patients.length}</span>
+            <span className="badge text-bg-secondary">{patients.length} / {paginationMeta.total}</span>
           </div>
 
           <div className="patient-list">
@@ -559,6 +559,19 @@ const PatientsPage = () => {
               );
             })}
           </div>
+
+          {patients.length < paginationMeta.total && (
+            <div className="text-center mt-3">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => loadPatients(currentFilters, paginationMeta.page + 1, true)}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading..." : `Load more (${patients.length} of ${paginationMeta.total})`}
+              </button>
+            </div>
+          )}
         </section>
       )}
 

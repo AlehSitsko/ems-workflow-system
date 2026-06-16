@@ -163,7 +163,7 @@ function UnitTypeBadge({ unitType }) {
   );
 }
 
-function CallCard({ call, onDragStart }) {
+function CallCard({ call, onDragStart, onCardClick }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturn = call._slot === "return";
@@ -172,6 +172,7 @@ function CallCard({ call, onDragStart }) {
     <div
       draggable
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(call); }}
+      onClick={() => onCardClick && onCardClick(call, false)}
       style={{
         borderLeft: `4px solid ${emergency ? "#dc3545" : isReturn ? "#6ea8fe" : "#495057"}`,
         background: "#1e2430",
@@ -363,17 +364,24 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
 
-  // Pull structured fields from notes (they're stored inline as text)
+  // Structured fields now have dedicated columns.
+  // For old records that still have data embedded in notes, fall back to regex.
   const notesLines = (call.notes || "").split("\n").filter(Boolean);
-  const dispatcher = notesLines.find((l) => l.startsWith("Dispatcher:"))?.replace("Dispatcher:", "").trim();
-  const phone = notesLines.find((l) => l.startsWith("Phone:"))?.replace("Phone:", "").trim();
-  const dob = notesLines.find((l) => l.startsWith("DOB:"))?.replace("DOB:", "").trim();
-  const callerNote = notesLines.find((l) => l.startsWith("Caller note:"))?.replace("Caller note:", "").trim();
+  const dispatcher = call.dispatcher_name
+    || notesLines.find((l) => l.startsWith("Dispatcher:"))?.replace("Dispatcher:", "").trim();
+  const phone = call.caller_phone
+    || call.patient_phone
+    || notesLines.find((l) => l.startsWith("Phone:"))?.replace("Phone:", "").trim();
+  const dob = call.patient_dob
+    || notesLines.find((l) => l.startsWith("DOB:"))?.replace("DOB:", "").trim();
+  const callerNote = call.caller_note
+    || notesLines.find((l) => l.startsWith("Caller note:"))?.replace("Caller note:", "").trim();
+  // Strip legacy structured lines from notes display
   const cleanNotes = notesLines
     .filter((l) => !l.startsWith("Dispatcher:") && !l.startsWith("Phone:") && !l.startsWith("DOB:") &&
       !l.startsWith("Patient:") && !l.startsWith("Linked Patient") && !l.startsWith("Pickup Time:") &&
       !l.startsWith("Appointment Time:") && !l.startsWith("Call Quality") && !l.startsWith("Missing") &&
-      !l.startsWith("Caller note:") && !l.startsWith("Return leg"))
+      !l.startsWith("Caller note:") && !l.startsWith("Return leg") && !l.startsWith("Emergency service"))
     .join("\n").trim();
 
   const accentColor = emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : isCompleted ? "#6c757d" : "#0d6efd";
@@ -845,7 +853,7 @@ export default function DispatchBoardPage() {
                   <span className="badge bg-danger rounded-pill ms-2">{emergencyCalls.length}</span>
                 </div>
                 {emergencyCalls.map((call, i) => (
-                  <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} />
+                  <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} onCardClick={handleCardClick} />
                 ))}
               </div>
             )}
@@ -855,7 +863,7 @@ export default function DispatchBoardPage() {
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#6c757d", letterSpacing: 1 }}>SCHEDULED</span>
                 </div>
                 {scheduledCalls.map((call, i) => (
-                  <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} />
+                  <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} onCardClick={handleCardClick} />
                 ))}
               </div>
             )}
