@@ -4,6 +4,7 @@ import {
   assignCall,
   unassignCall,
   completeAssignment,
+  reopenAssignment,
   updateUnitStatus,
 } from "../api/dispatchApi";
 import { getCurrentUser } from "../api/authApi";
@@ -204,7 +205,7 @@ function CallCard({ call, onDragStart }) {
   );
 }
 
-function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete }) {
+function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturnCall = (call.call_type || "").toLowerCase() === "return";
@@ -212,7 +213,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete 
   const ret = parseReturnInfo(call.notes);
 
   return (
-    <div className="mb-2">
+    <div className="mb-2" style={{ cursor: "pointer" }} onClick={() => onCardClick && onCardClick(call, false)}>
       {/* Primary leg */}
       <div style={{
         background: "#151b27",
@@ -255,7 +256,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete 
             <button
               className="btn btn-sm btn-outline-success"
               style={{ fontSize: 10, padding: "2px 8px" }}
-              onClick={() => onComplete(call.assignment_id)}
+              onClick={(e) => { e.stopPropagation(); onComplete(call.assignment_id); }}
               title="Mark as completed"
             >
               ✓ Done
@@ -263,7 +264,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete 
             <button
               className="btn btn-sm btn-outline-secondary"
               style={{ fontSize: 10, padding: "2px 8px" }}
-              onClick={() => onUnassign(call.assignment_id)}
+              onClick={(e) => { e.stopPropagation(); onUnassign(call.assignment_id); }}
             >
               Unassign
             </button>
@@ -301,10 +302,10 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete 
   );
 }
 
-function CompletedCallCard({ call }) {
+function CompletedCallCard({ call, onCardClick }) {
   const ret = parseReturnInfo(call.notes);
   return (
-    <div className="mb-2" style={{ opacity: 0.45 }}>
+    <div className="mb-2" style={{ opacity: 0.45, cursor: "pointer" }} onClick={() => onCardClick && onCardClick(call, true)}>
       <div style={{
         background: "#151b27",
         borderRadius: 6,
@@ -345,6 +346,107 @@ function CompletedCallCard({ call }) {
   );
 }
 
+function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen }) {
+  const ret = parseReturnInfo(call.notes);
+  const isReturnCall = (call.call_type || "").toLowerCase() === "return";
+  const emergency = isEmergencyCall(call);
+  const als = isAlsCall(call);
+
+  return (
+    <div className="modal d-block" style={{ background: "rgba(0,0,0,0.72)", zIndex: 1060 }} tabIndex={-1} onClick={onClose}>
+      <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-content" style={{ background: "#1a2236", border: "1px solid #2a3347", borderRadius: 12 }}>
+          <div className="modal-header" style={{ borderBottom: "1px solid #2a3347", padding: "12px 16px" }}>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <h6 className="modal-title text-white mb-0 fw-bold">
+                {call.patient_name || `Call #${call.id}`}
+              </h6>
+              {isReturnCall && <span style={{ fontSize: 10, color: "#6ea8fe", background: "rgba(13,110,253,0.15)", padding: "1px 6px", borderRadius: 4 }}>RETURN</span>}
+              {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMERGENCY</span>}
+              {als && <span className="badge badge-als" style={{ fontSize: 10 }}>ALS</span>}
+              {isCompleted && <span className="badge bg-secondary" style={{ fontSize: 10 }}>COMPLETED</span>}
+            </div>
+            <button className="btn-close btn-close-white ms-auto" style={{ fontSize: 12 }} onClick={onClose} />
+          </div>
+
+          <div className="modal-body" style={{ padding: "14px 16px" }}>
+            <div className="row g-2" style={{ fontSize: 13 }}>
+              <div className="col-6">
+                <div className="text-muted" style={{ fontSize: 11 }}>Pickup Time</div>
+                <div className="text-white">{call.pickup_time || "—"}</div>
+              </div>
+              <div className="col-6">
+                <div className="text-muted" style={{ fontSize: 11 }}>Appt Time</div>
+                <div className="text-white">{call.appointment_time || "—"}</div>
+              </div>
+              <div className="col-12">
+                <div className="text-muted" style={{ fontSize: 11 }}>From</div>
+                <div className="text-white">{call.pickup_address || "—"}</div>
+              </div>
+              <div className="col-12">
+                <div className="text-muted" style={{ fontSize: 11 }}>To</div>
+                <div className="text-white">{call.dropoff_address || "—"}</div>
+              </div>
+              <div className="col-6">
+                <div className="text-muted" style={{ fontSize: 11 }}>Service Level</div>
+                <div className="text-white">{(call.service_level || "—").toUpperCase()}</div>
+              </div>
+              <div className="col-6">
+                <div className="text-muted" style={{ fontSize: 11 }}>Call Type</div>
+                <div className="text-white">{call.call_type || "—"}</div>
+              </div>
+              <div className="col-6">
+                <div className="text-muted" style={{ fontSize: 11 }}>Trip Date</div>
+                <div className="text-white">{call.trip_date || "—"}</div>
+              </div>
+              <div className="col-6">
+                <div className="text-muted" style={{ fontSize: 11 }}>Call #</div>
+                <div className="text-white">{call.id}</div>
+              </div>
+              {call.notes && (
+                <div className="col-12 mt-1">
+                  <div className="text-muted" style={{ fontSize: 11 }}>Notes</div>
+                  <div style={{ fontSize: 12, color: "#adb5bd", whiteSpace: "pre-wrap", maxHeight: 90, overflowY: "auto", background: "#151b27", borderRadius: 6, padding: "6px 8px", marginTop: 4 }}>
+                    {call.notes}
+                  </div>
+                </div>
+              )}
+              {ret && (
+                <div className="col-12 mt-1">
+                  <div className="text-muted" style={{ fontSize: 11 }}>Return Leg (legacy)</div>
+                  <div style={{ fontSize: 12, color: "#6ea8fe" }}>
+                    {ret.returnPickup} → {ret.returnDestination}
+                    {ret.returnTime ? ` @ ${ret.returnTime}` : " (Will Call)"}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="modal-footer d-flex gap-2" style={{ borderTop: "1px solid #2a3347", padding: "10px 16px" }}>
+            {!isCompleted && (
+              <>
+                <button className="btn btn-sm btn-outline-success" onClick={() => { onComplete(call.assignment_id); onClose(); }}>
+                  ✓ Complete
+                </button>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => { onUnassign(call.assignment_id); onClose(); }}>
+                  Unassign
+                </button>
+              </>
+            )}
+            {isCompleted && (
+              <button className="btn btn-sm btn-outline-warning" onClick={() => { onReopen(call.assignment_id); onClose(); }}>
+                ↩ Reopen
+              </button>
+            )}
+            <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WarningModal({ warning, onConfirm, onCancel }) {
   if (!warning) return null;
   return (
@@ -380,6 +482,7 @@ export default function DispatchBoardPage() {
   const [dragOverUnitId, setDragOverUnitId] = useState(null);
   const [warning, setWarning] = useState(null);
   const [pendingAssign, setPendingAssign] = useState(null);
+  const [callModal, setCallModal] = useState(null); // { call, isCompleted }
 
   // Resizable left panel (horizontal)
   const [leftWidth, setLeftWidth] = useState(280);
@@ -535,6 +638,17 @@ export default function DispatchBoardPage() {
     } catch (e) { alert(`Complete failed: ${e.message}`); }
   }
 
+  async function handleReopen(assignmentId) {
+    try {
+      await reopenAssignment(assignmentId);
+      await loadBoard(date);
+    } catch (e) { alert(`Reopen failed: ${e.message}`); }
+  }
+
+  function handleCardClick(call, isCompleted) {
+    setCallModal({ call, isCompleted });
+  }
+
   // ── Derived data ───────────────────────────────────────────────────────
 
   const expandedCalls = expandAndSort(board.openCalls);
@@ -550,6 +664,16 @@ export default function DispatchBoardPage() {
         onConfirm={handleWarningConfirm}
         onCancel={() => { setWarning(null); setPendingAssign(null); }}
       />
+      {callModal && (
+        <CallDetailModal
+          call={callModal.call}
+          isCompleted={callModal.isCompleted}
+          onClose={() => setCallModal(null)}
+          onUnassign={handleUnassign}
+          onComplete={handleComplete}
+          onReopen={handleReopen}
+        />
+      )}
 
       {/* Header */}
       <div className="d-flex align-items-center gap-3 px-3 py-2" style={{ background: "#0f1520", borderBottom: "1px solid #2a3347", flexShrink: 0 }}>
@@ -807,6 +931,7 @@ export default function DispatchBoardPage() {
                     isCurrent={idx === 0}
                     onUnassign={handleUnassign}
                     onComplete={handleComplete}
+                    onCardClick={handleCardClick}
                   />
                 ))}
                 {(selectedUnit.completedCalls || []).length > 0 && (
@@ -815,7 +940,7 @@ export default function DispatchBoardPage() {
                       Completed
                     </div>
                     {(selectedUnit.completedCalls || []).map((call) => (
-                      <CompletedCallCard key={call.id} call={call} />
+                      <CompletedCallCard key={call.id} call={call} onCardClick={handleCardClick} />
                     ))}
                   </>
                 )}

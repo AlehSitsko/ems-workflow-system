@@ -28,6 +28,12 @@ export async function completeAssignment(assignmentId) {
   return res.json();
 }
 
+export async function reopenAssignment(assignmentId) {
+  const res = await fetch(`${BASE}/assign/${assignmentId}/reopen`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Failed to reopen assignment");
+  return res.json();
+}
+
 export async function updateUnitStatus(unitId, status) {
   const res = await fetch(`${BASE}/units/${unitId}/status`, {
     method: "PATCH",
