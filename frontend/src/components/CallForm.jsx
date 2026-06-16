@@ -367,7 +367,7 @@ const CallForm = forwardRef((props, ref) => {
         dropoff_address: formData.dropoffAddress,
 
         caller_type: formData.callerType,
-        call_type: formData.returnRideOption,
+        call_type: formData.returnRideOption !== "none" ? "scheduled" : "none",
         service_level: formData.serviceLevel,
 
         quality_score: currentQualityReport.score,
@@ -397,11 +397,6 @@ const CallForm = forwardRef((props, ref) => {
           formData.serviceLevel === "emergency"
             ? "Emergency service level selected."
             : "",
-          formData.returnRideOption !== "none"
-            ? `Return pickup: ${formData.returnPickup}; Return destination: ${formData.returnDestination}; Return time: ${
-                formData.returnTime || "Will Call"
-              }`
-            : "",
           `Call Quality Score: ${currentQualityReport.score}%`,
           currentQualityReport.criticalMissing.length > 0
             ? `Missing Critical Fields: ${currentQualityReport.criticalMissing.join(
@@ -422,6 +417,35 @@ const CallForm = forwardRef((props, ref) => {
       };
 
       const savedCall = await createCall(callPayload);
+
+      // Create a separate return leg call when return ride is selected
+      if (formData.returnRideOption !== "none" && formData.returnPickup) {
+        const returnPayload = {
+          patient_id: finalPatientId,
+          dispatcher_name: formData.dispatcherName,
+          received_at: new Date().toISOString(),
+          status: "new",
+          date_of_call: formData.callDate,
+          trip_date: formData.tripDate,
+          pickup_time: formData.returnTime || "",
+          appointment_time: "",
+          pickup_address: formData.returnPickup,
+          dropoff_address: formData.returnDestination,
+          caller_type: formData.callerType,
+          call_type: "return",
+          service_level: formData.serviceLevel,
+          quality_score: 0,
+          missing_critical_fields: "",
+          missing_optional_fields: "",
+          missing_info_explanation: "",
+          notes: [
+            `Return leg for call #${savedCall.id}`,
+            formData.dispatcherName ? `Dispatcher: ${formData.dispatcherName}` : "",
+            formData.returnTime ? `Pickup Time: ${formData.returnTime}` : "Pickup Time: Will Call",
+          ].filter(Boolean).join("\n"),
+        };
+        await createCall(returnPayload);
+      }
 
       console.log("Call saved:", savedCall);
       setSubmitMessage("Call and patient record saved successfully.");
