@@ -50,6 +50,7 @@ class Employee(db.Model):
 
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text)
+    kiosk_pin = db.Column(db.String(10))  # 4-digit PIN for Kiosk clock in/out
 
     # CPR certification.
     cpr_has_license = db.Column(db.Boolean, default=False)
@@ -84,6 +85,7 @@ class Employee(db.Model):
             "status": self.status or "active",
             "isActive": self.is_active,
             "notes": self.notes,
+            "kioskPin": self.kiosk_pin or "",
 
             "cpr": {
                 "hasLicense": self.cpr_has_license,
@@ -470,4 +472,72 @@ class CallAssignment(db.Model):
             "assignedAt": self.assigned_at,
             "assignedBy": self.assigned_by,
             "isActive": self.is_active,
+        }
+
+
+class TimeEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+
+    clock_in = db.Column(db.String(50), nullable=False)   # ISO datetime
+    clock_out = db.Column(db.String(50))                  # ISO datetime, null if still clocked in
+    break_minutes = db.Column(db.Integer, default=0)
+
+    # "clock" = kiosk/self, "manual" = HR/supervisor entry, "adjusted" = correction
+    entry_type = db.Column(db.String(20), default="clock")
+
+    # "pending" | "approved" | "disputed"
+    status = db.Column(db.String(20), default="pending")
+
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"))  # user who created (kiosk=employee link or HR)
+    approved_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    approved_at = db.Column(db.String(50))
+
+    def to_dict(self):
+        from datetime import datetime
+        duration_minutes = None
+        if self.clock_in and self.clock_out:
+            try:
+                ci = datetime.fromisoformat(self.clock_in)
+                co = datetime.fromisoformat(self.clock_out)
+                duration_minutes = int((co - ci).total_seconds() / 60) - (self.break_minutes or 0)
+            except Exception:
+                pass
+        return {
+            "id": self.id,
+            "employee_id": self.employee_id,
+            "clock_in": self.clock_in,
+            "clock_out": self.clock_out,
+            "break_minutes": self.break_minutes or 0,
+            "duration_minutes": duration_minutes,
+            "entry_type": self.entry_type,
+            "status": self.status,
+            "notes": self.notes,
+            "created_by": self.created_by,
+            "approved_by": self.approved_by,
+            "approved_at": self.approved_at,
+        }
+
+
+class EmployeePayConfig(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+
+    # "hourly" | "salary"
+    pay_type = db.Column(db.String(20), default="hourly")
+    hourly_rate = db.Column(db.Float, default=0.0)
+    overtime_rate = db.Column(db.Float, default=0.0)   # multiplier, e.g. 1.5
+    overtime_after = db.Column(db.Integer, default=40)  # hours/week before OT kicks in
+    effective_from = db.Column(db.String(20))           # YYYY-MM-DD
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "employee_id": self.employee_id,
+            "pay_type": self.pay_type,
+            "hourly_rate": self.hourly_rate,
+            "overtime_rate": self.overtime_rate,
+            "overtime_after": self.overtime_after,
+            "effective_from": self.effective_from,
         }

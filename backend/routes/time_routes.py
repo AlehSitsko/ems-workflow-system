@@ -1,0 +1,183 @@
+from datetime import datetime
+
+from flask import Blueprint, jsonify, request
+
+from models import db, TimeEntry, EmployeePayConfig, Employee
+
+time_bp = Blueprint("time", __name__, url_prefix="/api")
+
+
+# ── Time Entries ───────────────────────────────────────────────────────────
+
+@time_bp.route("/employees/<int:employee_id>/time-entries", methods=["GET"])
+def get_time_entries(employee_id):
+    Employee.query.get_or_404(employee_id)
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+
+    query = TimeEntry.query.filter(TimeEntry.employee_id == employee_id)
+    if date_from:
+        query = query.filter(TimeEntry.clock_in >= date_from)
+    if date_to:
+        query = query.filter(TimeEntry.clock_in < date_to + "T99")
+
+    entries = query.order_by(TimeEntry.clock_in.desc()).all()
+    return jsonify([e.to_dict() for e in entries])
+
+
+@time_bp.route("/employees/<int:employee_id>/time-entries", methods=["POST"])
+def create_time_entry(employee_id):
+    Employee.query.get_or_404(employee_id)
+    data = request.get_json() or {}
+
+    entry = TimeEntry(
+        employee_id=employee_id,
+        clock_in=data.get("clock_in") or datetime.now().isoformat(timespec="seconds"),
+        clock_out=data.get("clock_out"),
+        break_minutes=data.get("break_minutes", 0),
+        entry_type=data.get("entry_type", "manual"),
+        status=data.get("status", "pending"),
+        notes=data.get("notes"),
+        created_by=data.get("created_by"),
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify(entry.to_dict()), 201
+
+
+@time_bp.route("/time-entries/<int:entry_id>", methods=["PATCH"])
+def update_time_entry(entry_id):
+    entry = TimeEntry.query.get_or_404(entry_id)
+    data = request.get_json() or {}
+
+    for field in ("clock_in", "clock_out", "break_minutes", "entry_type", "status", "notes"):
+        if field in data:
+            setattr(entry, field, data[field])
+
+    if "approved_by" in data:
+        entry.approved_by = data["approved_by"]
+        entry.approved_at = datetime.now().isoformat(timespec="seconds")
+
+    db.session.commit()
+    return jsonify(entry.to_dict())
+
+
+@time_bp.route("/time-entries/<int:entry_id>", methods=["DELETE"])
+def delete_time_entry(entry_id):
+    entry = TimeEntry.query.get_or_404(entry_id)
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ── Kiosk: clock in/out by employee id (no auth required) ─────────────────
+
+@time_bp.route("/kiosk/employees", methods=["GET"])
+def kiosk_employee_list():
+    """Returns minimal employee list for kiosk PIN/name selection."""
+    employees = Employee.query.filter(Employee.is_active == True).order_by(Employee.last_name).all()
+    return jsonify([
+        {"id": e.id, "name": f"{e.first_name} {e.last_name}", "pin": e.kiosk_pin}
+        for e in employees
+    ])
+
+
+@time_bp.route("/kiosk/status/<int:employee_id>", methods=["GET"])
+def kiosk_status(employee_id):
+    """Returns current clock-in state for an employee."""
+    active = TimeEntry.query.filter(
+        TimeEntry.employee_id == employee_id,
+        TimeEntry.clock_out == None,
+        TimeEntry.entry_type == "clock",
+    ).order_by(TimeEntry.clock_in.desc()).first()
+    return jsonify({
+        "clocked_in": active is not None,
+        "entry_id": active.id if active else None,
+        "clock_in": active.clock_in if active else None,
+    })
+
+
+@time_bp.route("/kiosk/clock-in", methods=["POST"])
+def kiosk_clock_in(employee_id=None):
+    data = request.get_json() or {}
+    eid = data.get("employee_id")
+    if not eid:
+        return jsonify({"error": "employee_id required"}), 400
+
+    employee = Employee.query.get_or_404(eid)
+
+    # Prevent double clock-in
+    active = TimeEntry.query.filter(
+        TimeEntry.employee_id == eid,
+        TimeEntry.clock_out == None,
+        TimeEntry.entry_type == "clock",
+    ).first()
+    if active:
+        return jsonify({"error": "Already clocked in", "entry_id": active.id}), 409
+
+    entry = TimeEntry(
+        employee_id=eid,
+        clock_in=datetime.now().isoformat(timespec="seconds"),
+        entry_type="clock",
+        status="pending",
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify({"ok": True, "entry": entry.to_dict()}), 201
+
+
+@time_bp.route("/kiosk/clock-out", methods=["POST"])
+def kiosk_clock_out():
+    data = request.get_json() or {}
+    eid = data.get("employee_id")
+    if not eid:
+        return jsonify({"error": "employee_id required"}), 400
+
+    active = TimeEntry.query.filter(
+        TimeEntry.employee_id == eid,
+        TimeEntry.clock_out == None,
+        TimeEntry.entry_type == "clock",
+    ).order_by(TimeEntry.clock_in.desc()).first()
+
+    if not active:
+        return jsonify({"error": "Not clocked in"}), 409
+
+    active.clock_out = datetime.now().isoformat(timespec="seconds")
+    db.session.commit()
+    return jsonify({"ok": True, "entry": active.to_dict()})
+
+
+# ── Pay Config ─────────────────────────────────────────────────────────────
+
+@time_bp.route("/employees/<int:employee_id>/pay-config", methods=["GET"])
+def get_pay_config(employee_id):
+    Employee.query.get_or_404(employee_id)
+    config = EmployeePayConfig.query.filter_by(employee_id=employee_id).order_by(
+        EmployeePayConfig.effective_from.desc()
+    ).first()
+    if not config:
+        return jsonify(None)
+    return jsonify(config.to_dict())
+
+
+@time_bp.route("/employees/<int:employee_id>/pay-config", methods=["PUT"])
+def upsert_pay_config(employee_id):
+    Employee.query.get_or_404(employee_id)
+    data = request.get_json() or {}
+
+    config = EmployeePayConfig.query.filter_by(employee_id=employee_id).order_by(
+        EmployeePayConfig.effective_from.desc()
+    ).first()
+
+    if not config:
+        config = EmployeePayConfig(employee_id=employee_id)
+        db.session.add(config)
+
+    config.pay_type = data.get("pay_type", config.pay_type or "hourly")
+    config.hourly_rate = data.get("hourly_rate", config.hourly_rate or 0.0)
+    config.overtime_rate = data.get("overtime_rate", config.overtime_rate or 1.5)
+    config.overtime_after = data.get("overtime_after", config.overtime_after or 40)
+    config.effective_from = data.get("effective_from", config.effective_from)
+
+    db.session.commit()
+    return jsonify(config.to_dict())

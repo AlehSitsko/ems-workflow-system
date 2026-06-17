@@ -10,6 +10,7 @@ import {
   FaBookOpen,
   FaTh,
   FaBell,
+  FaClock,
 } from "react-icons/fa";
 
 import {
@@ -76,6 +77,12 @@ export const navigationGroups = [
         path: "/crew-planner",
         icon: FaAmbulance,
         canAccess: hasCrewPlannerAccess,
+      },
+      {
+        label: "Kiosk",
+        path: "/kiosk",
+        icon: FaClock,
+        canAccess: () => true,
       },
     ],
   },

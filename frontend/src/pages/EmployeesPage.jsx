@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   FaBriefcaseMedical,
+  FaClock,
   FaEdit,
   FaIdBadge,
   FaPlus,
@@ -18,6 +19,9 @@ import {
   getEmployees,
   updateEmployee,
 } from "../api/employeesApi";
+
+import { getCurrentUser } from "../api/authApi";
+import TimePayTab from "../components/TimePayTab";
 
 import {
   getEmployeeRoleClass,
@@ -168,6 +172,7 @@ const initialFormData = {
 
   isActive: true,
   notes: "",
+  kioskPin: "",
 
   cpr: { ...emptyLicense },
   evoc: { ...emptyLicense },
@@ -176,10 +181,12 @@ const initialFormData = {
 };
 
 function EmployeesPage() {
+  const currentUser = getCurrentUser();
   const [employees, setEmployees] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
+  const [drawerTab, setDrawerTab] = useState("profile"); // "profile" | "timepay"
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -259,6 +266,7 @@ function EmployeesPage() {
     setFormData(initialFormData);
     setEditingEmployeeId(null);
     setShowEmployeeForm(false);
+    setDrawerTab("profile");
   };
 
   /*
@@ -291,6 +299,7 @@ function EmployeesPage() {
 
       isActive: Boolean(employee.isActive),
       notes: employee.notes || "",
+      kioskPin: employee.kioskPin || "",
 
       cpr: normalizeLicense(employee.cpr),
       evoc: normalizeLicense(employee.evoc),
@@ -725,7 +734,7 @@ function EmployeesPage() {
         ) : (
           <div className="employee-card-list">
             {employees.map((employee) => (
-              <div className="employee-card" key={employee.id}>
+              <div className="employee-card" key={employee.id} onClick={() => handleEdit(employee)} style={{ cursor: "pointer" }}>
                 <div className="employee-card-main">
                   <div className="employee-avatar">
                     {(employee.firstName?.[0] || "E").toUpperCase()}
@@ -794,7 +803,7 @@ function EmployeesPage() {
                   {renderLicenseBadge("paramedic", employee.paramedic)}
                 </div>
 
-                <div className="employee-actions">
+                <div className="employee-actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
@@ -822,19 +831,35 @@ function EmployeesPage() {
       </section>
 
       {showEmployeeForm && (
-        <div className="employee-drawer-overlay" onClick={resetForm}>
+        <div className="employee-drawer-overlay">
           <aside
             className="employee-drawer"
             onClick={(event) => event.stopPropagation()}
+            style={drawerTab === "timepay" ? { background: "#0d1117" } : undefined}
           >
-            <div className="employee-drawer-header">
-              <div>
-                <h4>{editingEmployeeId ? "Edit Employee" : "Add Employee"}</h4>
-
-                <p>
-                  Maintain employee profile, operational role, status, and
-                  certifications.
-                </p>
+            <div className="employee-drawer-header" style={drawerTab === "timepay" ? { background: "#0d1117", borderBottom: "1px solid #2a3347", color: "#e9ecef" } : undefined}>
+              <div style={{ flex: 1 }}>
+                <h4 style={drawerTab === "timepay" ? { color: "#e9ecef" } : undefined}>{editingEmployeeId ? "Edit Employee" : "Add Employee"}</h4>
+                {editingEmployeeId && (
+                  <div className="d-flex gap-1 mt-2">
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${drawerTab === "profile" ? "btn-primary" : "btn-outline-secondary"}`}
+                      style={{ fontSize: 12 }}
+                      onClick={() => setDrawerTab("profile")}
+                    >
+                      <FaIdBadge style={{ marginRight: 4 }} />Profile
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${drawerTab === "timepay" ? "btn-primary" : "btn-outline-secondary"}`}
+                      style={{ fontSize: 12 }}
+                      onClick={() => setDrawerTab("timepay")}
+                    >
+                      <FaClock style={{ marginRight: 4 }} />Time & Pay
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button
@@ -847,6 +872,11 @@ function EmployeesPage() {
               </button>
             </div>
 
+            {drawerTab === "timepay" && editingEmployeeId ? (
+              <div style={{ flex: 1, overflowY: "auto", background: "#0d1117", display: "flex", flexDirection: "column" }}>
+                <TimePayTab employeeId={editingEmployeeId} currentUser={currentUser} />
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="employee-drawer-form">
               <div className="employee-drawer-body">
                 <div className="employee-form-section">
@@ -1021,6 +1051,24 @@ function EmployeesPage() {
                       </div>
                     </div>
 
+                    <div className="col-md-6">
+                      <label htmlFor="kioskPin" className="form-label">
+                        Kiosk PIN
+                      </label>
+                      <input
+                        id="kioskPin"
+                        name="kioskPin"
+                        type="text"
+                        maxLength={6}
+                        className="form-control"
+                        value={formData.kioskPin}
+                        onChange={handleChange}
+                        placeholder="4–6 digits"
+                        disabled={loading}
+                      />
+                      <div className="form-text">Used for Kiosk clock in/out</div>
+                    </div>
+
                     <div className="col-12">
                       <label htmlFor="notes" className="form-label">
                         Notes
@@ -1167,6 +1215,7 @@ function EmployeesPage() {
                 </button>
               </div>
             </form>
+            )}
           </aside>
         </div>
       )}
