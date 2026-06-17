@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta
 
 from models import db, User, NotificationEvent, UserNotification, UserNotificationPrefs
+from push_utils import send_push
 
 # Which event types each role can receive.
 ROLE_EVENT_TYPES = {
@@ -67,10 +68,11 @@ def create_notification(event_type, severity, title, body, entity_type=None, ent
 
     target_roles = EVENT_TARGET_ROLES.get(event_type, [])
     users = User.query.filter(User.role.in_(target_roles), User.is_active == True).all()
+    push_targets = []  # (user_prefs_row,) for Web Push after commit
     for user in users:
         # Respect per-user preference (default on).
-        prefs = _get_user_prefs(user.id)
-        if not prefs.get(event_type, True):
+        prefs_data = _get_user_prefs(user.id)
+        if not prefs_data.get(event_type, True):
             continue
         db.session.add(UserNotification(
             event_id=event.id,
@@ -78,8 +80,30 @@ def create_notification(event_type, severity, title, body, entity_type=None, ent
             is_read=False,
             created_at=_now_iso(),
         ))
+        # Collect push subscription if present.
+        prefs_row = UserNotificationPrefs.query.get(user.id)
+        if prefs_row and prefs_row.push_sub_json:
+            push_targets.append((user.id, prefs_row.push_sub_json))
 
     db.session.commit()
+
+    # Send Web Push after commit so DB is consistent even if push fails.
+    for user_id, sub_json in push_targets:
+        try:
+            gone = False
+            try:
+                send_push(sub_json, title, body or "")
+            except Exception as e:
+                # 410 Gone — subscription expired, clean it up.
+                if hasattr(e, "response") and e.response is not None and e.response.status_code == 410:
+                    gone = True
+            if gone:
+                row = UserNotificationPrefs.query.get(user_id)
+                if row:
+                    row.push_sub_json = None
+                    db.session.commit()
+        except Exception:
+            pass
 
 
 def run_temporal_checks():

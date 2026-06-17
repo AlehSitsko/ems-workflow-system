@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaBell, FaSave } from "react-icons/fa";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 const API_BASE = "http://127.0.0.1:5050";
 
@@ -23,6 +24,7 @@ function NotificationSettingsPage({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const { pushState, subscribe, dismiss } = usePushNotifications(currentUser);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -81,6 +83,35 @@ function NotificationSettingsPage({ currentUser }) {
             <FaSave />
             {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
           </button>
+        </div>
+
+        {/* Browser Push section */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6c757d", letterSpacing: 1, marginBottom: 10, textTransform: "uppercase" }}>
+            Browser Notifications
+          </div>
+          <div className="d-flex align-items-center justify-content-between" style={{ padding: "10px 0", borderBottom: "1px solid #2a3347" }}>
+            <div>
+              <div style={{ fontSize: 14, color: pushState === "granted" ? "#fff" : "#6c757d" }}>
+                Push notifications
+              </div>
+              <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
+                {pushState === "unsupported" && "Not supported in this browser."}
+                {pushState === "denied" && "Blocked by browser. Enable in browser settings."}
+                {pushState === "granted" && "Active — alerts will appear even when the tab is in the background."}
+                {(pushState === "default" || pushState === "unknown") && "Receive alerts even when the tab is in the background."}
+              </div>
+            </div>
+            {pushState === "granted" ? (
+              <span style={{ fontSize: 12, color: "#75b798", fontWeight: 600 }}>✓ Enabled</span>
+            ) : pushState === "unsupported" || pushState === "denied" ? (
+              <span style={{ fontSize: 12, color: "#6c757d" }}>Unavailable</span>
+            ) : (
+              <button className="btn btn-sm btn-outline-primary" style={{ fontSize: 12 }} onClick={subscribe}>
+                Enable
+              </button>
+            )}
+          </div>
         </div>
 
         {availableTypes.length === 0 && (

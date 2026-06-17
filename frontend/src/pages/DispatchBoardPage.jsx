@@ -64,6 +64,7 @@ function minCrewForType(t) {
 function isAlsUnit(t) { return (t || "").toUpperCase() === "ALS"; }
 function isAlsCall(c) { return (c.service_level || "").toUpperCase() === "ALS"; }
 function isEmergencyCall(c) { return (c.call_type || "").toLowerCase() === "emergency"; }
+function isWillCall(c) { return (c.call_type || "").toLowerCase() === "will_call"; }
 function hasReturnRide(c) {
   const ct = (c.call_type || "").toLowerCase();
   return ct === "return" || ct === "will_call";
@@ -115,9 +116,11 @@ function expandAndSort(calls) {
         _sortTime: timeToMinutes(ret.returnTime || call.appointment_time),
       });
     } else {
-      // New-style or single-leg call — one slot, type determined by call_type
-      const slot = (call.call_type || "").toLowerCase() === "return" ? "return" : "outbound";
-      result.push({ ...call, _slot: slot, _sortTime: timeToMinutes(call.pickup_time) });
+      const ct = (call.call_type || "").toLowerCase();
+      const slot = ct === "return" ? "return" : ct === "will_call" ? "will_call" : "outbound";
+      // Will Call sorts after all scheduled calls (no pickup_time yet).
+      const sortTime = ct === "will_call" ? 999999 : timeToMinutes(call.pickup_time);
+      result.push({ ...call, _slot: slot, _sortTime: sortTime });
     }
   }
   return result.sort((a, b) => a._sortTime - b._sortTime);
@@ -167,6 +170,7 @@ function CallCard({ call, onDragStart, onCardClick }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturn = call._slot === "return";
+  const willCall = isWillCall(call);
 
   return (
     <div
@@ -174,7 +178,7 @@ function CallCard({ call, onDragStart, onCardClick }) {
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(call); }}
       onClick={() => onCardClick && onCardClick(call, false)}
       style={{
-        borderLeft: `4px solid ${emergency ? "#dc3545" : isReturn ? "#6ea8fe" : "#495057"}`,
+        borderLeft: `4px solid ${emergency ? "#dc3545" : willCall ? "#ffc107" : isReturn ? "#6ea8fe" : "#495057"}`,
         background: "#1e2430",
         borderRadius: 6,
         cursor: "grab",
@@ -193,6 +197,11 @@ function CallCard({ call, onDragStart, onCardClick }) {
               RETURN
             </span>
           )}
+          {willCall && (
+            <span style={{ fontSize: 10, color: "#ffc107", background: "rgba(255,193,7,0.15)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+              WILL CALL
+            </span>
+          )}
         </div>
         <div className="d-flex gap-1 ms-1 flex-shrink-0">
           {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
@@ -201,12 +210,14 @@ function CallCard({ call, onDragStart, onCardClick }) {
           </span>
         </div>
       </div>
-      {call.pickup_time && (
+      {willCall ? (
+        <div style={{ fontSize: 11, color: "#ffc107" }}>📞 Patient will call when ready</div>
+      ) : call.pickup_time ? (
         <div style={{ fontSize: 11, color: "#adb5bd" }}>
           🕐 {call.pickup_time}
           {call.appointment_time && !isReturn ? ` · appt ${call.appointment_time}` : ""}
         </div>
-      )}
+      ) : null}
       {call.pickup_address && (
         <div className="text-truncate" style={{ fontSize: 11, color: "#6c757d" }}>
           {call.pickup_address}
@@ -217,12 +228,17 @@ function CallCard({ call, onDragStart, onCardClick }) {
   );
 }
 
-function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick }) {
+function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick, onSetPickupTime }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturnCall = (call.call_type || "").toLowerCase() === "return";
+  const willCall = isWillCall(call);
   // Only show embedded return section for old-style records with return info in notes
   const ret = parseReturnInfo(call.notes);
+
+  const [wcTime, setWcTime] = useState(call.pickup_time || "");
+
+  const borderColor = emergency ? "#dc3545" : willCall ? "#ffc107" : isReturnCall ? "#6ea8fe" : "#495057";
 
   return (
     <div className="mb-2" style={{ cursor: "pointer" }} onClick={() => onCardClick && onCardClick(call, false)}>
@@ -230,7 +246,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
       <div style={{
         background: "#151b27",
         borderRadius: 6,
-        borderLeft: `3px solid ${emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : "#495057"}`,
+        borderLeft: `3px solid ${borderColor}`,
         padding: "8px 10px",
         marginBottom: ret ? 2 : 0,
       }}>
@@ -240,9 +256,15 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
               <span className="text-white fw-semibold" style={{ fontSize: 13 }}>
                 {call.patient_name || `Call #${call.id}`}
               </span>
-              <span style={{ fontSize: 10, color: isReturnCall ? "#6ea8fe" : "#adb5bd", background: isReturnCall ? "rgba(13,110,253,0.15)" : "#2a3347", padding: "1px 6px", borderRadius: 4 }}>
-                {isReturnCall ? "RETURN" : "OUTBOUND"}
-              </span>
+              {willCall ? (
+                <span style={{ fontSize: 10, color: "#ffc107", background: "rgba(255,193,7,0.15)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                  WILL CALL
+                </span>
+              ) : (
+                <span style={{ fontSize: 10, color: isReturnCall ? "#6ea8fe" : "#adb5bd", background: isReturnCall ? "rgba(13,110,253,0.15)" : "#2a3347", padding: "1px 6px", borderRadius: 4 }}>
+                  {isReturnCall ? "RETURN" : "OUTBOUND"}
+                </span>
+              )}
               {als && <span className="badge badge-als" style={{ fontSize: 10 }}>ALS</span>}
               {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
               {isCurrent && unitStatus && <StatusPill status={unitStatus} size="sm" />}
@@ -252,12 +274,30 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
                 </span>
               )}
             </div>
-            {call.pickup_time && (
+            {/* Will Call: show time setter or current time */}
+            {willCall ? (
+              <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: "#ffc107" }}>📞 Set pickup time:</span>
+                <input
+                  type="time"
+                  value={wcTime}
+                  onChange={(e) => setWcTime(e.target.value)}
+                  style={{ fontSize: 11, padding: "1px 4px", background: "#1a2236", border: "1px solid #2a3347", borderRadius: 4, color: "#e9ecef", width: 90 }}
+                />
+                <button
+                  className="btn btn-sm"
+                  style={{ fontSize: 10, padding: "1px 8px", background: "rgba(255,193,7,0.15)", color: "#ffc107", border: "1px solid #ffc10744" }}
+                  onClick={(e) => { e.stopPropagation(); onSetPickupTime && onSetPickupTime(call.id, wcTime); }}
+                >
+                  Set
+                </button>
+              </div>
+            ) : call.pickup_time ? (
               <div style={{ fontSize: 11, color: "#adb5bd" }}>
                 🕐 {call.pickup_time}
                 {call.appointment_time ? ` · appt ${call.appointment_time}` : ""}
               </div>
-            )}
+            ) : null}
             {call.pickup_address && (
               <div className="text-truncate" style={{ fontSize: 11, color: "#6c757d" }}>
                 {call.pickup_address} → {call.dropoff_address}
@@ -668,9 +708,8 @@ export default function DispatchBoardPage() {
 
   const currentUser = getCurrentUser();
 
-  const loadBoard = useCallback(async (d) => {
-    setLoading(true);
-    setError(null);
+  const loadBoard = useCallback(async (d, silent = false) => {
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const data = await fetchBoard(d);
       setBoard(data);
@@ -679,13 +718,20 @@ export default function DispatchBoardPage() {
         setSelectedUnit(fresh || null);
       }
     } catch (e) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [selectedUnit]);
 
   useEffect(() => { loadBoard(date); }, [date]);
+
+  // Auto-refresh every 30 s when viewing today's board.
+  useEffect(() => {
+    if (date !== todayStr()) return;
+    const interval = setInterval(() => loadBoard(date, true), 30_000);
+    return () => clearInterval(interval);
+  }, [date, loadBoard]);
 
   // ── Drag & drop ────────────────────────────────────────────────────────
 
@@ -775,6 +821,18 @@ export default function DispatchBoardPage() {
       await reopenAssignment(assignmentId);
       await loadBoard(date);
     } catch (e) { alert(`Reopen failed: ${e.message}`); }
+  }
+
+  async function handleSetWillCallTime(callId, pickupTime) {
+    if (!pickupTime) return;
+    try {
+      await fetch(`http://127.0.0.1:5050/api/calls/${callId}/pickup-time`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickup_time: pickupTime }),
+      });
+      await loadBoard(date);
+    } catch (e) { alert(`Failed to set pickup time: ${e.message}`); }
   }
 
   function handleCardClick(call, isCompleted) {
@@ -1054,7 +1112,12 @@ export default function DispatchBoardPage() {
                   <p className="text-muted small mb-0">No calls assigned</p>
                 )}
                 {[...(selectedUnit.assignedCalls || [])]
-                  .sort((a, b) => timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time))
+                  .sort((a, b) => {
+                    // Will call always goes to the end
+                    const aWc = isWillCall(a) ? 999999 : timeToMinutes(a.pickup_time);
+                    const bWc = isWillCall(b) ? 999999 : timeToMinutes(b.pickup_time);
+                    return aWc - bWc;
+                  })
                   .map((call, idx) => (
                   <AssignedCallCard
                     key={call.id}
@@ -1064,6 +1127,7 @@ export default function DispatchBoardPage() {
                     onUnassign={handleUnassign}
                     onComplete={handleComplete}
                     onCardClick={handleCardClick}
+                    onSetPickupTime={handleSetWillCallTime}
                   />
                 ))}
                 {(selectedUnit.completedCalls || []).length > 0 && (

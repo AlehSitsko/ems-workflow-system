@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate

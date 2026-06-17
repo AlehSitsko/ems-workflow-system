@@ -417,8 +417,9 @@ function CallFormPage() {
 
       const savedCall = await createCall(callPayload);
 
-      // Create a separate return leg call when return ride is selected
+      // Create a separate return / will-call leg when requested.
       if (guidedCallData.returnRideOption !== "none" && guidedCallData.returnPickup) {
+        const isWillCall = guidedCallData.returnRideOption === "will_call";
         const returnPayload = {
           patient_id: finalPatientId,
           dispatcher_name: guidedCallData.dispatcherName,
@@ -426,12 +427,13 @@ function CallFormPage() {
           status: "new",
           date_of_call: guidedCallData.callDate,
           trip_date: guidedCallData.tripDate,
-          pickup_time: guidedCallData.returnTime || "",
+          // Will Call has no pickup time — it will be set from the Dispatch Board.
+          pickup_time: isWillCall ? "" : (guidedCallData.returnTime || ""),
           appointment_time: "",
           pickup_address: guidedCallData.returnPickup,
           dropoff_address: guidedCallData.returnDestination,
           caller_type: guidedCallData.callerType,
-          call_type: "return",
+          call_type: isWillCall ? "will_call" : "return",
           service_level: guidedCallData.serviceLevel,
           caller_phone: guidedCallData.phoneNumber || null,
           caller_note: null,
@@ -439,7 +441,7 @@ function CallFormPage() {
           missing_critical_fields: "",
           missing_optional_fields: "",
           missing_info_explanation: "",
-          notes: `Return leg for call #${savedCall.id}`,
+          notes: `${isWillCall ? "Will Call" : "Return"} leg for call #${savedCall.id}`,
         };
         await createCall(returnPayload);
       }
