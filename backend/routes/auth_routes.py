@@ -138,6 +138,10 @@ def update_user(id):
     user.role = role
     user.is_active = is_active
 
+    # Link to employee record (nullable — send null/None to unlink)
+    employee_id = data.get("employee_id")
+    user.employee_id = int(employee_id) if employee_id else None
+
     # Update password only when a new password is provided.
     if password:
         user.password_hash = generate_password_hash(password)

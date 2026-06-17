@@ -63,6 +63,18 @@ export async function updateCrewUnit(unitId, unitData) {
   return data;
 }
 
+// Convert a day unit to night crew.
+export async function makeNightCrew(unitId, payload) {
+  const response = await fetch(`${API_BASE_URL}/api/crew-units/${unitId}/make-night`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to create night crew");
+  return data;
+}
+
 // Delete an existing crew unit.
 export async function deleteCrewUnit(unitId) {
   const response = await fetch(`${API_BASE_URL}/api/crew-units/${unitId}`, {

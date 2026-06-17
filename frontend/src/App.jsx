@@ -18,6 +18,7 @@ import UserManagementPage from "./pages/UserManagementPage";
 import DispatchBoardPage from "./pages/DispatchBoardPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
+import PayrollPage from "./pages/PayrollPage";
 
 import {
   getCurrentUser,
@@ -175,8 +176,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
 
-        {/* Kiosk — no auth required */}
-        <Route path="/kiosk" element={<KioskPage />} />
+        {/* Kiosk — no auth required, but pass currentUser for Back button */}
+        <Route path="/kiosk" element={<KioskPage currentUser={currentUser} />} />
 
         <Route
           path="/login"
@@ -283,6 +284,15 @@ function App() {
             <ProtectedLayout>
               <NotificationSettingsPage currentUser={currentUser} />
             </ProtectedLayout>
+          }
+        />
+
+        <Route
+          path="/payroll"
+          element={
+            <EmployeeRoute>
+              <PayrollPage />
+            </EmployeeRoute>
           }
         />
 

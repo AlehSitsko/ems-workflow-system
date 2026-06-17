@@ -6,6 +6,7 @@ import {
   toggleUserActive,
   updateUser,
 } from "../api/authApi";
+import { kioskEmployees } from "../api/timeApi";
 
 const initialFormData = {
   username: "",
@@ -13,19 +14,16 @@ const initialFormData = {
   display_name: "",
   role: "dispatcher",
   is_active: true,
+  employee_id: "",
 };
 
 function UserManagementPage() {
   const [users, setUsers] = useState([]);
-
+  const [employees, setEmployees] = useState([]);
   const [editingUserId, setEditingUserId] = useState(null);
-
   const [formData, setFormData] = useState(initialFormData);
-
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
-
   const [message, setMessage] = useState("");
 
   // Load all users from backend.
@@ -44,9 +42,10 @@ function UserManagementPage() {
     }
   };
 
-  // Load users when the page opens.
+  // Load users and employee list on mount.
   useEffect(() => {
     loadUsers();
+    kioskEmployees().then(setEmployees).catch(() => {});
   }, []);
 
   // Handle simple form field updates.
@@ -73,6 +72,7 @@ function UserManagementPage() {
       display_name: user.display_name || "",
       role: user.role || "dispatcher",
       is_active: Boolean(user.is_active),
+      employee_id: user.employee_id || "",
     });
 
     setEditingUserId(user.id);
@@ -114,6 +114,7 @@ function UserManagementPage() {
       display_name: formData.display_name.trim(),
       role: formData.role,
       is_active: formData.is_active,
+      employee_id: formData.employee_id || null,
     };
 
     setLoading(true);
@@ -290,6 +291,26 @@ function UserManagementPage() {
                 </select>
               </div>
 
+              <div className="col-md-3">
+                <label htmlFor="employee_id" className="form-label">
+                  Linked Employee
+                </label>
+                <select
+                  id="employee_id"
+                  name="employee_id"
+                  className="form-select"
+                  value={formData.employee_id}
+                  onChange={handleChange}
+                  disabled={loading}
+                >
+                  <option value="">— Not linked —</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+                <div className="form-text">Links this user to an employee record for clock-in/out.</div>
+              </div>
+
               <div className="col-md-3 d-flex align-items-end">
                 <div className="form-check mb-2">
                   <input
@@ -372,10 +393,9 @@ function UserManagementPage() {
                     <th>Username</th>
                     <th>Display Name</th>
                     <th>Role</th>
+                    <th>Employee</th>
                     <th>Status</th>
-                    <th style={{ width: "220px" }}>
-                      Actions
-                    </th>
+                    <th style={{ width: "220px" }}>Actions</th>
                   </tr>
                 </thead>
 
@@ -392,6 +412,15 @@ function UserManagementPage() {
                         <span className="badge text-bg-primary">
                           {user.role}
                         </span>
+                      </td>
+
+                      <td>
+                        {user.employee_id
+                          ? <span className="badge text-bg-info">
+                              {employees.find((e) => e.id === user.employee_id)?.name || `#${user.employee_id}`}
+                            </span>
+                          : <span className="text-muted small">—</span>
+                        }
                       </td>
 
                       <td>

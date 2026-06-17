@@ -5,7 +5,6 @@ import {
 } from "../api/timeApi";
 
 const STATUS_COLOR = {
-  pending:  { bg: "rgba(255,193,7,0.12)",  color: "#ffc107",  label: "Pending" },
   approved: { bg: "rgba(25,135,84,0.12)",  color: "#75b798",  label: "Approved" },
   disputed: { bg: "rgba(220,53,69,0.12)",  color: "#ea868f",  label: "Disputed" },
 };
@@ -285,11 +284,11 @@ export default function TimePayTab({ employeeId, currentUser }) {
                   </div>
                   {manage && (
                     <div className="d-flex gap-1 flex-shrink-0">
-                      {entry.status === "pending" && (
-                        <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(25,135,84,0.12)", color: "#75b798", border: "1px solid #75b79844" }} onClick={() => handleApprove(entry)}>✓</button>
-                      )}
                       {entry.status !== "disputed" && (
-                        <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(220,53,69,0.1)", color: "#ea868f", border: "1px solid #ea868f44" }} onClick={() => handleDispute(entry)}>!</button>
+                        <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(220,53,69,0.1)", color: "#ea868f", border: "1px solid #ea868f44" }} onClick={() => handleDispute(entry)} title="Mark disputed">!</button>
+                      )}
+                      {entry.status === "disputed" && (
+                        <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(25,135,84,0.12)", color: "#75b798", border: "1px solid #75b79844" }} onClick={() => handleApprove(entry)} title="Clear dispute">✓</button>
                       )}
                       <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#6c757d", border: "1px solid #2a3347" }} onClick={() => handleDelete(entry.id)}>✕</button>
                     </div>

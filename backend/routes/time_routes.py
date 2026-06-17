@@ -36,7 +36,7 @@ def create_time_entry(employee_id):
         clock_out=data.get("clock_out"),
         break_minutes=data.get("break_minutes", 0),
         entry_type=data.get("entry_type", "manual"),
-        status=data.get("status", "pending"),
+        status=data.get("status", "approved"),
         notes=data.get("notes"),
         created_by=data.get("created_by"),
     )

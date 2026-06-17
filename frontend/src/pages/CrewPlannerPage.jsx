@@ -3,8 +3,10 @@ import {
   FaAmbulance,
   FaCalendarDay,
   FaExclamationTriangle,
+  FaMoon,
   FaPlus,
   FaRedo,
+  FaSun,
   FaTimes,
   FaUsers,
 } from "react-icons/fa";
@@ -19,6 +21,7 @@ import {
   createCrewUnit,
   deleteCrewUnit,
   getCrewUnits,
+  makeNightCrew,
   updateCrewUnit,
 } from "../api/crewApi";
 
@@ -48,6 +51,9 @@ const initialUnitForm = {
   unitType: "BLS",
   truckNumber: "",
   startTime: "",
+  endTime: "",
+  endDate: "",
+  shiftType: "day",
   crew: { ...initialCrew },
   firstPatient: "",
   nextPatients: [""],
@@ -105,6 +111,13 @@ function CrewPlannerPage() {
     Null means the form is in create mode.
   */
   const [editingUnitId, setEditingUnitId] = useState(null);
+
+  /*
+    Make Night dialog state.
+    null = closed; object = { sourceUnit, hasExisting }
+  */
+  const [nightDialog, setNightDialog] = useState(null);
+  const [nightForm, setNightForm] = useState({ startTime: "", endTime: "", endDate: "" });
 
   /*
     Loads employees from the backend.
@@ -651,6 +664,9 @@ function CrewPlannerPage() {
       unitType: unit.unitType || "BLS",
       truckNumber: unit.truckNumber || "",
       startTime: unit.startTime || "",
+      endTime: unit.endTime || "",
+      endDate: unit.endDate || "",
+      shiftType: unit.shiftType || "day",
       crew: {
         driver: unit.crew?.driver || "",
         medical: unit.crew?.medical || "",
@@ -813,6 +829,9 @@ function CrewPlannerPage() {
       unitType: unitForm.unitType,
       truckNumber: unitForm.truckNumber.trim(),
       startTime: unitForm.startTime,
+      endTime: unitForm.endTime || null,
+      endDate: unitForm.endDate || null,
+      shiftType: unitForm.shiftType || "day",
       crew: { ...unitForm.crew },
       firstPatient: unitForm.firstPatient.trim(),
       nextPatients: cleanedNextPatients,
@@ -855,6 +874,65 @@ function CrewPlannerPage() {
     } finally {
       setUnitsLoading(false);
     }
+  };
+
+  /*
+    Opens the Make Night dialog for a day unit.
+  */
+  const handleMakeNight = (unit) => {
+    const hasExisting = units.some((u) => u.shiftType === "night");
+    // Pre-fill next day as default end date for night shift
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    setNightForm({
+      startTime: unit.startTime || "",
+      endTime: "",
+      endDate: nextDay.toISOString().slice(0, 10),
+    });
+    setNightDialog({ sourceUnit: unit, hasExisting });
+  };
+
+  /*
+    Submits the Make Night request (replace or keep existing).
+  */
+  const handleConfirmNight = async (replace) => {
+    if (!nightDialog) return;
+    setUnitsLoading(true);
+    try {
+      await makeNightCrew(nightDialog.sourceUnit.id, {
+        replace,
+        startTime: nightForm.startTime,
+        endTime: nightForm.endTime || null,
+        endDate: nightForm.endDate || null,
+      });
+      setNightDialog(null);
+      setUnitsMessage("Night crew created successfully.");
+      await loadUnits();
+    } catch (err) {
+      setUnitsError(err.message || "Failed to create night crew.");
+    } finally {
+      setUnitsLoading(false);
+    }
+  };
+
+  /*
+    Opens the drawer pre-set to Night shift type.
+  */
+  const handleShowCreateNightUnit = () => {
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    setUnitForm({
+      ...initialUnitForm,
+      shiftDate: selectedDate,
+      shiftType: "night",
+      endDate: nextDay.toISOString().slice(0, 10),
+    });
+    setEditingUnitId(null);
+    setSelectedPresetId("");
+    setPresetName("");
+    setUnitsMessage("");
+    setUnitsError("");
+    setShowUnitDrawer(true);
   };
 
   /*
@@ -1005,8 +1083,21 @@ function CrewPlannerPage() {
               onClick={handleShowCreateUnit}
               disabled={unitsLoading || employeesLoading}
             >
-              <FaPlus />
-              Create Unit
+              <FaSun style={{ fontSize: 11 }} />
+              <FaPlus style={{ fontSize: 10 }} />
+              Day Unit
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+              onClick={handleShowCreateNightUnit}
+              disabled={unitsLoading || employeesLoading}
+              style={{ color: "#6ea8fe", borderColor: "#6ea8fe" }}
+            >
+              <FaMoon style={{ fontSize: 11 }} />
+              <FaPlus style={{ fontSize: 10 }} />
+              Night Unit
             </button>
 
             <button
@@ -1059,6 +1150,7 @@ function CrewPlannerPage() {
         unitsLoading={unitsLoading}
         onEditUnit={handleEditUnit}
         onDeleteUnit={handleDeleteUnit}
+        onMakeNight={handleMakeNight}
         getEmployeeName={getEmployeeName}
         getEmployeeById={getEmployeeById}
         isMedicalSlotVisible={isMedicalSlotVisible}
@@ -1070,6 +1162,69 @@ function CrewPlannerPage() {
         employeesLoading={employeesLoading}
         getCprWarning={getCprWarning}
       />
+
+      {/* Make Night Dialog */}
+      {nightDialog && (
+        <div className="employee-drawer-overlay" style={{ zIndex: 1060 }}>
+          <div style={{
+            background: "#0d1117", border: "1px solid #2a3347", borderRadius: 16,
+            padding: "2rem", width: "100%", maxWidth: 440,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)", color: "#e9ecef",
+            margin: "auto",
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <FaMoon style={{ color: "#6ea8fe" }} /> Make Night Crew
+            </div>
+            <p style={{ color: "#adb5bd", fontSize: 14, marginBottom: 16 }}>
+              Copying crew from Truck <strong>{nightDialog.sourceUnit.truckNumber}</strong> to a night shift.
+              {nightDialog.hasExisting && (
+                <span style={{ color: "#ffc107" }}> A night crew already exists for this date.</span>
+              )}
+            </p>
+
+            <div className="row g-2 mb-3" data-bs-theme="dark">
+              <div className="col-6">
+                <label className="form-label" style={{ fontSize: 12 }}>Night Start Time</label>
+                <input type="time" className="form-control form-control-sm" value={nightForm.startTime}
+                  onChange={e => setNightForm(f => ({ ...f, startTime: e.target.value }))} />
+              </div>
+              <div className="col-6">
+                <label className="form-label" style={{ fontSize: 12 }}>End Time</label>
+                <input type="time" className="form-control form-control-sm" value={nightForm.endTime}
+                  onChange={e => setNightForm(f => ({ ...f, endTime: e.target.value }))} />
+              </div>
+              <div className="col-12">
+                <label className="form-label" style={{ fontSize: 12 }}>End Date (next day)</label>
+                <input type="date" className="form-control form-control-sm" value={nightForm.endDate}
+                  onChange={e => setNightForm(f => ({ ...f, endDate: e.target.value }))} />
+              </div>
+            </div>
+
+            {nightDialog.hasExisting ? (
+              <div className="d-flex gap-2 flex-wrap">
+                <button className="btn btn-sm btn-danger flex-fill" onClick={() => handleConfirmNight(true)}>
+                  Replace existing night crew
+                </button>
+                <button className="btn btn-sm btn-outline-primary flex-fill" onClick={() => handleConfirmNight(false)}>
+                  Keep both
+                </button>
+                <button className="btn btn-sm btn-outline-secondary w-100" onClick={() => setNightDialog(null)}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-primary flex-fill" onClick={() => handleConfirmNight(false)}>
+                  Create Night Crew
+                </button>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setNightDialog(null)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showUnitDrawer && (
         <div className="crew-drawer-overlay" onClick={handleCloseDrawer}>
@@ -1210,22 +1365,47 @@ function CrewPlannerPage() {
                         </div>
 
                         <div className="col-md-6">
-                          <label
-                            htmlFor="startTime"
-                            className="form-label fw-semibold"
-                          >
-                            Start Time
-                          </label>
-
+                          <label htmlFor="startTime" className="form-label fw-semibold">Start Time</label>
                           <input
-                            id="startTime"
-                            name="startTime"
-                            type="time"
-                            className="form-control"
-                            value={unitForm.startTime}
-                            onChange={handleUnitFieldChange}
-                            disabled={unitsLoading}
+                            id="startTime" name="startTime" type="time"
+                            className="form-control" value={unitForm.startTime}
+                            onChange={handleUnitFieldChange} disabled={unitsLoading}
                           />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label htmlFor="endTime" className="form-label fw-semibold">End Time <span className="text-muted fw-normal">(optional)</span></label>
+                          <input
+                            id="endTime" name="endTime" type="time"
+                            className="form-control" value={unitForm.endTime}
+                            onChange={handleUnitFieldChange} disabled={unitsLoading}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label htmlFor="endDate" className="form-label fw-semibold">End Date <span className="text-muted fw-normal">(if next day)</span></label>
+                          <input
+                            id="endDate" name="endDate" type="date"
+                            className="form-control" value={unitForm.endDate}
+                            onChange={handleUnitFieldChange} disabled={unitsLoading}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label fw-semibold">Shift Type</label>
+                          <div className="d-flex gap-2">
+                            {["day", "night"].map((t) => (
+                              <button
+                                key={t} type="button"
+                                className={`btn btn-sm flex-fill ${unitForm.shiftType === t ? (t === "night" ? "btn-secondary" : "btn-warning") : "btn-outline-secondary"}`}
+                                style={unitForm.shiftType === t && t === "night" ? { background: "#1a2a4a", color: "#6ea8fe", borderColor: "#6ea8fe" } : undefined}
+                                onClick={() => setUnitForm((p) => ({ ...p, shiftType: t }))}
+                                disabled={unitsLoading}
+                              >
+                                {t === "day" ? <><FaSun style={{ marginRight: 4 }} />Day</> : <><FaMoon style={{ marginRight: 4 }} />Night</>}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>

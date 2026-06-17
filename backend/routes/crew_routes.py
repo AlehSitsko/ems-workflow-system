@@ -63,6 +63,9 @@ def create_daily_crew_unit():
         unit_type=data.get("unitType", "BLS"),
         truck_number=truck_number,
         start_time=start_time,
+        end_time=data.get("endTime", "").strip() or None,
+        end_date=data.get("endDate", "").strip() or None,
+        shift_type=data.get("shiftType", "day"),
 
         driver_id=parse_optional_employee_id(crew.get("driver")),
         medical_id=parse_optional_employee_id(crew.get("medical")),
@@ -111,6 +114,9 @@ def update_daily_crew_unit(id):
     unit.unit_type = data.get("unitType", "BLS")
     unit.truck_number = data.get("truckNumber", "").strip()
     unit.start_time = data.get("startTime", "").strip()
+    unit.end_time = data.get("endTime", "").strip() or None
+    unit.end_date = data.get("endDate", "").strip() or None
+    unit.shift_type = data.get("shiftType", unit.shift_type or "day")
 
     unit.driver_id = parse_optional_employee_id(crew.get("driver"))
     unit.medical_id = parse_optional_employee_id(crew.get("medical"))
@@ -139,3 +145,43 @@ def delete_daily_crew_unit(id):
     db.session.commit()
 
     return jsonify({"message": "Crew unit deleted"})
+
+
+# Convert a day unit to night (copy crew, optionally replace existing night units).
+@crew_bp.route("/<int:id>/make-night", methods=["POST"])
+def make_night_crew(id):
+    source = DailyCrewUnit.query.get_or_404(id)
+    data = request.get_json() or {}
+
+    replace = data.get("replace", False)   # if True, delete existing night units for this date first
+    end_date = data.get("endDate", "").strip() or None
+    end_time = data.get("endTime", "").strip() or None
+
+    if replace:
+        existing_night = DailyCrewUnit.query.filter_by(
+            shift_date=source.shift_date, shift_type="night"
+        ).all()
+        for u in existing_night:
+            db.session.delete(u)
+
+    night_unit = DailyCrewUnit(
+        shift_date=source.shift_date,
+        shift_type="night",
+        unit_type=source.unit_type,
+        truck_number=source.truck_number,
+        start_time=data.get("startTime", source.start_time),
+        end_time=end_time,
+        end_date=end_date,
+        driver_id=source.driver_id,
+        medical_id=source.medical_id,
+        assist1_id=source.assist1_id,
+        assist2_id=source.assist2_id,
+        first_patient=source.first_patient,
+        next_patients=source.next_patients,
+        notes=source.notes,
+        created_at=source.created_at,
+        updated_at=source.updated_at,
+    )
+    db.session.add(night_unit)
+    db.session.commit()
+    return jsonify(night_unit.to_dict()), 201

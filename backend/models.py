@@ -22,6 +22,9 @@ class User(db.Model):
     # Allows disabling users without deleting historical data.
     is_active = db.Column(db.Boolean, default=True)
 
+    # Optional link to an Employee record (for clock-in/out from dashboard).
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+
     def to_dict(self):
         # Never return password_hash to the frontend.
         return {
@@ -30,6 +33,7 @@ class User(db.Model):
             "display_name": self.display_name,
             "role": self.role,
             "is_active": self.is_active,
+            "employee_id": self.employee_id,
         }
 
 
@@ -123,6 +127,9 @@ class DailyCrewUnit(db.Model):
     unit_type = db.Column(db.String(50), nullable=False)
     truck_number = db.Column(db.String(50), nullable=False)
     start_time = db.Column(db.String(20), nullable=False)
+    end_time = db.Column(db.String(20))       # HH:MM, optional
+    end_date = db.Column(db.String(20))       # YYYY-MM-DD, for night shifts ending next day
+    shift_type = db.Column(db.String(10), default="day")  # "day" | "night"
 
     # Crew assignments.
     driver_id = db.Column(
@@ -183,6 +190,9 @@ class DailyCrewUnit(db.Model):
             "unitType": self.unit_type,
             "truckNumber": self.truck_number,
             "startTime": self.start_time,
+            "endTime": self.end_time or "",
+            "endDate": self.end_date or "",
+            "shiftType": self.shift_type or "day",
 
             "crew": {
                 "driver": str(self.driver_id) if self.driver_id else "",
@@ -486,11 +496,12 @@ class TimeEntry(db.Model):
     # "clock" = kiosk/self, "manual" = HR/supervisor entry, "adjusted" = correction
     entry_type = db.Column(db.String(20), default="clock")
 
-    # "pending" | "approved" | "disputed"
-    status = db.Column(db.String(20), default="pending")
+    # "approved" | "disputed"
+    status = db.Column(db.String(20), default="approved")
 
     notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey("user.id"))  # user who created (kiosk=employee link or HR)
+    flag_reason = db.Column(db.Text)    # populated when status=pending due to rule violation
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"))
     approved_by = db.Column(db.Integer, db.ForeignKey("user.id"))
     approved_at = db.Column(db.String(50))
 
@@ -513,6 +524,7 @@ class TimeEntry(db.Model):
             "duration_minutes": duration_minutes,
             "entry_type": self.entry_type,
             "status": self.status,
+            "flag_reason": self.flag_reason,
             "notes": self.notes,
             "created_by": self.created_by,
             "approved_by": self.approved_by,
@@ -540,4 +552,35 @@ class EmployeePayConfig(db.Model):
             "overtime_rate": self.overtime_rate,
             "overtime_after": self.overtime_after,
             "effective_from": self.effective_from,
+        }
+
+
+class PayPeriod(db.Model):
+    __tablename__ = "pay_period"
+
+    id = db.Column(db.Integer, primary_key=True)
+    start_date = db.Column(db.String(20), nullable=False)   # YYYY-MM-DD
+    end_date = db.Column(db.String(20), nullable=False)     # YYYY-MM-DD
+    period_type = db.Column(db.String(20), default="weekly")  # weekly | biweekly
+    # open → review → approved → exported
+    status = db.Column(db.String(20), default="open")
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    created_at = db.Column(db.String(50))
+    exported_at = db.Column(db.String(50))
+    exported_to = db.Column(db.String(50))   # gusto | adp | csv
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "period_type": self.period_type,
+            "status": self.status,
+            "notes": self.notes,
+            "created_by": self.created_by,
+            "created_at": self.created_at,
+            "exported_at": self.exported_at,
+            "exported_to": self.exported_to,
+
         }

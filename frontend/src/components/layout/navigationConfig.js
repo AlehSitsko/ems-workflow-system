@@ -11,6 +11,7 @@ import {
   FaTh,
   FaBell,
   FaClock,
+  FaMoneyBillWave,
 } from "react-icons/fa";
 
 import {
@@ -21,6 +22,9 @@ import {
   hasSupervisorAccess,
   hasAdminAccess,
 } from "../../api/authApi";
+
+const hasPayrollAccess = (user) =>
+  user && ["admin", "supervisor", "hr"].includes(user.role);
 
 export const navigationGroups = [
   {
@@ -79,10 +83,10 @@ export const navigationGroups = [
         canAccess: hasCrewPlannerAccess,
       },
       {
-        label: "Kiosk",
-        path: "/kiosk",
-        icon: FaClock,
-        canAccess: () => true,
+        label: "Payroll",
+        path: "/payroll",
+        icon: FaMoneyBillWave,
+        canAccess: hasPayrollAccess,
       },
     ],
   },
@@ -111,6 +115,12 @@ export const navigationGroups = [
   {
     title: "Help",
     items: [
+      {
+        label: "Kiosk",
+        path: "/kiosk",
+        icon: FaClock,
+        canAccess: () => true,
+      },
       {
         label: "Notifications",
         path: "/notifications",

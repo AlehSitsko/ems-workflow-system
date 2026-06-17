@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { kioskEmployees, kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
 
 function formatTime(iso) {
@@ -14,7 +15,8 @@ function formatDuration(clockIn) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-export default function KioskPage() {
+export default function KioskPage({ currentUser }) {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
   const [pin, setPin] = useState("");
@@ -130,6 +132,20 @@ export default function KioskPage() {
 
   return (
     <div style={page}>
+      {currentUser && (
+        <div style={{ position: "absolute", top: 20, left: 24 }}>
+          <button
+            onClick={() => navigate("/home")}
+            style={{
+              background: "transparent", border: "1px solid #2a3347",
+              color: "#adb5bd", borderRadius: 8, padding: "6px 14px",
+              cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+      )}
       <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: "#6ea8fe", letterSpacing: 1 }}>🚑 EMS Kiosk</div>
         <div style={{ color: "#6c757d", fontSize: 14 }}>Clock In / Clock Out</div>
