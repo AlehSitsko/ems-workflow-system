@@ -21,6 +21,7 @@ from routes.analytics_routes import analytics_bp
 from routes.dispatch_routes import dispatch_bp
 from routes.notification_routes import notif_bp
 from routes.time_routes import time_bp
+from routes.payroll_routes import payroll_bp
 
 
 app = Flask(__name__)
@@ -72,6 +73,9 @@ app.register_blueprint(notif_bp)
 
 # Register time tracking routes.
 app.register_blueprint(time_bp)
+
+# Register payroll period and export routes.
+app.register_blueprint(payroll_bp)
 
 
 @app.route("/")
@@ -140,7 +144,10 @@ def create_default_users():
 
 with app.app_context():
     # db.create_all() — disabled; use `flask db upgrade` for schema changes
-    create_default_users()
+    try:
+        create_default_users()
+    except Exception:
+        pass  # schema not yet migrated; run flask db upgrade first
 
 
 if __name__ == "__main__":

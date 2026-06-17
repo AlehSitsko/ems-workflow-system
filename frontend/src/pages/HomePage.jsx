@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   FaAmbulance,
@@ -10,6 +10,7 @@ import {
   FaChartBar,
   FaUserCog,
   FaTh,
+  FaClock,
 } from "react-icons/fa";
 
 import {
@@ -20,6 +21,112 @@ import {
   hasPatientAccess,
   hasSupervisorAccess,
 } from "../api/authApi";
+import { kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
+
+// ── Clock widget ──────────────────────────────────────────────────────────────
+function formatElapsed(clockInIso) {
+  const diff = Math.max(0, Math.floor((Date.now() - new Date(clockInIso).getTime()) / 1000));
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function ClockWidget({ currentUser }) {
+  const empId = currentUser?.employee_id || null;
+  const [clockedIn, setClockedIn] = useState(false);
+  const [clockInTime, setClockInTime] = useState(null);
+  const [elapsed, setElapsed] = useState("");
+  const [loading, setLoading] = useState(false);
+  const timerRef = useRef(null);
+
+  // Load status when employee is linked
+  useEffect(() => {
+    if (!empId) return;
+    kioskStatus(empId).then((s) => {
+      setClockedIn(s.clocked_in);
+      setClockInTime(s.clock_in);
+    });
+  }, [empId]);
+
+  // Live timer
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    if (clockedIn && clockInTime) {
+      setElapsed(formatElapsed(clockInTime));
+      timerRef.current = setInterval(() => setElapsed(formatElapsed(clockInTime)), 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [clockedIn, clockInTime]);
+
+  if (!empId) return null;
+
+  const handleClockIn = async () => {
+    setLoading(true);
+    try {
+      await kioskClockIn(empId);
+      const now = new Date().toISOString();
+      setClockedIn(true);
+      setClockInTime(now);
+    } catch {}
+    setLoading(false);
+  };
+
+  const handleClockOut = async () => {
+    setLoading(true);
+    try {
+      await kioskClockOut(empId);
+      setClockedIn(false);
+      setClockInTime(null);
+      setElapsed("");
+    } catch {}
+    setLoading(false);
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12,
+      background: clockedIn ? "rgba(25,135,84,0.12)" : "rgba(110,168,254,0.08)",
+      border: `1px solid ${clockedIn ? "rgba(25,135,84,0.35)" : "rgba(110,168,254,0.25)"}`,
+      borderRadius: 12, padding: "10px 18px",
+      marginBottom: 24,
+    }}>
+      <FaClock style={{ color: clockedIn ? "#75b798" : "#6ea8fe", fontSize: 18, flexShrink: 0 }} />
+      {clockedIn ? (
+        <>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: "#6c757d", lineHeight: 1.2 }}>Shift in progress</div>
+            <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#75b798", letterSpacing: 1 }}>
+              {elapsed}
+            </div>
+          </div>
+          <button
+            className="btn btn-sm btn-outline-danger"
+            style={{ fontWeight: 600, padding: "6px 18px" }}
+            disabled={loading}
+            onClick={handleClockOut}
+          >
+            {loading ? "…" : "Clock Out"}
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={{ flex: 1, color: "#adb5bd", fontSize: 14 }}>Not clocked in</div>
+          <button
+            className="btn btn-sm btn-success"
+            style={{ fontWeight: 600, padding: "6px 18px" }}
+            disabled={loading}
+            onClick={handleClockIn}
+          >
+            {loading ? "…" : "Clock In"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 const DashboardCard = ({
   title,
@@ -73,6 +180,7 @@ function HomePage({ currentUser }) {
 
   return (
     <div className="dashboard-page">
+      <ClockWidget currentUser={currentUser} />
       <div className="dashboard-hero">
         <div>
           <p className="dashboard-eyebrow">Welcome back</p>
