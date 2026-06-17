@@ -5,6 +5,26 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+class Organization(db.Model):
+    __tablename__ = "organization"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    slug = db.Column(db.String(100), unique=True, nullable=False)  # subdomain identifier
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.String(50))
+    settings_json = db.Column(db.Text)  # reserved for future per-org config (timezone, logo, etc.)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "slug": self.slug,
+            "is_active": self.is_active,
+            "created_at": self.created_at,
+        }
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -24,6 +44,9 @@ class User(db.Model):
 
     # Optional link to an Employee record (for clock-in/out from dashboard).
     employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+
+    # Multi-tenancy foundation — nullable until full tenant isolation is enabled.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
     def to_dict(self):
         # Never return password_hash to the frontend.
@@ -55,6 +78,9 @@ class Employee(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text)
     kiosk_pin = db.Column(db.String(10))  # 4-digit PIN for Kiosk clock in/out
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
     # CPR certification.
     cpr_has_license = db.Column(db.Boolean, default=False)
@@ -172,6 +198,9 @@ class DailyCrewUnit(db.Model):
     created_at = db.Column(db.String(50))
     updated_at = db.Column(db.String(50))
 
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
     def to_dict(self):
         try:
             parsed_next_patients = json.loads(
@@ -232,6 +261,9 @@ class CrewPreset(db.Model):
     # Optional notes.
     notes = db.Column(db.Text)
 
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -287,6 +319,9 @@ class Patient(db.Model):
 
     # General notes.
     notes = db.Column(db.Text)
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
     def to_dict(self):
         return {
@@ -368,6 +403,9 @@ class Call(db.Model):
 
     notes = db.Column(db.Text)
 
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -414,6 +452,9 @@ class NotificationEvent(db.Model):
     entity_id = db.Column(db.Integer)
     created_at = db.Column(db.String(50), nullable=False)
     expires_at = db.Column(db.String(50))
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
     def to_dict(self):
         return {
@@ -569,6 +610,9 @@ class PayPeriod(db.Model):
     created_at = db.Column(db.String(50))
     exported_at = db.Column(db.String(50))
     exported_to = db.Column(db.String(50))   # gusto | adp | csv
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
     def to_dict(self):
         return {
