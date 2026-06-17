@@ -75,7 +75,7 @@ def delete_time_entry(entry_id):
 @time_bp.route("/kiosk/employees", methods=["GET"])
 def kiosk_employee_list():
     """Returns minimal employee list for kiosk PIN/name selection."""
-    employees = Employee.query.filter(Employee.is_active == True).order_by(Employee.last_name).all()
+    employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.last_name).all()
     return jsonify([
         {"id": e.id, "name": f"{e.first_name} {e.last_name}", "pin": e.kiosk_pin}
         for e in employees
@@ -119,7 +119,7 @@ def kiosk_clock_in(employee_id=None):
         employee_id=eid,
         clock_in=datetime.now().isoformat(timespec="seconds"),
         entry_type="clock",
-        status="pending",
+        status="approved",
     )
     db.session.add(entry)
     db.session.commit()
