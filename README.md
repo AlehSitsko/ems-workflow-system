@@ -2,7 +2,7 @@
 
 ## Overview
 
-EMS Workflow System is a modular operational platform designed to support EMS and medical transportation organizations with dispatcher workflows, patient records, employee management, crew planning, dispatch board operations, time tracking, payroll management, supervisor oversight, and structured operational record keeping.
+EMS Workflow System is a modular operational platform designed to support EMS and medical transportation organizations with dispatcher workflows, patient records, employee management, crew planning, dispatch board operations, time tracking, payroll management, HR document management, supervisor oversight, and structured operational record keeping.
 
 The system is designed as an operational support platform. It is not intended to replace primary dispatch software, CAD systems, EMR systems, clinical documentation systems, or billing platforms.
 
@@ -24,6 +24,7 @@ The system is designed as an operational support platform. It is not intended to
 * Employee time tracking and kiosk clock-in/out
 * Payroll period management with FLSA weekly overtime calculation
 * CSV payroll export (generic, Gusto, ADP)
+* HR document management with expiry tracking and in-app preview
 * Supervisor analytics
 * Call quality tracking
 * Operational call status tracking
@@ -73,8 +74,9 @@ ems-workflow-system/
 │   ├── app.py
 │   ├── models.py
 │   ├── limiter.py
+│   ├── storage.py                        (file storage abstraction, local → S3)
 │   ├── notification_utils.py
-│   ├── migrations/                   (Alembic migration files)
+│   ├── migrations/                       (Alembic migration files)
 │   ├── routes/
 │   │   ├── auth_routes.py
 │   │   ├── employee_routes.py
@@ -86,7 +88,8 @@ ems-workflow-system/
 │   │   ├── dispatch_routes.py
 │   │   ├── notification_routes.py
 │   │   ├── time_routes.py
-│   │   └── payroll_routes.py
+│   │   ├── payroll_routes.py
+│   │   └── document_routes.py
 │   └── utils/
 │
 ├── frontend/
@@ -100,11 +103,13 @@ ems-workflow-system/
 │   │   │   ├── employeesApi.js
 │   │   │   ├── patientsApi.js
 │   │   │   ├── timeApi.js
-│   │   │   └── payrollApi.js
+│   │   │   ├── payrollApi.js
+│   │   │   └── documentsApi.js
 │   │   ├── components/
 │   │   │   ├── crew/
 │   │   │   │   └── PlannedUnitsList.jsx
 │   │   │   ├── TimePayTab.jsx
+│   │   │   ├── DocumentsTab.jsx
 │   │   │   └── layout/
 │   │   │       ├── AppLayout.jsx
 │   │   │       ├── Topbar.jsx
@@ -324,14 +329,35 @@ Current features:
 Current features:
 
 * Create, edit, delete employees
-* Employee status and role tracking
+* Employee status and role tracking (EMT, Paramedic, Assist, Dispatcher, Driver, Supervisor, Manager)
 * Employee number, hire date, contact info, notes
 * Certification tracking (CPR, EVOC, EMT, Paramedic) with expiration dates
 * Active/inactive status
 * Kiosk PIN per employee
 * Time & Pay tab: manual time entry, clock history, pay config (hourly rate, overtime rules)
+* Documents tab: upload, view, download, and manage HR documents with expiry tracking
 * Click employee card to open in edit drawer
 * Card actions do not trigger drawer close
+
+## HR Documents
+
+Current features:
+
+* Upload documents per employee (PDF, JPG, PNG, WEBP, DOCX — up to 10 MB)
+* Document types: Driver's License, CDL, EMS License, EVOC Cert, BLS Cert, ALS Cert, Physical Exam, Employment Contract, Offer Letter, Background Check, Insurance Card, Other
+* Document metadata: title, document number, issuing body, issue date, expiry date, notes
+* Color-coded expiry status:
+  * Green (Valid) — more than 90 days until expiry
+  * Yellow (Expiring) — 30–90 days until expiry
+  * Red (Expiring Soon) — 14 days or fewer until expiry
+  * Dark (Expired) — past expiry date
+  * Gray (No Expiry) — no expiry date set
+* In-app document preview (PDF via browser viewer, images inline)
+* Download to disk
+* Edit document metadata after upload
+* Delete document with file cleanup
+* File storage abstraction (local filesystem now, S3-ready by replacing storage.py only)
+* Compliance summary API endpoint (employee × doc type grid, for future dashboard)
 
 ## Crew Planner
 
@@ -420,6 +446,13 @@ Current features:
 * cert_cpr, cert_evoc, cert_emt, cert_paramedic (with expiry dates)
 * kiosk_pin, notes
 
+### EmployeeDocument
+
+* id, employee_id (FK → Employee)
+* doc_type, title, document_number, issuing_body, issued_date, expiry_date, notes
+* file_path, file_name, file_size, mime_type
+* uploaded_by (FK → User), uploaded_at, updated_by (FK → User), updated_at
+
 ### TimeEntry
 
 * id, employee_id, clock_in, clock_out, break_minutes
@@ -465,6 +498,18 @@ GET     /api/employees
 POST    /api/employees
 PUT     /api/employees/<employee_id>
 DELETE  /api/employees/<employee_id>
+```
+
+### HR Documents
+
+```text
+GET     /api/employees/<employee_id>/documents
+POST    /api/employees/<employee_id>/documents
+GET     /api/documents/<doc_id>
+PATCH   /api/documents/<doc_id>
+DELETE  /api/documents/<doc_id>
+GET     /api/documents/<doc_id>/file
+GET     /api/documents/compliance
 ```
 
 ### Time Entries
@@ -658,6 +703,12 @@ Recommended workflow:
 * Notification bell with 10-second polling
 * Per-user notification preferences
 
+### Block 2 Phase 2 — Web Push & Board Auto-Refresh (complete)
+
+* pywebpush service worker integration
+* Auto-refresh Dispatch Board on polling interval
+* Non-intrusive browser notification opt-in banner
+
 ### Block 3 Phase 1 — Time Tracking & Kiosk (complete)
 
 * TimeEntry and EmployeePayConfig models
@@ -682,20 +733,35 @@ Recommended workflow:
 * Make Night from day unit (with replace/keep option)
 * Standalone Night unit creation
 
+### Block 4 Phase 1 — HR Documents (complete)
+
+* EmployeeDocument model with full metadata fields
+* File storage abstraction layer (storage.py — swap local → S3 in one file)
+* Document upload: PDF, JPG, PNG, WEBP, DOCX up to 10 MB
+* 12 document types across certification and HR categories
+* Color-coded expiry indicators (ok / warning / critical / expired / none)
+* Documents tab in employee drawer (Profile | Time & Pay | Documents)
+* In-app file preview: PDF via browser viewer, images inline, DOCX download prompt
+* Download with proper auth headers (blob URL, no direct link exposure)
+* Edit document metadata post-upload
+* Delete document with filesystem cleanup
+* Compliance summary API endpoint (employee × doc type grid)
+
 ## Roadmap
 
-### Block 2 Phase 2 (pending)
+### Block 4 Phase 2 — Compliance Dashboard (next)
 
-* Web Push notifications (pywebpush + service worker)
-* Auto-refresh Dispatch Board on polling interval
-* Non-intrusive browser notification opt-in banner
+* Employee × doc type grid view
+* Color-coded status per cell
+* Filter by doc type, status, role
+* Quick-link to employee Documents tab
 
-### Block 4 — HR Documents
+### Approve Rules (planned)
 
-* EmployeeDocument model with storage abstraction (local → S3)
-* Document types: licenses, certs, HR docs, contracts
-* Documents tab in employee profile with color-coded expiry
-* Compliance Dashboard (employee × doc type grid)
+* Sync clock-in with Crew Planner shift start time
+* Configurable tolerance thresholds (±15 min, ±30 min)
+* Auto-flag entries that exceed shift duration rules (8h, 12h, 24h)
+* Manual override rules per employee or role
 
 ### Block 5 — Operational Improvements
 
@@ -704,13 +770,6 @@ Recommended workflow:
 * Call export CSV (for billing / insurance / audit)
 * Repeat call / call templates
 * CallNote (append-only communication log per call)
-
-### Approve Rules (planned)
-
-* Sync clock-in with Crew Planner shift start time
-* Configurable tolerance thresholds (±15 min, ±30 min)
-* Auto-flag entries that exceed shift duration rules (8h, 12h, 24h)
-* Manual override rules per employee or role
 
 ### Tier 3 (Before Production)
 
@@ -721,7 +780,7 @@ Recommended workflow:
 ## Current Status
 
 ```text
-Stable — Block 1 complete, Block 2 Phase 1 complete, Block 3 complete
+Stable — Block 1 complete, Block 2 complete, Block 3 complete, Block 4 Phase 1 complete
 ```
 
 Current implemented workflow:
@@ -743,7 +802,9 @@ Patient Management
 ↓
 Call History
 ↓
-Employee Management (with Time & Pay tab)
+Employee Management (Profile | Time & Pay | Documents tabs)
+↓
+HR Document Management (upload, preview, expiry tracking)
 ↓
 Crew Planning (Day + Night shifts)
 ↓
@@ -774,6 +835,7 @@ Payroll CSV Export (generic / Gusto / ADP)
 * A dispatcher support platform
 * A patient lookup and call intake tool
 * A staff management platform
+* An HR document management platform
 * A crew planning platform (day and night shifts)
 * A live dispatch board platform
 * An operational continuity platform

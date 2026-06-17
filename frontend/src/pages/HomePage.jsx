@@ -40,6 +40,7 @@ function ClockWidget({ currentUser }) {
   const [clockInTime, setClockInTime] = useState(null);
   const [elapsed, setElapsed] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const timerRef = useRef(null);
 
   // Load status when employee is linked
@@ -65,33 +66,41 @@ function ClockWidget({ currentUser }) {
 
   const handleClockIn = async () => {
     setLoading(true);
+    setError("");
     try {
       await kioskClockIn(empId);
-      const now = new Date().toISOString();
       setClockedIn(true);
-      setClockInTime(now);
-    } catch {}
+      setClockInTime(new Date().toISOString());
+    } catch (e) {
+      setError(e.message || "Clock in failed");
+    }
     setLoading(false);
   };
 
   const handleClockOut = async () => {
     setLoading(true);
+    setError("");
     try {
       await kioskClockOut(empId);
       setClockedIn(false);
       setClockInTime(null);
       setElapsed("");
-    } catch {}
+    } catch (e) {
+      setError(e.message || "Clock out failed");
+    }
     setLoading(false);
   };
 
   return (
+    <div style={{ marginBottom: 24 }}>
+      {error && (
+        <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6, paddingLeft: 4 }}>{error}</div>
+      )}
     <div style={{
       display: "flex", alignItems: "center", gap: 12,
       background: clockedIn ? "rgba(25,135,84,0.12)" : "rgba(110,168,254,0.08)",
       border: `1px solid ${clockedIn ? "rgba(25,135,84,0.35)" : "rgba(110,168,254,0.25)"}`,
       borderRadius: 12, padding: "10px 18px",
-      marginBottom: 24,
     }}>
       <FaClock style={{ color: clockedIn ? "#75b798" : "#6ea8fe", fontSize: 18, flexShrink: 0 }} />
       {clockedIn ? (
@@ -124,6 +133,7 @@ function ClockWidget({ currentUser }) {
           </button>
         </>
       )}
+    </div>
     </div>
   );
 }

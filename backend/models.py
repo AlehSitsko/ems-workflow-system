@@ -582,5 +582,96 @@ class PayPeriod(db.Model):
             "created_at": self.created_at,
             "exported_at": self.exported_at,
             "exported_to": self.exported_to,
+        }
 
+
+# ── HR Documents ──────────────────────────────────────────────────────────────
+
+DOC_TYPES = [
+    "drivers_license", "cdl", "ems_license", "evoc_cert",
+    "bls_cert", "als_cert", "physical_exam",
+    "employment_contract", "offer_letter", "background_check",
+    "insurance_card", "other",
+]
+
+DOC_CATEGORIES = {
+    "drivers_license": "certs",
+    "cdl": "certs",
+    "ems_license": "certs",
+    "evoc_cert": "certs",
+    "bls_cert": "certs",
+    "als_cert": "certs",
+    "physical_exam": "hr",
+    "employment_contract": "hr",
+    "offer_letter": "hr",
+    "background_check": "hr",
+    "insurance_card": "hr",
+    "other": "hr",
+}
+
+
+class EmployeeDocument(db.Model):
+    __tablename__ = "employee_document"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+
+    doc_type = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+
+    file_path = db.Column(db.String(500))   # relative path within uploads/documents/
+    file_name = db.Column(db.String(255))   # original filename shown to user
+    file_size = db.Column(db.Integer)       # bytes
+    mime_type = db.Column(db.String(100))
+
+    document_number = db.Column(db.String(100))
+    issuing_body = db.Column(db.String(200))
+    issued_date = db.Column(db.String(20))   # YYYY-MM-DD
+    expiry_date = db.Column(db.String(20))   # YYYY-MM-DD, nullable
+
+    notes = db.Column(db.Text)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    uploaded_at = db.Column(db.String(50))
+    updated_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    updated_at = db.Column(db.String(50))
+
+    def expiry_status(self):
+        """Returns 'expired'|'critical'|'warning'|'ok'|'none'."""
+        if not self.expiry_date:
+            return "none"
+        from datetime import date
+        try:
+            exp = date.fromisoformat(self.expiry_date)
+            today = date.today()
+            days = (exp - today).days
+            if days < 0:
+                return "expired"
+            if days <= 14:
+                return "critical"
+            if days <= 90:
+                return "warning"
+            return "ok"
+        except ValueError:
+            return "none"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "employee_id": self.employee_id,
+            "doc_type": self.doc_type,
+            "category": DOC_CATEGORIES.get(self.doc_type, "hr"),
+            "title": self.title,
+            "file_name": self.file_name,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "document_number": self.document_number or "",
+            "issuing_body": self.issuing_body or "",
+            "issued_date": self.issued_date or "",
+            "expiry_date": self.expiry_date or "",
+            "expiry_status": self.expiry_status(),
+            "notes": self.notes or "",
+            "uploaded_by": self.uploaded_by,
+            "uploaded_at": self.uploaded_at,
+            "updated_at": self.updated_at,
+            "has_file": bool(self.file_path),
         }

@@ -106,7 +106,7 @@ export default function PayrollPage() {
       // reload summary with new dates
       setLoadingSummary(true);
       try { setSummary(await getPeriodSummary(updated.id)); } catch {}
-      setLoadingSummary(false);
+      finally { setLoadingSummary(false); }
     } catch (err) { alert(err.message); }
     setSaving(false);
   };

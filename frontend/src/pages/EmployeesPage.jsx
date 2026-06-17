@@ -3,6 +3,7 @@ import {
   FaBriefcaseMedical,
   FaClock,
   FaEdit,
+  FaFileAlt,
   FaIdBadge,
   FaPlus,
   FaRedo,
@@ -22,6 +23,7 @@ import {
 
 import { getCurrentUser } from "../api/authApi";
 import TimePayTab from "../components/TimePayTab";
+import DocumentsTab from "../components/DocumentsTab";
 
 import {
   getEmployeeRoleClass,
@@ -186,7 +188,7 @@ function EmployeesPage() {
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
-  const [drawerTab, setDrawerTab] = useState("profile"); // "profile" | "timepay"
+  const [drawerTab, setDrawerTab] = useState("profile"); // "profile" | "timepay" | "documents"
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -835,11 +837,11 @@ function EmployeesPage() {
           <aside
             className="employee-drawer"
             onClick={(event) => event.stopPropagation()}
-            style={drawerTab === "timepay" ? { background: "#0d1117" } : undefined}
+            style={drawerTab !== "profile" ? { background: "#0d1117" } : undefined}
           >
-            <div className="employee-drawer-header" style={drawerTab === "timepay" ? { background: "#0d1117", borderBottom: "1px solid #2a3347", color: "#e9ecef" } : undefined}>
+            <div className="employee-drawer-header" style={drawerTab !== "profile" ? { background: "#0d1117", borderBottom: "1px solid #2a3347", color: "#e9ecef" } : undefined}>
               <div style={{ flex: 1 }}>
-                <h4 style={drawerTab === "timepay" ? { color: "#e9ecef" } : undefined}>{editingEmployeeId ? "Edit Employee" : "Add Employee"}</h4>
+                <h4 style={drawerTab !== "profile" ? { color: "#e9ecef" } : undefined}>{editingEmployeeId ? "Edit Employee" : "Add Employee"}</h4>
                 {editingEmployeeId && (
                   <div className="d-flex gap-1 mt-2">
                     <button
@@ -858,6 +860,14 @@ function EmployeesPage() {
                     >
                       <FaClock style={{ marginRight: 4 }} />Time & Pay
                     </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${drawerTab === "documents" ? "btn-primary" : "btn-outline-secondary"}`}
+                      style={{ fontSize: 12 }}
+                      onClick={() => setDrawerTab("documents")}
+                    >
+                      <FaFileAlt style={{ marginRight: 4 }} />Documents
+                    </button>
                   </div>
                 )}
               </div>
@@ -875,6 +885,10 @@ function EmployeesPage() {
             {drawerTab === "timepay" && editingEmployeeId ? (
               <div style={{ flex: 1, overflowY: "auto", background: "#0d1117", display: "flex", flexDirection: "column" }}>
                 <TimePayTab employeeId={editingEmployeeId} currentUser={currentUser} />
+              </div>
+            ) : drawerTab === "documents" && editingEmployeeId ? (
+              <div style={{ flex: 1, overflowY: "auto", background: "#0d1117", display: "flex", flexDirection: "column" }}>
+                <DocumentsTab employeeId={editingEmployeeId} currentUser={currentUser} />
               </div>
             ) : (
             <form onSubmit={handleSubmit} className="employee-drawer-form">
@@ -1005,6 +1019,7 @@ function EmployeesPage() {
                       >
                         <option value="EMT">EMT</option>
                         <option value="Paramedic">Paramedic</option>
+                        <option value="Assist">Assist</option>
                         <option value="Dispatcher">Dispatcher</option>
                         <option value="Driver">Driver</option>
                         <option value="Supervisor">Supervisor</option>

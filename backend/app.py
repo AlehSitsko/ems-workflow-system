@@ -22,6 +22,7 @@ from routes.dispatch_routes import dispatch_bp
 from routes.notification_routes import notif_bp
 from routes.time_routes import time_bp
 from routes.payroll_routes import payroll_bp
+from routes.document_routes import doc_bp
 
 
 app = Flask(__name__)
@@ -76,6 +77,9 @@ app.register_blueprint(time_bp)
 
 # Register payroll period and export routes.
 app.register_blueprint(payroll_bp)
+
+# Register HR document routes.
+app.register_blueprint(doc_bp)
 
 
 @app.route("/")
