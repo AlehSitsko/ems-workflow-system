@@ -381,8 +381,9 @@ const CallForm = forwardRef((props, ref) => {
 
       const savedCall = await createCall(callPayload);
 
-      // Create a separate return leg call when return ride is selected
+      // Create a separate return / will-call leg when requested.
       if (formData.returnRideOption !== "none" && formData.returnPickup) {
+        const isWillCall = formData.returnRideOption === "will_call";
         const returnPayload = {
           patient_id: finalPatientId,
           dispatcher_name: formData.dispatcherName,
@@ -390,12 +391,13 @@ const CallForm = forwardRef((props, ref) => {
           status: "new",
           date_of_call: formData.callDate,
           trip_date: formData.tripDate,
-          pickup_time: formData.returnTime || "",
+          // Will Call has no pickup time — it will be set from the Dispatch Board.
+          pickup_time: isWillCall ? "" : (formData.returnTime || ""),
           appointment_time: "",
           pickup_address: formData.returnPickup,
           dropoff_address: formData.returnDestination,
           caller_type: formData.callerType,
-          call_type: "return",
+          call_type: isWillCall ? "will_call" : "return",
           service_level: formData.serviceLevel,
           caller_phone: formData.phoneNumber || null,
           caller_note: null,
@@ -403,7 +405,7 @@ const CallForm = forwardRef((props, ref) => {
           missing_critical_fields: "",
           missing_optional_fields: "",
           missing_info_explanation: "",
-          notes: `Return leg for call #${savedCall.id}`,
+          notes: `${isWillCall ? "Will Call" : "Return"} leg for call #${savedCall.id}`,
         };
         await createCall(returnPayload);
       }

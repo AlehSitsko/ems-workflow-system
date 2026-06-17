@@ -438,7 +438,8 @@ class UserNotification(db.Model):
 
 class UserNotificationPrefs(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), primary_key=True)
-    prefs_json = db.Column(db.Text)  # JSON: {"call_new_today": true, ...}
+    prefs_json = db.Column(db.Text)   # JSON: {"call_new_today": true, ...}
+    push_sub_json = db.Column(db.Text)  # Web Push subscription object JSON
 
 
 class CallAssignment(db.Model):

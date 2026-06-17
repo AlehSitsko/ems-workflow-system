@@ -1,4 +1,5 @@
 import json
+import os
 
 from flask import Blueprint, jsonify, request
 
@@ -164,4 +165,40 @@ def update_prefs():
         db.session.add(prefs)
     prefs.prefs_json = json.dumps(filtered)
     db.session.commit()
+    return jsonify({"ok": True})
+
+
+@notif_bp.route("/vapid-public-key", methods=["GET"])
+def get_vapid_public_key():
+    return jsonify({"publicKey": os.environ.get("VAPID_PUBLIC_KEY", "")})
+
+
+@notif_bp.route("/push-subscribe", methods=["POST"])
+def push_subscribe():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    subscription = data.get("subscription")
+    if not user_id or not subscription:
+        return jsonify({"error": "user_id and subscription required"}), 400
+
+    prefs = UserNotificationPrefs.query.get(user_id)
+    if not prefs:
+        prefs = UserNotificationPrefs(user_id=user_id)
+        db.session.add(prefs)
+    prefs.push_sub_json = json.dumps(subscription)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@notif_bp.route("/push-unsubscribe", methods=["POST"])
+def push_unsubscribe():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+
+    prefs = UserNotificationPrefs.query.get(user_id)
+    if prefs:
+        prefs.push_sub_json = None
+        db.session.commit()
     return jsonify({"ok": True})

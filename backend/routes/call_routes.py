@@ -121,3 +121,13 @@ def create_call():
         )
 
     return jsonify(new_call.to_dict()), 201
+
+
+# Update pickup_time on a specific call (used for Will Call dispatching).
+@call_bp.route("/<int:call_id>/pickup-time", methods=["PATCH"])
+def update_pickup_time(call_id):
+    call = Call.query.get_or_404(call_id)
+    data = request.get_json() or {}
+    call.pickup_time = data.get("pickup_time", "")
+    db.session.commit()
+    return jsonify(call.to_dict())

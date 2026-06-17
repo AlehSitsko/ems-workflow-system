@@ -11,4 +11,5 @@ instance/
 
 node_modules/
 .env
+vapid_private.pem
 dist/
