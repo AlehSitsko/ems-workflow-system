@@ -48,6 +48,8 @@ def apply_employee_data(employee, data):
         ""
     ).strip()
 
+    employee.kiosk_pin = (data.get("kioskPin") or "").strip() or None
+
     # CPR certification.
     cpr = normalize_license_data(data, "cpr")
 

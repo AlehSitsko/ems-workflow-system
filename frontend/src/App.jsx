@@ -17,6 +17,7 @@ import LoginPage from "./pages/LoginPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import DispatchBoardPage from "./pages/DispatchBoardPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
+import KioskPage from "./pages/KioskPage";
 
 import {
   getCurrentUser,
@@ -173,6 +174,9 @@ function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
+
+        {/* Kiosk — no auth required */}
+        <Route path="/kiosk" element={<KioskPage />} />
 
         <Route
           path="/login"
