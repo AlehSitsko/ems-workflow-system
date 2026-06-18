@@ -747,40 +747,125 @@ Recommended workflow:
 * Delete document with filesystem cleanup
 * Compliance summary API endpoint (employee × doc type grid)
 
+### Multi-Tenancy Foundation (complete)
+
+* Organization model: id, name, slug (subdomain identifier), is_active, settings_json
+* org_id (nullable FK) added to all tenant-scoped tables: user, employee, patient, call, daily_crew_unit, crew_preset, notification_event, pay_period, employee_document
+* Default organization seeded (id=1, slug="default") — all existing rows assigned
+* No application logic changes — foundation only, activation deferred to Tier 3
+* Subdomain routing, middleware, and superadmin UI planned for Tier 3
+
 ## Roadmap
 
-### Block 4 Phase 2 — Compliance Dashboard (next)
+### Block 4 Phase 2 — Compliance Dashboard
 
-* Employee × doc type grid view
-* Color-coded status per cell
-* Filter by doc type, status, role
-* Quick-link to employee Documents tab
+* Employee × doc type grid view (all employees × 12 document types)
+* Color-coded cell per status: ok / warning / critical / expired / missing
+* Filter to show only expired and critical rows
+* Click cell → open employee Documents tab
+* CSV export of the full compliance grid
 
-### Approve Rules (planned)
+### Block 4 Phase 1.5 — Document Expiry Notifications
+
+* New notification event type: doc_expiring
+* Thresholds: 90 / 60 / 30 / 14 / 7 days before expiry
+* severity: warning (> 14 days), critical (≤ 14 days)
+* Deduplication: one event per document per day
+* Roles: admin, supervisor, hr
+
+### Block 5.1 — Audit Log
+
+* AuditLog model: user_id, action, entity_type, entity_id, old_value, new_value, timestamp
+* Log: call status changes, unit assignment/removal, patient edits, manual time entries, document uploads/deletes
+* Audit log viewer in Supervisor Dashboard with filter by entity type, user, date range
+
+### Block 5.2 — Assignment Conflict Validation
+
+* On assign: check for time overlap on the same unit
+* Returns warning modal (not a block) — dispatcher can override
+* Consistent with existing ALS-on-BLS warning pattern
+
+### Block 5.3 — Call Timeline & Daily Operations View
+
+* New model: CallEvent (call_id, unit_id, event_type, actor, timestamp, meta_json)
+* event_type: assigned, unassigned, en_route, on_scene, transporting, at_destination, completed
+* Event written on every dispatch action (assign, status change, complete, unassign)
+* Daily Operations page: select date → list all calls → click call → full event timeline
+* Timeline shows: who did what, at what time, on which unit
+* Foundation for future reporting (response times, on-scene duration, unit utilization)
+
+### Block 5.4 — Call Export CSV
+
+* GET /api/calls/export?date_from=&date_to=&status=&service_level=
+* Fields: date, patient, addresses, call type, service level, unit, dispatcher, status, quality score
+* Export button in Calls list or Supervisor Dashboard
+
+### Block 5.5 — Repeat Call
+
+* Repeat button in Call Detail Modal
+* Creates new call with same data, date = today
+* Opens pre-filled intake form for review before saving
+
+### Block 5.6 — Call Notes (Communication Log)
+
+* CallNote model: call_id, user_id, content, created_at (append-only)
+* Visible in Call Detail Modal
+* Accessible to all roles with call access
+
+### Approve Rules — Clock-in Sync
 
 * Sync clock-in with Crew Planner shift start time
-* Configurable tolerance thresholds (±15 min, ±30 min)
-* Auto-flag entries that exceed shift duration rules (8h, 12h, 24h)
-* Manual override rules per employee or role
+* Configurable tolerance thresholds: ±15 / ±30 min
+* Auto-flag entries exceeding shift duration rules (8h / 12h / 24h)
+* Manual override per employee or role
 
-### Block 5 — Operational Improvements
+### Block 5.7 — Reports (Final Phase)
 
-* AuditLog (who changed what and when)
-* Assignment conflict validation (overlap warnings)
-* Call export CSV (for billing / insurance / audit)
-* Repeat call / call templates
-* CallNote (append-only communication log per call)
+* Built on CallEvent data from Block 5.3
+* Average response time (dispatch → on scene)
+* Average transport time (on scene → at destination)
+* Unit utilization per day / week / period
+* Call volume by service level, date range, dispatcher
+* Export to PDF and CSV
 
-### Tier 3 (Before Production)
+## Tier 3 — Before Production
 
-* JWT authentication (replace localStorage MVP)
-* PostgreSQL (replace SQLite)
-* Docker / Docker Compose deployment
+### Subdomain Multi-Tenancy (activation)
+
+* Flask middleware: reads subdomain from Host header → looks up Organization by slug → sets g.current_org
+* All queries filtered by org_id (schema foundation already in place)
+* Superadmin role and UI: create / deactivate organizations, assign org admins
+* Frontend: OrgContext reads /api/org/current on startup
+* Local dev: lvh.me subdomains or X-Org-Slug header fallback
+
+### JWT Authentication
+
+* Replace localStorage MVP with access + refresh tokens
+* Transparent to users — no UI changes
+* Update all protected routes and role checks
+
+### PostgreSQL
+
+* Replace SQLite with PostgreSQL
+* Data migration script from SQLite
+* No model changes required (SQLAlchemy abstraction handles it)
+
+### Docker
+
+* Dockerfile for backend and frontend
+* docker-compose.yml with nginx reverse proxy
+* Environment-based configuration
+
+### Block 4 Phase 3 — S3 Storage
+
+* Replace storage.py implementation with boto3
+* No changes required outside storage.py
+* Config via environment: STORAGE_BACKEND, S3_BUCKET, AWS credentials
 
 ## Current Status
 
 ```text
-Stable — Block 1 complete, Block 2 complete, Block 3 complete, Block 4 Phase 1 complete
+Stable — Block 1 complete, Block 2 complete, Block 3 complete, Block 4 Phase 1 complete, Multi-Tenancy Foundation complete
 ```
 
 Current implemented workflow:
@@ -827,6 +912,8 @@ Kiosk Clock In / Clock Out
 Payroll Period Management
 ↓
 Payroll CSV Export (generic / Gusto / ADP)
+↓
+Multi-Tenant Foundation (Organization model, org_id on all tables)
 ```
 
 ## This System Is
