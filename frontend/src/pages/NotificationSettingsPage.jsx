@@ -15,7 +15,7 @@ const GROUPS = [
   },
   {
     label: "HR & Employees",
-    types: ["cert_expiring", "employee_added"],
+    types: ["cert_expiring", "employee_added", "doc_expiring"],
   },
 ];
 

@@ -106,18 +106,21 @@ def create_call():
     db.session.add(new_call)
     db.session.commit()
 
-    # Notify if this call is scheduled for today.
+    # Notify if this call is scheduled for today or tomorrow.
+    from datetime import timedelta
     today = datetime.now().strftime("%Y-%m-%d")
-    if new_call.trip_date == today:
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    if new_call.trip_date in (today, tomorrow):
         from models import Patient
         patient_name = ""
         if new_call.patient_id:
             p = Patient.query.get(new_call.patient_id)
             if p:
                 patient_name = f"{p.first_name} {p.last_name} — "
+        day_label = "today" if new_call.trip_date == today else "tomorrow"
         create_notification(
             "call_new_today", "info",
-            f"New call for today — {new_call.service_level or 'BLS'}",
+            f"New call for {day_label} — {new_call.service_level or 'BLS'}",
             f"{patient_name}{new_call.pickup_address or '?'} → {new_call.dropoff_address or '?'} at {new_call.pickup_time or '?'}",
             entity_type="call", entity_id=new_call.id,
         )

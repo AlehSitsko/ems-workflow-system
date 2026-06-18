@@ -7,11 +7,12 @@ from push_utils import send_push
 # Which event types each role can receive.
 ROLE_EVENT_TYPES = {
     "admin":      {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
-                   "unit_stuck_status", "unit_understaffed", "cert_expiring", "employee_added"},
+                   "unit_stuck_status", "unit_understaffed", "cert_expiring", "employee_added",
+                   "doc_expiring"},
     "supervisor": {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
-                   "unit_stuck_status", "unit_understaffed", "cert_expiring"},
+                   "unit_stuck_status", "unit_understaffed", "cert_expiring", "doc_expiring"},
     "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status"},
-    "hr":         {"cert_expiring", "employee_added"},
+    "hr":         {"cert_expiring", "employee_added", "doc_expiring"},
 }
 
 # Roles that receive each event type.
@@ -23,6 +24,7 @@ EVENT_TARGET_ROLES = {
     "unit_understaffed":    ["admin", "supervisor"],
     "cert_expiring":        ["admin", "supervisor", "hr"],
     "employee_added":       ["admin", "hr"],
+    "doc_expiring":         ["admin", "supervisor", "hr"],
 }
 
 
@@ -112,7 +114,7 @@ def run_temporal_checks():
     now_dt = datetime.now()
 
     # Import here to avoid circular imports at module level.
-    from models import Call, Employee
+    from models import Call, Employee, EmployeeDocument
 
     # call_unassigned_soon: unassigned calls with pickup < 30 min away.
     calls_today = Call.query.filter(
@@ -170,3 +172,28 @@ def run_temporal_checks():
                 )
             except Exception:
                 pass
+
+    # doc_expiring: check HR documents with expiry_date set.
+    doc_thresholds = {90, 60, 30, 14, 7}
+    docs = EmployeeDocument.query.filter(EmployeeDocument.expiry_date != None).all()
+    for doc in docs:
+        try:
+            exp_dt = datetime.strptime(doc.expiry_date, "%Y-%m-%d")
+            days_left = (exp_dt.date() - now_dt.date()).days
+            if days_left < 0:
+                continue
+            # Fire at threshold milestones; also fire daily once inside 7 days.
+            if days_left > 7 and days_left not in doc_thresholds:
+                continue
+            severity = "critical" if days_left <= 14 else "warning"
+            label = f"expiring in {days_left} days" if days_left > 0 else "expired today"
+            emp = doc.employee
+            emp_name = f"{emp.first_name} {emp.last_name}" if emp else f"Employee #{doc.employee_id}"
+            create_notification(
+                "doc_expiring", severity,
+                f"{emp_name} — {doc.title} {label}",
+                f"Document type: {doc.doc_type}. Expires: {doc.expiry_date}",
+                entity_type="employee_document", entity_id=doc.id, dedup_minutes=23 * 60,
+            )
+        except Exception:
+            pass
