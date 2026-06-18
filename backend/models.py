@@ -659,6 +659,7 @@ class EmployeeDocument(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    employee = db.relationship("Employee", foreign_keys=[employee_id], lazy="joined")
 
     doc_type = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(200), nullable=False)

@@ -16,6 +16,7 @@ NOTIFICATION_LABELS = {
     "unit_understaffed":    "Unit understaffed",
     "cert_expiring":        "Certificate expiring",
     "employee_added":       "New employee added",
+    "doc_expiring":         "HR document expiring",
 }
 
 

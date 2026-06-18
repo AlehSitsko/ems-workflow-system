@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 
 from models import db, EmployeeDocument, Employee, DOC_TYPES
 from storage import save_file, delete_file, get_file_response
+from notification_utils import create_notification
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
 
@@ -92,7 +93,32 @@ def upload_document(employee_id):
     )
     db.session.add(doc)
     db.session.commit()
+    _notify_if_expiring(doc)
     return jsonify(doc.to_dict()), 201
+
+
+def _notify_if_expiring(doc):
+    """Fire an immediate doc_expiring notification if the document is within 90 days of expiry."""
+    if not doc.expiry_date:
+        return
+    try:
+        exp_dt = datetime.strptime(doc.expiry_date, "%Y-%m-%d")
+        days_left = (exp_dt.date() - datetime.now().date()).days
+        if days_left < 0 or days_left > 90:
+            return
+        severity = "critical" if days_left <= 14 else "warning"
+        emp = doc.employee
+        emp_name = f"{emp.first_name} {emp.last_name}" if emp else f"Employee #{doc.employee_id}"
+        label = f"expiring in {days_left} days" if days_left > 0 else "expired today"
+        create_notification(
+            "doc_expiring", severity,
+            f"{emp_name} — {doc.title} {label}",
+            f"Document type: {doc.doc_type}. Expires: {doc.expiry_date}",
+            entity_type="employee_document", entity_id=doc.id,
+            dedup_minutes=60,
+        )
+    except Exception:
+        pass
 
 
 # ── Single document ──────────────────────────────────────────────────────────
@@ -121,6 +147,7 @@ def update_document(doc_id):
     doc.updated_by = _user_id_from_request()
     doc.updated_at = datetime.utcnow().isoformat()
     db.session.commit()
+    _notify_if_expiring(doc)
     return jsonify(doc.to_dict())
 
 
