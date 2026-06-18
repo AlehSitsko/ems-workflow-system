@@ -12,6 +12,7 @@ import {
   FaBell,
   FaClock,
   FaMoneyBillWave,
+  FaShieldAlt,
 } from "react-icons/fa";
 
 import {
@@ -86,6 +87,12 @@ export const navigationGroups = [
         label: "Payroll",
         path: "/payroll",
         icon: FaMoneyBillWave,
+        canAccess: hasPayrollAccess,
+      },
+      {
+        label: "Compliance",
+        path: "/compliance",
+        icon: FaShieldAlt,
         canAccess: hasPayrollAccess,
       },
     ],

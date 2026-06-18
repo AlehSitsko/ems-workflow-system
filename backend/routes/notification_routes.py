@@ -17,6 +17,7 @@ NOTIFICATION_LABELS = {
     "cert_expiring":        "Certificate expiring",
     "employee_added":       "New employee added",
     "doc_expiring":         "HR document expiring",
+    "cert_no_scan":         "Certification scan missing",
 }
 
 
