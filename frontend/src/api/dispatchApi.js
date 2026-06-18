@@ -1,4 +1,5 @@
-const BASE = "http://127.0.0.1:5050/api/dispatch";
+import API_BASE from "./config.js";
+const BASE = `${API_BASE}/api/dispatch`;
 
 export async function fetchBoard(date) {
   const res = await fetch(`${BASE}/board?date=${date}`);

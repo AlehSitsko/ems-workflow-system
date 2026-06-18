@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:5050";
+import API_BASE from "./config.js";
 
 function authHeaders(currentUser) {
   return {

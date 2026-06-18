@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_BASE = "http://127.0.0.1:5050";
+import API_BASE from "../api/config.js";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -72,9 +72,7 @@ export function usePushNotifications(user) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() }),
       });
-    } catch (e) {
-      // Push subscription failed — but permission was granted, keep that state.
-    }
+    } catch { /* noop */ }
 
     localStorage.setItem("push_banner_dismissed", "1");
     setBannerDismissed(true);

@@ -521,6 +521,7 @@ function EmployeesPage() {
 
       isActive: formData.isActive,
       notes: formData.notes.trim(),
+      kioskPin: formData.kioskPin.trim(),
 
       cpr: normalizeLicense(formData.cpr),
       evoc: normalizeLicense(formData.evoc),

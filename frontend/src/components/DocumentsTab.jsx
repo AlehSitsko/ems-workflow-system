@@ -82,7 +82,7 @@ export default function DocumentsTab({ employeeId, currentUser }) {
 
   async function handleDownload(doc) {
     try {
-      const { url, mimeType } = await fetchDocumentBlob(doc.id, currentUser);
+      const { url } = await fetchDocumentBlob(doc.id, currentUser);
       const a = document.createElement("a");
       a.href = url;
       a.download = doc.file_name || `document_${doc.id}`;
@@ -96,6 +96,13 @@ export default function DocumentsTab({ employeeId, currentUser }) {
   useEffect(() => {
     load();
   }, [employeeId]);
+
+  // Revoke blob URL on unmount to prevent memory leak
+  const previewRef = useRef(null);
+  previewRef.current = preview;
+  useEffect(() => {
+    return () => { if (previewRef.current?.blobUrl) URL.revokeObjectURL(previewRef.current.blobUrl); };
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -143,7 +150,7 @@ export default function DocumentsTab({ employeeId, currentUser }) {
     setError("");
     try {
       if (editId) {
-        const { file, ...rest } = form;
+        const { file: _file, ...rest } = form;
         await updateDocument(editId, rest, currentUser);
       } else {
         const fd = new FormData();

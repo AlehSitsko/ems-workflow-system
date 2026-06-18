@@ -34,14 +34,16 @@ def get_calls():
         query = query.filter(Call.status == status)
 
     if min_quality_score:
-        query = query.filter(
-            Call.quality_score >= int(min_quality_score)
-        )
+        try:
+            query = query.filter(Call.quality_score >= int(min_quality_score))
+        except ValueError:
+            return jsonify({"error": "min_quality_score must be an integer"}), 400
 
     if max_quality_score:
-        query = query.filter(
-            Call.quality_score <= int(max_quality_score)
-        )
+        try:
+            query = query.filter(Call.quality_score <= int(max_quality_score))
+        except ValueError:
+            return jsonify({"error": "max_quality_score must be an integer"}), 400
 
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 25, type=int), 100)

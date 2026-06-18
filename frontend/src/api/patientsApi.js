@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://127.0.0.1:5050";
+import API_BASE from "./config.js";
+const API_BASE_URL = API_BASE;
 
 // Normalize text values before comparing patient records.
 // This helps avoid duplicates caused by different capitalization or extra spaces.

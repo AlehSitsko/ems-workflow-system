@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaBell, FaSave } from "react-icons/fa";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 
-const API_BASE = "http://127.0.0.1:5050";
+import API_BASE from "../api/config.js";
 
 const GROUPS = [
   {
@@ -24,7 +24,7 @@ function NotificationSettingsPage({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const { pushState, subscribe, dismiss } = usePushNotifications(currentUser);
+  const { pushState, subscribe, dismiss: _dismiss } = usePushNotifications(currentUser);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -56,7 +56,7 @@ function NotificationSettingsPage({ currentUser }) {
         body: JSON.stringify({ user_id: currentUser.id, prefs: flat }),
       });
       setSaved(true);
-    } catch (e) {}
+    } catch { /* noop */ }
     setSaving(false);
   };
 
