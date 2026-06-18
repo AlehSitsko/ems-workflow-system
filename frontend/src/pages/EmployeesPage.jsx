@@ -20,10 +20,20 @@ import {
   getEmployees,
   updateEmployee,
 } from "../api/employeesApi";
+import { getDocuments, uploadDocument } from "../api/documentsApi";
 
 import { getCurrentUser } from "../api/authApi";
 import TimePayTab from "../components/TimePayTab";
 import DocumentsTab from "../components/DocumentsTab";
+
+// Maps cert field name → EmployeeDocument doc_type
+const CERT_DOC_TYPES = {
+  cpr:       "cpr_cert",
+  evoc:      "evoc_cert",
+  emt:       "emt_cert",
+  paramedic: "als_cert",
+};
+const CERT_LABELS = { cpr: "CPR", evoc: "EVOC", emt: "EMT", paramedic: "Paramedic" };
 
 import {
   getEmployeeRoleClass,
@@ -194,6 +204,12 @@ function EmployeesPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  // Cert scan state
+  const [certFiles, setCertFiles] = useState({ cpr: null, evoc: null, emt: null, paramedic: null });
+  const [certScans, setCertScans] = useState({});   // { cpr: {id, file_name} | null }
+  const [showScanDialog, setShowScanDialog] = useState(false);
+  const [scanDialogMissing, setScanDialogMissing] = useState([]);
+
   /*
     Load employees from backend.
   */
@@ -269,6 +285,9 @@ function EmployeesPage() {
     setEditingEmployeeId(null);
     setShowEmployeeForm(false);
     setDrawerTab("profile");
+    setCertFiles({ cpr: null, evoc: null, emt: null, paramedic: null });
+    setCertScans({});
+    setShowScanDialog(false);
   };
 
   /*
@@ -313,6 +332,16 @@ function EmployeesPage() {
     setShowEmployeeForm(true);
     setMessage("");
     setError("");
+    setCertFiles({ cpr: null, evoc: null, emt: null, paramedic: null });
+    // Load existing cert scans from documents
+    getDocuments(employee.id).then((docs) => {
+      const scans = {};
+      Object.entries(CERT_DOC_TYPES).forEach(([cert, docType]) => {
+        const found = docs.find((d) => d.doc_type === docType && d.file_name);
+        scans[cert] = found ? { id: found.id, file_name: found.file_name } : null;
+      });
+      setCertScans(scans);
+    }).catch(() => setCertScans({}));
   };
 
   /*
@@ -544,12 +573,49 @@ function EmployeesPage() {
     setLoading(true);
 
     try {
+      let savedId = editingEmployeeId;
       if (editingEmployeeId) {
         await updateEmployee(editingEmployeeId, employeePayload);
         setMessage("Employee updated successfully.");
       } else {
-        await createEmployee(employeePayload);
+        const created = await createEmployee(employeePayload);
+        savedId = created.id;
         setMessage("Employee created successfully.");
+      }
+
+      // Upload any cert files that were selected
+      if (savedId) {
+        for (const [cert, file] of Object.entries(certFiles)) {
+          if (!file) continue;
+          const docType = CERT_DOC_TYPES[cert];
+          const label = CERT_LABELS[cert];
+          const fd = new FormData();
+          fd.append("doc_type", docType);
+          fd.append("title", `${label} Certification Scan`);
+          fd.append("file", file);
+          try {
+            await uploadDocument(savedId, fd, currentUser);
+          } catch (uploadErr) {
+            console.error(`Failed to upload ${cert} scan:`, uploadErr);
+          }
+        }
+      }
+
+      // Check for certs with has_license=true but no scan
+      const missing = Object.keys(CERT_DOC_TYPES).filter((cert) => {
+        const hasLic = employeePayload[cert]?.hasLicense;
+        if (!hasLic) return false;
+        const hasFile = certFiles[cert] !== null;
+        const hasExisting = Boolean(certScans[cert]);
+        return !hasFile && !hasExisting;
+      });
+
+      if (missing.length > 0) {
+        setScanDialogMissing(missing);
+        setShowScanDialog(true);
+        await loadEmployees();
+        // Don't resetForm — stay open for user to act on dialog
+        return;
       }
 
       resetForm();
@@ -1197,6 +1263,40 @@ function EmployeesPage() {
                                   disabled={loading}
                                 />
                               </div>
+
+                              {/* Scan attachment */}
+                              <div className="mt-3">
+                                <label className="form-label d-flex align-items-center gap-2">
+                                  Scan / Photo
+                                  {certScans[licenseType] ? (
+                                    <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>✓ Attached</span>
+                                  ) : certFiles[licenseType] ? (
+                                    <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>Ready to upload</span>
+                                  ) : (
+                                    <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>⚠ No scan</span>
+                                  )}
+                                </label>
+                                {certScans[licenseType] && !certFiles[licenseType] && (
+                                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>
+                                    📎 {certScans[licenseType].file_name}
+                                  </div>
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="form-control form-control-sm"
+                                  disabled={loading}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    setCertFiles((prev) => ({ ...prev, [licenseType]: file }));
+                                  }}
+                                />
+                                {certFiles[licenseType] && (
+                                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+                                    {certFiles[licenseType].name}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1233,6 +1333,53 @@ function EmployeesPage() {
             </form>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* Scan "Attach Later?" dialog */}
+      {showScanDialog && (
+        <div className="modal d-block" style={{ background: "rgba(0,0,0,0.65)", zIndex: 1070 }} tabIndex={-1}>
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 440 }}>
+            <div className="modal-content" style={{ background: "#1a2236", border: "1px solid #f59e0b44", borderRadius: 12 }}>
+              <div className="modal-header" style={{ borderBottom: "1px solid #2a3347" }}>
+                <h5 className="modal-title" style={{ color: "#f59e0b", fontSize: 15 }}>
+                  ⚠ Certification Scans Missing
+                </h5>
+              </div>
+              <div className="modal-body" style={{ color: "#e2e8f0", fontSize: 14 }}>
+                <p>The employee record was saved, but the following certifications have no scan or photo attached:</p>
+                <ul style={{ color: "#f59e0b", fontWeight: 600 }}>
+                  {scanDialogMissing.map((cert) => (
+                    <li key={cert}>{CERT_LABELS[cert]}</li>
+                  ))}
+                </ul>
+                <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 0 }}>
+                  Would you like to attach the scans now, or save them later?
+                </p>
+              </div>
+              <div className="modal-footer" style={{ borderTop: "1px solid #2a3347", gap: 8 }}>
+                <button
+                  className="btn btn-sm btn-warning"
+                  onClick={() => {
+                    setShowScanDialog(false);
+                    // Stay in form, scroll to certs section
+                    setDrawerTab("profile");
+                  }}
+                >
+                  Attach Now
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => {
+                    setShowScanDialog(false);
+                    resetForm();
+                  }}
+                >
+                  Save for Later
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

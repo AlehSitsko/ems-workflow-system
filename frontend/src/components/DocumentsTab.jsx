@@ -8,7 +8,7 @@ import {
 } from "../api/documentsApi";
 
 const DOC_TYPES = [
-  "drivers_license", "cdl", "ems_license", "evoc_cert", "bls_cert",
+  "drivers_license", "cdl", "cpr_cert", "evoc_cert", "emt_cert",
   "als_cert", "physical_exam", "employment_contract", "offer_letter",
   "background_check", "insurance_card", "other",
 ];
@@ -16,9 +16,9 @@ const DOC_TYPES = [
 const DOC_LABELS = {
   drivers_license: "Driver's License",
   cdl: "CDL",
-  ems_license: "EMS License",
+  cpr_cert: "CPR Cert",
   evoc_cert: "EVOC Cert",
-  bls_cert: "BLS Cert",
+  emt_cert: "EMT License",
   als_cert: "ALS Cert",
   physical_exam: "Physical Exam",
   employment_contract: "Employment Contract",

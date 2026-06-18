@@ -640,8 +640,8 @@ class PayPeriod(db.Model):
 # ── HR Documents ──────────────────────────────────────────────────────────────
 
 DOC_TYPES = [
-    "drivers_license", "cdl", "ems_license", "evoc_cert",
-    "bls_cert", "als_cert", "physical_exam",
+    "drivers_license", "cdl", "cpr_cert", "evoc_cert",
+    "emt_cert", "als_cert", "physical_exam",
     "employment_contract", "offer_letter", "background_check",
     "insurance_card", "other",
 ]
@@ -649,9 +649,9 @@ DOC_TYPES = [
 DOC_CATEGORIES = {
     "drivers_license": "certs",
     "cdl": "certs",
-    "ems_license": "certs",
+    "cpr_cert": "certs",
     "evoc_cert": "certs",
-    "bls_cert": "certs",
+    "emt_cert": "certs",
     "als_cert": "certs",
     "physical_exam": "hr",
     "employment_contract": "hr",

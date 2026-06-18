@@ -8,11 +8,12 @@ from push_utils import send_push
 ROLE_EVENT_TYPES = {
     "admin":      {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "employee_added",
-                   "doc_expiring"},
+                   "doc_expiring", "cert_no_scan"},
     "supervisor": {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
-                   "unit_stuck_status", "unit_understaffed", "cert_expiring", "doc_expiring"},
+                   "unit_stuck_status", "unit_understaffed", "cert_expiring", "doc_expiring",
+                   "cert_no_scan"},
     "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status"},
-    "hr":         {"cert_expiring", "employee_added", "doc_expiring"},
+    "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan"},
 }
 
 # Roles that receive each event type.
@@ -25,6 +26,7 @@ EVENT_TARGET_ROLES = {
     "cert_expiring":        ["admin", "supervisor", "hr"],
     "employee_added":       ["admin", "hr"],
     "doc_expiring":         ["admin", "supervisor", "hr"],
+    "cert_no_scan":         ["admin", "supervisor", "hr"],
 }
 
 
@@ -172,6 +174,35 @@ def run_temporal_checks():
                 )
             except Exception:
                 pass
+
+    # cert_no_scan: active employees with cert checked but no matching EmployeeDocument file.
+    # Mapping: (has_field, doc_type, cert_label, cert_idx)
+    CERT_DOC_MAP = [
+        ("cpr_has_license",       "cpr_cert",  "CPR",       1),
+        ("evoc_has_license",      "evoc_cert", "EVOC",      2),
+        ("emt_has_license",       "emt_cert",  "EMT",       3),
+        ("paramedic_has_license", "als_cert",  "Paramedic", 4),
+    ]
+    # Build a set of (employee_id, doc_type) that have an uploaded file
+    from models import EmployeeDocument as ED
+    docs_with_file = db.session.query(ED.employee_id, ED.doc_type).filter(
+        ED.file_path.isnot(None)
+    ).all()
+    scans_index = {(r[0], r[1]) for r in docs_with_file}
+
+    for emp in employees:
+        for has_field, doc_type, cert_label, cert_idx in CERT_DOC_MAP:
+            if not getattr(emp, has_field, False):
+                continue
+            if (emp.id, doc_type) in scans_index:
+                continue
+            composite_id = emp.id * 100 + cert_idx
+            create_notification(
+                "cert_no_scan", "warning",
+                f"{emp.first_name} {emp.last_name} — {cert_label} scan missing",
+                f"{cert_label} certification is recorded but no scan/photo has been uploaded.",
+                entity_type="employee", entity_id=composite_id, dedup_minutes=23 * 60,
+            )
 
     # doc_expiring: check HR documents with expiry_date set.
     doc_thresholds = {90, 60, 30, 14, 7}

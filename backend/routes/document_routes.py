@@ -181,6 +181,27 @@ def download_document_file(doc_id):
 
 # ── Compliance summary (all employees × doc types) ───────────────────────────
 
+def _cert_status_from_date(expiry_date_str: str | None, has_license: bool) -> str:
+    """Convert legacy Employee cert fields to a compliance status string."""
+    if not has_license:
+        return "none"
+    if not expiry_date_str:
+        return "ok"  # has cert but no expiry tracked
+    from datetime import date
+    try:
+        exp = date.fromisoformat(expiry_date_str)
+        days = (exp - date.today()).days
+        if days < 0:
+            return "expired"
+        if days <= 14:
+            return "critical"
+        if days <= 90:
+            return "warning"
+        return "ok"
+    except ValueError:
+        return "ok"
+
+
 @doc_bp.route("/documents/compliance", methods=["GET"])
 def compliance_summary():
     if _role_from_request() not in ALLOWED_ROLES:
@@ -189,8 +210,9 @@ def compliance_summary():
     employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.last_name).all()
     all_docs = EmployeeDocument.query.all()
 
-    # Index by employee_id → doc_type → best status
     STATUS_RANK = {"ok": 4, "warning": 3, "critical": 2, "expired": 1, "none": 0}
+
+    # Index by employee_id → doc_type → best status (from EmployeeDocument records)
     index: dict[int, dict[str, str]] = {}
     for doc in all_docs:
         emp_map = index.setdefault(doc.employee_id, {})
@@ -199,12 +221,31 @@ def compliance_summary():
         if STATUS_RANK.get(status, 0) > STATUS_RANK.get(existing, 0):
             emp_map[doc.doc_type] = status
 
+    # Merge legacy Employee cert fields — only upgrade if better than existing
+    # Mapping: Employee field prefix → EmployeeDocument doc_type
+    LEGACY_CERT_MAP = {
+        "cpr":       "cpr_cert",
+        "evoc":      "evoc_cert",
+        "emt":       "emt_cert",
+        "paramedic": "emt_cert",  # paramedic also satisfies emt_cert
+    }
+    for emp in employees:
+        emp_map = index.setdefault(emp.id, {})
+        for prefix, doc_type in LEGACY_CERT_MAP.items():
+            has_lic = getattr(emp, f"{prefix}_has_license", False)
+            exp_date = getattr(emp, f"{prefix}_expiration_date", None)
+            status = _cert_status_from_date(exp_date, has_lic)
+            existing = emp_map.get(doc_type, "none")
+            if STATUS_RANK.get(status, 0) > STATUS_RANK.get(existing, 0):
+                emp_map[doc_type] = status
+
     result = []
     for emp in employees:
         result.append({
             "employee_id": emp.id,
             "first_name": emp.first_name,
             "last_name": emp.last_name,
+            "role": emp.role or "EMT",
             "docs": index.get(emp.id, {}),
         })
 
