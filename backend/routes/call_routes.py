@@ -1,9 +1,22 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 
 from models import db, Call
 from notification_utils import create_notification
+
+ALLOWED_ROLES = {"admin", "supervisor", "hr"}
+
+
+def _role_from_request():
+    return request.headers.get("X-User-Role", "")
+
+
+def _user_id_from_request():
+    try:
+        return int(request.headers.get("X-User-Id", 0)) or None
+    except (ValueError, TypeError):
+        return None
 
 
 # Blueprint for call history and call intake routes.
@@ -126,6 +139,29 @@ def create_call():
         )
 
     return jsonify(new_call.to_dict()), 201
+
+
+@call_bp.route("/<int:call_id>/cancel", methods=["PATCH"])
+def cancel_call(call_id):
+    if _role_from_request() not in ALLOWED_ROLES:
+        return jsonify({"error": "Insufficient permissions"}), 403
+
+    call = Call.query.get_or_404(call_id)
+
+    if call.status == "cancelled":
+        return jsonify({"error": "Call is already cancelled"}), 409
+
+    data = request.get_json() or {}
+    reason = (data.get("cancel_reason") or "").strip()
+    if not reason:
+        return jsonify({"error": "cancel_reason is required"}), 400
+
+    call.status = "cancelled"
+    call.cancel_reason = reason
+    call.cancelled_at = datetime.now(timezone.utc).isoformat()
+    call.cancelled_by = _user_id_from_request()
+    db.session.commit()
+    return jsonify(call.to_dict())
 
 
 # Update pickup_time on a specific call (used for Will Call dispatching).

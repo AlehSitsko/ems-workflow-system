@@ -59,6 +59,17 @@ export async function getPatientCalls(patientId) {
   return data;
 }
 
+export async function cancelCall(callId, cancelReason, headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/cancel`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ cancel_reason: cancelReason }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to cancel call");
+  return data;
+}
+
 // Fetch dispatcher analytics for supervisor reporting.
 export async function getDispatcherAnalytics() {
   const response = await fetch(`${API_BASE_URL}/api/analytics/dispatchers`);

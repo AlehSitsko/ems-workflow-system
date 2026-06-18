@@ -19,6 +19,7 @@ import {
   reopenAssignment,
   updateUnitStatus,
 } from "../api/dispatchApi";
+import { cancelCall } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -399,7 +400,25 @@ function CompletedCallCard({ call, onCardClick }) {
   );
 }
 
-function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen }) {
+function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel }) {
+  const [showCancelForm, setShowCancelForm] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelSubmit = async () => {
+    if (!cancelReason.trim()) { setCancelError("Reason is required."); return; }
+    setCancelling(true);
+    try {
+      await onCancel(call.id, cancelReason.trim());
+      onClose();
+    } catch (err) {
+      setCancelError(err.message || "Failed to cancel call.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const ret = parseReturnInfo(call.notes);
   const isReturnCall = (call.call_type || "").toLowerCase() === "return";
   const emergency = isEmergencyCall(call);
@@ -578,34 +597,83 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
             )}
           </div>
 
-          {/* Footer actions */}
-          <div style={{ background: "#0f1520", borderTop: "1px solid #2a3347", padding: "12px 18px", display: "flex", gap: 8, alignItems: "center" }}>
-            {!isCompleted && (
-              <>
+          {/* Cancel form */}
+          {showCancelForm && (
+            <div style={{ background: "#1a0f0f", borderTop: "1px solid #dc354544", padding: "12px 18px" }}>
+              <div style={{ fontSize: 12, color: "#ea868f", fontWeight: 600, marginBottom: 6 }}>Cancel Call — Reason Required</div>
+              <textarea
+                className="form-control form-control-sm mb-2"
+                style={{ background: "#131d2e", color: "#fff", border: "1px solid #dc354555", resize: "vertical", fontSize: 13 }}
+                rows={2}
+                placeholder="State the reason for cancellation..."
+                value={cancelReason}
+                onChange={(e) => { setCancelReason(e.target.value); setCancelError(""); }}
+              />
+              {cancelError && <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6 }}>{cancelError}</div>}
+              <div className="d-flex gap-2">
                 <button
                   className="btn btn-sm"
-                  style={{ background: "rgba(25,135,84,0.15)", color: "#75b798", border: "1px solid #75b79855", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
-                  onClick={() => { onComplete(call.assignment_id); onClose(); }}
+                  style={{ background: "rgba(220,53,69,0.2)", color: "#ea868f", border: "1px solid #dc354555", fontWeight: 600, fontSize: 13 }}
+                  onClick={handleCancelSubmit}
+                  disabled={cancelling}
                 >
-                  ✓ Mark Complete
+                  {cancelling ? "Cancelling..." : "Confirm Cancel"}
                 </button>
                 <button
                   className="btn btn-sm"
-                  style={{ background: "rgba(108,117,125,0.12)", color: "#adb5bd", border: "1px solid #49505755", fontSize: 13, padding: "6px 14px" }}
-                  onClick={() => { onUnassign(call.assignment_id); onClose(); }}
+                  style={{ background: "transparent", color: "#6c757d", border: "1px solid #2a3347", fontSize: 13 }}
+                  onClick={() => { setShowCancelForm(false); setCancelReason(""); setCancelError(""); }}
                 >
-                  ↩ Unassign
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Footer actions */}
+          <div style={{ background: "#0f1520", borderTop: "1px solid #2a3347", padding: "12px 18px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {call.status !== "cancelled" && !showCancelForm && (
+              <>
+                {!isCompleted && (
+                  <>
+                    <button
+                      className="btn btn-sm"
+                      style={{ background: "rgba(25,135,84,0.15)", color: "#75b798", border: "1px solid #75b79855", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
+                      onClick={() => { onComplete(call.assignment_id); onClose(); }}
+                    >
+                      ✓ Mark Complete
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      style={{ background: "rgba(108,117,125,0.12)", color: "#adb5bd", border: "1px solid #49505755", fontSize: 13, padding: "6px 14px" }}
+                      onClick={() => { onUnassign(call.assignment_id); onClose(); }}
+                    >
+                      ↩ Unassign
+                    </button>
+                  </>
+                )}
+                {isCompleted && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: "rgba(255,193,7,0.12)", color: "#ffc107", border: "1px solid #ffc10755", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
+                    onClick={() => { onReopen(call.assignment_id); onClose(); }}
+                  >
+                    ↩ Reopen Call
+                  </button>
+                )}
+                <button
+                  className="btn btn-sm"
+                  style={{ background: "rgba(220,53,69,0.1)", color: "#ea868f", border: "1px solid #dc354533", fontSize: 13, padding: "6px 14px" }}
+                  onClick={() => setShowCancelForm(true)}
+                >
+                  ✕ Cancel Call
                 </button>
               </>
             )}
-            {isCompleted && (
-              <button
-                className="btn btn-sm"
-                style={{ background: "rgba(255,193,7,0.12)", color: "#ffc107", border: "1px solid #ffc10755", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
-                onClick={() => { onReopen(call.assignment_id); onClose(); }}
-              >
-                ↩ Reopen Call
-              </button>
+            {call.status === "cancelled" && (
+              <span style={{ fontSize: 12, color: "#ea868f", fontWeight: 600 }}>
+                ✕ Cancelled{call.cancel_reason ? ` — ${call.cancel_reason}` : ""}
+              </span>
             )}
             <button
               className="btn btn-sm ms-auto"
@@ -825,6 +893,15 @@ export default function DispatchBoardPage() {
     } catch (e) { alert(`Reopen failed: ${e.message}`); }
   }
 
+  async function handleCancelCall(callId, reason) {
+    const headers = {
+      "X-User-Role": currentUser?.role || "",
+      "X-User-Id": String(currentUser?.id || ""),
+    };
+    await cancelCall(callId, reason, headers);
+    await loadBoard(date);
+  }
+
   async function handleSetWillCallTime(callId, pickupTime) {
     if (!pickupTime) return;
     try {
@@ -864,6 +941,7 @@ export default function DispatchBoardPage() {
           onUnassign={handleUnassign}
           onComplete={handleComplete}
           onReopen={handleReopen}
+          onCancel={handleCancelCall}
         />
       )}
 

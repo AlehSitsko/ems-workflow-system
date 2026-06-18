@@ -403,6 +403,10 @@ class Call(db.Model):
 
     notes = db.Column(db.Text)
 
+    cancel_reason = db.Column(db.Text)
+    cancelled_at = db.Column(db.String(50))
+    cancelled_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
     # Multi-tenancy foundation.
     org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
@@ -439,6 +443,10 @@ class Call(db.Model):
             "missing_info_explanation": self.missing_info_explanation,
 
             "notes": self.notes,
+
+            "cancel_reason": self.cancel_reason,
+            "cancelled_at": self.cancelled_at,
+            "cancelled_by": self.cancelled_by,
         }
 
 
