@@ -65,6 +65,7 @@ const DetailItem = ({ label, value }) => (
   </div>
 );
 
+// eslint-disable-next-line no-unused-vars
 const PatientFormSection = ({ title, icon: Icon, children }) => (
   <div className="patient-form-section">
     <div className="patient-form-section-header">

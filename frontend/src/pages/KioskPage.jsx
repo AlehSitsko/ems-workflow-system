@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { kioskEmployees, kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
+import { kioskEmployees, kioskStatus, kioskVerifyPin, kioskClockIn, kioskClockOut } from "../api/timeApi";
 
 function formatTime(iso) {
   if (!iso) return "";
@@ -25,7 +25,7 @@ export default function KioskPage({ currentUser }) {
   const [message, setMessage] = useState(null);      // { text, type: "success"|"error" }
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("select");        // "select" | "pin" | "action" | "done"
-  const [tick, setTick] = useState(0);
+  const [_tick, setTick] = useState(0);
 
   // Clock tick for live duration
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function KioskPage({ currentUser }) {
 
   const handleSelect = async (emp) => {
     setSelected(emp);
-    if (emp.pin) {
+    if (emp.has_pin) {
       setStep("pin");
     } else {
       await loadStatus(emp.id);
@@ -65,25 +65,28 @@ export default function KioskPage({ currentUser }) {
   };
 
   const handlePinSubmit = async () => {
-    if (pin !== selected.pin) {
-      setMessage({ text: "Incorrect PIN. Try again.", type: "error" });
+    setLoading(true);
+    try {
+      await kioskVerifyPin(selected.id, pin);
+      await loadStatus(selected.id);
+      setMessage(null);
+      setStep("action");
+    } catch (e) {
+      setMessage({ text: e.message || "Invalid PIN", type: "error" });
       setPin("");
-      return;
     }
-    setMessage(null);
-    setPin("");
-    await loadStatus(selected.id);
-    setStep("action");
+    setLoading(false);
   };
 
   const handleClockIn = async () => {
     setLoading(true);
     try {
-      await kioskClockIn(selected.id);
+      await kioskClockIn(selected.id, pin || null);
       setMessage({ text: `Clocked in at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`, type: "success" });
       setStep("done");
     } catch (e) {
       setMessage({ text: e.message, type: "error" });
+      if (selected.has_pin) setStep("pin");
     }
     setLoading(false);
   };
@@ -91,11 +94,12 @@ export default function KioskPage({ currentUser }) {
   const handleClockOut = async () => {
     setLoading(true);
     try {
-      await kioskClockOut(selected.id);
+      await kioskClockOut(selected.id, pin || null);
       setMessage({ text: `Clocked out at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`, type: "success" });
       setStep("done");
     } catch (e) {
       setMessage({ text: e.message, type: "error" });
+      if (selected.has_pin) setStep("pin");
     }
     setLoading(false);
   };

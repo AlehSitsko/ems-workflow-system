@@ -56,7 +56,7 @@ export default function PayrollPage() {
   });
 
   const load = useCallback(async () => {
-    try { setPeriods(await getPeriods()); } catch (e) {}
+    try { setPeriods(await getPeriods()); } catch { /* noop */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -69,7 +69,7 @@ export default function PayrollPage() {
     try {
       const s = await getPeriodSummary(period.id);
       setSummary(s);
-    } catch (e) {}
+    } catch { /* noop */ }
     setLoadingSummary(false);
   };
 
@@ -105,7 +105,7 @@ export default function PayrollPage() {
       await load();
       // reload summary with new dates
       setLoadingSummary(true);
-      try { setSummary(await getPeriodSummary(updated.id)); } catch {}
+      try { setSummary(await getPeriodSummary(updated.id)); } catch { /* noop */ }
       finally { setLoadingSummary(false); }
     } catch (err) { alert(err.message); }
     setSaving(false);

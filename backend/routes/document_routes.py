@@ -99,6 +99,8 @@ def upload_document(employee_id):
 
 @doc_bp.route("/documents/<int:doc_id>", methods=["GET"])
 def get_document(doc_id):
+    if _role_from_request() not in ALLOWED_ROLES:
+        return jsonify({"error": "Insufficient permissions"}), 403
     doc = EmployeeDocument.query.get_or_404(doc_id)
     return jsonify(doc.to_dict())
 

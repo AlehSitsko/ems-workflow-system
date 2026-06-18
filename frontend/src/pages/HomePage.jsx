@@ -143,7 +143,7 @@ const DashboardCard = ({
   description,
   path,
   buttonText,
-  icon: Icon,
+  icon: Icon, // eslint-disable-line no-unused-vars
   variant = "light",
 }) => {
   const isPrimary = variant === "primary";

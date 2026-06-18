@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_BASE = "http://127.0.0.1:5050";
+import API_BASE from "../api/config.js";
 const POLL_INTERVAL = 10_000;
 
 export function useNotifications(user) {
@@ -15,9 +15,7 @@ export function useNotifications(user) {
       const data = await res.json();
       setUnreadCount(data.unread_count);
       setNotifications(data.notifications);
-    } catch (e) {
-      // Silently ignore poll failures.
-    }
+    } catch { /* noop */ }
   }, [user?.id]);
 
   useEffect(() => {
@@ -35,7 +33,7 @@ export function useNotifications(user) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id, notification_id: notifId }),
       });
-    } catch (e) {}
+    } catch { /* noop */ }
     setNotifications((prev) => prev.map((n) => n.id === notifId ? { ...n, is_read: true } : n));
     setUnreadCount((prev) => Math.max(0, prev - 1));
   }, [user?.id]);
@@ -48,7 +46,7 @@ export function useNotifications(user) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id }),
       });
-    } catch (e) {}
+    } catch { /* noop */ }
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
   }, [user?.id]);

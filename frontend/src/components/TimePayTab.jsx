@@ -59,7 +59,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
     try {
       const data = await getTimeEntries(employeeId, filter);
       setEntries(data);
-    } catch (e) {} finally { setLoading(false); }
+    } catch { /* noop */ } finally { setLoading(false); }
   }, [employeeId, filter]);
 
   const loadPayConfig = useCallback(async () => {
@@ -75,7 +75,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
           effective_from: cfg.effective_from || "",
         });
       }
-    } catch (e) {}
+    } catch { /* noop */ }
   }, [employeeId]);
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
@@ -111,14 +111,14 @@ export default function TimePayTab({ employeeId, currentUser }) {
     try {
       await updateTimeEntry(entry.id, { status: "approved", approved_by: currentUser?.id });
       await loadEntries();
-    } catch (e) {}
+    } catch { /* noop */ }
   };
 
   const handleDispute = async (entry) => {
     try {
       await updateTimeEntry(entry.id, { status: "disputed" });
       await loadEntries();
-    } catch (e) {}
+    } catch { /* noop */ }
   };
 
   const handleDelete = async (entryId) => {
@@ -126,7 +126,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
     try {
       await deleteTimeEntry(entryId);
       await loadEntries();
-    } catch (e) {}
+    } catch { /* noop */ }
   };
 
   const handleSavePayConfig = async (e) => {

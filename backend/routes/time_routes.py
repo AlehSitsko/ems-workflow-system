@@ -77,9 +77,22 @@ def kiosk_employee_list():
     """Returns minimal employee list for kiosk PIN/name selection."""
     employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.last_name).all()
     return jsonify([
-        {"id": e.id, "name": f"{e.first_name} {e.last_name}", "pin": e.kiosk_pin}
+        {"id": e.id, "name": f"{e.first_name} {e.last_name}", "has_pin": bool(e.kiosk_pin)}
         for e in employees
     ])
+
+
+@time_bp.route("/kiosk/verify-pin", methods=["POST"])
+def kiosk_verify_pin():
+    data = request.get_json() or {}
+    eid = data.get("employee_id")
+    pin = data.get("pin", "")
+    if not eid:
+        return jsonify({"error": "employee_id required"}), 400
+    employee = Employee.query.get_or_404(eid)
+    if employee.kiosk_pin and pin != employee.kiosk_pin:
+        return jsonify({"error": "Invalid PIN"}), 403
+    return jsonify({"ok": True})
 
 
 @time_bp.route("/kiosk/status/<int:employee_id>", methods=["GET"])
@@ -105,6 +118,10 @@ def kiosk_clock_in(employee_id=None):
         return jsonify({"error": "employee_id required"}), 400
 
     employee = Employee.query.get_or_404(eid)
+
+    if employee.kiosk_pin:
+        if data.get("pin") != employee.kiosk_pin:
+            return jsonify({"error": "Invalid PIN"}), 403
 
     # Prevent double clock-in
     active = TimeEntry.query.filter(
@@ -132,6 +149,12 @@ def kiosk_clock_out():
     eid = data.get("employee_id")
     if not eid:
         return jsonify({"error": "employee_id required"}), 400
+
+    employee = Employee.query.get_or_404(eid)
+
+    if employee.kiosk_pin:
+        if data.get("pin") != employee.kiosk_pin:
+            return jsonify({"error": "Invalid PIN"}), 403
 
     active = TimeEntry.query.filter(
         TimeEntry.employee_id == eid,

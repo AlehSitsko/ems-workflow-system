@@ -1,3 +1,4 @@
+import API_BASE from "../api/config.js";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   FaMapMarkerAlt,
@@ -402,7 +403,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const ret = parseReturnInfo(call.notes);
   const isReturnCall = (call.call_type || "").toLowerCase() === "return";
   const emergency = isEmergencyCall(call);
-  const als = isAlsCall(call);
+//   const als = isAlsCall(call);
 
   // Structured fields now have dedicated columns.
   // For old records that still have data embedded in notes, fall back to regex.
@@ -427,6 +428,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const accentColor = emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : isCompleted ? "#6c757d" : "#0d6efd";
   const slColor = { bls: "#75b798", als: "#6ea8fe", emergency: "#ea868f", stretcher: "#c29ffa" }[call.service_level?.toLowerCase()] || "#adb5bd";
 
+  // eslint-disable-next-line no-unused-vars
   const Section = ({ icon: Icon, title, children }) => (
     <div style={{ marginBottom: 14 }}>
       <div className="d-flex align-items-center gap-2 mb-2">
@@ -826,7 +828,7 @@ export default function DispatchBoardPage() {
   async function handleSetWillCallTime(callId, pickupTime) {
     if (!pickupTime) return;
     try {
-      await fetch(`http://127.0.0.1:5050/api/calls/${callId}/pickup-time`, {
+      await fetch(`${API_BASE}/api/calls/${callId}/pickup-time`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pickup_time: pickupTime }),
@@ -958,7 +960,7 @@ export default function DispatchBoardPage() {
                 {board.units.map((unit) => {
                   const isSelected = selectedUnit?.id === unit.id;
                   const isDragOver = dragOverUnitId === unit.id;
-                  const sc = STATUS_COLORS[unit.dispatchStatus] || "#adb5bd";
+//                   const sc = STATUS_COLORS[unit.dispatchStatus] || "#adb5bd";
                   return (
                     <tr
                       key={unit.id}

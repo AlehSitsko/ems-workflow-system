@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:5050";
+import API_BASE from "./config.js";
 
 export async function getTimeEntries(employeeId, { dateFrom, dateTo } = {}) {
   const params = new URLSearchParams();
@@ -62,11 +62,24 @@ export async function kioskStatus(employeeId) {
   return res.json();
 }
 
-export async function kioskClockIn(employeeId) {
+export async function kioskVerifyPin(employeeId, pin) {
+  const res = await fetch(`${API_BASE}/api/kiosk/verify-pin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employee_id: employeeId, pin }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Invalid PIN");
+  }
+  return res.json();
+}
+
+export async function kioskClockIn(employeeId, pin = null) {
   const res = await fetch(`${API_BASE}/api/kiosk/clock-in`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ employee_id: employeeId }),
+    body: JSON.stringify({ employee_id: employeeId, pin }),
   });
   if (!res.ok) {
     const err = await res.json();
@@ -75,11 +88,11 @@ export async function kioskClockIn(employeeId) {
   return res.json();
 }
 
-export async function kioskClockOut(employeeId) {
+export async function kioskClockOut(employeeId, pin = null) {
   const res = await fetch(`${API_BASE}/api/kiosk/clock-out`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ employee_id: employeeId }),
+    body: JSON.stringify({ employee_id: employeeId, pin }),
   });
   if (!res.ok) {
     const err = await res.json();

@@ -1,4 +1,5 @@
-const BASE = "http://127.0.0.1:5050/api/payroll";
+import API_BASE from "./config.js";
+const BASE = `${API_BASE}/api/payroll`;
 
 async function req(url, opts = {}) {
   const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opts });

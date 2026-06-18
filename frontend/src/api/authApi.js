@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://127.0.0.1:5050";
+import API_BASE from "./config.js";
+const API_BASE_URL = API_BASE;
 
 const CURRENT_USER_STORAGE_KEY = "ems_current_user";
 
