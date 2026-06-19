@@ -1,51 +1,40 @@
 import { useState, useEffect, useCallback } from "react";
-import { FaSync, FaFilter, FaPhoneAlt, FaUserInjured, FaAmbulance, FaClock } from "react-icons/fa";
+import { FaSync, FaFilter, FaPhoneAlt, FaUserInjured, FaAmbulance, FaClock, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { getAuditLog } from "../api/auditApi";
 
 const ACTION_CONFIG = {
-  "call.created":        { label: "Call Created",        color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-  "call.assigned":       { label: "Call Assigned",       color: "#34d399", bg: "rgba(52,211,153,0.12)" },
-  "call.unassigned":     { label: "Call Unassigned",     color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
-  "call.completed":      { label: "Call Completed",      color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
-  "call.reopened":       { label: "Call Reopened",       color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  "call.cancelled":      { label: "Call Cancelled",      color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  "call.uncancelled":    { label: "Call Uncancelled",    color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-  "unit.status_changed": { label: "Unit Status Changed", color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
-  "patient.created":     { label: "Patient Created",     color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-  "patient.updated":     { label: "Patient Updated",     color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  "patient.deleted":     { label: "Patient Deleted",     color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  "time_entry.created":  { label: "Time Entry Added",    color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
-  "time_entry.updated":  { label: "Time Entry Updated",  color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  "time_entry.deleted":  { label: "Time Entry Deleted",  color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  "call.created":        { label: "Created",         color: "#60a5fa" },
+  "call.assigned":       { label: "Assigned",        color: "#34d399" },
+  "call.unassigned":     { label: "Unassigned",      color: "#fb923c" },
+  "call.completed":      { label: "Completed",       color: "#22c55e" },
+  "call.reopened":       { label: "Reopened",        color: "#a78bfa" },
+  "call.cancelled":      { label: "Cancelled",       color: "#f87171" },
+  "call.uncancelled":    { label: "Uncancelled",     color: "#fbbf24" },
+  "unit.status_changed": { label: "Status Changed",  color: "#94a3b8" },
+  "patient.created":     { label: "Created",         color: "#60a5fa" },
+  "patient.updated":     { label: "Updated",         color: "#f59e0b" },
+  "patient.deleted":     { label: "Deleted",         color: "#f87171" },
+  "time_entry.created":  { label: "Added",           color: "#60a5fa" },
+  "time_entry.updated":  { label: "Updated",         color: "#f59e0b" },
+  "time_entry.deleted":  { label: "Deleted",         color: "#f87171" },
 };
 
-const ENTITY_ICON = {
-  call:        FaPhoneAlt,
-  patient:     FaUserInjured,
-  unit:        FaAmbulance,
-  time_entry:  FaClock,
+const ENTITY_CONFIG = {
+  call:        { label: "Call",       icon: FaPhoneAlt,    color: "#60a5fa", bg: "rgba(96,165,250,0.1)" },
+  patient:     { label: "Patient",    icon: FaUserInjured, color: "#34d399", bg: "rgba(52,211,153,0.1)" },
+  unit:        { label: "Unit",       icon: FaAmbulance,   color: "#a78bfa", bg: "rgba(167,139,250,0.1)" },
+  time_entry:  { label: "Time Entry", icon: FaClock,       color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
 };
 
 const ENTITY_TYPES = ["", "call", "patient", "unit", "time_entry"];
 
 const DETAIL_LABELS = {
-  service_level:    "Service",
-  trip_date:        "Date",
-  pickup_time:      "Time",
-  pickup:           "From",
-  dropoff:          "To",
-  dispatcher:       "Dispatcher",
-  reason:           "Reason",
-  previous_reason:  "Prev. reason",
-  truck:            "Unit",
-  unit_id:          "Unit ID",
-  from:             "From",
-  to:               "To",
-  clock_in:         "Clock in",
-  clock_out:        "Clock out",
-  type:             "Type",
-  changed_fields:   "Changed",
-  assignment_id:    "Assignment",
+  service_level: "Service", trip_date: "Date", pickup_time: "Time",
+  pickup: "From", dropoff: "To", dispatcher: "Dispatcher",
+  reason: "Reason", previous_reason: "Prev. reason",
+  truck: "Unit", unit_id: "Unit ID", from: "Status from", to: "Status to",
+  clock_in: "Clock in", clock_out: "Clock out", type: "Type",
+  changed_fields: "Changed", assignment_id: "Assignment",
 };
 
 function formatTs(ts) {
@@ -63,89 +52,136 @@ function parseDetails(raw) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
-function DetailPills({ details }) {
-  if (!details) return null;
-  const entries = Object.entries(details).filter(([, v]) => v !== null && v !== undefined && v !== "");
-  if (entries.length === 0) return null;
+// Single event row inside expanded history
+function EventRow({ entry, isFirst }) {
+  const cfg = ACTION_CONFIG[entry.action] || { label: entry.action, color: "#94a3b8" };
+  const details = parseDetails(entry.details);
+
   return (
-    <div className="d-flex flex-wrap gap-2 mt-2">
-      {entries.map(([k, v]) => (
-        <span key={k} style={{ fontSize: 11, color: "#94a3b8", background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.15)", borderRadius: 6, padding: "2px 8px" }}>
-          <span style={{ color: "#64748b" }}>{DETAIL_LABELS[k] || k}:</span>{" "}
-          <span style={{ color: "#cbd5e1" }}>{Array.isArray(v) ? v.join(", ") : String(v)}</span>
-        </span>
-      ))}
+    <div style={{ display: "flex", gap: 12, position: "relative" }}>
+      {/* Timeline line */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 16 }}>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: cfg.color, flexShrink: 0, marginTop: 4, border: `2px solid ${cfg.color}88` }} />
+        {!isFirst && <div style={{ width: 1, flex: 1, background: "#1e2a3a", marginTop: 3 }} />}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, paddingBottom: 14 }}>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <span style={{ fontSize: 12, fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
+          <span style={{ fontSize: 11, color: "#475569" }}>by <span style={{ color: "#94a3b8" }}>{entry.user_name}</span></span>
+          <span style={{ fontSize: 11, color: "#334155", marginLeft: "auto" }}>{formatTs(entry.timestamp)}</span>
+        </div>
+        {details && (
+          <div className="d-flex flex-wrap gap-1 mt-1">
+            {Object.entries(details)
+              .filter(([, v]) => v !== null && v !== undefined && v !== "")
+              .map(([k, v]) => (
+                <span key={k} style={{ fontSize: 10, color: "#64748b", background: "rgba(51,65,85,0.4)", borderRadius: 4, padding: "1px 6px" }}>
+                  <span style={{ color: "#475569" }}>{DETAIL_LABELS[k] || k}:</span>{" "}
+                  <span style={{ color: "#94a3b8" }}>{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+                </span>
+              ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function AuditCard({ entry }) {
-  const cfg = ACTION_CONFIG[entry.action] || { label: entry.action, color: "#94a3b8", bg: "rgba(148,163,184,0.08)" };
-  const EntityIcon = ENTITY_ICON[entry.entity_type] || FaPhoneAlt;
-  const details = parseDetails(entry.details);
+// Card for one entity grouping all its events
+function EntityCard({ entityKey, entries }) {
+  const [open, setOpen] = useState(false);
+  const first = entries[0];
+  const entCfg = ENTITY_CONFIG[first.entity_type] || ENTITY_CONFIG.call;
+  const Icon = entCfg.icon;
+
+  // Derive last action and status summary
+  const lastEntry = entries[0]; // entries sorted newest first
+  const lastCfg = ACTION_CONFIG[lastEntry.action] || { label: lastEntry.action, color: "#94a3b8" };
+
+  // Check if call is cancelled for visual indicator
+  const isCancelled = entries.some((e) => e.action === "call.cancelled") &&
+                      !entries.some((e) => e.action === "call.uncancelled" &&
+                        new Date(e.timestamp) > new Date(entries.find((x) => x.action === "call.cancelled")?.timestamp || 0));
 
   return (
     <div style={{
       background: "#1a2235",
-      border: "1px solid #1e2a3a",
-      borderLeft: `3px solid ${cfg.color}`,
-      borderRadius: 8,
-      padding: "12px 16px",
-      display: "flex",
-      gap: 14,
+      border: `1px solid ${open ? entCfg.color + "44" : "#1e2a3a"}`,
+      borderRadius: 10,
+      overflow: "hidden",
+      transition: "border-color 0.15s",
     }}>
-      {/* Icon */}
-      <div style={{
-        width: 36, height: 36, borderRadius: 8,
-        background: cfg.bg,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-      }}>
-        <EntityIcon style={{ color: cfg.color, fontSize: 15 }} />
-      </div>
+      {/* Header — clickable */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%", background: "transparent", border: "none", cursor: "pointer",
+          padding: "12px 16px", display: "flex", alignItems: "center", gap: 12,
+          textAlign: "left",
+        }}
+      >
+        {/* Entity icon */}
+        <div style={{
+          width: 38, height: 38, borderRadius: 9, background: entCfg.bg,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <Icon style={{ color: entCfg.color, fontSize: 15 }} />
+        </div>
 
-      {/* Body */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="d-flex align-items-center gap-2 flex-wrap">
-          <span style={{
-            fontSize: 11, fontWeight: 700,
-            color: cfg.color,
-            background: cfg.bg,
-            border: `1px solid ${cfg.color}44`,
-            borderRadius: 10, padding: "1px 10px",
-            whiteSpace: "nowrap",
-          }}>
-            {cfg.label}
-          </span>
-          {entry.entity_label && (
-            <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>
-              {entry.entity_label}
+        {/* Entity label + last action */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0" }}>
+              {first.entity_label || `${first.entity_type} #${first.entity_id}`}
             </span>
-          )}
-          <span style={{ fontSize: 11, color: "#475569", marginLeft: "auto", whiteSpace: "nowrap" }}>
-            {formatTs(entry.timestamp)}
-          </span>
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              color: lastCfg.color,
+              background: `${lastCfg.color}18`,
+              border: `1px solid ${lastCfg.color}33`,
+              borderRadius: 8, padding: "1px 8px",
+            }}>
+              {lastCfg.label}
+            </span>
+            {isCancelled && (
+              <span style={{ fontSize: 10, color: "#f87171", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: 8, padding: "1px 8px", fontWeight: 700 }}>
+                Cancelled
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+            {entries.length} event{entries.length !== 1 ? "s" : ""} · last: {formatTs(lastEntry.timestamp)}
+          </div>
         </div>
 
-        {/* User */}
-        <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-          by <span style={{ color: "#94a3b8" }}>{entry.user_name}</span>
+        {/* Chevron */}
+        <div style={{ color: "#334155", fontSize: 12, flexShrink: 0 }}>
+          {open ? <FaChevronUp /> : <FaChevronDown />}
         </div>
+      </button>
 
-        {/* Detail pills */}
-        <DetailPills details={details} />
-      </div>
+      {/* Expanded history */}
+      {open && (
+        <div style={{ padding: "4px 16px 0 16px", borderTop: "1px solid #1e2a3a" }}>
+          <div style={{ paddingTop: 14 }}>
+            {/* Reverse to show chronological order (oldest first) */}
+            {[...entries].reverse().map((e, i) => (
+              <EventRow key={e.id} entry={e} isFirst={i === [...entries].length - 1} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function AuditLogPage({ currentUser }) {
-  const [entries, setEntries] = useState([]);
+  const [allEntries, setAllEntries] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const perPage = 50;
 
   const [filterEntityType, setFilterEntityType] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -156,7 +192,7 @@ export default function AuditLogPage({ currentUser }) {
     "X-User-Id":   String(currentUser?.id || ""),
   };
 
-  const load = useCallback(async (p = 1) => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -164,10 +200,9 @@ export default function AuditLogPage({ currentUser }) {
         entity_type: filterEntityType || undefined,
         date_from:   filterDateFrom || undefined,
         date_to:     filterDateTo || undefined,
-        page: p,
-        per_page: perPage,
+        per_page: 500,
       }, headers);
-      setEntries(data.entries);
+      setAllEntries(data.entries);
       setTotal(data.total);
     } catch (e) {
       setError(e.message);
@@ -177,14 +212,21 @@ export default function AuditLogPage({ currentUser }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterEntityType, filterDateFrom, filterDateTo, currentUser]);
 
-  useEffect(() => { load(page); }, [load, page]);
+  useEffect(() => { load(); }, [load]);
 
-  const pages = Math.max(1, Math.ceil(total / perPage));
-
-  function applyFilters() {
-    setPage(1);
-    load(1);
-  }
+  // Group entries by entity_type + entity_id, ordered by most recent event
+  const grouped = (() => {
+    const map = new Map();
+    allEntries.forEach((e) => {
+      const key = `${e.entity_type}::${e.entity_id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(e);
+    });
+    // Sort groups by most recent event timestamp desc
+    return Array.from(map.entries()).sort(([, a], [, b]) =>
+      new Date(b[0].timestamp) - new Date(a[0].timestamp)
+    );
+  })();
 
   return (
     <div className="page-stack">
@@ -193,10 +235,10 @@ export default function AuditLogPage({ currentUser }) {
           <div>
             <h4>Audit Log</h4>
             <p className="text-muted mb-0" style={{ fontSize: 13 }}>
-              All tracked actions · {total.toLocaleString()} entries
+              {grouped.length} entities · {total} events total
             </p>
           </div>
-          <button className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" onClick={() => load(page)}>
+          <button className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2" onClick={load}>
             <FaSync style={{ fontSize: 11 }} /> Refresh
           </button>
         </div>
@@ -205,15 +247,8 @@ export default function AuditLogPage({ currentUser }) {
         <div className="d-flex gap-2 flex-wrap mb-4 align-items-end">
           <div>
             <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Entity type</label>
-            <select
-              className="form-select form-select-sm"
-              style={{ minWidth: 130 }}
-              value={filterEntityType}
-              onChange={(e) => setFilterEntityType(e.target.value)}
-            >
-              {ENTITY_TYPES.map((t) => (
-                <option key={t} value={t}>{t || "All types"}</option>
-              ))}
+            <select className="form-select form-select-sm" style={{ minWidth: 130 }} value={filterEntityType} onChange={(e) => setFilterEntityType(e.target.value)}>
+              {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || "All types"}</option>)}
             </select>
           </div>
           <div>
@@ -224,12 +259,12 @@ export default function AuditLogPage({ currentUser }) {
             <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>To</label>
             <input type="date" className="form-control form-control-sm" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
           </div>
-          <button className="btn btn-sm btn-primary d-flex align-items-center gap-2" onClick={applyFilters} style={{ marginBottom: 1 }}>
+          <button className="btn btn-sm btn-primary d-flex align-items-center gap-2" onClick={load} style={{ marginBottom: 1 }}>
             <FaFilter style={{ fontSize: 11 }} /> Apply
           </button>
           {(filterEntityType || filterDateFrom || filterDateTo) && (
             <button className="btn btn-sm btn-outline-secondary" style={{ marginBottom: 1 }}
-              onClick={() => { setFilterEntityType(""); setFilterDateFrom(""); setFilterDateTo(""); setPage(1); }}>
+              onClick={() => { setFilterEntityType(""); setFilterDateFrom(""); setFilterDateTo(""); }}>
               Clear
             </button>
           )}
@@ -239,24 +274,13 @@ export default function AuditLogPage({ currentUser }) {
 
         {loading ? (
           <p className="text-muted">Loading...</p>
-        ) : entries.length === 0 ? (
+        ) : grouped.length === 0 ? (
           <p className="text-muted">No audit entries found.</p>
         ) : (
           <div className="d-flex flex-column gap-2">
-            {entries.map((e) => <AuditCard key={e.id} entry={e} />)}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {pages > 1 && (
-          <div className="d-flex align-items-center gap-2 mt-4" style={{ fontSize: 13 }}>
-            <button className="btn btn-sm btn-outline-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              ← Prev
-            </button>
-            <span style={{ color: "#64748b" }}>Page {page} of {pages}</span>
-            <button className="btn btn-sm btn-outline-secondary" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
-              Next →
-            </button>
+            {grouped.map(([key, entries]) => (
+              <EntityCard key={key} entityKey={key} entries={entries} />
+            ))}
           </div>
         )}
       </section>

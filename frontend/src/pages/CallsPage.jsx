@@ -9,9 +9,9 @@ import {
   FaTimes,
 } from "react-icons/fa";
 
-import { getCalls } from "../api/callsApi";
+import { getCalls, uncancelCall } from "../api/callsApi";
 
-const CallsPage = () => {
+const CallsPage = ({ currentUser }) => {
   const [calls, setCalls] = useState([]);
 
   const [dateOfCall, setDateOfCall] = useState("");
@@ -243,6 +243,17 @@ const CallsPage = () => {
 
   const toggleCallDetails = (callId) => {
     setExpandedCallId((currentId) => (currentId === callId ? null : callId));
+  };
+
+  const handleUncancel = async (callId) => {
+    const headers = {
+      "X-User-Role": currentUser?.role || "",
+      "X-User-Id":   String(currentUser?.id || ""),
+    };
+    try {
+      await uncancelCall(callId, headers);
+      setCalls((prev) => prev.map((c) => c.id === callId ? { ...c, status: "new", cancel_reason: null } : c));
+    } catch (e) { alert(`Uncancel failed: ${e.message}`); }
   };
 
   const callsWithCriticalMissing = calls.filter(
@@ -619,6 +630,20 @@ const CallsPage = () => {
                         <strong>Notes:</strong>{" "}
                         {call.notes || "—"}
                       </div>
+                      {call.status === "cancelled" && (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6 }}>
+                            Cancelled{call.cancel_reason ? `: ${call.cancel_reason}` : ""}
+                          </div>
+                          <button
+                            className="btn btn-sm"
+                            style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid #f59e0b44", fontSize: 12 }}
+                            onClick={() => handleUncancel(call.id)}
+                          >
+                            ↩ Uncancel
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

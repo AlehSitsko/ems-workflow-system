@@ -221,7 +221,7 @@ function App() {
           path="/calls"
           element={
             <PatientRoute>
-              <CallsPage />
+              <CallsPage currentUser={currentUser} />
             </PatientRoute>
           }
         />
