@@ -20,6 +20,7 @@ import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
 import PayrollPage from "./pages/PayrollPage";
 import ComplianceDashboardPage from "./pages/ComplianceDashboardPage";
+import AuditLogPage from "./pages/AuditLogPage";
 
 import {
   getCurrentUser,
@@ -302,6 +303,15 @@ function App() {
           element={
             <EmployeeRoute>
               <ComplianceDashboardPage currentUser={currentUser} />
+            </EmployeeRoute>
+          }
+        />
+
+        <Route
+          path="/audit"
+          element={
+            <EmployeeRoute>
+              <AuditLogPage currentUser={currentUser} />
             </EmployeeRoute>
           }
         />

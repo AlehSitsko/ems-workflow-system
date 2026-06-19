@@ -23,6 +23,7 @@ from routes.notification_routes import notif_bp
 from routes.time_routes import time_bp
 from routes.payroll_routes import payroll_bp
 from routes.document_routes import doc_bp
+from routes.audit_routes import audit_bp
 
 
 app = Flask(__name__)
@@ -80,6 +81,9 @@ app.register_blueprint(payroll_bp)
 
 # Register HR document routes.
 app.register_blueprint(doc_bp)
+
+# Register audit log routes.
+app.register_blueprint(audit_bp)
 
 
 @app.route("/")

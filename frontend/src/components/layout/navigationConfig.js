@@ -13,6 +13,7 @@ import {
   FaClock,
   FaMoneyBillWave,
   FaShieldAlt,
+  FaHistory,
 } from "react-icons/fa";
 
 import {
@@ -116,6 +117,12 @@ export const navigationGroups = [
         path: "/users",
         icon: FaUserCog,
         canAccess: hasAdminAccess,
+      },
+      {
+        label: "Audit Log",
+        path: "/audit",
+        icon: FaHistory,
+        canAccess: hasPayrollAccess,
       },
     ],
   },

@@ -728,3 +728,32 @@ class EmployeeDocument(db.Model):
             "updated_at": self.updated_at,
             "has_file": bool(self.file_path),
         }
+
+
+# ── Audit Log ──────────────────────────────────────────────────────────────────
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_log"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    timestamp     = db.Column(db.String(50), nullable=False)
+    user_id       = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    user_name     = db.Column(db.String(150))        # denormalized for display after user deletion
+    action        = db.Column(db.String(100), nullable=False)   # e.g. "call.assigned"
+    entity_type   = db.Column(db.String(50))         # "call", "patient", "unit", "time_entry"
+    entity_id     = db.Column(db.Integer)
+    entity_label  = db.Column(db.String(255))        # human-readable: "Call #42", "John Doe"
+    details       = db.Column(db.Text)               # JSON string with old/new values or extra context
+
+    def to_dict(self):
+        return {
+            "id":           self.id,
+            "timestamp":    self.timestamp,
+            "user_id":      self.user_id,
+            "user_name":    self.user_name or "System",
+            "action":       self.action,
+            "entity_type":  self.entity_type,
+            "entity_id":    self.entity_id,
+            "entity_label": self.entity_label or "",
+            "details":      self.details or "",
+        }

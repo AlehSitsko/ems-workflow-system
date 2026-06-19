@@ -4,6 +4,16 @@ from flask import Blueprint, jsonify, request
 
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient
 from notification_utils import create_notification
+from audit_utils import log_action
+
+
+def _audit_user():
+    try:
+        uid = int(request.headers.get("X-User-Id", 0)) or None
+    except (ValueError, TypeError):
+        uid = None
+    name = request.headers.get("X-User-Name") or None
+    return uid, name
 
 
 dispatch_bp = Blueprint("dispatch", __name__, url_prefix="/api/dispatch")
@@ -140,6 +150,10 @@ def assign_call():
     )
     db.session.add(assignment)
     call.status = "assigned"
+    uid, uname = _audit_user()
+    log_action("call.assigned", "call", call_id,
+               f"Call #{call_id}", {"unit_id": unit_id, "truck": unit.truck_number},
+               user_id=uid, user_name=uname or data.get("assigned_by"))
     db.session.commit()
 
     # Warn if ALS call assigned to BLS unit.
@@ -166,6 +180,10 @@ def unassign_call(assignment_id):
     if call:
         call.status = "new"
 
+    uid, uname = _audit_user()
+    log_action("call.unassigned", "call", assignment.call_id,
+               f"Call #{assignment.call_id}", {"assignment_id": assignment_id},
+               user_id=uid, user_name=uname)
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -182,6 +200,10 @@ def complete_assignment(assignment_id):
     if call:
         call.status = "completed"
 
+    uid, uname = _audit_user()
+    log_action("call.completed", "call", assignment.call_id,
+               f"Call #{assignment.call_id}", {"assignment_id": assignment_id},
+               user_id=uid, user_name=uname)
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -198,6 +220,10 @@ def reopen_assignment(assignment_id):
     if call:
         call.status = "assigned"
 
+    uid, uname = _audit_user()
+    log_action("call.reopened", "call", assignment.call_id,
+               f"Call #{assignment.call_id}", {"assignment_id": assignment_id},
+               user_id=uid, user_name=uname)
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -214,7 +240,13 @@ def update_unit_status(unit_id):
     if status not in VALID_UNIT_STATUSES:
         return jsonify({"error": f"Invalid status. Valid: {VALID_UNIT_STATUSES}"}), 400
 
+    old_status = unit.dispatch_status
     unit.dispatch_status = status
+    uid, uname = _audit_user()
+    log_action("unit.status_changed", "unit", unit_id,
+               f"Unit {unit.truck_number}",
+               {"from": old_status, "to": status},
+               user_id=uid, user_name=uname)
     db.session.commit()
 
     ud = unit.to_dict()
