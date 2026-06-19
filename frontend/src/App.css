@@ -13,7 +13,7 @@
   display: flex;
   width: 100%;
   min-height: 100vh;
-  background: #f5f7fb;
+  background: var(--ems-bg-body);
 }
 
 .app-main {
@@ -29,7 +29,7 @@
 }
 
 /* =========================
-   Sidebar
+   Sidebar (always dark)
    ========================= */
 
 .app-sidebar {
@@ -218,8 +218,8 @@
   justify-content: space-between;
   gap: 1.5rem;
   padding: 0.85rem 1.5rem;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid #e4e8f0;
+  background: var(--ems-topbar-bg);
+  border-bottom: 1px solid var(--ems-topbar-border);
   backdrop-filter: blur(10px);
 }
 
@@ -247,13 +247,20 @@
 .topbar-icon-button {
   width: 42px;
   height: 42px;
-  border: 1px solid #dce3ee;
+  border: 1px solid var(--ems-btn-icon-border);
   border-radius: 12px;
-  background: #ffffff;
-  color: #1f2a44;
+  background: var(--ems-btn-icon-bg);
+  color: var(--ems-btn-icon-color);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.topbar-menu-button:hover,
+.topbar-icon-button:hover {
+  border-color: var(--ems-card-hover-border);
 }
 
 .topbar-icon-button {
@@ -264,13 +271,13 @@
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .topbar-subtitle {
   margin: 0;
   font-size: 0.85rem;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .topbar-search {
@@ -281,7 +288,7 @@
 .topbar-search input {
   padding-right: 2.5rem;
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--ems-btn-icon-bg);
 }
 
 .topbar-search-icon {
@@ -289,7 +296,7 @@
   top: 50%;
   right: 0.9rem;
   transform: translateY(-50%);
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .topbar-call-button {
@@ -332,13 +339,13 @@
 .topbar-user-name {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #101828;
+  color: var(--ems-text-primary);
   line-height: 1.1;
 }
 
 .topbar-user-role {
   font-size: 0.78rem;
-  color: #667085;
+  color: var(--ems-text-muted);
   text-transform: capitalize;
 }
 
@@ -366,9 +373,9 @@
   gap: 1.5rem;
   padding: 1.5rem;
   border-radius: 22px;
-  background: linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
-  border: 1px solid #e1e8f5;
-  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.06);
+  background: var(--ems-bg-hero);
+  border: 1px solid var(--ems-hero-border);
+  box-shadow: 0 12px 28px var(--ems-shadow);
 }
 
 .dashboard-eyebrow {
@@ -384,13 +391,13 @@
   margin: 0;
   font-size: 1.85rem;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .dashboard-hero-text {
   margin: 0.45rem 0 0;
   max-width: 620px;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .dashboard-hero-button {
@@ -421,9 +428,9 @@
 
 .dashboard-stat-card,
 .dashboard-section {
-  background: #ffffff;
-  border: 1px solid #e4e8f0;
-  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
+  background: var(--ems-bg-surface);
+  border: 1px solid var(--ems-border);
+  box-shadow: 0 10px 22px var(--ems-shadow-subtle);
 }
 
 .dashboard-stat-card {
@@ -435,18 +442,18 @@
   margin-bottom: 0.35rem;
   font-size: 1.4rem;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .dashboard-stat-label {
   font-weight: 700;
-  color: #344054;
+  color: var(--ems-text-secondary);
 }
 
 .dashboard-stat-helper {
   margin-top: 0.35rem;
   font-size: 0.85rem;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .dashboard-section {
@@ -465,12 +472,12 @@
 .dashboard-section-header h4 {
   margin: 0;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .dashboard-section-header p {
   margin: 0.25rem 0 0;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .dashboard-card {
@@ -479,14 +486,14 @@
   min-height: 170px;
   padding: 1.15rem;
   border-radius: 18px;
-  background: #f8fafd;
-  border: 1px solid #e7edf6;
+  background: var(--ems-bg-surface-2);
+  border: 1px solid var(--ems-border-light);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dashboard-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 26px rgba(16, 24, 40, 0.08);
+  box-shadow: 0 12px 26px var(--ems-shadow);
 }
 
 .dashboard-card-icon {
@@ -516,13 +523,13 @@
 .dashboard-card-body h5 {
   margin: 0;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .dashboard-card-body p {
   flex: 1;
   margin: 0.45rem 0 1rem;
-  color: #667085;
+  color: var(--ems-text-muted);
   font-size: 0.92rem;
 }
 
@@ -554,9 +561,9 @@
   gap: 1rem;
   padding: 1.15rem;
   border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid #e4e8f0;
-  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
+  background: var(--ems-bg-surface);
+  border: 1px solid var(--ems-border);
+  box-shadow: 0 10px 22px var(--ems-shadow-subtle);
 }
 
 .page-summary-icon {
@@ -580,22 +587,22 @@
 .page-summary-value {
   font-size: 1.45rem;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
   line-height: 1;
 }
 
 .page-summary-label {
   margin-top: 0.35rem;
-  color: #667085;
+  color: var(--ems-text-muted);
   font-weight: 600;
 }
 
 .content-panel {
   padding: 1.35rem;
   border-radius: 22px;
-  background: #ffffff;
-  border: 1px solid #e4e8f0;
-  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.045);
+  background: var(--ems-bg-surface);
+  border: 1px solid var(--ems-border);
+  box-shadow: 0 10px 22px var(--ems-shadow-subtle);
 }
 
 .content-panel-header {
@@ -609,29 +616,29 @@
 .content-panel-header h4 {
   margin: 0;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .content-panel-header p {
   margin: 0.25rem 0 0;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .empty-state {
   padding: 2.5rem 1rem;
   text-align: center;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .empty-state svg {
   margin-bottom: 0.85rem;
   font-size: 2rem;
-  color: #98a2b3;
+  color: var(--ems-text-subtle);
 }
 
 .empty-state h5 {
   margin-bottom: 0.35rem;
-  color: #344054;
+  color: var(--ems-text-secondary);
   font-weight: 800;
 }
 
@@ -650,9 +657,9 @@
 }
 
 .compact-call-card {
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
   overflow: hidden;
 }
 
@@ -666,7 +673,7 @@
 
 .compact-call-date {
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .compact-call-muted,
@@ -677,7 +684,7 @@
 .call-form-search-muted {
   margin-top: 0.2rem;
   font-size: 0.85rem;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .compact-call-label,
@@ -692,7 +699,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #98a2b3;
+  color: var(--ems-text-subtle);
 }
 
 .compact-call-address {
@@ -704,9 +711,9 @@
   grid-template-columns: repeat(2, minmax(240px, 1fr));
   gap: 0.6rem 1.25rem;
   padding: 1rem;
-  background: #f8fafd;
-  border-top: 1px solid #e4e8f0;
-  color: #344054;
+  background: var(--ems-bg-surface-2);
+  border-top: 1px solid var(--ems-border);
+  color: var(--ems-text-secondary);
 }
 
 /* =========================
@@ -720,9 +727,9 @@
 .price-calculator-modern {
   padding: 1rem;
   margin-bottom: 1rem;
-  border: 1px solid #e7edf6;
+  border: 1px solid var(--ems-section-border);
   border-radius: 18px;
-  background: #f8fafd;
+  background: var(--ems-section-bg);
 }
 
 .patient-form-section-header,
@@ -760,13 +767,13 @@
 .price-calculator-header h5 {
   margin: 0;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .call-form-section-header p,
 .price-calculator-header p {
   margin: 0.2rem 0 0;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .patient-detail-grid {
@@ -777,13 +784,13 @@
 
 .patient-detail-item {
   padding: 0.85rem;
-  border: 1px solid #e7edf6;
+  border: 1px solid var(--ems-detail-border);
   border-radius: 14px;
-  background: #f8fafd;
+  background: var(--ems-detail-bg);
 }
 
 .patient-detail-value {
-  color: #344054;
+  color: var(--ems-text-secondary);
   font-weight: 600;
   word-break: break-word;
 }
@@ -805,9 +812,9 @@
   gap: 1rem;
   align-items: start;
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
 }
 
 .patient-call-date,
@@ -817,7 +824,7 @@
 .guided-patient-name,
 .call-form-search-name {
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .patient-list-card {
@@ -826,9 +833,9 @@
   gap: 1rem;
   align-items: center;
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -972,9 +979,9 @@
 
 .employee-license-form-card {
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
 }
 
 .employee-license-form-header {
@@ -988,7 +995,7 @@
 .employee-license-form-header h6 {
   margin: 0;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .employee-license-extra-fields {
@@ -1001,16 +1008,16 @@
   gap: 1rem;
   align-items: start;
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .employee-card:hover,
 .planned-unit-card:hover {
-  border-color: #cfd8e6;
-  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.06);
+  border-color: var(--ems-card-hover-border);
+  box-shadow: 0 10px 24px var(--ems-shadow);
   transform: translateY(-1px);
 }
 
@@ -1025,7 +1032,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  color: #344054;
+  color: var(--ems-text-secondary);
   font-size: 0.9rem;
   word-break: break-word;
 }
@@ -1042,15 +1049,15 @@
 
 .employee-license-pill {
   padding: 0.6rem;
-  border: 1px solid #e7edf6;
+  border: 1px solid var(--ems-border-light);
   border-radius: 14px;
-  background: #f8fafd;
+  background: var(--ems-bg-surface-2);
 }
 
 .employee-license-details {
   margin-top: 0.35rem;
   font-size: 0.78rem;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 /* =========================
@@ -1066,7 +1073,7 @@
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--ems-overlay-bg);
   backdrop-filter: blur(2px);
 }
 
@@ -1077,7 +1084,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f5f7fb;
+  background: var(--ems-drawer-bg);
   box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
   animation: appDrawerSlideIn 0.18s ease-out;
 }
@@ -1116,8 +1123,8 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1.25rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e8f0;
+  background: var(--ems-drawer-surface);
+  border-bottom: 1px solid var(--ems-border);
 }
 
 .employee-drawer-header h4,
@@ -1126,7 +1133,7 @@
 .guided-lookup-drawer-header h4 {
   margin: 0;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .employee-drawer-header p,
@@ -1134,7 +1141,7 @@
 .crew-drawer-header p,
 .guided-lookup-drawer-header p {
   margin: 0.25rem 0 0;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .employee-drawer-form,
@@ -1163,8 +1170,8 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   padding: 1rem 1.25rem;
-  background: #ffffff;
-  border-top: 1px solid #e4e8f0;
+  background: var(--ems-drawer-surface);
+  border-top: 1px solid var(--ems-border);
 }
 
 /* =========================
@@ -1182,14 +1189,14 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.65rem 0.8rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-chip-border);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--ems-chip-bg);
 }
 
 .crew-employee-chip.has-warning {
-  border-color: #ffd0d0;
-  background: #fff7f7;
+  border-color: var(--ems-chip-warning-border);
+  background: var(--ems-chip-warning-bg);
 }
 
 .crew-employee-chip-main {
@@ -1204,9 +1211,9 @@
 
 .planned-unit-card {
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -1220,7 +1227,7 @@
 
 .planned-unit-title {
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
   font-size: 1.05rem;
 }
 
@@ -1236,25 +1243,25 @@
 
 .crew-member-card {
   padding: 0.85rem;
-  border: 1px solid #e7edf6;
+  border: 1px solid var(--ems-detail-border);
   border-radius: 14px;
-  background: #f8fafd;
+  background: var(--ems-detail-bg);
 }
 
 .crew-member-card.empty {
-  background: #ffffff;
+  background: var(--ems-bg-surface);
   border-style: dashed;
 }
 
 .crew-member-name {
   margin-bottom: 0.45rem;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .planned-patient-list {
   margin-bottom: 0;
-  color: #344054;
+  color: var(--ems-text-secondary);
 }
 
 /* =========================
@@ -1267,9 +1274,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
-  border: 1px solid #ffd0d0;
+  border: 1px solid var(--ems-intake-start-border);
   border-radius: 18px;
-  background: #fff7f7;
+  background: var(--ems-intake-start-bg);
 }
 
 .call-intake-start-card h5,
@@ -1277,14 +1284,14 @@
 .guided-step-card h5 {
   margin: 0 0 0.35rem;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .call-intake-start-card p,
 .call-intake-note-card p,
 .guided-step-card p {
   margin: 0;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .call-intake-note-card {
@@ -1293,9 +1300,9 @@
   align-items: flex-start;
   gap: 0.75rem;
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-note-card-border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--ems-note-card-bg);
 }
 
 .guided-step-card {
@@ -1303,9 +1310,9 @@
   grid-template-columns: 44px 1fr;
   gap: 1rem;
   padding: 1rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
 }
 
 .guided-step-card.active {
@@ -1314,7 +1321,7 @@
 }
 
 .guided-step-card.muted {
-  background: #f8fafd;
+  background: var(--ems-bg-surface-2);
 }
 
 .guided-step-number {
@@ -1341,10 +1348,10 @@
   align-items: center;
   gap: 0.55rem;
   padding: 0.65rem 0.85rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 999px;
-  background: #ffffff;
-  color: #667085;
+  background: var(--ems-bg-surface);
+  color: var(--ems-text-muted);
 }
 
 .guided-stepper-item.active {
@@ -1360,7 +1367,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: var(--ems-bg-surface-2);
   font-size: 0.8rem;
   font-weight: 900;
 }
@@ -1383,16 +1390,16 @@
 
 .guided-review-card {
   padding: 0.85rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 16px;
-  background: #ffffff;
-  color: #344054;
+  background: var(--ems-bg-surface);
+  color: var(--ems-text-secondary);
   font-weight: 700;
 }
 
 .guided-review-muted {
   margin-top: 0.25rem;
-  color: #667085;
+  color: var(--ems-text-muted);
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -1403,9 +1410,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem;
-  border: 1px solid #e4e8f0;
+  border: 1px solid var(--ems-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--ems-bg-surface);
 }
 
 /* =========================
@@ -1420,15 +1427,15 @@
 
 .call-form-search-results {
   padding: 0.85rem;
-  border: 1px solid #d7e5ff;
+  border: 1px solid var(--ems-search-result-border);
   border-radius: 16px;
-  background: #ffffff;
+  background: var(--ems-search-result-bg);
 }
 
 .call-form-search-title {
   margin-bottom: 0.75rem;
   font-weight: 800;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .call-form-search-card {
@@ -1437,7 +1444,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.75rem 0;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid var(--ems-search-divider);
 }
 
 .call-form-search-card:first-of-type {
@@ -1452,10 +1459,10 @@
 
 .call-service-card {
   padding: 0.9rem;
-  border: 1px solid #d7e5ff;
+  border: 1px solid var(--ems-service-card-border);
   border-radius: 16px;
-  background: #ffffff;
-  color: #0d6efd;
+  background: var(--ems-service-card-bg);
+  color: var(--ems-service-card-color);
   font-weight: 800;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -1479,23 +1486,23 @@
   align-items: center;
   padding: 1rem;
   border-radius: 18px;
-  border: 1px solid #e4e8f0;
-  background: #ffffff;
+  border: 1px solid var(--ems-border);
+  background: var(--ems-bg-surface);
 }
 
 .call-quality-panel.danger {
-  border-color: #f5b7bd;
-  background: #fff1f3;
+  border-color: var(--ems-danger-border);
+  background: var(--ems-danger-tint);
 }
 
 .call-quality-panel.warning {
-  border-color: #ffe08a;
-  background: #fff9e6;
+  border-color: var(--ems-warning-border);
+  background: var(--ems-warning-tint);
 }
 
 .call-quality-panel.success {
-  border-color: #b7ebc6;
-  background: #f0fff4;
+  border-color: var(--ems-success-border);
+  background: var(--ems-success-tint);
 }
 
 .call-quality-score {
@@ -1505,7 +1512,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #101828;
+  background: var(--ems-score-bg);
   color: #ffffff;
   font-size: 1.25rem;
   font-weight: 900;
@@ -1513,12 +1520,12 @@
 
 .call-quality-title {
   font-weight: 900;
-  color: #101828;
+  color: var(--ems-text-primary);
 }
 
 .call-quality-line {
   margin-top: 0.35rem;
-  color: #344054;
+  color: var(--ems-text-secondary);
 }
 
 .call-form-actions {
@@ -1544,9 +1551,9 @@
 .price-calculator-result > div {
   min-width: 220px;
   padding: 1rem;
-  border: 1px solid #b7ebc6;
+  border: 1px solid var(--ems-price-result-border);
   border-radius: 18px;
-  background: #f0fff4;
+  background: var(--ems-price-result-bg);
 }
 
 .price-calculator-result-label {
@@ -1554,14 +1561,14 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #667085;
+  color: var(--ems-text-muted);
 }
 
 .price-calculator-result-value {
   margin-top: 0.25rem;
   font-size: 1.5rem;
   font-weight: 900;
-  color: #198754;
+  color: var(--ems-price-result-color);
 }
 
 .price-calculator-actions {

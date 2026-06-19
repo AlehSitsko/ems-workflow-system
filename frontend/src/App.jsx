@@ -2,6 +2,7 @@ import { useState } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import "./App.css";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import AppLayout from "./components/layout/AppLayout";
 
@@ -20,6 +21,7 @@ import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
 import PayrollPage from "./pages/PayrollPage";
 import ComplianceDashboardPage from "./pages/ComplianceDashboardPage";
+import AuditLogPage from "./pages/AuditLogPage";
 
 import {
   getCurrentUser,
@@ -171,8 +173,7 @@ function App() {
   };
 
   return (
-    // HashRouter is used because the app is deployed to GitHub Pages.
-    // It keeps routes after the # symbol and prevents 404 errors on refresh.
+    <ThemeProvider>
     <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
@@ -220,7 +221,7 @@ function App() {
           path="/calls"
           element={
             <PatientRoute>
-              <CallsPage />
+              <CallsPage currentUser={currentUser} />
             </PatientRoute>
           }
         />
@@ -306,9 +307,19 @@ function App() {
           }
         />
 
+        <Route
+          path="/audit"
+          element={
+            <EmployeeRoute>
+              <AuditLogPage currentUser={currentUser} />
+            </EmployeeRoute>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </HashRouter>
+    </ThemeProvider>
   );
 }
 

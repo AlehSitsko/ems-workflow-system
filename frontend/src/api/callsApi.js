@@ -70,6 +70,16 @@ export async function cancelCall(callId, cancelReason, headers = {}) {
   return data;
 }
 
+export async function uncancelCall(callId, headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/uncancel`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to uncancel call");
+  return data;
+}
+
 // Fetch dispatcher analytics for supervisor reporting.
 export async function getDispatcherAnalytics() {
   const response = await fetch(`${API_BASE_URL}/api/analytics/dispatchers`);

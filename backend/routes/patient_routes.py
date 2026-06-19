@@ -1,6 +1,15 @@
 from flask import Blueprint, jsonify, request
 
 from models import db, Patient, Call
+from audit_utils import log_action
+
+
+def _audit_user():
+    try:
+        uid = int(request.headers.get("X-User-Id", 0)) or None
+    except (ValueError, TypeError):
+        uid = None
+    return uid, request.headers.get("X-User-Name") or None
 
 
 # Blueprint for patient management routes.
@@ -91,6 +100,11 @@ def create_patient():
     )
 
     db.session.add(new_patient)
+    db.session.flush()
+    uid, uname = _audit_user()
+    log_action("patient.created", "patient", new_patient.id,
+               f"{new_patient.last_name}, {new_patient.first_name}",
+               user_id=uid, user_name=uname)
     db.session.commit()
 
     return jsonify(new_patient.to_dict()), 201
@@ -128,10 +142,16 @@ def update_patient(id):
         "facility_name", "room_number", "emergency_contact_name", "emergency_contact_phone",
         "notes",
     }
+    changed = {k: v for k, v in data.items() if k in ALLOWED_FIELDS and getattr(patient, k) != v}
     for key, value in data.items():
         if key in ALLOWED_FIELDS:
             setattr(patient, key, value)
 
+    uid, uname = _audit_user()
+    log_action("patient.updated", "patient", patient.id,
+               f"{patient.last_name}, {patient.first_name}",
+               {"changed_fields": list(changed.keys())},
+               user_id=uid, user_name=uname)
     db.session.commit()
 
     return jsonify(patient.to_dict())
@@ -145,7 +165,11 @@ def delete_patient(id):
     if not patient:
         return jsonify({"error": "Patient not found"}), 404
 
+    uid, uname = _audit_user()
+    label = f"{patient.last_name}, {patient.first_name}"
+    pid = patient.id
     db.session.delete(patient)
+    log_action("patient.deleted", "patient", pid, label, user_id=uid, user_name=uname)
     db.session.commit()
 
     return jsonify({"message": "Patient deleted"})

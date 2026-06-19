@@ -3,6 +3,15 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models import db, TimeEntry, EmployeePayConfig, Employee
+from audit_utils import log_action
+
+
+def _audit_user():
+    try:
+        uid = int(request.headers.get("X-User-Id", 0)) or None
+    except (ValueError, TypeError):
+        uid = None
+    return uid, request.headers.get("X-User-Name") or None
 
 time_bp = Blueprint("time", __name__, url_prefix="/api")
 
@@ -41,6 +50,13 @@ def create_time_entry(employee_id):
         created_by=data.get("created_by"),
     )
     db.session.add(entry)
+    db.session.flush()
+    if entry.entry_type == "manual":
+        uid, uname = _audit_user()
+        log_action("time_entry.created", "time_entry", entry.id,
+                   f"Employee #{employee_id}",
+                   {"clock_in": entry.clock_in, "clock_out": entry.clock_out, "type": "manual"},
+                   user_id=uid, user_name=uname or data.get("created_by"))
     db.session.commit()
     return jsonify(entry.to_dict()), 201
 
@@ -58,6 +74,11 @@ def update_time_entry(entry_id):
         entry.approved_by = data["approved_by"]
         entry.approved_at = datetime.now().isoformat(timespec="seconds")
 
+    uid, uname = _audit_user()
+    log_action("time_entry.updated", "time_entry", entry_id,
+               f"Employee #{entry.employee_id}",
+               {k: data[k] for k in ("clock_in", "clock_out", "status", "approved_by") if k in data},
+               user_id=uid, user_name=uname)
     db.session.commit()
     return jsonify(entry.to_dict())
 
@@ -65,6 +86,11 @@ def update_time_entry(entry_id):
 @time_bp.route("/time-entries/<int:entry_id>", methods=["DELETE"])
 def delete_time_entry(entry_id):
     entry = TimeEntry.query.get_or_404(entry_id)
+    uid, uname = _audit_user()
+    log_action("time_entry.deleted", "time_entry", entry_id,
+               f"Employee #{entry.employee_id}",
+               {"clock_in": entry.clock_in, "clock_out": entry.clock_out},
+               user_id=uid, user_name=uname)
     db.session.delete(entry)
     db.session.commit()
     return jsonify({"ok": True})

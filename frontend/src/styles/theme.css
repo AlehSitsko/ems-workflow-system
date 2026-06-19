@@ -1,0 +1,191 @@
+/* =============================================
+   EMS Workflow System — Design Tokens
+   Light mode: :root  |  Dark mode: [data-bs-theme="dark"]
+   ============================================= */
+
+:root {
+  /* Backgrounds */
+  --ems-bg-body:       #f5f7fb;
+  --ems-bg-surface:    #ffffff;
+  --ems-bg-surface-2:  #f8fafd;
+  --ems-bg-hero:       linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
+
+  /* Borders */
+  --ems-border:        #e4e8f0;
+  --ems-border-light:  #e7edf6;
+  --ems-hero-border:   #e1e8f5;
+
+  /* Text */
+  --ems-text-primary:   #101828;
+  --ems-text-secondary: #344054;
+  --ems-text-muted:     #667085;
+  --ems-text-subtle:    #98a2b3;
+
+  /* Topbar */
+  --ems-topbar-bg:     rgba(255, 255, 255, 0.96);
+  --ems-topbar-border: #e4e8f0;
+
+  /* Icon buttons in topbar */
+  --ems-btn-icon-bg:     #ffffff;
+  --ems-btn-icon-border: #dce3ee;
+  --ems-btn-icon-color:  #1f2a44;
+
+  /* Cards / hover */
+  --ems-card-hover-border: #cfd8e6;
+
+  /* Shadows */
+  --ems-shadow:        rgba(16, 24, 40, 0.06);
+  --ems-shadow-subtle: rgba(16, 24, 40, 0.045);
+
+  /* Overlays */
+  --ems-overlay-bg: rgba(15, 23, 42, 0.45);
+
+  /* Semantic tints (status panels) */
+  --ems-danger-tint:    #fff1f3;
+  --ems-danger-border:  #f5b7bd;
+  --ems-warning-tint:   #fff9e6;
+  --ems-warning-border: #ffe08a;
+  --ems-success-tint:   #f0fff4;
+  --ems-success-border: #b7ebc6;
+
+  /* Form sections */
+  --ems-section-bg:     #f8fafd;
+  --ems-section-border: #e7edf6;
+
+  /* Detail items */
+  --ems-detail-bg:     #f8fafd;
+  --ems-detail-border: #e7edf6;
+
+  /* Chips */
+  --ems-chip-bg:              #ffffff;
+  --ems-chip-border:          #e4e8f0;
+  --ems-chip-warning-bg:      #fff7f7;
+  --ems-chip-warning-border:  #ffd0d0;
+
+  /* Call form specifics */
+  --ems-search-result-bg:     #ffffff;
+  --ems-search-result-border: #d7e5ff;
+  --ems-search-divider:       #eef2f7;
+  --ems-service-card-bg:      #ffffff;
+  --ems-service-card-border:  #d7e5ff;
+  --ems-service-card-color:   #0d6efd;
+  --ems-intake-start-bg:      #fff7f7;
+  --ems-intake-start-border:  #ffd0d0;
+  --ems-note-card-bg:         #ffffff;
+  --ems-note-card-border:     #e4e8f0;
+  --ems-price-result-bg:      #f0fff4;
+  --ems-price-result-border:  #b7ebc6;
+  --ems-price-result-color:   #198754;
+
+  /* Score badge */
+  --ems-score-bg: #101828;
+
+  /* Drawer */
+  --ems-drawer-bg:     #f5f7fb;
+  --ems-drawer-surface: #ffffff;
+}
+
+/* ─── Dark Theme ─────────────────────────────── */
+[data-bs-theme="dark"] {
+  --ems-bg-body:       #0d1117;
+  --ems-bg-surface:    #161b22;
+  --ems-bg-surface-2:  #1c2333;
+  --ems-bg-hero:       linear-gradient(135deg, #161b22 0%, #1c2333 100%);
+
+  --ems-border:        #30363d;
+  --ems-border-light:  #21262d;
+  --ems-hero-border:   #30363d;
+
+  --ems-text-primary:   #e6edf3;
+  --ems-text-secondary: #c9d1d9;
+  --ems-text-muted:     #8b949e;
+  --ems-text-subtle:    #6e7681;
+
+  --ems-topbar-bg:     rgba(22, 27, 34, 0.96);
+  --ems-topbar-border: #30363d;
+
+  --ems-btn-icon-bg:     #161b22;
+  --ems-btn-icon-border: #30363d;
+  --ems-btn-icon-color:  #c9d1d9;
+
+  --ems-card-hover-border: #444c56;
+
+  --ems-shadow:        rgba(0, 0, 0, 0.25);
+  --ems-shadow-subtle: rgba(0, 0, 0, 0.2);
+
+  --ems-overlay-bg: rgba(0, 0, 0, 0.65);
+
+  --ems-danger-tint:    rgba(220, 53, 69, 0.12);
+  --ems-danger-border:  rgba(220, 53, 69, 0.3);
+  --ems-warning-tint:   rgba(245, 158, 11, 0.1);
+  --ems-warning-border: rgba(245, 158, 11, 0.3);
+  --ems-success-tint:   rgba(25, 135, 84, 0.12);
+  --ems-success-border: rgba(25, 135, 84, 0.3);
+
+  --ems-section-bg:     #1c2333;
+  --ems-section-border: #30363d;
+
+  --ems-detail-bg:     #1c2333;
+  --ems-detail-border: #30363d;
+
+  --ems-chip-bg:              #1c2333;
+  --ems-chip-border:          #30363d;
+  --ems-chip-warning-bg:      rgba(220, 53, 69, 0.1);
+  --ems-chip-warning-border:  rgba(220, 53, 69, 0.3);
+
+  --ems-search-result-bg:     #161b22;
+  --ems-search-result-border: rgba(13, 110, 253, 0.35);
+  --ems-search-divider:       #21262d;
+  --ems-service-card-bg:      #1c2333;
+  --ems-service-card-border:  rgba(13, 110, 253, 0.3);
+  --ems-service-card-color:   #79b8ff;
+  --ems-intake-start-bg:      rgba(220, 53, 69, 0.1);
+  --ems-intake-start-border:  rgba(220, 53, 69, 0.3);
+  --ems-note-card-bg:         #1c2333;
+  --ems-note-card-border:     #30363d;
+  --ems-price-result-bg:      rgba(25, 135, 84, 0.12);
+  --ems-price-result-border:  rgba(25, 135, 84, 0.3);
+  --ems-price-result-color:   #3fb950;
+
+  --ems-score-bg: #1c2333;
+
+  --ems-drawer-bg:      #0d1117;
+  --ems-drawer-surface: #161b22;
+}
+
+/* ─── Dispatch Board Tokens ──────────────────── */
+/* Declared outside :root / dark so both themes   */
+/* override them in the blocks below.              */
+
+:root {
+  --ems-board-bg:           #f0f4f8;
+  --ems-board-bg-header:    #e2e8f0;
+  --ems-board-bg-left:      #eaf0f8;
+  --ems-board-bg-card:      #ffffff;
+  --ems-board-bg-card-alt:  #f4f7fb;
+  --ems-board-bg-input:     #ffffff;
+  --ems-board-bg-badge:     #e2eaf2;
+  --ems-board-border:       #c8d8e8;
+  --ems-board-border-light: #dde8f2;
+  --ems-board-text:         #1a202c;
+  --ems-board-text-muted:   #64748b;
+  --ems-board-text-dark:    #2d3748;
+  --ems-board-tab-inactive: #4a5568;
+  --ems-board-divider-col:  col-resize;
+}
+
+[data-bs-theme="dark"] {
+  --ems-board-bg:           #151b27;
+  --ems-board-bg-header:    #0f1520;
+  --ems-board-bg-left:      #0b1120;
+  --ems-board-bg-card:      #182030;
+  --ems-board-bg-card-alt:  #151b27;
+  --ems-board-bg-input:     #1e2430;
+  --ems-board-bg-badge:     #1a2235;
+  --ems-board-border:       #2a3347;
+  --ems-board-border-light: #1e2a3a;
+  --ems-board-text:         #e2e8f0;
+  --ems-board-text-muted:   #6c757d;
+  --ems-board-text-dark:    #475569;
+  --ems-board-tab-inactive: #334155;
+}

@@ -4,8 +4,13 @@ from flask import Blueprint, jsonify, request
 
 from models import db, Call
 from notification_utils import create_notification
+from audit_utils import log_action
 
-ALLOWED_ROLES = {"admin", "supervisor", "hr"}
+
+def _user_name_from_request():
+    return request.headers.get("X-User-Name") or None
+
+ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 
 
 def _role_from_request():
@@ -117,6 +122,16 @@ def create_call():
     )
 
     db.session.add(new_call)
+    db.session.flush()
+    log_action("call.created", "call", new_call.id,
+               f"Call #{new_call.id}",
+               {"service_level": new_call.service_level,
+                "trip_date": new_call.trip_date,
+                "pickup_time": new_call.pickup_time,
+                "pickup": new_call.pickup_address,
+                "dropoff": new_call.dropoff_address,
+                "dispatcher": new_call.dispatcher_name},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
     db.session.commit()
 
     # Notify if this call is scheduled for today or tomorrow.
@@ -160,6 +175,28 @@ def cancel_call(call_id):
     call.cancel_reason = reason
     call.cancelled_at = datetime.now(timezone.utc).isoformat()
     call.cancelled_by = _user_id_from_request()
+    log_action("call.cancelled", "call", call_id,
+               f"Call #{call_id}", {"reason": reason},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
+    db.session.commit()
+    return jsonify(call.to_dict())
+
+
+@call_bp.route("/<int:call_id>/uncancel", methods=["PATCH"])
+def uncancel_call(call_id):
+    if _role_from_request() not in ALLOWED_ROLES:
+        return jsonify({"error": "Insufficient permissions"}), 403
+    call = Call.query.get_or_404(call_id)
+    if call.status != "cancelled":
+        return jsonify({"error": "Call is not cancelled"}), 409
+    old_reason = call.cancel_reason
+    call.status = "new"
+    call.cancel_reason = None
+    call.cancelled_at = None
+    call.cancelled_by = None
+    log_action("call.uncancelled", "call", call_id,
+               f"Call #{call_id}", {"previous_reason": old_reason},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
     db.session.commit()
     return jsonify(call.to_dict())
 
