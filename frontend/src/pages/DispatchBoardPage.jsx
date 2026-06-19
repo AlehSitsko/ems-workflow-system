@@ -168,62 +168,81 @@ function UnitTypeBadge({ unitType }) {
   );
 }
 
-function CallCard({ call, onDragStart, onCardClick }) {
+function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturn = call._slot === "return";
   const willCall = isWillCall(call);
+  const status = statusOverride || call.status || "new";
+  const isCancelled = status === "cancelled";
+  const isCompleted = status === "completed";
+
+  const accentColor = isCancelled ? "#6b7280"
+    : isCompleted   ? "#22c55e"
+    : emergency     ? "#dc3545"
+    : willCall      ? "#ffc107"
+    : isReturn      ? "#6ea8fe"
+    : "#334155";
 
   return (
     <div
-      draggable
+      draggable={!isCancelled && !isCompleted}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(call); }}
-      onClick={() => onCardClick && onCardClick(call, false)}
+      onClick={() => onCardClick && onCardClick(call, isCompleted)}
       style={{
-        borderLeft: `4px solid ${emergency ? "#dc3545" : willCall ? "#ffc107" : isReturn ? "#6ea8fe" : "#495057"}`,
-        background: "#1e2430",
-        borderRadius: 6,
-        cursor: "grab",
+        borderLeft: `3px solid ${accentColor}`,
+        background: isCancelled ? "rgba(107,114,128,0.08)" : isCompleted ? "rgba(34,197,94,0.06)" : "#182030",
+        borderRadius: 7,
+        cursor: isCancelled || isCompleted ? "pointer" : "grab",
         userSelect: "none",
-        padding: "8px 10px",
-        marginBottom: 6,
+        padding: "9px 10px 8px",
+        marginBottom: 5,
+        opacity: isCancelled ? 0.65 : 1,
       }}
     >
-      <div className="d-flex justify-content-between align-items-start mb-1">
-        <div className="d-flex align-items-center gap-1 flex-wrap">
-          <strong className="text-white" style={{ fontSize: 13 }}>
+      {/* Top row: name + badges */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 4, marginBottom: 4 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: isCancelled ? "#6b7280" : isCompleted ? "#86efac" : "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {call.patient_name || `Call #${call.id}`}
-          </strong>
-          {isReturn && (
-            <span style={{ fontSize: 10, color: "#6ea8fe", background: "rgba(13,110,253,0.15)", padding: "1px 6px", borderRadius: 4 }}>
-              RETURN
-            </span>
-          )}
-          {willCall && (
-            <span style={{ fontSize: 10, color: "#ffc107", background: "rgba(255,193,7,0.15)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
-              WILL CALL
-            </span>
+          </div>
+          {(isReturn || willCall) && (
+            <div style={{ marginTop: 2 }}>
+              {isReturn && <span style={{ fontSize: 9, color: "#6ea8fe", background: "rgba(96,165,250,0.12)", padding: "1px 5px", borderRadius: 3, fontWeight: 700, marginRight: 3 }}>RETURN</span>}
+              {willCall && <span style={{ fontSize: 9, color: "#ffc107", background: "rgba(255,193,7,0.12)", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>WILL CALL</span>}
+            </div>
           )}
         </div>
-        <div className="d-flex gap-1 ms-1 flex-shrink-0">
-          {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
-          <span className={`badge ${als ? "badge-als" : "badge-bls"}`} style={{ fontSize: 10 }}>
+        <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+          {isCancelled && <span style={{ fontSize: 9, color: "#6b7280", background: "rgba(107,114,128,0.15)", border: "1px solid rgba(107,114,128,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>CNCL</span>}
+          {isCompleted && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>DONE</span>}
+          {emergency && !isCancelled && <span style={{ fontSize: 9, color: "#f87171", background: "rgba(220,53,69,0.15)", border: "1px solid rgba(220,53,69,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>EMRG</span>}
+          <span style={{ fontSize: 9, color: als ? "#60a5fa" : "#94a3b8", background: als ? "rgba(96,165,250,0.12)" : "rgba(148,163,184,0.1)", border: `1px solid ${als ? "rgba(96,165,250,0.25)" : "rgba(148,163,184,0.2)"}`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
             {als ? "ALS" : "BLS"}
           </span>
         </div>
       </div>
-      {willCall ? (
-        <div style={{ fontSize: 11, color: "#ffc107" }}>📞 Patient will call when ready</div>
-      ) : call.pickup_time ? (
-        <div style={{ fontSize: 11, color: "#adb5bd" }}>
-          🕐 {call.pickup_time}
-          {call.appointment_time && !isReturn ? ` · appt ${call.appointment_time}` : ""}
+
+      {/* Time */}
+      {!willCall && call.pickup_time && (
+        <div style={{ fontSize: 11, color: "#475569", marginBottom: 3 }}>
+          <span style={{ color: "#64748b" }}>🕐</span> {call.pickup_time}
+          {call.appointment_time && !isReturn && <span style={{ color: "#334155", marginLeft: 6 }}>appt {call.appointment_time}</span>}
         </div>
-      ) : null}
+      )}
+      {willCall && <div style={{ fontSize: 11, color: "#ca8a04" }}>📞 Will call when ready</div>}
+
+      {/* Route */}
       {call.pickup_address && (
-        <div className="text-truncate" style={{ fontSize: 11, color: "#6c757d" }}>
-          {call.pickup_address}
-          {call.dropoff_address ? ` → ${call.dropoff_address}` : ""}
+        <div style={{ fontSize: 10, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {call.pickup_address}{call.dropoff_address ? <span style={{ color: "#1e2a3a" }}> → {call.dropoff_address}</span> : ""}
+        </div>
+      )}
+
+      {/* Cancel reason for cancelled cards */}
+      {isCancelled && call.cancel_reason && (
+        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3, fontStyle: "italic" }}>
+          ✕ {call.cancel_reason}
         </div>
       )}
     </div>
@@ -725,7 +744,8 @@ function WarningModal({ warning, onConfirm, onCancel }) {
 
 export default function DispatchBoardPage() {
   const [date, setDate] = useState(todayStr());
-  const [board, setBoard] = useState({ openCalls: [], units: [] });
+  const [board, setBoard] = useState({ openCalls: [], completedCalls: [], cancelledCalls: [], units: [] });
+  const [callFilter, setCallFilter] = useState("open"); // "open" | "all" | "completed" | "cancelled"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -944,6 +964,20 @@ export default function DispatchBoardPage() {
   const emergencyCalls = expandedCalls.filter(isEmergencyCall);
   const scheduledCalls = expandedCalls.filter((c) => !isEmergencyCall(c));
 
+  // Calls to show in left column based on filter
+  const visibleCalls = (() => {
+    switch (callFilter) {
+      case "completed": return board.completedCalls || [];
+      case "cancelled": return board.cancelledCalls || [];
+      case "all":       return [
+        ...expandedCalls,
+        ...(board.completedCalls || []),
+        ...(board.cancelledCalls || []),
+      ].sort((a, b) => (a.pickup_time || "").localeCompare(b.pickup_time || ""));
+      default:          return null; // "open" uses existing emergency/scheduled split
+    }
+  })();
+
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
@@ -989,45 +1023,117 @@ export default function DispatchBoardPage() {
       {/* Main columns */}
       <div className="d-flex" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
 
-        {/* Left: Open Calls */}
+        {/* Left: Calls column */}
         <div style={{
           width: leftWidth,
-          minWidth: 180,
+          minWidth: 200,
           flexShrink: 0,
-          background: "#0f1520",
+          background: "#0b1120",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          borderRight: "1px solid #2a3347",
+          borderRight: "1px solid #1e2a3a",
         }}>
-          <div className="px-3 py-2" style={{ borderBottom: "1px solid #2a3347", flexShrink: 0 }}>
-            <span className="text-white fw-semibold" style={{ fontSize: 13 }}>Open Calls</span>
-            <span className="ms-2 badge bg-secondary" style={{ fontSize: 10 }}>{expandedCalls.length}</span>
+          {/* Column header */}
+          <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
+            {/* Filter tabs */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+              {[
+                { key: "open",      label: "Open",      count: expandedCalls.length,              color: "#6ea8fe" },
+                { key: "completed", label: "Done",       count: (board.completedCalls||[]).length, color: "#75b798" },
+                { key: "cancelled", label: "Cancelled",  count: (board.cancelledCalls||[]).length, color: "#ea868f" },
+                { key: "all",       label: "All",        count: expandedCalls.length + (board.completedCalls||[]).length + (board.cancelledCalls||[]).length, color: "#94a3b8" },
+              ].map(({ key, label, count, color }) => (
+                <button
+                  key={key}
+                  onClick={() => setCallFilter(key)}
+                  style={{
+                    flex: 1,
+                    padding: "4px 2px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.3,
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    background: callFilter === key ? `${color}22` : "transparent",
+                    color: callFilter === key ? color : "#334155",
+                    borderBottom: callFilter === key ? `2px solid ${color}` : "2px solid transparent",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {label}
+                  <span style={{
+                    marginLeft: 4,
+                    background: callFilter === key ? `${color}33` : "#1a2235",
+                    color: callFilter === key ? color : "#475569",
+                    borderRadius: 8, padding: "0 5px", fontSize: 9,
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-            {emergencyCalls.length > 0 && (
-              <div className="mb-3">
-                <div className="mb-2" style={{ borderLeft: "3px solid #dc3545", paddingLeft: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#ea868f", letterSpacing: 1 }}>EMERGENCY</span>
-                  <span className="badge bg-danger rounded-pill ms-2">{emergencyCalls.length}</span>
-                </div>
-                {emergencyCalls.map((call, i) => (
-                  <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} onCardClick={handleCardClick} />
-                ))}
-              </div>
+
+          {/* Call list */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px 8px" }}>
+            {/* Open calls — split emergency / scheduled */}
+            {callFilter === "open" && (
+              <>
+                {emergencyCalls.length > 0 && (
+                  <div className="mb-2">
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 6px", borderBottom: "1px solid rgba(220,53,69,0.2)", marginBottom: 4 }}>
+                      <span style={{ width: 3, height: 12, background: "#dc3545", borderRadius: 2, display: "inline-block" }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#ea868f", letterSpacing: 1 }}>EMERGENCY</span>
+                      <span style={{ fontSize: 9, background: "rgba(220,53,69,0.15)", color: "#ea868f", borderRadius: 8, padding: "0 6px", marginLeft: "auto" }}>{emergencyCalls.length}</span>
+                    </div>
+                    {emergencyCalls.map((call, i) => (
+                      <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} onCardClick={handleCardClick} />
+                    ))}
+                  </div>
+                )}
+                {scheduledCalls.length > 0 && (
+                  <div>
+                    {emergencyCalls.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 6px", borderBottom: "1px solid #1e2a3a", marginBottom: 4 }}>
+                        <span style={{ width: 3, height: 12, background: "#475569", borderRadius: 2, display: "inline-block" }} />
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1 }}>SCHEDULED</span>
+                        <span style={{ fontSize: 9, background: "#1a2235", color: "#475569", borderRadius: 8, padding: "0 6px", marginLeft: "auto" }}>{scheduledCalls.length}</span>
+                      </div>
+                    )}
+                    {scheduledCalls.map((call, i) => (
+                      <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} onCardClick={handleCardClick} />
+                    ))}
+                  </div>
+                )}
+                {expandedCalls.length === 0 && !loading && (
+                  <div style={{ textAlign: "center", padding: "32px 8px", color: "#334155" }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>✓</div>
+                    <div style={{ fontSize: 11 }}>No open calls for this date</div>
+                  </div>
+                )}
+              </>
             )}
-            {scheduledCalls.length > 0 && (
-              <div>
-                <div className="mb-2" style={{ paddingLeft: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#6c757d", letterSpacing: 1 }}>SCHEDULED</span>
-                </div>
-                {scheduledCalls.map((call, i) => (
-                  <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={handleDragStart} onCardClick={handleCardClick} />
+
+            {/* Completed / Cancelled / All */}
+            {callFilter !== "open" && visibleCalls !== null && (
+              <>
+                {visibleCalls.length === 0 && !loading && (
+                  <div style={{ textAlign: "center", padding: "32px 8px", color: "#334155" }}>
+                    <div style={{ fontSize: 11 }}>No {callFilter} calls for this date</div>
+                  </div>
+                )}
+                {visibleCalls.map((call, i) => (
+                  <CallCard
+                    key={`${call.id}-${i}`}
+                    call={call}
+                    onDragStart={callFilter === "all" && call.status === "new" ? handleDragStart : () => {}}
+                    onCardClick={handleCardClick}
+                    statusOverride={callFilter !== "open" ? call.status : null}
+                  />
                 ))}
-              </div>
-            )}
-            {expandedCalls.length === 0 && !loading && (
-              <p className="text-muted text-center small mt-4">No open calls for this date</p>
+              </>
             )}
           </div>
         </div>

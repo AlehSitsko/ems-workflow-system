@@ -48,12 +48,13 @@ def _crew_count(unit):
 def get_board():
     date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
 
-    open_calls = (
+    all_day_calls = (
         Call.query
-        .filter(Call.trip_date == date, Call.status.in_(["new", "assigned"]))
+        .filter(Call.trip_date == date)
         .order_by(Call.pickup_time)
         .all()
     )
+    open_calls = [c for c in all_day_calls if c.status in ("new", "assigned")]
 
     units = (
         DailyCrewUnit.query
@@ -109,11 +110,15 @@ def get_board():
         unit_dicts.append(ud)
 
     # Only "new" status calls appear in Open Calls column
-    open_only = [c for c in open_calls if c.status == "new"]
+    open_only     = [c for c in all_day_calls if c.status == "new"]
+    completed_day = [c for c in all_day_calls if c.status == "completed"]
+    cancelled_day = [c for c in all_day_calls if c.status == "cancelled"]
 
     return jsonify({
         "date": date,
-        "openCalls": [_call_with_patient(c) for c in open_only],
+        "openCalls":      [_call_with_patient(c) for c in open_only],
+        "completedCalls": [_call_with_patient(c) for c in completed_day],
+        "cancelledCalls": [_call_with_patient(c) for c in cancelled_day],
         "units": unit_dicts,
     })
 
