@@ -1,40 +1,52 @@
 import { useState, useEffect, useCallback } from "react";
-import { FaSync, FaFilter } from "react-icons/fa";
+import { FaSync, FaFilter, FaPhoneAlt, FaUserInjured, FaAmbulance, FaClock } from "react-icons/fa";
 import { getAuditLog } from "../api/auditApi";
 
-const ACTION_LABELS = {
-  "call.created":        "Call Created",
-  "call.assigned":       "Call Assigned",
-  "call.unassigned":     "Call Unassigned",
-  "call.completed":      "Call Completed",
-  "call.reopened":       "Call Reopened",
-  "call.cancelled":      "Call Cancelled",
-  "unit.status_changed": "Unit Status Changed",
-  "patient.created":     "Patient Created",
-  "patient.updated":     "Patient Updated",
-  "patient.deleted":     "Patient Deleted",
-  "time_entry.created":  "Time Entry Added",
-  "time_entry.updated":  "Time Entry Updated",
-  "time_entry.deleted":  "Time Entry Deleted",
+const ACTION_CONFIG = {
+  "call.created":        { label: "Call Created",        color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+  "call.assigned":       { label: "Call Assigned",       color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  "call.unassigned":     { label: "Call Unassigned",     color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
+  "call.completed":      { label: "Call Completed",      color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
+  "call.reopened":       { label: "Call Reopened",       color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  "call.cancelled":      { label: "Call Cancelled",      color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  "call.uncancelled":    { label: "Call Uncancelled",    color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+  "unit.status_changed": { label: "Unit Status Changed", color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
+  "patient.created":     { label: "Patient Created",     color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+  "patient.updated":     { label: "Patient Updated",     color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  "patient.deleted":     { label: "Patient Deleted",     color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  "time_entry.created":  { label: "Time Entry Added",    color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+  "time_entry.updated":  { label: "Time Entry Updated",  color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  "time_entry.deleted":  { label: "Time Entry Deleted",  color: "#f87171", bg: "rgba(248,113,113,0.12)" },
 };
 
-const ACTION_COLORS = {
-  "call.created":        "#60a5fa",
-  "call.assigned":       "#34d399",
-  "call.unassigned":     "#fb923c",
-  "call.completed":      "#22c55e",
-  "call.reopened":       "#a78bfa",
-  "call.cancelled":      "#f87171",
-  "unit.status_changed": "#94a3b8",
-  "patient.created":     "#60a5fa",
-  "patient.updated":     "#f59e0b",
-  "patient.deleted":     "#f87171",
-  "time_entry.created":  "#60a5fa",
-  "time_entry.updated":  "#f59e0b",
-  "time_entry.deleted":  "#f87171",
+const ENTITY_ICON = {
+  call:        FaPhoneAlt,
+  patient:     FaUserInjured,
+  unit:        FaAmbulance,
+  time_entry:  FaClock,
 };
 
 const ENTITY_TYPES = ["", "call", "patient", "unit", "time_entry"];
+
+const DETAIL_LABELS = {
+  service_level:    "Service",
+  trip_date:        "Date",
+  pickup_time:      "Time",
+  pickup:           "From",
+  dropoff:          "To",
+  dispatcher:       "Dispatcher",
+  reason:           "Reason",
+  previous_reason:  "Prev. reason",
+  truck:            "Unit",
+  unit_id:          "Unit ID",
+  from:             "From",
+  to:               "To",
+  clock_in:         "Clock in",
+  clock_out:        "Clock out",
+  type:             "Type",
+  changed_fields:   "Changed",
+  assignment_id:    "Assignment",
+};
 
 function formatTs(ts) {
   if (!ts) return "—";
@@ -43,25 +55,88 @@ function formatTs(ts) {
       month: "short", day: "numeric", year: "numeric",
       hour: "2-digit", minute: "2-digit",
     });
-  } catch {
-    return ts;
-  }
+  } catch { return ts; }
 }
 
-function DetailsCell({ raw }) {
-  if (!raw) return <span style={{ color: "#475569" }}>—</span>;
-  try {
-    const obj = JSON.parse(raw);
-    return (
-      <span style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>
-        {Object.entries(obj)
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-          .join(" · ")}
-      </span>
-    );
-  } catch {
-    return <span style={{ fontSize: 11, color: "#94a3b8" }}>{raw}</span>;
-  }
+function parseDetails(raw) {
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function DetailPills({ details }) {
+  if (!details) return null;
+  const entries = Object.entries(details).filter(([, v]) => v !== null && v !== undefined && v !== "");
+  if (entries.length === 0) return null;
+  return (
+    <div className="d-flex flex-wrap gap-2 mt-2">
+      {entries.map(([k, v]) => (
+        <span key={k} style={{ fontSize: 11, color: "#94a3b8", background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.15)", borderRadius: 6, padding: "2px 8px" }}>
+          <span style={{ color: "#64748b" }}>{DETAIL_LABELS[k] || k}:</span>{" "}
+          <span style={{ color: "#cbd5e1" }}>{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function AuditCard({ entry }) {
+  const cfg = ACTION_CONFIG[entry.action] || { label: entry.action, color: "#94a3b8", bg: "rgba(148,163,184,0.08)" };
+  const EntityIcon = ENTITY_ICON[entry.entity_type] || FaPhoneAlt;
+  const details = parseDetails(entry.details);
+
+  return (
+    <div style={{
+      background: "#1a2235",
+      border: "1px solid #1e2a3a",
+      borderLeft: `3px solid ${cfg.color}`,
+      borderRadius: 8,
+      padding: "12px 16px",
+      display: "flex",
+      gap: 14,
+    }}>
+      {/* Icon */}
+      <div style={{
+        width: 36, height: 36, borderRadius: 8,
+        background: cfg.bg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <EntityIcon style={{ color: cfg.color, fontSize: 15 }} />
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <span style={{
+            fontSize: 11, fontWeight: 700,
+            color: cfg.color,
+            background: cfg.bg,
+            border: `1px solid ${cfg.color}44`,
+            borderRadius: 10, padding: "1px 10px",
+            whiteSpace: "nowrap",
+          }}>
+            {cfg.label}
+          </span>
+          {entry.entity_label && (
+            <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>
+              {entry.entity_label}
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: "#475569", marginLeft: "auto", whiteSpace: "nowrap" }}>
+            {formatTs(entry.timestamp)}
+          </span>
+        </div>
+
+        {/* User */}
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
+          by <span style={{ color: "#94a3b8" }}>{entry.user_name}</span>
+        </div>
+
+        {/* Detail pills */}
+        <DetailPills details={details} />
+      </div>
+    </div>
+  );
 }
 
 export default function AuditLogPage({ currentUser }) {
@@ -81,7 +156,7 @@ export default function AuditLogPage({ currentUser }) {
     "X-User-Id":   String(currentUser?.id || ""),
   };
 
-  const load = useCallback(async (p = page) => {
+  const load = useCallback(async (p = 1) => {
     setLoading(true);
     setError("");
     try {
@@ -100,7 +175,7 @@ export default function AuditLogPage({ currentUser }) {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEntityType, filterDateFrom, filterDateTo, page, currentUser]);
+  }, [filterEntityType, filterDateFrom, filterDateTo, currentUser]);
 
   useEffect(() => { load(page); }, [load, page]);
 
@@ -127,7 +202,7 @@ export default function AuditLogPage({ currentUser }) {
         </div>
 
         {/* Filters */}
-        <div className="d-flex gap-2 flex-wrap mb-3 align-items-end">
+        <div className="d-flex gap-2 flex-wrap mb-4 align-items-end">
           <div>
             <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>Entity type</label>
             <select
@@ -143,40 +218,18 @@ export default function AuditLogPage({ currentUser }) {
           </div>
           <div>
             <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>From</label>
-            <input
-              type="date"
-              className="form-control form-control-sm"
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-            />
+            <input type="date" className="form-control form-control-sm" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
           </div>
           <div>
             <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 4 }}>To</label>
-            <input
-              type="date"
-              className="form-control form-control-sm"
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
-            />
+            <input type="date" className="form-control form-control-sm" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
           </div>
-          <button
-            className="btn btn-sm btn-primary d-flex align-items-center gap-2"
-            onClick={applyFilters}
-            style={{ marginBottom: 1 }}
-          >
+          <button className="btn btn-sm btn-primary d-flex align-items-center gap-2" onClick={applyFilters} style={{ marginBottom: 1 }}>
             <FaFilter style={{ fontSize: 11 }} /> Apply
           </button>
           {(filterEntityType || filterDateFrom || filterDateTo) && (
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              style={{ marginBottom: 1 }}
-              onClick={() => {
-                setFilterEntityType("");
-                setFilterDateFrom("");
-                setFilterDateTo("");
-                setPage(1);
-              }}
-            >
+            <button className="btn btn-sm btn-outline-secondary" style={{ marginBottom: 1 }}
+              onClick={() => { setFilterEntityType(""); setFilterDateFrom(""); setFilterDateTo(""); setPage(1); }}>
               Clear
             </button>
           )}
@@ -189,71 +242,19 @@ export default function AuditLogPage({ currentUser }) {
         ) : entries.length === 0 ? (
           <p className="text-muted">No audit entries found.</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #1e2a3a" }}>
-                  <th style={{ padding: "6px 10px", color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: 1, whiteSpace: "nowrap" }}>TIMESTAMP</th>
-                  <th style={{ padding: "6px 10px", color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>USER</th>
-                  <th style={{ padding: "6px 10px", color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>ACTION</th>
-                  <th style={{ padding: "6px 10px", color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>ENTITY</th>
-                  <th style={{ padding: "6px 10px", color: "#64748b", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>DETAILS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((e) => (
-                  <tr
-                    key={e.id}
-                    style={{ borderBottom: "1px solid #1a2030" }}
-                  >
-                    <td style={{ padding: "8px 10px", color: "#64748b", whiteSpace: "nowrap", fontSize: 12 }}>
-                      {formatTs(e.timestamp)}
-                    </td>
-                    <td style={{ padding: "8px 10px", color: "#e2e8f0", whiteSpace: "nowrap" }}>
-                      {e.user_name}
-                    </td>
-                    <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: ACTION_COLORS[e.action] || "#94a3b8",
-                        background: `${ACTION_COLORS[e.action] || "#94a3b8"}22`,
-                        border: `1px solid ${ACTION_COLORS[e.action] || "#94a3b8"}44`,
-                        borderRadius: 10,
-                        padding: "2px 10px",
-                      }}>
-                        {ACTION_LABELS[e.action] || e.action}
-                      </span>
-                    </td>
-                    <td style={{ padding: "8px 10px", color: "#94a3b8", whiteSpace: "nowrap" }}>
-                      {e.entity_label || (e.entity_type ? `${e.entity_type} #${e.entity_id}` : "—")}
-                    </td>
-                    <td style={{ padding: "8px 10px", maxWidth: 320 }}>
-                      <DetailsCell raw={e.details} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="d-flex flex-column gap-2">
+            {entries.map((e) => <AuditCard key={e.id} entry={e} />)}
           </div>
         )}
 
         {/* Pagination */}
         {pages > 1 && (
-          <div className="d-flex align-items-center gap-2 mt-3" style={{ fontSize: 13 }}>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
+          <div className="d-flex align-items-center gap-2 mt-4" style={{ fontSize: 13 }}>
+            <button className="btn btn-sm btn-outline-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               ← Prev
             </button>
             <span style={{ color: "#64748b" }}>Page {page} of {pages}</span>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              disabled={page >= pages}
-              onClick={() => setPage((p) => p + 1)}
-            >
+            <button className="btn btn-sm btn-outline-secondary" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
               Next →
             </button>
           </div>

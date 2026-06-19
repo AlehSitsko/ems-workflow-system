@@ -19,7 +19,7 @@ import {
   reopenAssignment,
   updateUnitStatus,
 } from "../api/dispatchApi";
-import { cancelCall } from "../api/callsApi";
+import { cancelCall, uncancelCall } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -400,7 +400,7 @@ function CompletedCallCard({ call, onCardClick }) {
   );
 }
 
-function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel }) {
+function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel, onUncancel }) {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
@@ -671,9 +671,18 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
               </>
             )}
             {call.status === "cancelled" && (
-              <span style={{ fontSize: 12, color: "#ea868f", fontWeight: 600 }}>
-                ✕ Cancelled{call.cancel_reason ? ` — ${call.cancel_reason}` : ""}
-              </span>
+              <div className="d-flex align-items-center gap-3">
+                <span style={{ fontSize: 12, color: "#ea868f", fontWeight: 600 }}>
+                  ✕ Cancelled{call.cancel_reason ? ` — ${call.cancel_reason}` : ""}
+                </span>
+                <button
+                  className="btn btn-sm"
+                  style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid #f59e0b44", fontSize: 12, padding: "4px 12px" }}
+                  onClick={() => { onUncancel(call.id); onClose(); }}
+                >
+                  ↩ Uncancel
+                </button>
+              </div>
             )}
             <button
               className="btn btn-sm ms-auto"
@@ -902,6 +911,17 @@ export default function DispatchBoardPage() {
     await loadBoard(date);
   }
 
+  async function handleUncancelCall(callId) {
+    const headers = {
+      "X-User-Role": currentUser?.role || "",
+      "X-User-Id": String(currentUser?.id || ""),
+    };
+    try {
+      await uncancelCall(callId, headers);
+      await loadBoard(date);
+    } catch (e) { alert(`Uncancel failed: ${e.message}`); }
+  }
+
   async function handleSetWillCallTime(callId, pickupTime) {
     if (!pickupTime) return;
     try {
@@ -942,6 +962,7 @@ export default function DispatchBoardPage() {
           onComplete={handleComplete}
           onReopen={handleReopen}
           onCancel={handleCancelCall}
+          onUncancel={handleUncancelCall}
         />
       )}
 

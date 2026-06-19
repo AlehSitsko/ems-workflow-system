@@ -4,7 +4,7 @@ from models import db, AuditLog
 
 audit_bp = Blueprint("audit", __name__, url_prefix="/api/audit")
 
-ALLOWED_ROLES = {"admin", "supervisor", "hr"}
+ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 
 
 @audit_bp.route("", methods=["GET"])

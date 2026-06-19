@@ -122,7 +122,7 @@ export const navigationGroups = [
         label: "Audit Log",
         path: "/audit",
         icon: FaHistory,
-        canAccess: hasPayrollAccess,
+        canAccess: (user) => user && ["admin", "supervisor", "hr", "dispatcher"].includes(user.role),
       },
     ],
   },
