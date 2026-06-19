@@ -2,6 +2,7 @@ import { useState } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import "./App.css";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import AppLayout from "./components/layout/AppLayout";
 
@@ -172,8 +173,7 @@ function App() {
   };
 
   return (
-    // HashRouter is used because the app is deployed to GitHub Pages.
-    // It keeps routes after the # symbol and prevents 404 errors on refresh.
+    <ThemeProvider>
     <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
@@ -319,6 +319,7 @@ function App() {
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </HashRouter>
+    </ThemeProvider>
   );
 }
 

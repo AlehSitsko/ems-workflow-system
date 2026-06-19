@@ -31,6 +31,7 @@ The system is designed as an operational support platform. It is not intended to
 * Operational continuity during workflow disruptions
 * Modular architecture
 * In-app notification system with real-time polling
+* Dark / light theme with persistent user preference
 
 The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, high-volume operational periods, and dispatcher training workflows.
 
@@ -43,8 +44,9 @@ The platform is intended to remain useful during normal operations, temporary so
 * JavaScript ES6+
 * React Router (HashRouter)
 * React Icons
-* Bootstrap 5
-* Custom CSS layout system
+* Bootstrap 5.3 (with native dark mode via `data-bs-theme`)
+* CSS Custom Properties design token system (`--ems-*` prefix)
+* ThemeContext with localStorage persistence
 
 ### Backend
 
@@ -116,6 +118,8 @@ ems-workflow-system/
 │   │   │       ├── Sidebar.jsx
 │   │   │       ├── NotificationBell.jsx
 │   │   │       └── navigationConfig.js
+│   │   ├── context/
+│   │   │   └── ThemeContext.jsx
 │   │   ├── hooks/
 │   │   │   └── useNotifications.js
 │   │   ├── pages/
@@ -124,8 +128,12 @@ ems-workflow-system/
 │   │   │   ├── EmployeesPage.jsx
 │   │   │   ├── CrewPlannerPage.jsx
 │   │   │   ├── PayrollPage.jsx
+│   │   │   ├── ComplianceDashboardPage.jsx
+│   │   │   ├── AuditLogPage.jsx
+│   │   │   ├── DispatchBoardPage.jsx
 │   │   │   └── ...
 │   │   ├── styles/
+│   │   │   └── theme.css                 (CSS design tokens, light + dark)
 │   │   ├── utils/
 │   │   ├── App.jsx
 │   │   └── App.css
@@ -165,13 +173,13 @@ The application currently uses an MVP authentication system with local user reco
 
 Full system access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Supervisor Dashboard, Users, Kiosk, Notifications, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Users, Kiosk, Notifications, User Manual
 
 ### Supervisor
 
 Operational and management access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Supervisor Dashboard, Kiosk, Notifications, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Kiosk, Notifications, User Manual
 
 ### Dispatcher
 
@@ -185,7 +193,7 @@ Cannot access: Employees, Users, Payroll, HR-only features
 
 Staff and crew planning access.
 
-Can access: Dashboard, Employees, Crew Planner, Payroll, Kiosk, Notifications (cert_expiring, employee_added only), User Manual
+Can access: Dashboard, Employees, Crew Planner, Payroll, Compliance Dashboard, Kiosk, Notifications (cert_expiring, employee_added only), User Manual
 
 Cannot access: Dispatch Board, Call Taking Form, Patients, Calls, Supervisor analytics
 
@@ -257,7 +265,8 @@ Current features:
 * Unassign button to return call to Open Calls
 * Resizable Open Calls column via drag divider
 * Call detail modal with sections and visual hierarchy
-* Dark operational theme throughout
+* Call cancellation with mandatory reason field
+* Full dark / light theme support via CSS design tokens
 
 Operational rules enforced:
 
@@ -322,6 +331,7 @@ Current features:
 | unit_stuck_status | Unit in same status > N min | admin, supervisor, dispatcher |
 | unit_understaffed | Unit created with no crew | admin, supervisor |
 | cert_expiring | Employee certification expiring | admin, supervisor, hr |
+| doc_expiring | HR document expiring (90/60/30/14/7 day thresholds) | admin, supervisor, hr |
 | employee_added | New employee added | admin, hr |
 
 ## Employees
@@ -357,7 +367,26 @@ Current features:
 * Edit document metadata after upload
 * Delete document with file cleanup
 * File storage abstraction (local filesystem now, S3-ready by replacing storage.py only)
-* Compliance summary API endpoint (employee × doc type grid, for future dashboard)
+* Compliance summary API endpoint (employee × doc type grid)
+
+## Compliance Dashboard
+
+Current features:
+
+* Employee × document type grid view (all employees × 12 document types)
+* Color-coded cell per status: ok / warning / critical / expired / missing
+* Filter to show only expired and critical rows
+* Click cell to open employee Documents tab
+* CSV export of the full compliance grid
+* Certification scan: upload a certificate image → extract type and expiry date
+
+## Audit Log
+
+Current features:
+
+* Full action log: call status changes, unit assignment/removal, patient edits, manual time entries, document uploads and deletes
+* Filter by entity type, user, date range
+* Viewer accessible to admin and supervisor roles
 
 ## Crew Planner
 
@@ -432,6 +461,17 @@ Current features:
 * Link user account to employee record (enables dashboard clock-in widget)
 * Employee column in users table showing linked employee name
 
+## Theme System
+
+Current features:
+
+* Dark / light mode toggle in Topbar (moon / sun icon)
+* Preference persisted in localStorage
+* Bootstrap 5.3 native dark mode via `data-bs-theme` attribute on `<html>`
+* CSS Custom Properties (`--ems-*`) for all surface, text, border, and semantic colors
+* Dispatch Board uses separate `--ems-board-*` tokens for fine-grained control
+* All pages respond to theme change without reload
+
 ## Backend Data Model
 
 ### User
@@ -475,7 +515,11 @@ Current features:
 * driver, medical, assist1, assist2 (employee IDs)
 * first_patient, next_patients, dispatch_status, notes
 
-### Call / Patient / CallAssignment / NotificationEvent / UserNotification / UserNotificationPrefs
+### AuditLog
+
+* id, user_id, action, entity_type, entity_id, old_value, new_value, timestamp
+
+### Call / Patient / CallAssignment / NotificationEvent / UserNotification / UserNotificationPrefs / Organization
 
 See prior sections.
 
@@ -606,6 +650,12 @@ POST  /api/notifications/read
 POST  /api/notifications/read-all
 GET   /api/notifications/prefs?user_id=<id>
 PUT   /api/notifications/prefs
+```
+
+### Audit Log
+
+```text
+GET   /api/audit?entity_type=&user_id=&date_from=&date_to=
 ```
 
 ## Installation
@@ -747,25 +797,7 @@ Recommended workflow:
 * Delete document with filesystem cleanup
 * Compliance summary API endpoint (employee × doc type grid)
 
-### Multi-Tenancy Foundation (complete)
-
-* Organization model: id, name, slug (subdomain identifier), is_active, settings_json
-* org_id (nullable FK) added to all tenant-scoped tables: user, employee, patient, call, daily_crew_unit, crew_preset, notification_event, pay_period, employee_document
-* Default organization seeded (id=1, slug="default") — all existing rows assigned
-* No application logic changes — foundation only, activation deferred to Tier 3
-* Subdomain routing, middleware, and superadmin UI planned for Tier 3
-
-## Roadmap
-
-### Block 4 Phase 2 — Compliance Dashboard
-
-* Employee × doc type grid view (all employees × 12 document types)
-* Color-coded cell per status: ok / warning / critical / expired / missing
-* Filter to show only expired and critical rows
-* Click cell → open employee Documents tab
-* CSV export of the full compliance grid
-
-### Block 4 Phase 1.5 — Document Expiry Notifications
+### Block 4 Phase 1.5 — Document Expiry Notifications (complete)
 
 * New notification event type: doc_expiring
 * Thresholds: 90 / 60 / 30 / 14 / 7 days before expiry
@@ -773,11 +805,53 @@ Recommended workflow:
 * Deduplication: one event per document per day
 * Roles: admin, supervisor, hr
 
-### Block 5.1 — Audit Log
+### Block 4 Phase 2 — Compliance Dashboard (complete)
+
+* Employee × doc type grid view (all employees × 12 document types)
+* Color-coded cell per status: ok / warning / critical / expired / missing
+* Filter to show only expired and critical rows
+* Click cell → open employee Documents tab
+* CSV export of the full compliance grid
+* Certification scan: upload a cert image → extract type and expiry date
+
+### Block 5.1 — Audit Log (complete)
 
 * AuditLog model: user_id, action, entity_type, entity_id, old_value, new_value, timestamp
 * Log: call status changes, unit assignment/removal, patient edits, manual time entries, document uploads/deletes
-* Audit log viewer in Supervisor Dashboard with filter by entity type, user, date range
+* Audit log viewer with filter by entity type, user, date range
+
+### Multi-Tenancy Foundation (complete)
+
+* Organization model: id, name, slug (subdomain identifier), is_active, settings_json
+* org_id (nullable FK) added to all tenant-scoped tables
+* Default organization seeded (id=1, slug="default") — all existing rows assigned
+* No application logic changes — foundation only, activation deferred to Tier 3
+
+### Call Cancellation (complete)
+
+* Cancel button in Dispatch Board call detail modal
+* Mandatory cancellation reason field — cannot cancel without a reason
+* Cancelled status reflected on the board immediately
+
+### Theme System — Phase 1 (complete)
+
+* CSS Custom Properties design token system (`--ems-*` prefix) in `theme.css`
+* Bootstrap 5.3 dark mode via `data-bs-theme` on `<html>`
+* ThemeContext with `useTheme` hook and localStorage persistence
+* Dark / light toggle button in Topbar (moon / sun icon)
+* All App.css surfaces ported to CSS variables
+* Dispatch Board fully theme-aware via `--ems-board-*` tokens
+* All hardcoded dark inline styles replaced with CSS variable references
+
+## Roadmap
+
+### UI Standardization (next priority)
+
+* Unified page layout: PageHeader + optional SummaryBar + ContentPanel with filters
+* Consistent interaction pattern: edit/create always in a right side drawer
+* Standardized filter bar across all list pages
+* Uniform stat cards, status badges, and data tables
+* Applied across all 13+ modules: Dashboard, Calls, Patients, Employees, Crew Planner, Payroll, Compliance, Supervisor, Users, Audit Log, Notifications
 
 ### Block 5.2 — Assignment Conflict Validation
 
@@ -865,7 +939,8 @@ Recommended workflow:
 ## Current Status
 
 ```text
-Stable — Block 1 complete, Block 2 complete, Block 3 complete, Block 4 Phase 1 complete, Multi-Tenancy Foundation complete
+Stable — Blocks 1–4 complete, Audit Log complete, Theme System Phase 1 complete
+Next: UI Standardization across all modules
 ```
 
 Current implemented workflow:
@@ -891,6 +966,8 @@ Employee Management (Profile | Time & Pay | Documents tabs)
 ↓
 HR Document Management (upload, preview, expiry tracking)
 ↓
+Compliance Dashboard (employee × doc type grid, cert scan)
+↓
 Crew Planning (Day + Night shifts)
 ↓
 Crew Presets
@@ -901,11 +978,13 @@ Call Assignment (drag-and-drop)
 ↓
 Unit Status Tracking
 ↓
-Call Completion
+Call Completion / Cancellation (with mandatory reason)
 ↓
 Supervisor Analytics
 ↓
-In-App Notifications (real-time polling)
+Audit Log
+↓
+In-App Notifications (real-time polling, doc expiry alerts)
 ↓
 Kiosk Clock In / Clock Out
 ↓
@@ -914,6 +993,8 @@ Payroll Period Management
 Payroll CSV Export (generic / Gusto / ADP)
 ↓
 Multi-Tenant Foundation (Organization model, org_id on all tables)
+↓
+Dark / Light Theme (CSS tokens, Bootstrap 5.3 dark mode, localStorage)
 ```
 
 ## This System Is

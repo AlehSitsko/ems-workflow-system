@@ -5,10 +5,13 @@ import {
   FaPhoneAlt,
   FaSearch,
   FaSignOutAlt,
+  FaSun,
+  FaMoon,
 } from "react-icons/fa";
 
 import { hasCallIntakeAccess } from "../../api/authApi";
 import NotificationBell from "./NotificationBell";
+import { useTheme } from "../../context/ThemeContext";
 
 const pageTitles = {
   "/home": {
@@ -55,6 +58,7 @@ const pageTitles = {
 
 function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, markRead, markAllRead }) {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   const currentPage = pageTitles[location.pathname] || {
     title: "EMS Workflow System",
@@ -91,7 +95,6 @@ function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, ma
             placeholder="Search patients, calls, units..."
             disabled
           />
-
           <FaSearch className="topbar-search-icon" />
         </div>
 
@@ -101,6 +104,15 @@ function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, ma
             <span>Start Taking Call</span>
           </Link>
         )}
+
+        <button
+          type="button"
+          className="topbar-icon-button"
+          onClick={toggleTheme}
+          title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+        >
+          {theme === "light" ? <FaMoon style={{ fontSize: 15 }} /> : <FaSun style={{ fontSize: 15 }} />}
+        </button>
 
         <NotificationBell
           notifications={notifications}
