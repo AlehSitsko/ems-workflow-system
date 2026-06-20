@@ -52,6 +52,16 @@ const STATUS_COLORS = {
   out_of_service: "#ea868f",
 };
 
+// Solid background colors for pills (readable on any bg)
+const STATUS_BG = {
+  available:      "#166534",
+  en_route:       "#1d4ed8",
+  on_scene:       "#854d0e",
+  transporting:   "#5b21b6",
+  at_destination: "#155e75",
+  out_of_service: "#991b1b",
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function todayStr() {
@@ -132,17 +142,18 @@ function expandAndSort(calls) {
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 function StatusPill({ status, size = "md" }) {
-  const c = STATUS_COLORS[status] || "#adb5bd";
+  const bg = STATUS_BG[status] || "#374151";
+  const text = STATUS_COLORS[status] || "#e5e7eb";
   return (
     <span style={{
       display: "inline-block",
       padding: size === "sm" ? "1px 7px" : "3px 10px",
       borderRadius: 20,
-      fontWeight: 600,
+      fontWeight: 700,
       fontSize: size === "sm" ? 10 : 12,
-      background: `${c}22`,
-      color: c,
-      border: `1px solid ${c}44`,
+      background: bg,
+      color: text,
+      border: `1px solid ${text}44`,
     }}>
       {STATUS_LABELS[status] || status}
     </span>
@@ -159,10 +170,10 @@ function UnitTypeBadge({ unitType }) {
       fontWeight: 700,
       fontSize: 13,
       letterSpacing: 1,
-      background: als ? "rgba(13,110,253,0.15)" : "rgba(25,135,84,0.15)",
+      background: als ? "rgba(13,110,253,0.18)" : "rgba(25,135,84,0.18)",
       color: als ? "#6ea8fe" : "#75b798",
-      border: `1px solid ${als ? "#6ea8fe44" : "#75b79844"}`,
-      boxShadow: als ? "0 0 8px rgba(110,168,254,0.25)" : "0 0 8px rgba(117,183,152,0.25)",
+      border: `1px solid ${als ? "#6ea8fe88" : "#75b79888"}`,
+      boxShadow: als ? "0 0 8px rgba(110,168,254,0.3)" : "0 0 8px rgba(117,183,152,0.3)",
     }}>
       {unitType || "—"}
     </span>
@@ -444,25 +455,11 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const emergency = isEmergencyCall(call);
 //   const als = isAlsCall(call);
 
-  // Structured fields now have dedicated columns.
-  // For old records that still have data embedded in notes, fall back to regex.
-  const notesLines = (call.notes || "").split("\n").filter(Boolean);
-  const dispatcher = call.dispatcher_name
-    || notesLines.find((l) => l.startsWith("Dispatcher:"))?.replace("Dispatcher:", "").trim();
-  const phone = call.caller_phone
-    || call.patient_phone
-    || notesLines.find((l) => l.startsWith("Phone:"))?.replace("Phone:", "").trim();
-  const dob = call.patient_dob
-    || notesLines.find((l) => l.startsWith("DOB:"))?.replace("DOB:", "").trim();
-  const callerNote = call.caller_note
-    || notesLines.find((l) => l.startsWith("Caller note:"))?.replace("Caller note:", "").trim();
-  // Strip legacy structured lines from notes display
-  const cleanNotes = notesLines
-    .filter((l) => !l.startsWith("Dispatcher:") && !l.startsWith("Phone:") && !l.startsWith("DOB:") &&
-      !l.startsWith("Patient:") && !l.startsWith("Linked Patient") && !l.startsWith("Pickup Time:") &&
-      !l.startsWith("Appointment Time:") && !l.startsWith("Call Quality") && !l.startsWith("Missing") &&
-      !l.startsWith("Caller note:") && !l.startsWith("Return leg") && !l.startsWith("Emergency service"))
-    .join("\n").trim();
+  const dispatcher = call.dispatcher_name;
+  const phone = call.caller_phone || call.patient_phone;
+  const dob = call.patient_dob;
+  const callerNote = call.caller_note;
+  const cleanNotes = (call.notes || "").trim();
 
   const accentColor = emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : isCompleted ? "#6c757d" : "#0d6efd";
   const slColor = { bls: "#75b798", als: "#6ea8fe", emergency: "#ea868f", stretcher: "#c29ffa" }[call.service_level?.toLowerCase()] || "#adb5bd";
