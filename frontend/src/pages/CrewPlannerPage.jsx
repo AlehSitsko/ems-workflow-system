@@ -1009,51 +1009,25 @@ function CrewPlannerPage() {
 
   return (
     <div className="page-stack">
-      <div className="page-summary-grid">
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaAmbulance />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{units.length}</div>
-            <div className="page-summary-label">Planned Units</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaUsers />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {unassignedEmployees.length}
-            </div>
-            <div className="page-summary-label">Unassigned Employees</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon warning">
-            <FaExclamationTriangle />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {unitWarningMessages.length}
-            </div>
-            <div className="page-summary-label">Current Warnings</div>
-          </div>
-        </div>
-      </div>
-
       <section className="content-panel">
         <div className="content-panel-header">
           <div className="d-flex align-items-center gap-3 flex-wrap">
             <div>
               <h4 className="mb-0">Shift Planning</h4>
-              <p className="mb-0">Crew assignments for the selected date.</p>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                {[
+                  { label: "Planned Units", value: units.length, color: "#0d6efd" },
+                  { label: "Unassigned", value: unassignedEmployees.length, color: unassignedEmployees.length > 0 ? "#f59e0b" : "#6c757d" },
+                  { label: "Warnings", value: unitWarningMessages.length, color: unitWarningMessages.length > 0 ? "#dc3545" : "#6c757d" },
+                ].map(s => (
+                  <span key={s.label} style={{
+                    fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                    background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
+                  }}>
+                    {s.label}: {s.value}
+                  </span>
+                ))}
+              </div>
             </div>
             <div className="input-group" style={{ width: 200 }}>
               <span className="input-group-text"><FaCalendarDay /></span>

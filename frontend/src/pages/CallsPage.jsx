@@ -289,72 +289,26 @@ const CallsPage = ({ currentUser }) => {
 
   return (
     <div className="page-stack">
-      <div className="page-summary-grid">
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaClipboardList />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{total || calls.length}</div>
-            <div className="page-summary-label">Total Calls</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaClock />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{newCalls}</div>
-            <div className="page-summary-label">New Calls</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaStarHalfAlt />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {averageQualityScore === null ? "—" : `${averageQualityScore}%`}
-            </div>
-            <div className="page-summary-label">Average Quality</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon warning">
-            <FaFilter />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {callsWithCriticalMissing}
-            </div>
-            <div className="page-summary-label">Critical Missing</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon danger">
-            <FaClipboardList />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{emergencyCalls}</div>
-            <div className="page-summary-label">Emergency Calls</div>
-          </div>
-        </div>
-      </div>
-
       <section className="content-panel">
         <div className="content-panel-header">
           <div>
-            <h4>Call History Filters</h4>
-            <p>Search call records by date, dispatcher, and quality score.</p>
+            <h4>Call History</h4>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {[
+                { label: "Total", value: total || calls.length, color: "#0d6efd" },
+                { label: "New", value: newCalls, color: "#198754" },
+                { label: "Avg Quality", value: averageQualityScore === null ? "—" : `${averageQualityScore}%`, color: "#6f42c1" },
+                { label: "Critical Missing", value: callsWithCriticalMissing, color: callsWithCriticalMissing > 0 ? "#ffc107" : "#6c757d" },
+                { label: "Emergency", value: emergencyCalls, color: emergencyCalls > 0 ? "#dc3545" : "#6c757d" },
+              ].map(s => (
+                <span key={s.label} style={{
+                  fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                  background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
+                }}>
+                  {s.label}: {s.value}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 

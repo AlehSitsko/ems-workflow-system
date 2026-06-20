@@ -123,8 +123,19 @@ Use for: delete, cancel call, irreversible state changes.
 - Call details: `CallDetailModal` opens on card click — all actions (complete, unassign, cancel) accessible without double-click.
 - No important action should require double-click as the **only** access path.
 
+### Payroll
+- Two-column layout: left period list | right period detail.
+- New Period → EntityDrawer. Edit Period → EntityDrawer.
+- Status advance, export buttons stay inline in period detail panel.
+
+### User Management
+- Table only (no inline form card above table).
+- Add User button → EntityDrawer (create mode).
+- Click row or Edit button → EntityDrawer (edit mode).
+- Deactivate → ConfirmDialog.
+
 ### Audit Log
-- Grouped by entity type, card view.
+- Grouped by entity type, card view with expand/collapse.
 - Uncancel available to dispatchers.
 
 ---

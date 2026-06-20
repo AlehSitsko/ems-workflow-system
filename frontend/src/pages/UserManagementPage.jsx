@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { FaPlus } from "react-icons/fa";
 
 import {
   createUser,
@@ -7,6 +8,7 @@ import {
   updateUser,
 } from "../api/authApi";
 import { kioskEmployees } from "../api/timeApi";
+import EntityDrawer from "../components/ui/EntityDrawer";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -24,52 +26,40 @@ function UserManagementPage() {
   const toast = useToast();
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [editingUserId, setEditingUserId] = useState(null);
-  const [formData, setFormData] = useState(initialFormData);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
 
-  // Load all users from backend.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [formData, setFormData] = useState(initialFormData);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+
   const loadUsers = async () => {
     setLoading(true);
-    setError("");
-
     try {
       const data = await getUsers();
       setUsers(data);
     } catch (err) {
-      console.error("Failed to load users:", err);
-      setError(err.message || "Failed to load users.");
+      toast.error("Load failed", err.message || "Failed to load users.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Load users and employee list on mount.
   useEffect(() => {
     loadUsers();
     kioskEmployees().then(setEmployees).catch(() => {});
   }, []);
 
-  // Handle simple form field updates.
-  const handleChange = (event) => {
-    const { name, value, type, checked } = event.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  // Reset form and exit edit mode.
-  const resetForm = () => {
+  const openCreate = () => {
+    setEditingUser(null);
     setFormData(initialFormData);
-    setEditingUserId(null);
+    setFormError("");
+    setDrawerOpen(true);
   };
 
-  // Load selected user into edit mode.
-  const handleEdit = (user) => {
+  const openEdit = (user) => {
+    setEditingUser(user);
     setFormData({
       username: user.username || "",
       password: "",
@@ -78,39 +68,31 @@ function UserManagementPage() {
       is_active: Boolean(user.is_active),
       employee_id: user.employee_id || "",
     });
-
-    setEditingUserId(user.id);
-
-    setError("");
-    setMessage("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setFormError("");
+    setDrawerOpen(true);
   };
 
-  // Create or update a user account.
+  const handleClose = () => {
+    setDrawerOpen(false);
+    setEditingUser(null);
+    setFormError("");
+  };
+
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError("");
 
-    setError("");
-    setMessage("");
-
-    if (!formData.username.trim()) {
-      setError("Username is required.");
-      return;
-    }
-
-    if (!formData.display_name.trim()) {
-      setError("Display Name is required.");
-      return;
-    }
-
-    if (!editingUserId && !formData.password.trim()) {
-      setError("Password is required.");
-      return;
-    }
+    if (!formData.username.trim()) { setFormError("Username is required."); return; }
+    if (!formData.display_name.trim()) { setFormError("Display Name is required."); return; }
+    if (!editingUser && !formData.password.trim()) { setFormError("Password is required."); return; }
 
     const payload = {
       username: formData.username.trim(),
@@ -121,35 +103,26 @@ function UserManagementPage() {
       employee_id: formData.employee_id || null,
     };
 
-    setLoading(true);
-
+    setSaving(true);
     try {
-      if (editingUserId) {
-        await updateUser(editingUserId, payload);
-
-        setMessage("User updated successfully.");
+      if (editingUser) {
+        await updateUser(editingUser.id, payload);
+        toast.success("User updated", `"${payload.username}" saved.`);
       } else {
         await createUser(payload);
-
-        setMessage("User created successfully.");
+        toast.success("User created", `"${payload.username}" added.`);
       }
-
-      resetForm();
-
+      handleClose();
       await loadUsers();
     } catch (err) {
-      console.error("Failed to save user:", err);
-
-      setError(err.message || "Failed to save user.");
+      setFormError(err.message || "Failed to save user.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  // Activate or deactivate a user account.
   const handleToggleActive = async (user) => {
     const newStatus = !user.is_active;
-
     const ok = await confirm({
       title: newStatus ? `Activate "${user.username}"?` : `Deactivate "${user.username}"?`,
       message: newStatus
@@ -161,314 +134,215 @@ function UserManagementPage() {
     if (!ok) return;
 
     setLoading(true);
-    setError("");
-    setMessage("");
-
     try {
       await toggleUserActive(user.id, newStatus);
       toast.success(newStatus ? "User activated" : "User deactivated", `"${user.username}" updated.`);
       await loadUsers();
     } catch (err) {
-      console.error("Failed to update user status:", err);
       toast.error("Update failed", err.message || "Failed to update user status.");
-      setError(err.message || "Failed to update user status.");
     } finally {
       setLoading(false);
     }
   };
 
+  const drawerFooter = (
+    <div className="d-flex gap-2">
+      <button type="submit" form="user-form" className="btn btn-primary" disabled={saving}>
+        {saving ? "Saving…" : editingUser ? "Update User" : "Create User"}
+      </button>
+      <button type="button" className="btn btn-outline-secondary" onClick={handleClose}>
+        Cancel
+      </button>
+    </div>
+  );
+
   return (
-    <div className="container mt-4">
-      <div className="mb-4">
-        <h1 className="mb-2">User Management</h1>
-
-        <p className="text-muted mb-0">
-          Create and manage EMS Workflow System user accounts.
-        </p>
-      </div>
-
-      {error && (
-        <div className="alert alert-danger">
-          {error}
-        </div>
-      )}
-
-      {message && (
-        <div className="alert alert-success">
-          {message}
-        </div>
-      )}
-
-      <div className="card shadow-sm mb-4">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            {editingUserId ? "Edit User" : "Create User"}
-          </h5>
-
-          {editingUserId && (
-            <span className="badge text-bg-info">
-              Editing Mode
-            </span>
-          )}
-        </div>
-
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <div className="row g-3">
-              <div className="col-md-6">
-                <label htmlFor="username" className="form-label">
-                  Username
-                </label>
-
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  className="form-control"
-                  value={formData.username}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <label htmlFor="display_name" className="form-label">
-                  Display Name
-                </label>
-
-                <input
-                  id="display_name"
-                  name="display_name"
-                  type="text"
-                  className="form-control"
-                  value={formData.display_name}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <label htmlFor="password" className="form-label">
-                  Password
-                </label>
-
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  className="form-control"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={loading}
-                  placeholder={
-                    editingUserId
-                      ? "Leave blank to keep current password"
-                      : ""
-                  }
-                />
-              </div>
-
-              <div className="col-md-3">
-                <label htmlFor="role" className="form-label">
-                  Role
-                </label>
-
-                <select
-                  id="role"
-                  name="role"
-                  className="form-select"
-                  value={formData.role}
-                  onChange={handleChange}
-                  disabled={loading}
-                >
-                  <option value="dispatcher">Dispatcher</option>
-                  <option value="hr">HR</option>
-                  <option value="supervisor">Supervisor</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div className="col-md-3">
-                <label htmlFor="employee_id" className="form-label">
-                  Linked Employee
-                </label>
-                <select
-                  id="employee_id"
-                  name="employee_id"
-                  className="form-select"
-                  value={formData.employee_id}
-                  onChange={handleChange}
-                  disabled={loading}
-                >
-                  <option value="">— Not linked —</option>
-                  {employees.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
-                <div className="form-text">Links this user to an employee record for clock-in/out.</div>
-              </div>
-
-              <div className="col-md-3 d-flex align-items-end">
-                <div className="form-check mb-2">
-                  <input
-                    id="is_active"
-                    name="is_active"
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={formData.is_active}
-                    onChange={handleChange}
-                    disabled={loading}
-                  />
-
-                  <label
-                    htmlFor="is_active"
-                    className="form-check-label"
-                  >
-                    Active User
-                  </label>
-                </div>
-              </div>
-
-              <div className="col-12 d-flex gap-2">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={loading}
-                >
-                  {editingUserId ? "Update User" : "Create User"}
-                </button>
-
-                {editingUserId && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={resetForm}
-                    disabled={loading}
-                  >
-                    Cancel Edit
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn-outline-info"
-                  onClick={loadUsers}
-                  disabled={loading}
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <div className="card shadow-sm">
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">System Users</h5>
-
-          <span className="badge text-bg-secondary">
-            {users.length}
-          </span>
-        </div>
-
-        <div className="card-body">
-          {loading && users.length === 0 ? (
-            <p className="text-muted mb-0">
-              Loading users...
+    <div className="page-stack">
+      <section className="content-panel">
+        <div className="content-panel-header">
+          <div>
+            <h4>User Management</h4>
+            <p className="text-muted mb-0" style={{ fontSize: 13 }}>
+              Create and manage EMS Workflow System user accounts.
             </p>
-          ) : users.length === 0 ? (
-            <p className="text-muted mb-0">
-              No users found.
-            </p>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-striped table-bordered align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Display Name</th>
-                    <th>Role</th>
-                    <th>Employee</th>
-                    <th>Status</th>
-                    <th style={{ width: "220px" }}>Actions</th>
-                  </tr>
-                </thead>
+          </div>
+          <button className="btn btn-sm btn-primary d-flex align-items-center gap-1" onClick={openCreate}>
+            <FaPlus /> Add User
+          </button>
+        </div>
 
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-
-                      <td>{user.username}</td>
-
-                      <td>{user.display_name}</td>
-
-                      <td>
-                        <span className="badge text-bg-primary">
-                          {user.role}
-                        </span>
-                      </td>
-
-                      <td>
-                        {user.employee_id
-                          ? <span className="badge text-bg-info">
-                              {employees.find((e) => e.id === user.employee_id)?.name || `#${user.employee_id}`}
-                            </span>
-                          : <span className="text-muted small">—</span>
-                        }
-                      </td>
-
-                      <td>
-                        <span
-                          className={`badge ${
-                            user.is_active
-                              ? "text-bg-success"
-                              : "text-bg-secondary"
-                          }`}
+        {loading && users.length === 0 ? (
+          <p className="text-muted">Loading users…</p>
+        ) : users.length === 0 ? (
+          <p className="text-muted">No users found.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-striped table-bordered align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Display Name</th>
+                  <th>Role</th>
+                  <th>Employee</th>
+                  <th>Status</th>
+                  <th style={{ width: 180 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} style={{ cursor: "pointer" }} onClick={() => openEdit(user)}>
+                    <td>{user.id}</td>
+                    <td>{user.username}</td>
+                    <td>{user.display_name}</td>
+                    <td>
+                      <span className="badge text-bg-primary">{user.role}</span>
+                    </td>
+                    <td>
+                      {user.employee_id
+                        ? <span className="badge text-bg-info">
+                            {employees.find((e) => e.id === user.employee_id)?.name || `#${user.employee_id}`}
+                          </span>
+                        : <span className="text-muted small">—</span>
+                      }
+                    </td>
+                    <td>
+                      <span className={`badge ${user.is_active ? "text-bg-success" : "text-bg-secondary"}`}>
+                        {user.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => openEdit(user)}
+                          disabled={loading}
                         >
-                          {user.is_active
-                            ? "Active"
-                            : "Inactive"}
-                        </span>
-                      </td>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${user.is_active ? "btn-outline-danger" : "btn-outline-success"}`}
+                          onClick={() => handleToggleActive(user)}
+                          disabled={loading}
+                        >
+                          {user.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => handleEdit(user)}
-                            disabled={loading}
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`btn btn-sm ${
-                              user.is_active
-                                ? "btn-outline-danger"
-                                : "btn-outline-success"
-                            }`}
-                            onClick={() => handleToggleActive(user)}
-                            disabled={loading}
-                          >
-                            {user.is_active
-                              ? "Deactivate"
-                              : "Activate"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <EntityDrawer
+        open={drawerOpen}
+        onClose={handleClose}
+        title={editingUser ? `Edit: ${editingUser.display_name}` : "New User"}
+        subtitle={editingUser ? `@${editingUser.username}` : "Create a new system account"}
+        footer={drawerFooter}
+      >
+        <form id="user-form" onSubmit={handleSubmit}>
+          {formError && (
+            <div className="alert alert-danger mb-3">{formError}</div>
           )}
-        </div>
-      </div>
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label htmlFor="username" className="form-label">Username</label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                className="form-control"
+                value={formData.username}
+                onChange={handleChange}
+                disabled={saving}
+              />
+            </div>
+
+            <div className="col-md-6">
+              <label htmlFor="display_name" className="form-label">Display Name</label>
+              <input
+                id="display_name"
+                name="display_name"
+                type="text"
+                className="form-control"
+                value={formData.display_name}
+                onChange={handleChange}
+                disabled={saving}
+              />
+            </div>
+
+            <div className="col-12">
+              <label htmlFor="password" className="form-label">Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                className="form-control"
+                value={formData.password}
+                onChange={handleChange}
+                disabled={saving}
+                placeholder={editingUser ? "Leave blank to keep current password" : ""}
+              />
+            </div>
+
+            <div className="col-md-6">
+              <label htmlFor="role" className="form-label">Role</label>
+              <select
+                id="role"
+                name="role"
+                className="form-select"
+                value={formData.role}
+                onChange={handleChange}
+                disabled={saving}
+              >
+                <option value="dispatcher">Dispatcher</option>
+                <option value="hr">HR</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label htmlFor="employee_id" className="form-label">Linked Employee</label>
+              <select
+                id="employee_id"
+                name="employee_id"
+                className="form-select"
+                value={formData.employee_id}
+                onChange={handleChange}
+                disabled={saving}
+              >
+                <option value="">— Not linked —</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+              <div className="form-text">Links this user to an employee record for clock-in/out.</div>
+            </div>
+
+            <div className="col-12">
+              <div className="form-check">
+                <input
+                  id="is_active"
+                  name="is_active"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={formData.is_active}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+                <label htmlFor="is_active" className="form-check-label">Active User</label>
+              </div>
+            </div>
+          </div>
+        </form>
+      </EntityDrawer>
     </div>
   );
 }

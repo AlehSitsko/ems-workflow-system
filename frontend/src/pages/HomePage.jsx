@@ -11,6 +11,9 @@ import {
   FaUserCog,
   FaTh,
   FaClock,
+  FaMoneyBillWave,
+  FaShieldAlt,
+  FaHistory,
 } from "react-icons/fa";
 
 import {
@@ -23,7 +26,6 @@ import {
 } from "../api/authApi";
 import { kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
 
-// ── Clock widget ──────────────────────────────────────────────────────────────
 function formatElapsed(clockInIso) {
   const diff = Math.max(0, Math.floor((Date.now() - new Date(clockInIso).getTime()) / 1000));
   const h = Math.floor(diff / 3600);
@@ -43,7 +45,6 @@ function ClockWidget({ currentUser }) {
   const [error, setError] = useState("");
   const timerRef = useRef(null);
 
-  // Load status when employee is linked
   useEffect(() => {
     if (!empId) return;
     kioskStatus(empId).then((s) => {
@@ -52,7 +53,6 @@ function ClockWidget({ currentUser }) {
     });
   }, [empId]);
 
-  // Live timer
   useEffect(() => {
     clearInterval(timerRef.current);
     if (clockedIn && clockInTime) {
@@ -92,93 +92,78 @@ function ClockWidget({ currentUser }) {
   };
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      {error && (
-        <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6, paddingLeft: 4 }}>{error}</div>
-      )}
     <div style={{
       display: "flex", alignItems: "center", gap: 12,
-      background: clockedIn ? "rgba(25,135,84,0.12)" : "rgba(110,168,254,0.08)",
-      border: `1px solid ${clockedIn ? "rgba(25,135,84,0.35)" : "rgba(110,168,254,0.25)"}`,
-      borderRadius: 12, padding: "10px 18px",
+      background: clockedIn ? "rgba(25,135,84,0.1)" : "var(--ems-bg-surface-2)",
+      border: `1px solid ${clockedIn ? "rgba(25,135,84,0.3)" : "var(--ems-border)"}`,
+      borderRadius: 12, padding: "8px 16px", flexShrink: 0,
     }}>
-      <FaClock style={{ color: clockedIn ? "#75b798" : "#6ea8fe", fontSize: 18, flexShrink: 0 }} />
+      <FaClock style={{ color: clockedIn ? "#75b798" : "var(--ems-text-muted)", fontSize: 15, flexShrink: 0 }} />
       {clockedIn ? (
         <>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: "#6c757d", lineHeight: 1.2 }}>Shift in progress</div>
-            <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#75b798", letterSpacing: 1 }}>
+          <div>
+            <div style={{ fontSize: 10, color: "var(--ems-text-muted)", lineHeight: 1.2, textTransform: "uppercase", fontWeight: 700 }}>Shift</div>
+            <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: "#75b798", letterSpacing: 0.5 }}>
               {elapsed}
             </div>
           </div>
-          <button
-            className="btn btn-sm btn-outline-danger"
-            style={{ fontWeight: 600, padding: "6px 18px" }}
-            disabled={loading}
-            onClick={handleClockOut}
-          >
+          <button className="btn btn-sm btn-outline-danger" style={{ fontWeight: 600 }} disabled={loading} onClick={handleClockOut}>
             {loading ? "…" : "Clock Out"}
           </button>
         </>
       ) : (
         <>
-          <div style={{ flex: 1, color: "#adb5bd", fontSize: 14 }}>Not clocked in</div>
-          <button
-            className="btn btn-sm btn-success"
-            style={{ fontWeight: 600, padding: "6px 18px" }}
-            disabled={loading}
-            onClick={handleClockIn}
-          >
+          <span style={{ color: "var(--ems-text-muted)", fontSize: 13 }}>Not clocked in</span>
+          <button className="btn btn-sm btn-success" style={{ fontWeight: 600 }} disabled={loading} onClick={handleClockIn}>
             {loading ? "…" : "Clock In"}
           </button>
         </>
       )}
-    </div>
+      {error && <span style={{ fontSize: 11, color: "#ea868f" }}>{error}</span>}
     </div>
   );
 }
 
-const DashboardCard = ({
-  title,
-  description,
-  path,
-  buttonText,
-  icon: Icon, // eslint-disable-line no-unused-vars
-  variant = "light",
-}) => {
-  const isPrimary = variant === "primary";
-
+function QuickTile({ title, description, path, icon: Icon, accent = "#0d6efd", primary = false }) {
   return (
-    <div className="dashboard-card">
-      <div className={`dashboard-card-icon ${isPrimary ? "primary" : ""}`}>
+    <Link
+      to={path}
+      style={{
+        display: "flex",
+        gap: 14,
+        padding: "16px 18px",
+        borderRadius: 16,
+        background: primary ? accent : "var(--ems-bg-surface)",
+        border: `1px solid ${primary ? "transparent" : "var(--ems-border)"}`,
+        boxShadow: primary
+          ? `0 8px 20px ${accent}44`
+          : "0 2px 8px var(--ems-shadow-subtle)",
+        textDecoration: "none",
+        transition: "transform 0.13s ease, box-shadow 0.13s ease",
+        cursor: "pointer",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = primary ? `0 14px 28px ${accent}55` : "0 8px 20px var(--ems-shadow)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = primary ? `0 8px 20px ${accent}44` : "0 2px 8px var(--ems-shadow-subtle)"; }}
+    >
+      <div style={{
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: primary ? "rgba(255,255,255,0.2)" : `${accent}18`,
+        color: primary ? "#fff" : accent, fontSize: 17,
+      }}>
         <Icon />
       </div>
-
-      <div className="dashboard-card-body">
-        <h5>{title}</h5>
-
-        <p>{description}</p>
-
-        <Link
-          to={path}
-          className={`btn ${isPrimary ? "btn-danger" : "btn-outline-primary"}`}
-        >
-          {buttonText}
-        </Link>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: primary ? "#fff" : "var(--ems-text-primary)", marginBottom: 2 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 12, color: primary ? "rgba(255,255,255,0.75)" : "var(--ems-text-muted)", lineHeight: 1.4 }}>
+          {description}
+        </div>
       </div>
-    </div>
+    </Link>
   );
-};
-
-const StatCard = ({ label, value, helper }) => {
-  return (
-    <div className="dashboard-stat-card">
-      <div className="dashboard-stat-value">{value}</div>
-      <div className="dashboard-stat-label">{label}</div>
-      <div className="dashboard-stat-helper">{helper}</div>
-    </div>
-  );
-};
+}
 
 function HomePage({ currentUser }) {
   const canTakeCalls = hasCallIntakeAccess(currentUser);
@@ -190,20 +175,18 @@ function HomePage({ currentUser }) {
 
   return (
     <div className="dashboard-page">
-      <ClockWidget currentUser={currentUser} />
-      <div className="dashboard-hero">
-        <div>
+
+      {/* Hero row */}
+      <div className="dashboard-hero" style={{ alignItems: "center", gap: "1rem" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <p className="dashboard-eyebrow">Welcome back</p>
-
-          <h2>
-            {currentUser?.display_name || "User"}
-          </h2>
-
-          <p className="dashboard-hero-text">
-            Use the dashboard to quickly access the tools available for your
-            role.
+          <h2 style={{ margin: 0 }}>{currentUser?.display_name || "User"}</h2>
+          <p className="dashboard-hero-text" style={{ marginTop: 4 }}>
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </p>
         </div>
+
+        <ClockWidget currentUser={currentUser} />
 
         {canTakeCalls && (
           <Link to="/call-form" className="btn btn-danger dashboard-hero-button">
@@ -213,180 +196,126 @@ function HomePage({ currentUser }) {
         )}
       </div>
 
-      <div className="dashboard-stats-grid">
-        <StatCard
-          label="Dispatch Board"
-          value="Live"
-          helper="Assign calls to units and track status"
+      {/* Quick access tiles */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.85rem" }}>
+
+        <QuickTile
+          title="Dispatch Board"
+          description="Assign calls to units and track status"
+          path="/dispatch"
+          icon={FaTh}
+          accent="#dc3545"
+          primary
         />
 
         {canTakeCalls && (
-          <>
-            <StatCard
-              label="Call Intake"
-              value="Ready"
-              helper="Start a new call from the dashboard or top bar"
-            />
-
-            <StatCard
-              label="Today's Calls"
-              value="Review"
-              helper="Open call history to check saved records"
-            />
-          </>
+          <QuickTile
+            title="Call Form"
+            description="Create a new EMS call record"
+            path="/call-form"
+            icon={FaPhoneAlt}
+            accent="#0d6efd"
+          />
         )}
 
-        {canAccessCrewPlanner && (
-          <StatCard
-            label="Crew Planning"
-            value="Active"
-            helper="Review units and assignments for the day"
+        {canAccessPatients && (
+          <QuickTile
+            title="Patients"
+            description="Search and manage patient records"
+            path="/patients"
+            icon={FaUserInjured}
+            accent="#0d6efd"
+          />
+        )}
+
+        {canTakeCalls && (
+          <QuickTile
+            title="Calls"
+            description="Review saved call history"
+            path="/calls"
+            icon={FaClipboardList}
+            accent="#0d6efd"
           />
         )}
 
         {canAccessEmployees && (
-          <StatCard
-            label="Staff Records"
-            value="Available"
-            helper="Manage employee information and certifications"
+          <QuickTile
+            title="Employees"
+            description="Manage employee records and certifications"
+            path="/employees"
+            icon={FaUsers}
+            accent="#198754"
           />
         )}
+
+        {canAccessCrewPlanner && (
+          <QuickTile
+            title="Crew Planner"
+            description="Plan unit assignments for the day"
+            path="/crew-planner"
+            icon={FaAmbulance}
+            accent="#198754"
+          />
+        )}
+
+        {canAccessEmployees && (
+          <QuickTile
+            title="Payroll"
+            description="Manage pay periods and export payroll"
+            path="/payroll"
+            icon={FaMoneyBillWave}
+            accent="#198754"
+          />
+        )}
+
+        {canAccessEmployees && (
+          <QuickTile
+            title="Compliance"
+            description="Track certifications and compliance status"
+            path="/compliance"
+            icon={FaShieldAlt}
+            accent="#198754"
+          />
+        )}
+
+        {canAccessSupervisor && (
+          <QuickTile
+            title="Supervisor Dashboard"
+            description="Review performance and call quality analytics"
+            path="/supervisor"
+            icon={FaChartBar}
+            accent="#6f42c1"
+          />
+        )}
+
+        {canAccessAdmin && (
+          <QuickTile
+            title="Users"
+            description="Manage system user accounts and roles"
+            path="/users"
+            icon={FaUserCog}
+            accent="#6f42c1"
+          />
+        )}
+
+        {canAccessAdmin && (
+          <QuickTile
+            title="Audit Log"
+            description="View system activity and event history"
+            path="/audit"
+            icon={FaHistory}
+            accent="#6f42c1"
+          />
+        )}
+
       </div>
 
-      {canTakeCalls && (
-        <section className="dashboard-section">
-          <div className="dashboard-section-header">
-            <div>
-              <h4>Operations</h4>
-              <p>Fast access to call-taking and patient workflow tools.</p>
-            </div>
-          </div>
-
-          <div className="dashboard-grid">
-            <DashboardCard
-              title="Dispatch Board"
-              description="Assign calls to units, track unit status, and manage active trips."
-              path="/dispatch"
-              buttonText="Open Dispatch"
-              icon={FaTh}
-              variant="primary"
-            />
-
-            <DashboardCard
-              title="Start Taking Call"
-              description="Create a new EMS call record and document trip details."
-              path="/call-form"
-              buttonText="Start Call"
-              icon={FaPhoneAlt}
-            />
-
-            {canAccessPatients && (
-              <>
-                <DashboardCard
-                  title="Patients"
-                  description="Search, review, and manage patient records."
-                  path="/patients"
-                  buttonText="Open Patients"
-                  icon={FaUserInjured}
-                />
-
-                <DashboardCard
-                  title="Calls"
-                  description="Review saved call records and call history."
-                  path="/calls"
-                  buttonText="Open Calls"
-                  icon={FaClipboardList}
-                />
-              </>
-            )}
-          </div>
-        </section>
-      )}
-
-      {(canAccessEmployees || canAccessCrewPlanner) && (
-        <section className="dashboard-section">
-          <div className="dashboard-section-header">
-            <div>
-              <h4>Staff</h4>
-              <p>Manage employees, certifications, and crew assignments.</p>
-            </div>
-          </div>
-
-          <div className="dashboard-grid">
-            {canAccessEmployees && (
-              <DashboardCard
-                title="Employees"
-                description="Manage employee records, certifications, HR information, and active status."
-                path="/employees"
-                buttonText="Open Employees"
-                icon={FaUsers}
-              />
-            )}
-
-            {canAccessCrewPlanner && (
-              <DashboardCard
-                title="Crew Planner"
-                description="Plan BLS, ALS, and assist units using employee eligibility checks."
-                path="/crew-planner"
-                buttonText="Open Crew Planner"
-                icon={FaAmbulance}
-              />
-            )}
-          </div>
-        </section>
-      )}
-
-      {(canAccessSupervisor || canAccessAdmin) && (
-        <section className="dashboard-section">
-          <div className="dashboard-section-header">
-            <div>
-              <h4>Management</h4>
-              <p>Review analytics and manage system access.</p>
-            </div>
-          </div>
-
-          <div className="dashboard-grid">
-            {canAccessSupervisor && (
-              <DashboardCard
-                title="Supervisor Dashboard"
-                description="Review dispatcher performance, call quality, and missing field analytics."
-                path="/supervisor"
-                buttonText="Open Supervisor"
-                icon={FaChartBar}
-              />
-            )}
-
-            {canAccessAdmin && (
-              <DashboardCard
-                title="Users"
-                description="Create and manage system user accounts, roles, and access status."
-                path="/users"
-                buttonText="Open Users"
-                icon={FaUserCog}
-              />
-            )}
-          </div>
-        </section>
-      )}
-
-      <section className="dashboard-section">
-        <div className="dashboard-section-header">
-          <div>
-            <h4>Help</h4>
-            <p>System usage notes and workflow instructions.</p>
-          </div>
-        </div>
-
-        <div className="dashboard-grid">
-          <DashboardCard
-            title="User Manual"
-            description="Read workflow instructions and system usage notes."
-            path="/manual"
-            buttonText="Open Manual"
-            icon={FaBookOpen}
-          />
-        </div>
-      </section>
+      {/* Help link */}
+      <div style={{ textAlign: "center", paddingTop: 4 }}>
+        <Link to="/manual" style={{ fontSize: 13, color: "var(--ems-text-muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <FaBookOpen style={{ fontSize: 12 }} /> User Manual
+        </Link>
+      </div>
     </div>
   );
 }
