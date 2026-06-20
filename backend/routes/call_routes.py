@@ -156,6 +156,43 @@ def create_call():
     return jsonify(new_call.to_dict()), 201
 
 
+@call_bp.route("/<int:call_id>", methods=["PUT"])
+def update_call(call_id):
+    if _role_from_request() not in ALLOWED_ROLES:
+        return jsonify({"error": "Insufficient permissions"}), 403
+
+    call = Call.query.get_or_404(call_id)
+    data = request.get_json() or {}
+
+    EDITABLE = [
+        "dispatcher_name", "caller_type", "call_type", "caller_phone", "caller_note",
+        "trip_date", "pickup_time", "appointment_time",
+        "pickup_address", "dropoff_address",
+        "service_level", "notes",
+        "quality_score", "missing_critical_fields", "missing_optional_fields",
+        "missing_info_explanation",
+    ]
+
+    changed = {}
+    for field in EDITABLE:
+        if field in data:
+            new_val = data[field]
+            old_val = getattr(call, field)
+            if str(new_val or "") != str(old_val or ""):
+                changed[field] = {"from": old_val, "to": new_val}
+                setattr(call, field, new_val)
+
+    if changed:
+        import json
+        log_action("call.updated", "call", call_id,
+                   f"Call #{call_id}",
+                   {"changed_fields": ", ".join(changed.keys())},
+                   user_id=_user_id_from_request(), user_name=_user_name_from_request())
+
+    db.session.commit()
+    return jsonify(call.to_dict())
+
+
 @call_bp.route("/<int:call_id>/cancel", methods=["PATCH"])
 def cancel_call(call_id):
     if _role_from_request() not in ALLOWED_ROLES:

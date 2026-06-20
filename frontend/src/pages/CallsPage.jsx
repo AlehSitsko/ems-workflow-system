@@ -9,9 +9,10 @@ import {
   FaTimes,
 } from "react-icons/fa";
 
-import { getCalls, uncancelCall } from "../api/callsApi";
+import { getCalls, uncancelCall, updateCall, createCall } from "../api/callsApi";
 import { useToast } from "../components/ui/ToastProvider";
 import EntityDrawer from "../components/ui/EntityDrawer";
+import TimeInput from "../components/ui/TimeInput";
 
 const CallsPage = ({ currentUser }) => {
   const toast = useToast();
@@ -34,6 +35,9 @@ const CallsPage = ({ currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+
+  const [editForm, setEditForm] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
 
   // Return Bootstrap badge color based on quality score.
   const getScoreColor = (score) => {
@@ -250,7 +254,80 @@ const CallsPage = ({ currentUser }) => {
   const openCallDrawer = (call) => {
     setSelectedCall(call);
     setDrawerTab("summary");
+    setEditForm({
+      dispatcher_name: call.dispatcher_name || "",
+      caller_type: call.caller_type || "",
+      caller_phone: call.caller_phone || "",
+      caller_note: call.caller_note || "",
+      trip_date: call.trip_date || "",
+      pickup_time: call.pickup_time || "",
+      appointment_time: call.appointment_time || "",
+      pickup_address: call.pickup_address || "",
+      dropoff_address: call.dropoff_address || "",
+      service_level: call.service_level || "",
+      notes: call.notes || "",
+      // Return ride fields (not persisted on main call — creates a new call)
+      return_ride_option: "none",
+      return_pickup: call.dropoff_address || "",
+      return_destination: call.pickup_address || "",
+      return_time: "",
+      // Default return service level: emergency calls go home as BLS
+      return_service_level: call.service_level === "emergency" ? "bls" : (call.service_level || "bls"),
+    });
     setDrawerOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedCall) return;
+    setEditSaving(true);
+    const headers = {
+      "X-User-Role": currentUser?.role || "",
+      "X-User-Id":   String(currentUser?.id || ""),
+      "X-User-Name": currentUser?.display_name || "",
+    };
+    try {
+      // Save main call changes (strip return ride fields — they're not columns on Call)
+      const { return_ride_option, return_pickup, return_destination, return_time, return_service_level, ...mainFields } = editForm;
+      const updated = await updateCall(selectedCall.id, mainFields, headers);
+      setCalls((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+      setSelectedCall(updated);
+
+      // Create return leg as a separate call if requested
+      if (return_ride_option !== "none" && return_pickup) {
+        const isWillCall = return_ride_option === "will_call";
+        const returnPayload = {
+          patient_id: selectedCall.patient_id || null,
+          dispatcher_name: updated.dispatcher_name,
+          received_at: new Date().toISOString(),
+          status: "new",
+          date_of_call: updated.date_of_call,
+          trip_date: updated.trip_date,
+          pickup_time: isWillCall ? "" : (return_time || ""),
+          appointment_time: "",
+          pickup_address: return_pickup,
+          dropoff_address: return_destination,
+          caller_type: updated.caller_type,
+          call_type: isWillCall ? "will_call" : "return",
+          service_level: return_service_level,
+          caller_phone: updated.caller_phone || null,
+          caller_note: null,
+          quality_score: 0,
+          missing_critical_fields: "",
+          missing_optional_fields: "",
+          missing_info_explanation: "",
+          notes: `${isWillCall ? "Will Call" : "Return"} leg for call #${selectedCall.id}`,
+        };
+        await createCall(returnPayload);
+        toast.success("Call updated + return ride created");
+        // Reset return ride option after creating
+        setEditForm(f => ({ ...f, return_ride_option: "none", return_time: "" }));
+      } else {
+        toast.success("Call updated");
+      }
+    } catch (e) {
+      toast.error("Save failed", e.message);
+    }
+    setEditSaving(false);
   };
 
   const handleUncancel = async (callId) => {
@@ -528,9 +605,20 @@ const CallsPage = ({ currentUser }) => {
           { key: "summary", label: "Summary" },
           { key: "trip", label: "Trip" },
           { key: "quality", label: "Quality" },
+          { key: "edit", label: "Edit" },
         ]}
         activeTab={drawerTab}
         onTabChange={setDrawerTab}
+        footer={drawerTab === "edit" ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleSaveEdit}
+            disabled={editSaving}
+          >
+            {editSaving ? "Saving…" : "Save Changes"}
+          </button>
+        ) : null}
       >
         {selectedCall && drawerTab === "summary" && (
           <div className="patient-detail-grid">
@@ -577,6 +665,198 @@ const CallsPage = ({ currentUser }) => {
             <Di label="Missing Critical" value={selectedCall.missing_critical_fields || "None"} />
             <Di label="Missing Optional" value={selectedCall.missing_optional_fields || "None"} />
             <Di label="Explanation" value={selectedCall.missing_info_explanation} />
+          </div>
+        )}
+
+        {selectedCall && drawerTab === "edit" && (
+          <div className="call-form-modern">
+            <section className="call-form-section">
+              <div className="call-form-section-header">
+                <h5>Caller / Dispatcher</h5>
+              </div>
+              <div className="row g-2">
+                <div className="col-md-6">
+                  <label className="form-label">Dispatcher Name</label>
+                  <input className="form-control" value={editForm.dispatcher_name} onChange={e => setEditForm(f => ({ ...f, dispatcher_name: e.target.value }))} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Caller Type</label>
+                  <input className="form-control" value={editForm.caller_type} onChange={e => setEditForm(f => ({ ...f, caller_type: e.target.value }))} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Caller Phone</label>
+                  <input className="form-control" value={editForm.caller_phone} onChange={e => setEditForm(f => ({ ...f, caller_phone: e.target.value }))} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Caller Note</label>
+                  <input className="form-control" value={editForm.caller_note} onChange={e => setEditForm(f => ({ ...f, caller_note: e.target.value }))} />
+                </div>
+              </div>
+            </section>
+
+            <section className="call-form-section">
+              <div className="call-form-section-header">
+                <h5>Trip Details</h5>
+              </div>
+              <div className="row g-2">
+                <div className="col-md-4">
+                  <label className="form-label">Trip Date</label>
+                  <input type="date" className="form-control" value={editForm.trip_date} onChange={e => setEditForm(f => ({ ...f, trip_date: e.target.value }))} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Pickup Time</label>
+                  <TimeInput value={editForm.pickup_time} onChange={v => setEditForm(f => ({ ...f, pickup_time: v }))} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Appointment Time</label>
+                  <TimeInput value={editForm.appointment_time} onChange={v => setEditForm(f => ({ ...f, appointment_time: v }))} />
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Pickup Address</label>
+                  <input className="form-control" value={editForm.pickup_address} onChange={e => setEditForm(f => ({ ...f, pickup_address: e.target.value }))} />
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Dropoff Address</label>
+                  <input className="form-control" value={editForm.dropoff_address} onChange={e => setEditForm(f => ({ ...f, dropoff_address: e.target.value }))} />
+                </div>
+              </div>
+            </section>
+
+            <section className="call-form-section">
+              <div className="call-form-section-header">
+                <h5>Service &amp; Notes</h5>
+              </div>
+              <div className="row g-2">
+                <div className="col-md-6">
+                  <label className="form-label">Service Level</label>
+                  <select className="form-select" value={editForm.service_level} onChange={e => setEditForm(f => ({ ...f, service_level: e.target.value }))}>
+                    <option value="">— Select —</option>
+                    <option value="stretcher">Stretcher</option>
+                    <option value="bls">BLS</option>
+                    <option value="als">ALS</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Notes</label>
+                  <textarea className="form-control" rows={3} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+            </section>
+
+            {["return", "will_call"].includes(selectedCall?.call_type) ? (
+              <div style={{
+                padding: "10px 14px", borderRadius: 8, fontSize: 12,
+                background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)",
+                color: "var(--ems-text-secondary)",
+              }}>
+                <strong>Return ride not available</strong> — this call is already a{" "}
+                {selectedCall.call_type === "will_call" ? "Will Call" : "Return"} leg and cannot have its own return ride.
+              </div>
+            ) : (
+            <section className="call-form-section">
+              <div className="call-form-section-header">
+                <h5>Return Ride</h5>
+              </div>
+              <div className="row g-2">
+                <div className="col-12">
+                  <label className="form-label">Return Ride Option</label>
+                  <select
+                    className="form-select"
+                    value={editForm.return_ride_option}
+                    onChange={e => {
+                      const opt = e.target.value;
+                      setEditForm(f => ({
+                        ...f,
+                        return_ride_option: opt,
+                        // Auto-fill flipped addresses when enabling
+                        ...(opt !== "none" ? {
+                          return_pickup: f.dropoff_address,
+                          return_destination: f.pickup_address,
+                        } : {
+                          return_pickup: "",
+                          return_destination: "",
+                          return_time: "",
+                        }),
+                      }));
+                    }}
+                  >
+                    <option value="none">No Return</option>
+                    <option value="return">Return Ride</option>
+                    <option value="will_call">Will Call</option>
+                  </select>
+                  <div style={{ fontSize: 11, color: "var(--ems-text-muted)", marginTop: 4 }}>
+                    {editForm.return_ride_option === "will_call"
+                      ? "Will Call — pickup time will be set from Dispatch Board when patient is ready."
+                      : editForm.return_ride_option === "return"
+                      ? "Return Ride — creates a separate call with reversed addresses and a set return time."
+                      : "Select to create a return or will-call leg. This creates a new separate call."}
+                  </div>
+                </div>
+
+                {editForm.return_ride_option !== "none" && (
+                  <>
+                    <div className="col-12">
+                      <label className="form-label">Return Pickup Address</label>
+                      <input
+                        className="form-control"
+                        value={editForm.return_pickup}
+                        onChange={e => setEditForm(f => ({ ...f, return_pickup: e.target.value }))}
+                        placeholder="Pickup address for return leg"
+                      />
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Return Destination Address</label>
+                      <input
+                        className="form-control"
+                        value={editForm.return_destination}
+                        onChange={e => setEditForm(f => ({ ...f, return_destination: e.target.value }))}
+                        placeholder="Drop-off address for return leg"
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">Return Service Level</label>
+                      <select
+                        className="form-select"
+                        value={editForm.return_service_level}
+                        onChange={e => setEditForm(f => ({ ...f, return_service_level: e.target.value }))}
+                      >
+                        <option value="stretcher">Stretcher</option>
+                        <option value="bls">BLS</option>
+                        <option value="als">ALS</option>
+                        <option value="emergency">Emergency</option>
+                      </select>
+                      {editForm.service_level === "emergency" && editForm.return_service_level === "bls" && (
+                        <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 3 }}>
+                          Defaulted to BLS — original call was Emergency.
+                        </div>
+                      )}
+                    </div>
+
+                    {editForm.return_ride_option === "return" && (
+                      <div className="col-md-6">
+                        <label className="form-label">Return Pickup Time</label>
+                        <TimeInput value={editForm.return_time} onChange={v => setEditForm(f => ({ ...f, return_time: v }))} />
+                      </div>
+                    )}
+                    <div className="col-12">
+                      <div style={{
+                        padding: "8px 12px", borderRadius: 8, fontSize: 12,
+                        background: "rgba(13,110,253,0.07)", border: "1px solid rgba(13,110,253,0.2)",
+                        color: "var(--ems-text-secondary)",
+                      }}>
+                        <strong>Note:</strong> Saving will create a new separate call record for this return leg,
+                        linked to the same patient and trip date.{" "}
+                        {editForm.return_ride_option === "return"
+                          ? "Addresses are pre-filled in reverse — adjust if needed."
+                          : "No pickup time is set — it will be configured from the Dispatch Board."}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+            )}
           </div>
         )}
       </EntityDrawer>

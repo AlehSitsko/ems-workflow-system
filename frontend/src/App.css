@@ -702,13 +702,13 @@ textarea.form-control {
 
 .compact-call-card {
   border: 1px solid var(--ems-border);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--ems-bg-surface);
   overflow: hidden;
   transition: border-color 0.15s;
 }
 .compact-call-card:hover {
-  border-color: var(--ems-primary, #0d6efd);
+  border-color: #0d6efd55;
 }
 .compact-call-card.selected {
   border-color: #0d6efd;
@@ -717,10 +717,10 @@ textarea.form-control {
 
 .compact-call-main {
   display: grid;
-  grid-template-columns: 130px 150px minmax(260px, 1fr) 100px 90px 110px auto;
-  gap: 1rem;
+  grid-template-columns: 120px 140px minmax(220px, 1fr) 90px 80px 90px auto;
+  gap: 0.75rem;
   align-items: center;
-  padding: 1rem;
+  padding: 0.6rem 0.85rem;
 }
 
 .compact-call-date {
@@ -884,19 +884,23 @@ textarea.form-control {
 
 .patient-list-card {
   display: grid;
-  grid-template-columns: minmax(260px, 1.4fr) minmax(220px, 1fr) auto;
-  gap: 1rem;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(180px, 1fr) auto;
+  gap: 0.75rem;
   align-items: center;
-  padding: 1rem;
+  padding: 0.6rem 0.85rem;
   border: 1px solid var(--ems-border);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--ems-bg-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.patient-list-card:hover {
+  border-color: #0d6efd55;
+}
+
 .patient-list-card.selected {
   border-color: #198754;
-  box-shadow: 0 8px 22px rgba(25, 135, 84, 0.12);
+  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.10);
 }
 
 .patient-list-main {
@@ -908,22 +912,23 @@ textarea.form-control {
 
 .patient-list-avatar,
 .employee-avatar {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 14px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #eaf2ff;
+  background: var(--ems-bg-surface-2);
   color: #0d6efd;
   font-weight: 800;
+  font-size: 13px;
 }
 
 .employee-avatar {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
 }
 
 .patient-list-meta,

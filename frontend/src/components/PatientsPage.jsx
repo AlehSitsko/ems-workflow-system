@@ -355,43 +355,6 @@ const PatientsPage = () => {
 
   return (
     <div className="page-stack">
-      <div className="page-summary-grid">
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaUsers />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{paginationMeta.total || patients.length}</div>
-            <div className="page-summary-label">Total Patients</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaUserInjured />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {selectedPatient ? "Selected" : "—"}
-            </div>
-            <div className="page-summary-label">Current Patient</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon warning">
-            <FaHistory />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{patientCalls.length}</div>
-            <div className="page-summary-label">Patient Calls</div>
-          </div>
-        </div>
-      </div>
-
       <section className="content-panel">
         <div className="content-panel-header">
           <div>
@@ -495,10 +458,21 @@ const PatientsPage = () => {
           <div className="content-panel-header">
             <div>
               <h4>Patient List</h4>
-              <p>Search results and available patient records.</p>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                {[
+                  { label: "Total", value: paginationMeta.total || patients.length, color: "#0d6efd" },
+                  { label: "Loaded", value: patients.length, color: "#198754" },
+                  ...(patientCalls.length > 0 ? [{ label: "Calls", value: patientCalls.length, color: "#6f42c1" }] : []),
+                ].map(s => (
+                  <span key={s.label} style={{
+                    fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                    background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
+                  }}>
+                    {s.label}: {s.value}
+                  </span>
+                ))}
+              </div>
             </div>
-
-            <span className="badge text-bg-secondary">{patients.length} / {paginationMeta.total}</span>
           </div>
 
           <div className="patient-list">
