@@ -784,96 +784,90 @@ function EmployeesPage() {
             <p>Add an employee manually or load test crew records.</p>
           </div>
         ) : (
-          <div className="employee-card-list">
+          <div className="employee-row-list">
             {employees.map((employee) => (
-              <div className="employee-card" key={employee.id} onClick={() => handleEdit(employee)} style={{ cursor: "pointer" }}>
-                <div className="employee-card-main">
+              <div
+                className="employee-row-card"
+                key={employee.id}
+                onClick={() => handleEdit(employee)}
+                style={{ cursor: "pointer" }}
+              >
+                {/* Avatar + Name + number + hire date */}
+                <div className="employee-row-main">
                   <div className="employee-avatar">
                     {(employee.firstName?.[0] || "E").toUpperCase()}
                   </div>
-
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div className="employee-name">
                       {employee.firstName} {employee.lastName}
                     </div>
-
                     <div className="employee-muted">
-                      #{employee.employeeNumber || "—"} · Hired:{" "}
-                      {employee.hireDate || "—"}
-                    </div>
-
-                    <div className="employee-card-badges mt-2">
-                      {renderEmployeeRoleBadge(employee.role)}
-
-                      <span
-                        className={`badge ${getEmployeeStatusBadgeClass(
-                          employee.status || "active"
-                        )}`}
-                      >
-                        {employee.status || "active"}
-                      </span>
-
-                      <span
-                        className={`badge ${
-                          employee.isActive
-                            ? "text-bg-success"
-                            : "text-bg-secondary"
-                        }`}
-                      >
-                        {employee.isActive ? "Active" : "Inactive"}
-                      </span>
-
-                      {renderCprWarning(employee)}
+                      {employee.employeeNumber ? `#${employee.employeeNumber}` : "—"}
+                      {employee.hireDate ? ` · Hired: ${employee.hireDate}` : ""}
                     </div>
                   </div>
                 </div>
 
-                <div className="employee-contact">
-                  <div>
-                    <strong>Phone:</strong> {employee.phone || "—"}
-                  </div>
+                {/* Contact */}
+                <div>
+                  <div className="compact-call-label">Phone</div>
+                  <div style={{ fontSize: 12, color: "var(--ems-text-primary)" }}>{employee.phone || "—"}</div>
+                  <div style={{ fontSize: 11, color: "var(--ems-text-muted)", marginTop: 2 }}>{employee.email || "—"}</div>
+                </div>
 
-                  <div>
-                    <strong>Email:</strong> {employee.email || "—"}
-                  </div>
-
-                  <div>
-                    <strong>Notes:</strong> {employee.notes || "—"}
+                {/* Role + status */}
+                <div>
+                  <div className="compact-call-label">Role / Status</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
+                    {renderEmployeeRoleBadge(employee.role)}
+                    <span className={`badge ${getEmployeeStatusBadgeClass(employee.status || "active")}`} style={{ fontSize: 10 }}>
+                      {employee.status || "active"}
+                    </span>
+                    {!employee.isActive && <span className="badge text-bg-secondary" style={{ fontSize: 10 }}>Inactive</span>}
                   </div>
                 </div>
 
-                <div className="employee-positions">
-                  <div className="employee-section-label">Allowed Positions</div>
-
-                  {renderAllowedPositions(employee)}
+                {/* Certifications */}
+                <div>
+                  <div className="compact-call-label">Certifications</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
+                    {[
+                      { key: "cpr", label: "CPR", val: employee.cpr },
+                      { key: "evoc", label: "EVOC", val: employee.evoc },
+                      { key: "emt", label: "EMT", val: employee.emt },
+                      { key: "paramedic", label: "Para", val: employee.paramedic },
+                    ].map(({ key, label, val }) => {
+                      const active = val && val.status === "active";
+                      const expiring = val && val.status === "expiring";
+                      const color = active ? "#198754" : expiring ? "#f59e0b" : "#6c757d";
+                      return (
+                        <span key={key} style={{
+                          fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 6,
+                          background: `${color}14`, color, border: `1px solid ${color}30`,
+                        }}>
+                          {label}
+                        </span>
+                      );
+                    })}
+                    {renderCprWarning(employee)}
+                  </div>
                 </div>
 
-                <div className="employee-license-summary">
-                  {renderLicenseBadge("cpr", employee.cpr)}
-                  {renderLicenseBadge("evoc", employee.evoc)}
-                  {renderLicenseBadge("emt", employee.emt)}
-                  {renderLicenseBadge("paramedic", employee.paramedic)}
+                {/* Positions */}
+                <div>
+                  <div className="compact-call-label">Positions</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
+                    {renderAllowedPositions(employee)}
+                  </div>
                 </div>
 
-                <div className="employee-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
-                    onClick={() => handleEdit(employee)}
-                    disabled={loading}
-                  >
-                    <FaEdit />
-                    Edit
+                {/* Actions */}
+                <div className="employee-row-actions" onClick={e => e.stopPropagation()}>
+                  <button type="button" className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" onClick={() => handleEdit(employee)} disabled={loading}>
+                    <FaEdit /> Edit
                   </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
-                    onClick={() => handleDelete(employee.id)}
-                    disabled={loading}
-                  >
-                    <FaTrash />
-                    Delete
+                  <button type="button" className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" onClick={() => handleDelete(employee.id)} disabled={loading}>
+                    <FaTrash /> Delete
                   </button>
                 </div>
               </div>

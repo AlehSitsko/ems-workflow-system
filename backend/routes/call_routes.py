@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
@@ -171,7 +171,17 @@ def update_call(call_id):
         "service_level", "notes",
         "quality_score", "missing_critical_fields", "missing_optional_fields",
         "missing_info_explanation",
+        "received_at",
     ]
+
+    # Lifecycle timestamps + status override — supervisors and admins only
+    role = _role_from_request()
+    if role in {"admin", "supervisor"}:
+        EDITABLE = list(EDITABLE) + [
+            "status",
+            "dispatched_at", "arrived_pickup_at",
+            "patient_loaded_at", "arrived_dest_at", "completed_at",
+        ]
 
     changed = {}
     for field in EDITABLE:
@@ -183,10 +193,10 @@ def update_call(call_id):
                 setattr(call, field, new_val)
 
     if changed:
-        import json
         log_action("call.updated", "call", call_id,
                    f"Call #{call_id}",
-                   {"changed_fields": ", ".join(changed.keys())},
+                   {"changed_fields": ", ".join(changed.keys()),
+                    "note": "timestamp_edit" if "received_at" in changed or "status" in changed else ""},
                    user_id=_user_id_from_request(), user_name=_user_name_from_request())
 
     db.session.commit()
@@ -210,7 +220,7 @@ def cancel_call(call_id):
 
     call.status = "cancelled"
     call.cancel_reason = reason
-    call.cancelled_at = datetime.now(timezone.utc).isoformat()
+    call.cancelled_at = datetime.now().isoformat(timespec="seconds")
     call.cancelled_by = _user_id_from_request()
     log_action("call.cancelled", "call", call_id,
                f"Call #{call_id}", {"reason": reason},

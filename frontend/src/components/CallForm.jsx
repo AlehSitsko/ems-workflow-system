@@ -25,7 +25,7 @@ import {
   getPatients,
 } from "../api/patientsApi";
 
-import { getLoggedDispatcherName, getTodayDate } from "../utils/callUtils";
+import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
 
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger exposed methods externally.
@@ -353,7 +353,7 @@ const CallForm = forwardRef((props, ref) => {
 
         dispatcher_name: formData.dispatcherName,
 
-        received_at: new Date().toISOString(),
+        received_at: localIsoNow(),
         status: "new",
 
         date_of_call: formData.callDate,
@@ -387,7 +387,7 @@ const CallForm = forwardRef((props, ref) => {
         const returnPayload = {
           patient_id: finalPatientId,
           dispatcher_name: formData.dispatcherName,
-          received_at: new Date().toISOString(),
+          received_at: localIsoNow(),
           status: "new",
           date_of_call: formData.callDate,
           trip_date: formData.tripDate,

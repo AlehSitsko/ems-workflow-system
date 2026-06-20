@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 
 import { getCalls, uncancelCall, updateCall, createCall } from "../api/callsApi";
+import { localIsoNow } from "../utils/callUtils";
 import { useToast } from "../components/ui/ToastProvider";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
@@ -266,6 +267,13 @@ const CallsPage = ({ currentUser }) => {
       dropoff_address: call.dropoff_address || "",
       service_level: call.service_level || "",
       notes: call.notes || "",
+      received_at: call.received_at || "",
+      status: call.status || "new",
+      dispatched_at: call.dispatched_at || "",
+      arrived_pickup_at: call.arrived_pickup_at || "",
+      patient_loaded_at: call.patient_loaded_at || "",
+      arrived_dest_at: call.arrived_dest_at || "",
+      completed_at: call.completed_at || "",
       // Return ride fields (not persisted on main call — creates a new call)
       return_ride_option: "none",
       return_pickup: call.dropoff_address || "",
@@ -298,7 +306,7 @@ const CallsPage = ({ currentUser }) => {
         const returnPayload = {
           patient_id: selectedCall.patient_id || null,
           dispatcher_name: updated.dispatcher_name,
-          received_at: new Date().toISOString(),
+          received_at: localIsoNow(),
           status: "new",
           date_of_call: updated.date_of_call,
           trip_date: updated.trip_date,
@@ -621,6 +629,7 @@ const CallsPage = ({ currentUser }) => {
         ) : null}
       >
         {selectedCall && drawerTab === "summary" && (
+          <>
           <div className="patient-detail-grid">
             <Di label="Date" value={selectedCall.date_of_call} />
             <Di label="Received At" value={formatReceivedAt(selectedCall.received_at)} />
@@ -644,6 +653,33 @@ const CallsPage = ({ currentUser }) => {
               </div>
             )}
           </div>
+
+          {/* Dispatch lifecycle timeline */}
+          {(selectedCall.dispatched_at || selectedCall.arrived_pickup_at || selectedCall.patient_loaded_at || selectedCall.arrived_dest_at || selectedCall.completed_at) && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ems-text-muted)", marginBottom: 8 }}>
+                Dispatch Timeline
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 0, position: "relative" }}>
+                {[
+                  { label: "Dispatched (En Route)", ts: selectedCall.dispatched_at, color: "#1d4ed8" },
+                  { label: "Arrived at Pickup", ts: selectedCall.arrived_pickup_at, color: "#854d0e" },
+                  { label: "Patient Loaded", ts: selectedCall.patient_loaded_at, color: "#5b21b6" },
+                  { label: "Arrived at Destination", ts: selectedCall.arrived_dest_at, color: "#155e75" },
+                  { label: "Completed", ts: selectedCall.completed_at, color: "#166534" },
+                ].map(({ label, ts, color }) => ts ? (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", borderLeft: `2px solid ${color}30`, paddingLeft: 12, marginLeft: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0, marginLeft: -17 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color }}>{label}</div>
+                      <div style={{ fontSize: 12, color: "var(--ems-text-secondary)" }}>{formatReceivedAt(ts)}</div>
+                    </div>
+                  </div>
+                ) : null)}
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {selectedCall && drawerTab === "trip" && (
@@ -705,7 +741,7 @@ const CallsPage = ({ currentUser }) => {
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Pickup Time</label>
-                  <TimeInput value={editForm.pickup_time} onChange={v => setEditForm(f => ({ ...f, pickup_time: v }))} />
+                  <TimeInput showFormatToggle value={editForm.pickup_time} onChange={v => setEditForm(f => ({ ...f, pickup_time: v }))} />
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Appointment Time</label>
@@ -743,6 +779,53 @@ const CallsPage = ({ currentUser }) => {
                 </div>
               </div>
             </section>
+
+            {["admin", "supervisor"].includes(currentUser?.role) && (
+              <section className="call-form-section" style={{ borderColor: "rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.04)" }}>
+                <div className="call-form-section-header">
+                  <h5 style={{ color: "#b45309" }}>Timestamps &amp; Status</h5>
+                  <span style={{ fontSize: 11, color: "#b45309", fontWeight: 600 }}>SUPERVISOR / ADMIN</span>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--ems-text-muted)", marginBottom: 10 }}>
+                  All changes are recorded in the Audit Log with your name and timestamp.
+                </div>
+                <div className="row g-2">
+                  <div className="col-md-8">
+                    <label className="form-label">Received At</label>
+                    <input type="datetime-local" className="form-control"
+                      value={editForm.received_at ? editForm.received_at.slice(0, 16) : ""}
+                      onChange={e => setEditForm(f => ({ ...f, received_at: e.target.value ? e.target.value + ":00" : "" }))}
+                    />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">Call Status</label>
+                    <select className="form-select" value={editForm.status}
+                      onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
+                      <option value="new">New</option>
+                      <option value="assigned">Assigned</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+
+                  {[
+                    { field: "dispatched_at",    label: "Dispatched (En Route)" },
+                    { field: "arrived_pickup_at", label: "Arrived at Pickup" },
+                    { field: "patient_loaded_at", label: "Patient Loaded" },
+                    { field: "arrived_dest_at",   label: "Arrived at Destination" },
+                    { field: "completed_at",      label: "Completed" },
+                  ].map(({ field, label }) => (
+                    <div className="col-md-6" key={field}>
+                      <label className="form-label">{label}</label>
+                      <input type="datetime-local" className="form-control"
+                        value={editForm[field] ? editForm[field].slice(0, 16) : ""}
+                        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value ? e.target.value + ":00" : "" }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {["return", "will_call"].includes(selectedCall?.call_type) ? (
               <div style={{

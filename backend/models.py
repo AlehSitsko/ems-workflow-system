@@ -407,6 +407,13 @@ class Call(db.Model):
     cancelled_at = db.Column(db.String(50))
     cancelled_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
+    # Dispatch lifecycle timestamps — set automatically by unit status transitions.
+    dispatched_at      = db.Column(db.String(50))  # unit → en_route
+    arrived_pickup_at  = db.Column(db.String(50))  # unit → on_scene
+    patient_loaded_at  = db.Column(db.String(50))  # unit → transporting
+    arrived_dest_at    = db.Column(db.String(50))  # unit → at_destination
+    completed_at       = db.Column(db.String(50))  # call marked completed
+
     # Multi-tenancy foundation.
     org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
@@ -447,6 +454,12 @@ class Call(db.Model):
             "cancel_reason": self.cancel_reason,
             "cancelled_at": self.cancelled_at,
             "cancelled_by": self.cancelled_by,
+
+            "dispatched_at":     self.dispatched_at,
+            "arrived_pickup_at": self.arrived_pickup_at,
+            "patient_loaded_at": self.patient_loaded_at,
+            "arrived_dest_at":   self.arrived_dest_at,
+            "completed_at":      self.completed_at,
         }
 
 

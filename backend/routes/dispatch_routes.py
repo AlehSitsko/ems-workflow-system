@@ -204,6 +204,7 @@ def complete_assignment(assignment_id):
     call = db.session.get(Call, assignment.call_id)
     if call:
         call.status = "completed"
+        call.completed_at = datetime.now().isoformat(timespec="seconds")
 
     uid, uname = _audit_user()
     log_action("call.completed", "call", assignment.call_id,
@@ -248,6 +249,27 @@ def update_unit_status(unit_id):
     old_status = unit.dispatch_status
     unit.dispatch_status = status
     uid, uname = _audit_user()
+
+    # Stamp the active call on this unit with the corresponding lifecycle timestamp.
+    STATUS_TO_CALL_FIELD = {
+        "en_route":       "dispatched_at",
+        "on_scene":       "arrived_pickup_at",
+        "transporting":   "patient_loaded_at",
+        "at_destination": "arrived_dest_at",
+    }
+    if status in STATUS_TO_CALL_FIELD:
+        active_assignment = (
+            CallAssignment.query
+            .filter_by(unit_id=unit_id, is_active=True)
+            .order_by(CallAssignment.id.desc())
+            .first()
+        )
+        if active_assignment:
+            active_call = db.session.get(Call, active_assignment.call_id)
+            if active_call:
+                field = STATUS_TO_CALL_FIELD[status]
+                setattr(active_call, field, datetime.now().isoformat(timespec="seconds"))
+
     log_action("unit.status_changed", "unit", unit_id,
                f"Unit {unit.truck_number}",
                {"from": old_status, "to": status},

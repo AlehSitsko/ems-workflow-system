@@ -486,32 +486,81 @@ const PatientsPage = () => {
                   style={{ cursor: "pointer" }}
                   onClick={() => handleSelectPatient(patient)}
                 >
+                  {/* Name + avatar */}
                   <div className="patient-list-main">
                     <div className="patient-list-avatar">
                       {(patient.first_name?.[0] || "P").toUpperCase()}
                     </div>
-
                     <div>
                       <div className="patient-list-name">
                         {patient.first_name} {patient.last_name}
                       </div>
-
-                      <div className="patient-list-muted">
-                        DOB: {patient.dob || "—"} · Phone: {patient.phone || "—"}
+                      <div className="patient-list-muted" style={{ fontSize: 11 }}>
+                        {patient.dob || "No DOB"}
                       </div>
                     </div>
                   </div>
 
-                  <div className="patient-list-meta">
-                    <span className="badge text-bg-light">
-                      {patient.insurance || "No Insurance"}
-                    </span>
-
-                    <span className="badge text-bg-primary">
-                      {patient.default_service_level || "No Service"}
-                    </span>
+                  {/* Phone */}
+                  <div>
+                    <div className="compact-call-label">Phone</div>
+                    <div style={{ fontSize: 13, color: "var(--ems-text-primary)" }}>{patient.phone || "—"}</div>
+                    {patient.secondary_phone && (
+                      <div style={{ fontSize: 11, color: "var(--ems-text-muted)" }}>{patient.secondary_phone}</div>
+                    )}
                   </div>
 
+                  {/* Insurance */}
+                  <div>
+                    <div className="compact-call-label">Insurance</div>
+                    <div style={{ fontSize: 12, color: "var(--ems-text-secondary)" }}>{patient.insurance || "—"}</div>
+                  </div>
+
+                  {/* Home address */}
+                  <div>
+                    <div className="compact-call-label">Home Address</div>
+                    <div style={{ fontSize: 12, color: "var(--ems-text-secondary)" }}>
+                      {patient.address
+                        ? <>
+                            {patient.address}
+                            {(patient.city || patient.state) && (
+                              <span style={{ color: "var(--ems-text-muted)" }}>
+                                {", "}{[patient.city, patient.state].filter(Boolean).join(", ")}
+                              </span>
+                            )}
+                          </>
+                        : "—"}
+                    </div>
+                  </div>
+
+                  {/* Default service — inline select */}
+                  <div onClick={e => e.stopPropagation()}>
+                    <div className="compact-call-label">Default Service</div>
+                    <select
+                      className="form-select form-select-sm"
+                      style={{ fontSize: 11, padding: "2px 6px", width: 120, borderRadius: 6 }}
+                      value={patient.default_service_level || ""}
+                      onChange={async (e) => {
+                        const newLevel = e.target.value;
+                        try {
+                          const updated = await updatePatient(patient.id, { ...patient, default_service_level: newLevel });
+                          setPatients(prev => prev.map(p => p.id === patient.id ? updated : p));
+                          toast.success("Service level updated");
+                        } catch {
+                          toast.error("Failed to update service level");
+                        }
+                      }}
+                    >
+                      <option value="">— Not set —</option>
+                      <option value="bls">BLS</option>
+                      <option value="als">ALS</option>
+                      <option value="emergency">Emergency</option>
+                      <option value="stretcher">Stretcher</option>
+                      <option value="wheelchair">Wheelchair</option>
+                    </select>
+                  </div>
+
+                  {/* Actions */}
                   <div className="patient-list-actions" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
@@ -519,18 +568,15 @@ const PatientsPage = () => {
                       onClick={() => handleEditPatient(patient)}
                       disabled={loading}
                     >
-                      <FaEdit />
-                      Edit
+                      <FaEdit /> Edit
                     </button>
-
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
                       onClick={() => handleDeletePatient(patient.id)}
                       disabled={loading}
                     >
-                      <FaTrash />
-                      Delete
+                      <FaTrash /> Delete
                     </button>
                   </div>
                 </div>
