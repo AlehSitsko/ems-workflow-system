@@ -843,7 +843,7 @@ Recommended workflow:
 * Dispatch Board fully theme-aware via `--ems-board-*` tokens
 * All hardcoded dark inline styles replaced with CSS variable references
 
-### UI Standardization (complete)
+### UI Standardization — Phase 1 (complete)
 
 * `EntityDrawer` — shared right-side drawer component (50vw, header / tabs / scrollable body / sticky footer)
 * `ToastProvider` / `useToast` — non-blocking success and error feedback
@@ -856,6 +856,16 @@ Recommended workflow:
 * Dispatch Board: inline Next Status button per unit row; all text colors via CSS variables
 * Call.notes structured fields migrated to dedicated columns (dispatcher_name, caller_phone, caller_note)
 * `docs/UI_STANDARD.md` — reference document for cards vs tables, drawer/modal/toast rules, module patterns, design tokens
+
+### UI Standardization — Phase 2 (complete)
+
+* UserManagementPage: full EntityDrawer rewrite — add/edit user in drawer, table-row click to edit, ConfirmDialog for deactivation
+* PayrollPage: EntityDrawer for create/edit pay periods; all hardcoded colors replaced with CSS variables
+* AuditLogPage: all hardcoded dark colors replaced with `--ems-*` CSS variables; theme-correct in both light and dark
+* CallFormPage: Guided mode is now the default; price calculator visible in both Classic and Guided modes; cancel intake with ConfirmDialog; decorative stat cards removed
+* HomePage (Dashboard): full redesign — `QuickTile` component grid replaces stat card blocks; compact inline `ClockWidget`; hero row with Start Taking Call shortcut; color-coded tiles by role/section
+* CallsPage, EmployeesPage, CrewPlannerPage: `page-summary-grid` removed; stats converted to compact inline color-coded chips within panel headers
+* Global CSS compaction: form controls, labels, buttons, and section cards visually modernized to match Dashboard aesthetic; form section icons reduced; service level cards and quality panel made compact
 
 ### Block 1.1 — Notes Field Migration (complete)
 
@@ -954,7 +964,7 @@ Recommended workflow:
 ## Current Status
 
 ```text
-Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization complete
+Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phase 1 + Phase 2 complete
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 

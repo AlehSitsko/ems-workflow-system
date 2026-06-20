@@ -709,41 +709,6 @@ function EmployeesPage() {
 
   return (
     <div className="page-stack">
-      <div className="page-summary-grid">
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaUsers />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{employees.length}</div>
-            <div className="page-summary-label">Total Employees</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaUserCheck />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{activeEmployees}</div>
-            <div className="page-summary-label">Active Employees</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon warning">
-            <FaBriefcaseMedical />
-          </div>
-
-          <div>
-            <div className="page-summary-value">{employeesWithCprWarnings}</div>
-            <div className="page-summary-label">CPR Warnings</div>
-          </div>
-        </div>
-      </div>
-
       {error && <div className="alert alert-danger mb-0">{error}</div>}
 
       {message && <div className="alert alert-success mb-0">{message}</div>}
@@ -752,7 +717,20 @@ function EmployeesPage() {
         <div className="content-panel-header">
           <div>
             <h4>Employee List</h4>
-            <p>Operational staff, certifications, and crew eligibility.</p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {[
+                { label: "Total", value: employees.length, color: "#0d6efd" },
+                { label: "Active", value: activeEmployees, color: "#198754" },
+                { label: "CPR Warnings", value: employeesWithCprWarnings, color: employeesWithCprWarnings > 0 ? "#ffc107" : "#6c757d" },
+              ].map(s => (
+                <span key={s.label} style={{
+                  fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                  background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
+                }}>
+                  {s.label}: {s.value}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="d-flex align-items-center gap-2 flex-wrap">

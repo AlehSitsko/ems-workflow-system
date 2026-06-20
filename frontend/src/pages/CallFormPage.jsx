@@ -3,10 +3,8 @@ import {
   FaArrowLeft,
   FaArrowRight,
   FaCheckCircle,
-  FaClipboardList,
   FaPhoneAlt,
   FaPlus,
-  FaRoute,
   FaSearch,
   FaTimes,
   FaUserInjured,
@@ -30,6 +28,7 @@ import PriceCalculator from "../components/PriceCalculator";
 import ExportButtons from "../components/ExportButtons";
 
 import { getLoggedDispatcherName, getTodayDate } from "../utils/callUtils";
+import { useConfirm } from "../components/ui/ConfirmDialog";
 
 // Initial guided call state.
 const getInitialGuidedCallData = () => ({
@@ -61,6 +60,8 @@ const getInitialGuidedCallData = () => ({
 });
 
 function CallFormPage() {
+  const confirm = useConfirm();
+
   // Create a ref to access methods exposed by the CallForm component.
   const callFormRef = useRef();
 
@@ -68,7 +69,7 @@ function CallFormPage() {
   const priceCalculatorRef = useRef();
 
   // Track the current call intake mode.
-  const [intakeMode, setIntakeMode] = useState("classic");
+  const [intakeMode, setIntakeMode] = useState("guided");
 
   // Guided intake step: patient, trip, review.
   const [guidedStep, setGuidedStep] = useState("patient");
@@ -140,6 +141,27 @@ function CallFormPage() {
   // Switch back to classic call intake mode.
   const handleUseClassicMode = () => {
     setIntakeMode("classic");
+    setShowPatientLookupDrawer(false);
+  };
+
+  // Reset guided intake with confirmation if data was entered.
+  const handleCancelIntake = async () => {
+    const hasData = guidedCallData.firstName.trim() ||
+      guidedCallData.lastName.trim() ||
+      guidedCallData.pickupAddress.trim() ||
+      guidedCallData.tripDate.trim();
+
+    if (hasData) {
+      const ok = await confirm({
+        title: "Cancel intake?",
+        message: "All entered data will be lost. This action cannot be undone.",
+        variant: "danger",
+        confirmLabel: "Cancel Intake",
+      });
+      if (!ok) return;
+    }
+
+    resetGuidedWorkflow();
     setShowPatientLookupDrawer(false);
   };
 
@@ -483,140 +505,31 @@ function CallFormPage() {
 
   return (
     <div className="page-stack">
-      <div className="page-summary-grid">
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaPhoneAlt />
-          </div>
-
-          <div>
-            <div className="page-summary-value">Call</div>
-            <div className="page-summary-label">Intake Module</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon">
-            <FaUserInjured />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {guidedCallData.patientId ? "Linked" : "Patient"}
-            </div>
-            <div className="page-summary-label">Patient Record</div>
-          </div>
-        </div>
-
-        <div className="page-summary-card">
-          <div className="page-summary-icon warning">
-            <FaClipboardList />
-          </div>
-
-          <div>
-            <div className="page-summary-value">
-              {intakeMode === "classic" ? "Classic" : "Guided"}
-            </div>
-            <div className="page-summary-label">Current Mode</div>
-          </div>
-        </div>
-      </div>
-
-      <section className="content-panel">
-        <div className="content-panel-header">
-          <div>
-            <h4>Call Intake</h4>
-            <p>
-              Start a new EMS call record using the classic full form or the
-              guided step-by-step workflow.
-            </p>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              className={`btn btn-sm ${
-                intakeMode === "classic" ? "btn-primary" : "btn-outline-primary"
-              }`}
-              onClick={handleUseClassicMode}
-            >
-              Classic Form
-            </button>
-
-            <button
-              type="button"
-              className={`btn btn-sm ${
-                intakeMode === "guided" ? "btn-primary" : "btn-outline-primary"
-              }`}
-              onClick={handleStartGuidedIntake}
-            >
-              Guided Intake
-            </button>
-          </div>
-        </div>
-
-        <div className="row g-3">
-          <div className="col-lg-8">
-            <div className="call-intake-start-card">
-              <div>
-                <h5>Start Taking Call</h5>
-
-                <p>
-                  Use this shortcut when a dispatcher needs to begin call intake
-                  immediately. Guided intake starts with patient lookup and then
-                  continues through trip details and review.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-danger d-inline-flex align-items-center gap-2"
-                onClick={handleStartGuidedIntake}
-              >
-                <FaPhoneAlt />
-                Start Taking Call
-              </button>
-            </div>
-          </div>
-
-          <div className="col-lg-4">
-            <div className="call-intake-note-card">
-              <div className="call-intake-note-icon">
-                <FaRoute />
-              </div>
-
-              <div>
-                <h6>Recommended workflow</h6>
-
-                <p>
-                  Search patient first, verify caller type, confirm pickup and
-                  drop-off, then complete service and scheduling details.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {intakeMode === "guided" && (
         <section className="content-panel">
           <div className="content-panel-header">
             <div>
-              <h4>Guided Call Intake</h4>
-              <p>
-                Complete the call in three steps without leaving the guided
-                workflow.
-              </p>
+              <h4>Call Intake</h4>
+              <p>Complete the call in three steps.</p>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-              onClick={resetGuidedWorkflow}
-            >
-              <FaTimes />
-              Reset Guided
-            </button>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                onClick={resetGuidedWorkflow}
+              >
+                <FaTimes />
+                Reset
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={handleUseClassicMode}
+              >
+                Switch to Classic
+              </button>
+            </div>
           </div>
 
           {renderGuidedStepper()}
@@ -1163,18 +1076,33 @@ function CallFormPage() {
         </section>
       )}
 
+      {intakeMode === "guided" && (
+        <section className="content-panel">
+          <div className="content-panel-header">
+            <div>
+              <h4>Price Calculator</h4>
+              <p>Estimate trip pricing based on mileage, crew size, and service details.</p>
+            </div>
+          </div>
+          <PriceCalculator ref={priceCalculatorRef} />
+        </section>
+      )}
+
       {intakeMode === "classic" && (
         <section className="content-panel">
           <div className="content-panel-header">
             <div>
               <h4>Classic Call Form</h4>
-              <p>
-                Full open-form call intake view. This keeps the current working
-                call form available as a separate mode.
-              </p>
+              <p>Full open-form call intake view.</p>
             </div>
 
-            <span className="badge text-bg-primary">Classic</span>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary"
+              onClick={handleStartGuidedIntake}
+            >
+              Switch to Guided
+            </button>
           </div>
 
           <div className="print-wrapper">

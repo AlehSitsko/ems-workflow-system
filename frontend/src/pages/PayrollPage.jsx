@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaMoneyBillWave, FaDownload, FaPlus, FaCheck, FaSearch, FaEdit, FaSave, FaTimes, FaTrash } from "react-icons/fa";
+import { FaMoneyBillWave, FaDownload, FaPlus, FaCheck, FaSearch, FaEdit, FaTrash } from "react-icons/fa";
 import { getPeriods, createPeriod, updatePeriod, updatePeriodStatus, deletePeriod, getPeriodSummary, exportPayroll } from "../api/payrollApi";
 import { getCurrentUser } from "../api/authApi";
+import EntityDrawer from "../components/ui/EntityDrawer";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -44,20 +45,21 @@ export default function PayrollPage() {
   const [selected, setSelected] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
 
-  const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [saving, setSaving] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState("create");
+  const [drawerSaving, setDrawerSaving] = useState(false);
+  const [drawerError, setDrawerError] = useState("");
 
-  const [newPeriod, setNewPeriod] = useState({
+  const [createForm, setCreateForm] = useState({
     start_date: weekAgoStr(),
     end_date: todayStr(),
     period_type: "weekly",
     notes: "",
   });
+
+  const [editForm, setEditForm] = useState({});
 
   const load = useCallback(async () => {
     try { setPeriods(await getPeriods()); } catch { /* noop */ }
@@ -67,7 +69,6 @@ export default function PayrollPage() {
 
   const handleSelect = async (period) => {
     setSelected(period);
-    setEditMode(false);
     setSummary(null);
     setLoadingSummary(true);
     try {
@@ -77,48 +78,70 @@ export default function PayrollPage() {
     setLoadingSummary(false);
   };
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setCreating(true);
-    try {
-      const p = await createPeriod({ ...newPeriod, created_by: currentUser?.id });
-      await load();
-      setShowCreate(false);
-      handleSelect(p);
-    } catch (err) { toast.error("Create failed", err.message); }
-    setCreating(false);
+  const openCreate = () => {
+    setCreateForm({ start_date: weekAgoStr(), end_date: todayStr(), period_type: "weekly", notes: "" });
+    setDrawerError("");
+    setDrawerMode("create");
+    setDrawerOpen(true);
   };
 
-  const startEdit = () => {
+  const openEdit = () => {
+    if (!selected) return;
     setEditForm({
       start_date: selected.start_date,
       end_date: selected.end_date,
       period_type: selected.period_type,
       notes: selected.notes || "",
     });
-    setEditMode(true);
+    setDrawerError("");
+    setDrawerMode("edit");
+    setDrawerOpen(true);
+  };
+
+  const handleDrawerClose = () => {
+    setDrawerOpen(false);
+    setDrawerError("");
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setDrawerSaving(true);
+    setDrawerError("");
+    try {
+      const p = await createPeriod({ ...createForm, created_by: currentUser?.id });
+      await load();
+      handleDrawerClose();
+      handleSelect(p);
+      toast.success("Pay period created", `${p.start_date} → ${p.end_date}`);
+    } catch (err) {
+      setDrawerError(err.message || "Create failed.");
+    }
+    setDrawerSaving(false);
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    setDrawerSaving(true);
+    setDrawerError("");
     try {
       const updated = await updatePeriod(selected.id, editForm);
       setSelected(updated);
-      setEditMode(false);
       await load();
-      // reload summary with new dates
+      handleDrawerClose();
       setLoadingSummary(true);
       try { setSummary(await getPeriodSummary(updated.id)); } catch { /* noop */ }
       finally { setLoadingSummary(false); }
-    } catch (err) { toast.error("Save failed", err.message); }
-    setSaving(false);
+      toast.success("Period updated");
+    } catch (err) {
+      setDrawerError(err.message || "Save failed.");
+    }
+    setDrawerSaving(false);
   };
 
   const handleDelete = async () => {
     if (!selected) return;
     const ok = await confirm({
-      title: `Delete pay period?`,
+      title: "Delete pay period?",
       message: `${selected.start_date} → ${selected.end_date}. This cannot be undone.`,
       variant: "danger",
       confirmLabel: "Delete",
@@ -166,6 +189,19 @@ export default function PayrollPage() {
     total_pay: acc.total_pay + r.total_pay,
   }), { total_hours: 0, regular_hours: 0, ot_hours: 0, total_pay: 0 });
 
+  const drawerFormId = drawerMode === "create" ? "create-period-form" : "edit-period-form";
+
+  const drawerFooter = (
+    <div className="d-flex gap-2">
+      <button type="submit" form={drawerFormId} className="btn btn-primary" disabled={drawerSaving}>
+        {drawerSaving ? "Saving…" : drawerMode === "create" ? "Create" : "Save"}
+      </button>
+      <button type="button" className="btn btn-outline-secondary" onClick={handleDrawerClose}>
+        Cancel
+      </button>
+    </div>
+  );
+
   return (
     <div className="page-stack">
       <div className="content-panel-header" style={{ marginBottom: 0 }}>
@@ -173,60 +209,21 @@ export default function PayrollPage() {
           <h4 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <FaMoneyBillWave style={{ color: "#75b798" }} /> Payroll Periods
           </h4>
-          <p style={{ margin: 0, color: "#6c757d", fontSize: 13 }}>Pay period management, approval, and CSV export</p>
+          <p style={{ margin: 0, color: "var(--ems-text-muted)", fontSize: 13 }}>Pay period management, approval, and CSV export</p>
         </div>
         {canManage && (
-          <button className="btn btn-sm btn-primary d-flex align-items-center gap-1" onClick={() => setShowCreate(!showCreate)}>
+          <button className="btn btn-sm btn-primary d-flex align-items-center gap-1" onClick={openCreate}>
             <FaPlus /> New Period
           </button>
         )}
       </div>
-
-      {showCreate && canManage && (
-        <div className="content-panel" style={{ background: "#1a2236", border: "1px solid #2a3347" }}>
-          <form onSubmit={handleCreate}>
-            <div style={{ fontSize: 12, color: "#6c757d", marginBottom: 12, fontWeight: 700, textTransform: "uppercase" }}>Create Pay Period</div>
-            <div className="row g-2">
-              <div className="col-md-3">
-                <label className="form-label" style={{ fontSize: 12, color: "#adb5bd" }}>Start Date</label>
-                <input type="date" className="form-control form-control-sm" value={newPeriod.start_date}
-                  onChange={e => setNewPeriod(p => ({ ...p, start_date: e.target.value }))} required />
-              </div>
-              <div className="col-md-3">
-                <label className="form-label" style={{ fontSize: 12, color: "#adb5bd" }}>End Date</label>
-                <input type="date" className="form-control form-control-sm" value={newPeriod.end_date}
-                  onChange={e => setNewPeriod(p => ({ ...p, end_date: e.target.value }))} required />
-              </div>
-              <div className="col-md-2">
-                <label className="form-label" style={{ fontSize: 12, color: "#adb5bd" }}>Type</label>
-                <select className="form-select form-select-sm" value={newPeriod.period_type}
-                  onChange={e => setNewPeriod(p => ({ ...p, period_type: e.target.value }))}>
-                  <option value="weekly">Weekly</option>
-                  <option value="biweekly">Bi-weekly</option>
-                </select>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label" style={{ fontSize: 12, color: "#adb5bd" }}>Notes</label>
-                <input type="text" className="form-control form-control-sm" value={newPeriod.notes}
-                  onChange={e => setNewPeriod(p => ({ ...p, notes: e.target.value }))} placeholder="Optional" />
-              </div>
-            </div>
-            <div className="d-flex gap-2 mt-3">
-              <button type="submit" className="btn btn-sm btn-primary" disabled={creating}>
-                {creating ? "Creating…" : "Create"}
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-            </div>
-          </form>
-        </div>
-      )}
 
       <div className="row g-3" style={{ flex: 1 }}>
         {/* Period list */}
         <div className="col-md-4">
           <div className="content-panel" style={{ height: "100%", minHeight: 300 }}>
             <div className="d-flex align-items-center gap-2 mb-3">
-              <FaSearch style={{ color: "#6c757d", fontSize: 12 }} />
+              <FaSearch style={{ color: "var(--ems-text-muted)", fontSize: 12 }} />
               <input
                 type="text"
                 className="form-control form-control-sm"
@@ -245,8 +242,8 @@ export default function PayrollPage() {
                     key={p.id}
                     onClick={() => handleSelect(p)}
                     style={{
-                      background: selected?.id === p.id ? "#1a2236" : "transparent",
-                      border: `1px solid ${selected?.id === p.id ? "#6ea8fe" : "#e4e8f0"}`,
+                      background: selected?.id === p.id ? "var(--ems-bg-surface-2)" : "transparent",
+                      border: `1px solid ${selected?.id === p.id ? "#6ea8fe" : "var(--ems-border)"}`,
                       borderRadius: 8,
                       padding: "10px 14px",
                       textAlign: "left",
@@ -255,12 +252,12 @@ export default function PayrollPage() {
                     }}
                   >
                     <div className="d-flex align-items-center justify-content-between mb-1">
-                      <span style={{ fontSize: 13, fontWeight: 700, color: selected?.id === p.id ? "#e9ecef" : "#101828" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ems-text-primary)" }}>
                         {p.start_date} → {p.end_date}
                       </span>
                       <StatusBadge status={p.status} />
                     </div>
-                    <div style={{ fontSize: 11, color: "#6c757d" }}>{p.period_type} · #{p.id}</div>
+                    <div style={{ fontSize: 11, color: "var(--ems-text-muted)" }}>{p.period_type} · #{p.id}</div>
                   </button>
                 ))}
               </div>
@@ -271,63 +268,26 @@ export default function PayrollPage() {
         {/* Period detail */}
         <div className="col-md-8">
           {!selected ? (
-            <div className="content-panel d-flex align-items-center justify-content-center" style={{ minHeight: 300, color: "#6c757d" }}>
+            <div className="content-panel d-flex align-items-center justify-content-center" style={{ minHeight: 300, color: "var(--ems-text-muted)" }}>
               <p>Select a pay period to view details</p>
             </div>
           ) : (
             <div className="content-panel">
-              {/* Edit form */}
-              {editMode && canManage ? (
-                <form onSubmit={handleSaveEdit} className="mb-3">
-                  <div style={{ fontSize: 12, color: "#6c757d", marginBottom: 10, fontWeight: 700, textTransform: "uppercase" }}>Edit Period</div>
-                  <div className="row g-2">
-                    <div className="col-md-3">
-                      <label className="form-label" style={{ fontSize: 12 }}>Start Date</label>
-                      <input type="date" className="form-control form-control-sm" value={editForm.start_date}
-                        onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} required />
-                    </div>
-                    <div className="col-md-3">
-                      <label className="form-label" style={{ fontSize: 12 }}>End Date</label>
-                      <input type="date" className="form-control form-control-sm" value={editForm.end_date}
-                        onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))} required />
-                    </div>
-                    <div className="col-md-2">
-                      <label className="form-label" style={{ fontSize: 12 }}>Type</label>
-                      <select className="form-select form-select-sm" value={editForm.period_type}
-                        onChange={e => setEditForm(f => ({ ...f, period_type: e.target.value }))}>
-                        <option value="weekly">Weekly</option>
-                        <option value="biweekly">Bi-weekly</option>
-                      </select>
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label" style={{ fontSize: 12 }}>Notes</label>
-                      <input type="text" className="form-control form-control-sm" value={editForm.notes}
-                        onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" />
-                    </div>
-                  </div>
-                  <div className="d-flex gap-2 mt-2">
-                    <button type="submit" className="btn btn-sm btn-primary d-flex align-items-center gap-1" disabled={saving}>
-                      <FaSave /> {saving ? "Saving…" : "Save"}
-                    </button>
-                    <button type="button" className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onClick={() => setEditMode(false)}>
-                      <FaTimes /> Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-              /* Header */
+              {/* Header */}
               <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 800 }}>{selected.start_date} — {selected.end_date}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ems-text-primary)" }}>
+                    {selected.start_date} — {selected.end_date}
+                  </div>
                   <div className="d-flex align-items-center gap-2 mt-1">
                     <StatusBadge status={selected.status} />
-                    <span style={{ fontSize: 12, color: "#6c757d" }}>{selected.period_type}</span>
-                    {selected.notes && <span style={{ fontSize: 12, color: "#6c757d" }}>· {selected.notes}</span>}
+                    <span style={{ fontSize: 12, color: "var(--ems-text-muted)" }}>{selected.period_type}</span>
+                    {selected.notes && <span style={{ fontSize: 12, color: "var(--ems-text-muted)" }}>· {selected.notes}</span>}
                   </div>
                 </div>
                 {canManage && (
                   <div className="d-flex gap-2 flex-wrap">
-                    <button className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onClick={startEdit}>
+                    <button className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onClick={openEdit}>
                       <FaEdit /> Edit
                     </button>
                     <button className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" onClick={handleDelete}>
@@ -354,7 +314,6 @@ export default function PayrollPage() {
                   </div>
                 )}
               </div>
-              )}
 
               {/* Totals */}
               {totals && (
@@ -365,9 +324,9 @@ export default function PayrollPage() {
                     { label: "Overtime", value: totals.ot_hours.toFixed(1) + "h", color: totals.ot_hours > 0 ? "#ffc107" : undefined },
                     { label: "Est. Total Pay", value: "$" + totals.total_pay.toFixed(2), color: "#75b798" },
                   ].map(s => (
-                    <div key={s.label} style={{ background: "#f5f7fb", borderRadius: 8, padding: "8px 16px", minWidth: 100 }}>
-                      <div style={{ fontSize: 10, color: "#6c757d", textTransform: "uppercase", marginBottom: 2 }}>{s.label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: s.color || "#101828" }}>{s.value}</div>
+                    <div key={s.label} style={{ background: "var(--ems-bg-surface-2)", borderRadius: 8, padding: "8px 16px", minWidth: 100 }}>
+                      <div style={{ fontSize: 10, color: "var(--ems-text-muted)", textTransform: "uppercase", marginBottom: 2 }}>{s.label}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: s.color || "var(--ems-text-primary)" }}>{s.value}</div>
                     </div>
                   ))}
                 </div>
@@ -382,7 +341,7 @@ export default function PayrollPage() {
                 <div style={{ overflowX: "auto" }}>
                   <table className="table table-sm table-hover" style={{ fontSize: 13 }}>
                     <thead>
-                      <tr style={{ color: "#6c757d" }}>
+                      <tr style={{ color: "var(--ems-text-muted)" }}>
                         <th>Employee</th>
                         <th className="text-end">Total h</th>
                         <th className="text-end">Regular h</th>
@@ -399,7 +358,7 @@ export default function PayrollPage() {
                         <tr key={r.employee_id}>
                           <td>
                             <div style={{ fontWeight: 600 }}>{r.first_name} {r.last_name}</div>
-                            {r.employee_number && <div style={{ fontSize: 11, color: "#6c757d" }}>#{r.employee_number}</div>}
+                            {r.employee_number && <div style={{ fontSize: 11, color: "var(--ems-text-muted)" }}>#{r.employee_number}</div>}
                           </td>
                           <td className="text-end">{r.total_hours.toFixed(1)}</td>
                           <td className="text-end">{r.regular_hours.toFixed(1)}</td>
@@ -412,7 +371,7 @@ export default function PayrollPage() {
                             ${r.ot_pay.toFixed(2)}
                           </td>
                           <td className="text-end" style={{ fontWeight: 700 }}>${r.total_pay.toFixed(2)}</td>
-                          <td className="text-end" style={{ color: "#6c757d" }}>{r.entry_count}</td>
+                          <td className="text-end" style={{ color: "var(--ems-text-muted)" }}>{r.entry_count}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -423,6 +382,77 @@ export default function PayrollPage() {
           )}
         </div>
       </div>
+
+      {/* Create / Edit Drawer */}
+      <EntityDrawer
+        open={drawerOpen}
+        onClose={handleDrawerClose}
+        title={drawerMode === "create" ? "New Pay Period" : `Edit: ${selected?.start_date} → ${selected?.end_date}`}
+        subtitle={drawerMode === "create" ? "Define a new payroll period" : "Update pay period details"}
+        footer={drawerFooter}
+      >
+        {drawerError && (
+          <div className="alert alert-danger mb-3">{drawerError}</div>
+        )}
+
+        {drawerMode === "create" ? (
+          <form id="create-period-form" onSubmit={handleCreate}>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label">Start Date</label>
+                <input type="date" className="form-control" value={createForm.start_date}
+                  onChange={e => setCreateForm(f => ({ ...f, start_date: e.target.value }))} required />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">End Date</label>
+                <input type="date" className="form-control" value={createForm.end_date}
+                  onChange={e => setCreateForm(f => ({ ...f, end_date: e.target.value }))} required />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Type</label>
+                <select className="form-select" value={createForm.period_type}
+                  onChange={e => setCreateForm(f => ({ ...f, period_type: e.target.value }))}>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Notes</label>
+                <input type="text" className="form-control" value={createForm.notes}
+                  onChange={e => setCreateForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" />
+              </div>
+            </div>
+          </form>
+        ) : (
+          <form id="edit-period-form" onSubmit={handleSaveEdit}>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label">Start Date</label>
+                <input type="date" className="form-control" value={editForm.start_date}
+                  onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} required />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">End Date</label>
+                <input type="date" className="form-control" value={editForm.end_date}
+                  onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))} required />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Type</label>
+                <select className="form-select" value={editForm.period_type}
+                  onChange={e => setEditForm(f => ({ ...f, period_type: e.target.value }))}>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Notes</label>
+                <input type="text" className="form-control" value={editForm.notes}
+                  onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" />
+              </div>
+            </div>
+          </form>
+        )}
+      </EntityDrawer>
     </div>
   );
 }
