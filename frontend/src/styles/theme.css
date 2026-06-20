@@ -154,8 +154,6 @@
 }
 
 /* ─── Dispatch Board Tokens ──────────────────── */
-/* Declared outside :root / dark so both themes   */
-/* override them in the blocks below.              */
 
 :root {
   --ems-board-bg:           #f0f4f8;
@@ -179,7 +177,7 @@
   --ems-board-bg-header:    #0f1520;
   --ems-board-bg-left:      #0b1120;
   --ems-board-bg-card:      #182030;
-  --ems-board-bg-card-alt:  #151b27;
+  --ems-board-bg-card-alt:  #1e2535;
   --ems-board-bg-input:     #1e2430;
   --ems-board-bg-badge:     #1a2235;
   --ems-board-border:       #2a3347;
@@ -188,4 +186,5 @@
   --ems-board-text-muted:   #6c757d;
   --ems-board-text-dark:    #475569;
   --ems-board-tab-inactive: #334155;
+  --ems-board-divider-col:  col-resize;
 }

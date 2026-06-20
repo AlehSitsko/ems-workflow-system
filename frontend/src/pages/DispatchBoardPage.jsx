@@ -170,10 +170,9 @@ function UnitTypeBadge({ unitType }) {
       fontWeight: 700,
       fontSize: 13,
       letterSpacing: 1,
-      background: als ? "rgba(13,110,253,0.18)" : "rgba(25,135,84,0.18)",
-      color: als ? "#6ea8fe" : "#75b798",
-      border: `1px solid ${als ? "#6ea8fe88" : "#75b79888"}`,
-      boxShadow: als ? "0 0 8px rgba(110,168,254,0.3)" : "0 0 8px rgba(117,183,152,0.3)",
+      background: als ? "rgba(29,78,216,0.15)" : "rgba(22,101,52,0.15)",
+      color: als ? "#1d4ed8" : "#166534",
+      border: `1px solid ${als ? "rgba(29,78,216,0.5)" : "rgba(22,101,52,0.5)"}`,
     }}>
       {unitType || "—"}
     </span>
@@ -215,7 +214,7 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
       {/* Top row: name + badges */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 4, marginBottom: 4 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: isCancelled ? "#6b7280" : isCompleted ? "#86efac" : "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: isCancelled ? "var(--ems-board-text-muted)" : isCompleted ? "#22c55e" : "var(--ems-board-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {call.patient_name || `Call #${call.id}`}
           </div>
           {(isReturn || willCall) && (
@@ -229,7 +228,7 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
           {isCancelled && <span style={{ fontSize: 9, color: "#6b7280", background: "rgba(107,114,128,0.15)", border: "1px solid rgba(107,114,128,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>CNCL</span>}
           {isCompleted && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>DONE</span>}
           {emergency && !isCancelled && <span style={{ fontSize: 9, color: "#f87171", background: "rgba(220,53,69,0.15)", border: "1px solid rgba(220,53,69,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>EMRG</span>}
-          <span style={{ fontSize: 9, color: als ? "#60a5fa" : "#94a3b8", background: als ? "rgba(96,165,250,0.12)" : "rgba(148,163,184,0.1)", border: `1px solid ${als ? "rgba(96,165,250,0.25)" : "rgba(148,163,184,0.2)"}`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
+          <span style={{ fontSize: 9, color: als ? "#1d4ed8" : "#166534", background: als ? "rgba(29,78,216,0.12)" : "rgba(22,101,52,0.12)", border: `1px solid ${als ? "rgba(29,78,216,0.4)" : "rgba(22,101,52,0.4)"}`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
             {als ? "ALS" : "BLS"}
           </span>
         </div>
@@ -237,8 +236,8 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
 
       {/* Time */}
       {!willCall && call.pickup_time && (
-        <div style={{ fontSize: 11, color: "#475569", marginBottom: 3 }}>
-          <span style={{ color: "#64748b" }}>🕐</span> {call.pickup_time}
+        <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>
+          🕐 {call.pickup_time}
           {call.appointment_time && !isReturn && <span style={{ color: "var(--ems-board-tab-inactive)", marginLeft: 6 }}>appt {call.appointment_time}</span>}
         </div>
       )}
@@ -246,8 +245,8 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
 
       {/* Route */}
       {call.pickup_address && (
-        <div style={{ fontSize: 10, color: "var(--ems-board-tab-inactive)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {call.pickup_address}{call.dropoff_address ? <span style={{ color: "var(--ems-board-border-light)" }}> → {call.dropoff_address}</span> : ""}
+        <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {call.pickup_address}{call.dropoff_address ? <> → {call.dropoff_address}</> : ""}
         </div>
       )}
 
@@ -286,7 +285,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
         <div className="d-flex align-items-start gap-2">
           <div className="flex-grow-1 min-width-0">
             <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
-              <span className="fw-semibold" style={{ color: "var(--ems-board-text)", fontSize: 13 }}>
+              <span className="fw-bold" style={{ color: "var(--ems-board-text)", fontSize: 13 }}>
                 {call.patient_name || `Call #${call.id}`}
               </span>
               {willCall ? (
@@ -302,7 +301,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
               {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
               {isCurrent && unitStatus && <StatusPill status={unitStatus} size="sm" />}
               {!isCurrent && (
-                <span style={{ fontSize: 10, color: "#495057", background: "var(--ems-board-bg-input)", padding: "1px 6px", borderRadius: 4 }}>
+                <span style={{ fontSize: 10, color: "var(--ems-board-text-muted)", background: "var(--ems-board-bg-input)", padding: "1px 6px", borderRadius: 4 }}>
                   QUEUED
                 </span>
               )}
@@ -326,13 +325,13 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
                 </button>
               </div>
             ) : call.pickup_time ? (
-              <div style={{ fontSize: 11, color: "#adb5bd" }}>
+              <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>
                 🕐 {call.pickup_time}
                 {call.appointment_time ? ` · appt ${call.appointment_time}` : ""}
               </div>
             ) : null}
             {call.pickup_address && (
-              <div className="text-truncate" style={{ fontSize: 11, color: "#6c757d" }}>
+              <div className="text-truncate" style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>
                 {call.pickup_address} → {call.dropoff_address}
               </div>
             )}
@@ -376,9 +375,9 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
             <span className="text-muted" style={{ fontSize: 10 }}>unassigned to unit</span>
           </div>
           {ret.returnTime && (
-            <div style={{ fontSize: 11, color: "#adb5bd" }}>🕐 {ret.returnTime}</div>
+            <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>🕐 {ret.returnTime}</div>
           )}
-          <div className="text-truncate" style={{ fontSize: 11, color: "#6c757d" }}>
+          <div className="text-truncate" style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>
             {ret.returnPickup} → {ret.returnDestination}
           </div>
         </div>
@@ -402,7 +401,7 @@ function CompletedCallCard({ call, onCardClick }) {
           <span className="text-muted fw-semibold" style={{ fontSize: 13, textDecoration: "line-through" }}>
             {call.patient_name || `Call #${call.id}`}
           </span>
-          <span style={{ fontSize: 10, color: "#6c757d", background: "var(--ems-board-border)", padding: "1px 6px", borderRadius: 4 }}>
+          <span style={{ fontSize: 10, color: "var(--ems-board-text-muted)", background: "var(--ems-board-border)", padding: "1px 6px", borderRadius: 4 }}>
             COMPLETED
           </span>
           {call.pickup_time && (
@@ -410,7 +409,7 @@ function CompletedCallCard({ call, onCardClick }) {
           )}
         </div>
         {call.pickup_address && (
-          <div className="text-truncate" style={{ fontSize: 11, color: "#495057" }}>
+          <div className="text-truncate" style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>
             {call.pickup_address} → {call.dropoff_address}
           </div>
         )}
@@ -468,8 +467,8 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const Section = ({ icon: Icon, title, children }) => (
     <div style={{ marginBottom: 14 }}>
       <div className="d-flex align-items-center gap-2 mb-2">
-        <span style={{ color: "#6c757d", fontSize: 12 }}><Icon /></span>
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#6c757d", textTransform: "uppercase" }}>{title}</span>
+        <span style={{ color: "var(--ems-board-text-muted)", fontSize: 12 }}><Icon /></span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "var(--ems-board-text-muted)", textTransform: "uppercase" }}>{title}</span>
         <div style={{ flex: 1, height: 1, background: "var(--ems-board-border)" }} />
       </div>
       {children}
@@ -501,11 +500,11 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                     {(call.service_level || "—").toUpperCase()}
                   </span>
                   {isCompleted ? (
-                    <span style={{ fontSize: 11, color: "#adb5bd", background: "rgba(108,117,125,0.2)", padding: "2px 8px", borderRadius: 20, border: "1px solid #49505744" }}>✓ Completed</span>
+                    <span style={{ fontSize: 11, color: "var(--ems-board-text-muted)", background: "rgba(108,117,125,0.2)", padding: "2px 8px", borderRadius: 20, border: "1px solid #49505744" }}>✓ Completed</span>
                   ) : (
                     <span style={{ fontSize: 11, color: "#75b798", background: "rgba(25,135,84,0.15)", padding: "2px 8px", borderRadius: 20, border: "1px solid #75b79844" }}>● Active</span>
                   )}
-                  <span style={{ fontSize: 11, color: "#6c757d" }}>#{call.id}</span>
+                  <span style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>#{call.id}</span>
                 </div>
               </div>
               <button className="btn-close btn-close-white" style={{ fontSize: 11, opacity: 0.6 }} onClick={onClose} />
@@ -525,11 +524,11 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>PICKUP</div>
+                      <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 2 }}>PICKUP</div>
                       <div style={{ fontSize: 13, color: "var(--ems-board-text)", fontWeight: 500 }}>{call.pickup_address || "—"}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>DROP-OFF</div>
+                      <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 2 }}>DROP-OFF</div>
                       <div style={{ fontSize: 13, color: "var(--ems-board-text)", fontWeight: 500 }}>{call.dropoff_address || "—"}</div>
                     </div>
                   </div>
@@ -541,16 +540,16 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
             <Section icon={FaClock} title="Schedule">
               <div className="d-flex gap-2">
                 <div style={{ flex: 1, background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px" }}>
-                  <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 3 }}>PICKUP TIME</div>
+                  <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>PICKUP TIME</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ems-board-text)" }}>{call.pickup_time || "—"}</div>
                 </div>
                 <div style={{ flex: 1, background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px" }}>
-                  <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 3 }}>APPT TIME</div>
+                  <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>APPT TIME</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ems-board-text)" }}>{call.appointment_time || "—"}</div>
                 </div>
                 <div style={{ flex: 1, background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px" }}>
-                  <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 3 }}>TRIP DATE</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#adb5bd" }}>{call.trip_date || "—"}</div>
+                  <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>TRIP DATE</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ems-board-text-muted)" }}>{call.trip_date || "—"}</div>
                 </div>
               </div>
             </Section>
@@ -561,19 +560,19 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                 <div className="d-flex gap-2 flex-wrap">
                   {dob && (
                     <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "7px 12px", minWidth: 120 }}>
-                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>DATE OF BIRTH</div>
+                      <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 2 }}>DATE OF BIRTH</div>
                       <div style={{ fontSize: 13, color: "var(--ems-board-text)" }}>{dob}</div>
                     </div>
                   )}
                   {phone && (
                     <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "7px 12px", minWidth: 140 }}>
-                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>PHONE</div>
+                      <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 2 }}>PHONE</div>
                       <div style={{ fontSize: 13, color: "var(--ems-board-text)" }}><FaPhoneAlt style={{ fontSize: 10, marginRight: 4 }} />{phone}</div>
                     </div>
                   )}
                   {dispatcher && (
                     <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "7px 12px", minWidth: 120 }}>
-                      <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2 }}>DISPATCHER</div>
+                      <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 2 }}>DISPATCHER</div>
                       <div style={{ fontSize: 13, color: "var(--ems-board-text)" }}><FaIdBadge style={{ fontSize: 10, marginRight: 4 }} />{dispatcher}</div>
                     </div>
                   )}
@@ -597,7 +596,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                   <div style={{ fontSize: 12, color: "#6ea8fe" }}>
                     {ret.returnPickup} <FaArrowRight style={{ fontSize: 9 }} /> {ret.returnDestination}
                   </div>
-                  <div style={{ fontSize: 11, color: "#adb5bd", marginTop: 3 }}>
+                  <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)", marginTop: 3 }}>
                     {ret.returnTime ? `@ ${ret.returnTime}` : "Will Call"}
                   </div>
                 </div>
@@ -607,7 +606,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
             {/* Additional notes */}
             {cleanNotes && (
               <Section icon={FaClipboardList} title="Notes">
-                <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#adb5bd", whiteSpace: "pre-wrap", maxHeight: 80, overflowY: "auto" }}>
+                <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--ems-board-text-muted)", whiteSpace: "pre-wrap", maxHeight: 80, overflowY: "auto" }}>
                   {cleanNotes}
                 </div>
               </Section>
@@ -638,7 +637,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                 </button>
                 <button
                   className="btn btn-sm"
-                  style={{ background: "transparent", color: "#6c757d", border: "1px solid var(--ems-board-border)", fontSize: 13 }}
+                  style={{ background: "transparent", color: "var(--ems-board-text-muted)", border: "1px solid var(--ems-board-border)", fontSize: 13 }}
                   onClick={() => { setShowCancelForm(false); setCancelReason(""); setCancelError(""); }}
                 >
                   Back
@@ -662,7 +661,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                     </button>
                     <button
                       className="btn btn-sm"
-                      style={{ background: "rgba(108,117,125,0.12)", color: "#adb5bd", border: "1px solid #49505755", fontSize: 13, padding: "6px 14px" }}
+                      style={{ background: "rgba(108,117,125,0.12)", color: "var(--ems-board-text-muted)", border: "1px solid #49505755", fontSize: 13, padding: "6px 14px" }}
                       onClick={() => { onUnassign(call.assignment_id); onClose(); }}
                     >
                       ↩ Unassign
@@ -703,7 +702,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
             )}
             <button
               className="btn btn-sm ms-auto"
-              style={{ background: "transparent", color: "#6c757d", border: "1px solid #2a3347", fontSize: 13, padding: "6px 14px" }}
+              style={{ background: "transparent", color: "var(--ems-board-text-muted)", border: "1px solid #2a3347", fontSize: 13, padding: "6px 14px" }}
               onClick={onClose}
             >
               Close
@@ -1001,11 +1000,11 @@ export default function DispatchBoardPage() {
 
       {/* Header */}
       <div className="d-flex align-items-center gap-3 px-3 py-2" style={{ background: "var(--ems-board-bg-header)", borderBottom: "1px solid #2a3347", flexShrink: 0 }}>
-        <h5 className="mb-0 fw-bold" style={{ color: "var(--ems-board-text)" }}>Dispatch Board</h5>
+        <h5 className="mb-0 fw-bold" style={{ color: "var(--ems-board-text)", fontSize: 16 }}>Dispatch Board</h5>
         <input
           type="date"
           className="form-control form-control-sm"
-          style={{ width: 160, background: "var(--ems-board-bg-input)", color: "#fff", border: "1px solid #2a3347" }}
+          style={{ width: 160, background: "var(--ems-board-bg-input)", color: "var(--ems-board-text)", border: "1px solid var(--ems-board-border)" }}
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
@@ -1153,12 +1152,12 @@ export default function DispatchBoardPage() {
             <table className="table table-hover mb-0 dispatch-board-table" style={{ fontSize: 13 }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--ems-board-bg-header)", zIndex: 1 }}>
                 <tr>
-                  <th style={{ width: 80, color: "#6c757d", fontWeight: 500 }}>Unit</th>
-                  <th style={{ width: 110, color: "#6c757d", fontWeight: 500 }}>Type</th>
-                  <th style={{ width: 200, color: "#6c757d", fontWeight: 500 }}>Status</th>
-                  <th style={{ width: 60, color: "#6c757d", fontWeight: 500 }}>Crew</th>
-                  <th style={{ color: "#6c757d", fontWeight: 500 }}>Assigned Calls</th>
-                  <th style={{ width: 110, color: "#6c757d", fontWeight: 500 }}></th>
+                  <th style={{ width: 80, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Unit</th>
+                  <th style={{ width: 110, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Type</th>
+                  <th style={{ width: 200, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
+                  <th style={{ width: 60, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Crew</th>
+                  <th style={{ color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Assigned Calls</th>
+                  <th style={{ width: 110 }}></th>
                 </tr>
               </thead>
               <tbody style={{ background: "var(--ems-board-bg)" }}>
@@ -1186,7 +1185,7 @@ export default function DispatchBoardPage() {
                         outline: isDragOver ? "1px dashed #ffc107" : undefined,
                       }}
                     >
-                      <td className="fw-bold align-middle" style={{ color: "var(--ems-board-text)" }}>{unit.truckNumber}</td>
+                      <td className="fw-bold align-middle" style={{ color: "var(--ems-board-text)", fontSize: 15 }}>{unit.truckNumber}</td>
                       <td className="align-middle"><UnitTypeBadge unitType={unit.unitType} /></td>
                       <td className="align-middle">
                         <StatusPill status={unit.dispatchStatus} />
@@ -1203,10 +1202,11 @@ export default function DispatchBoardPage() {
                               key={c.id}
                               className="badge"
                               style={{
-                                background: isEmergencyCall(c) ? "rgba(220,53,69,0.2)" : "rgba(108,117,125,0.2)",
-                                color: isEmergencyCall(c) ? "#ea868f" : "#adb5bd",
+                                background: isEmergencyCall(c) ? "rgba(220,53,69,0.15)" : "var(--ems-board-bg-badge)",
+                                color: isEmergencyCall(c) ? "#dc2626" : "var(--ems-board-text)",
                                 fontSize: 11,
-                                border: `1px solid ${isEmergencyCall(c) ? "#dc354544" : "#49505744"}`,
+                                fontWeight: 600,
+                                border: `1px solid ${isEmergencyCall(c) ? "#dc354588" : "var(--ems-board-border)"}`,
                               }}
                             >
                               {c.patient_name || `#${c.id}`}
@@ -1216,7 +1216,7 @@ export default function DispatchBoardPage() {
                             </span>
                           ))}
                           {(unit.completedCalls || []).map((c) => (
-                            <span key={`done-${c.id}`} className="badge" style={{ background: "var(--ems-board-bg-input)", color: "#495057", fontSize: 11, textDecoration: "line-through" }}>
+                            <span key={`done-${c.id}`} className="badge" style={{ background: "var(--ems-board-bg-input)", color: "var(--ems-board-text-muted)", fontSize: 11, textDecoration: "line-through" }}>
                               {c.patient_name || `#${c.id}`}
                             </span>
                           ))}
@@ -1234,9 +1234,10 @@ export default function DispatchBoardPage() {
                             style={{
                               fontSize: 11,
                               padding: "3px 10px",
-                              background: "transparent",
-                              border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#495057"}55`,
-                              color: STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#6c757d",
+                              background: STATUS_BG[STATUS_NEXT[unit.dispatchStatus]] || "transparent",
+                              border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#49505788"}`,
+                              color: STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "var(--ems-board-text-muted)",
+                              fontWeight: 600,
                               whiteSpace: "nowrap",
                             }}
                             onClick={() => handleUnitDoubleClick(unit)}
@@ -1300,9 +1301,10 @@ export default function DispatchBoardPage() {
                       disabled={active}
                       style={{
                         fontSize: 12,
-                        background: active ? `${c}22` : "transparent",
-                        color: active ? c : "#6c757d",
-                        border: `1px solid ${active ? c + "55" : "var(--ems-board-border)"}`,
+                        background: active ? STATUS_BG[s] : "transparent",
+                        color: active ? c : "var(--ems-board-text-muted)",
+                        border: `1px solid ${active ? c + "88" : "var(--ems-board-border)"}`,
+                        fontWeight: active ? 700 : 400,
                       }}
                       onClick={() => handleStatusChange(selectedUnit.id, s)}
                     >
