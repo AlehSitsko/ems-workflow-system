@@ -10,4 +10,16 @@ export const getLoggedDispatcherName = () => {
   }
 };
 
-export const getTodayDate = () => new Date().toISOString().split("T")[0];
+export const getTodayDate = () => {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+};
+
+// Local time ISO string without UTC offset — used for received_at and timestamps
+// so the backend stores human-readable local time, not UTC.
+export const localIsoNow = () => {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};

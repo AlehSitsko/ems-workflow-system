@@ -622,8 +622,12 @@ GET     /api/patient/<patient_id>/calls
 ### Calls
 
 ```text
-GET   /api/calls
-POST  /api/calls
+GET    /api/calls
+POST   /api/calls
+PUT    /api/calls/<call_id>
+PATCH  /api/calls/<call_id>/cancel
+PATCH  /api/calls/<call_id>/uncancel
+PATCH  /api/calls/<call_id>/pickup-time
 ```
 
 ### Analytics
@@ -639,6 +643,7 @@ GET     /api/dispatch/board?date=<YYYY-MM-DD>
 POST    /api/dispatch/assign
 DELETE  /api/dispatch/assign/<assignment_id>
 PATCH   /api/dispatch/assign/<assignment_id>/complete
+PATCH   /api/dispatch/assign/<assignment_id>/reopen
 PATCH   /api/dispatch/units/<unit_id>/status
 ```
 
@@ -882,6 +887,42 @@ Recommended workflow:
 * Structured lines (Dispatcher, Phone, Caller note) extracted from Call.notes into proper columns
 * One-time migration script: `backend/scripts/migrate_notes_to_columns.py`
 * Frontend regex fallback removed — all fields read directly from dedicated columns
+
+### UI Standardization — Phase 3 (complete)
+
+* Patient list cards redesigned to match Calls card style — 6-column grid: Name/DOB | Phone | Insurance | Home Address | Default Service (inline select) | Actions
+* Default Service Level inline-editable per patient directly from the list — saved via `PUT /api/patient/<id>` with immediate local state update
+* Employee list cards redesigned — 6-column grid: Name/#/Hired | Phone+Email | Role/Status | Certifications (CPR/EVOC/EMT/Para compact badges) | Positions | Actions
+* Certification badges color-coded: green (active) / amber (expiring) / grey (expired/none)
+
+### Call Dispatch Lifecycle Timestamps (complete)
+
+* Five new fields on `Call` model: `dispatched_at`, `arrived_pickup_at`, `patient_loaded_at`, `arrived_dest_at`, `completed_at`
+* Set automatically by unit status transitions on Dispatch Board: `en_route → dispatched_at`, `on_scene → arrived_pickup_at`, `transporting → patient_loaded_at`, `at_destination → arrived_dest_at`; `complete assignment → completed_at`
+* Dispatch Timeline section in Call drawer Summary tab — vertical timeline with color-coded milestones
+* Supervisor/Admin Edit tab expanded — all lifecycle timestamps + `received_at` + `status` override editable with datetime-local inputs
+* All timestamp edits logged to Audit Log as `call.updated` with `note: "timestamp_edit"` and `changed_fields`
+
+### TimeInput — Global Format Toggle (complete)
+
+* `showFormatToggle` prop on `TimeInput` — format toggle rendered only where `showFormatToggle` is set (Pickup Time field)
+* All other time fields on the same page show H:MM + AM/PM inputs without their own toggle
+* Format change broadcasts via `CustomEvent("ems-time-format")` so all `TimeInput` instances on the page switch simultaneously
+* Format preference persisted in `localStorage` — applies across page reloads
+
+### Timezone / Timestamp Consistency (complete)
+
+* All backend timestamp writes standardized to naive local time: `datetime.now().isoformat(timespec="seconds")` — no UTC offset
+* Frontend `received_at` writes use `localIsoNow()` helper (exported from `callUtils.js`) — produces `YYYY-MM-DDTHH:MM:SS` in local time
+* `new Date("YYYY-MM-DDTHH:MM:SS")` treated as local by browsers — `toLocaleString()` displays correct local time with no offset math
+* `datetime-local` inputs read and write values without TZ conversion
+
+### Calls API (complete)
+
+* `PUT /api/calls/<id>` — update any call field post-intake; role-checked (dispatcher+)
+* `PATCH /api/calls/<id>/cancel` — cancel with mandatory reason
+* `PATCH /api/calls/<id>/uncancel` — restore cancelled call to new
+* `PATCH /api/dispatch/assign/<id>/reopen` — reopen completed assignment
 
 ## Roadmap
 

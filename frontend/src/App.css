@@ -884,14 +884,14 @@ textarea.form-control {
 
 .patient-list-card {
   display: grid;
-  grid-template-columns: minmax(260px, 1.4fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(160px, 1.3fr) 110px minmax(110px, 1fr) minmax(150px, 1.2fr) 130px auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.6rem 0.85rem;
   border: 1px solid var(--ems-border);
   border-radius: 10px;
   background: var(--ems-bg-surface);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .patient-list-card:hover {
@@ -1062,6 +1062,50 @@ textarea.form-control {
   margin-top: 0.75rem;
 }
 
+.employee-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.employee-row-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.3fr) 130px 150px minmax(160px, 1fr) minmax(140px, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--ems-border);
+  border-radius: 10px;
+  background: var(--ems-bg-surface);
+  transition: border-color 0.15s ease;
+}
+
+.employee-row-card:hover {
+  border-color: #0d6efd55;
+}
+
+.employee-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.employee-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.employee-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* Legacy card kept for any remaining references */
 .employee-card {
   display: grid;
   grid-template-columns: minmax(260px, 1.15fr) minmax(220px, 1fr) minmax(170px, 0.75fr) minmax(260px, 1.2fr) auto;
@@ -1069,16 +1113,14 @@ textarea.form-control {
   align-items: start;
   padding: 1rem;
   border: 1px solid var(--ems-border);
-  border-radius: 18px;
+  border-radius: 10px;
   background: var(--ems-bg-surface);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .employee-card:hover,
 .planned-unit-card:hover {
-  border-color: var(--ems-card-hover-border);
-  box-shadow: 0 10px 24px var(--ems-shadow);
-  transform: translateY(-1px);
+  border-color: #0d6efd55;
 }
 
 .employee-card-main {
@@ -1093,7 +1135,7 @@ textarea.form-control {
   flex-direction: column;
   gap: 0.35rem;
   color: var(--ems-text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   word-break: break-word;
 }
 

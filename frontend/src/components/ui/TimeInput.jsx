@@ -15,13 +15,21 @@ function h12toH24(h, period) {
   return n === 12 ? 12 : n + 12;
 }
 
-export default function TimeInput({ value, onChange, id }) {
+export default function TimeInput({ value, onChange, id, showFormatToggle = false }) {
   const [fmt, setFmt] = useState(() => {
     try { return localStorage.getItem(PREF_KEY) || "12"; } catch { return "12"; }
   });
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
   const [period, setPeriod] = useState("AM");
+
+  // Sync format when another TimeInput on the page switches it
+  useEffect(() => {
+    const handler = (e) => { if (e.detail && e.detail !== fmt) setFmt(e.detail); };
+    window.addEventListener("ems-time-format", handler);
+    return () => window.removeEventListener("ems-time-format", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync incoming HH:MM value into local state
   useEffect(() => {
@@ -72,6 +80,7 @@ export default function TimeInput({ value, onChange, id }) {
     }
     setFmt(f);
     try { localStorage.setItem(PREF_KEY, f); } catch {}
+    window.dispatchEvent(new CustomEvent("ems-time-format", { detail: f }));
   };
 
   const onHourChange = (v) => {
@@ -150,11 +159,13 @@ export default function TimeInput({ value, onChange, id }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-      {/* Format toggle */}
-      <div style={{ display: "flex", gap: 3 }}>
-        {pill("12h", fmt === "12", () => switchFmt("12"))}
-        {pill("24h", fmt === "24", () => switchFmt("24"))}
-      </div>
+      {/* Format toggle — rendered only when showFormatToggle=true */}
+      {showFormatToggle && (
+        <div style={{ display: "flex", gap: 3 }}>
+          {pill("12h", fmt === "12", () => switchFmt("12"))}
+          {pill("24h", fmt === "24", () => switchFmt("24"))}
+        </div>
+      )}
       {/* Inputs */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input

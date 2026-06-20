@@ -27,8 +27,9 @@ import PriceCalculator from "../components/PriceCalculator";
 // Import the export/print action buttons component.
 import ExportButtons from "../components/ExportButtons";
 
-import { getLoggedDispatcherName, getTodayDate } from "../utils/callUtils";
+import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
 import { useConfirm } from "../components/ui/ConfirmDialog";
+import TimeInput from "../components/ui/TimeInput";
 
 // Initial guided call state.
 const getInitialGuidedCallData = () => ({
@@ -411,7 +412,7 @@ function CallFormPage() {
 
         dispatcher_name: guidedCallData.dispatcherName,
 
-        received_at: new Date().toISOString(),
+        received_at: localIsoNow(),
         status: "new",
 
         date_of_call: guidedCallData.callDate,
@@ -445,7 +446,7 @@ function CallFormPage() {
         const returnPayload = {
           patient_id: finalPatientId,
           dispatcher_name: guidedCallData.dispatcherName,
-          received_at: new Date().toISOString(),
+          received_at: localIsoNow(),
           status: "new",
           date_of_call: guidedCallData.callDate,
           trip_date: guidedCallData.tripDate,
@@ -762,26 +763,19 @@ function CallFormPage() {
 
                   <div className="col-md-3">
                     <label className="form-label">Pickup Time</label>
-
-                    <input
-                      type="time"
-                      className="form-control"
-                      name="pickupTime"
+                    <TimeInput
+                      showFormatToggle
                       value={guidedCallData.pickupTime}
-                      onChange={handleGuidedChange}
+                      onChange={v => setGuidedCallData(prev => ({ ...prev, pickupTime: v }))}
                     />
                   </div>
 
                   {guidedCallData.serviceLevel !== "emergency" && (
                     <div className="col-md-3">
                       <label className="form-label">Appointment Time</label>
-
-                      <input
-                        type="time"
-                        className="form-control"
-                        name="appointmentTime"
+                      <TimeInput
                         value={guidedCallData.appointmentTime}
-                        onChange={handleGuidedChange}
+                        onChange={v => setGuidedCallData(prev => ({ ...prev, appointmentTime: v }))}
                       />
                     </div>
                   )}
@@ -842,13 +836,9 @@ function CallFormPage() {
                       {guidedCallData.returnRideOption === "return" && (
                         <div className="col-md-6">
                           <label className="form-label">Return Time</label>
-
-                          <input
-                            type="time"
-                            className="form-control"
-                            name="returnTime"
+                          <TimeInput
                             value={guidedCallData.returnTime}
-                            onChange={handleGuidedChange}
+                            onChange={v => setGuidedCallData(prev => ({ ...prev, returnTime: v }))}
                           />
                         </div>
                       )}
