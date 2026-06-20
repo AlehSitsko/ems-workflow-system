@@ -857,6 +857,16 @@ Recommended workflow:
 * Call.notes structured fields migrated to dedicated columns (dispatcher_name, caller_phone, caller_note)
 * `docs/UI_STANDARD.md` — reference document for cards vs tables, drawer/modal/toast rules, module patterns, design tokens
 
+### Call Editing + Return Ride from Call History (complete)
+
+* Edit tab added to Call drawer in Calls page — all fields editable post-intake (dispatcher, caller, trip details, addresses, service level, notes)
+* Changes saved via `PUT /api/calls/<id>` and logged to Audit Log as `call.updated` with list of changed fields
+* Return Ride creation from Edit tab — creates a separate call record with reversed addresses, selected service level, and return time
+* Will Call option available — no pickup time set, configured later from Dispatch Board
+* Return service level defaults to BLS when original call is Emergency (patients do not go home as Emergency)
+* Return/Will Call legs blocked from creating their own return leg (guard against duplicate chains)
+* `TimeInput` component — custom time picker replacing native AM/PM selector: separate HH + MM fields, AM/PM as pill buttons, 12h/24h toggle persisted in localStorage
+
 ### UI Standardization — Phase 2 (complete)
 
 * UserManagementPage: full EntityDrawer rewrite — add/edit user in drawer, table-row click to edit, ConfirmDialog for deactivation
@@ -964,7 +974,7 @@ Recommended workflow:
 ## Current Status
 
 ```text
-Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phase 1 + Phase 2 complete
+Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phase 1 + Phase 2 complete, Call Editing + Return Ride from Calls page complete
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 

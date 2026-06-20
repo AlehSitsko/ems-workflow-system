@@ -141,9 +141,12 @@ export default function EntityDrawer({
           <div
             style={{
               display: "flex",
+              gap: 4,
+              padding: "8px 16px",
               borderBottom: "1px solid var(--ems-border)",
               flexShrink: 0,
               overflowX: "auto",
+              background: "var(--ems-bg-surface-2)",
             }}
           >
             {tabs.map((tab) => (
@@ -151,20 +154,17 @@ export default function EntityDrawer({
                 key={tab.key}
                 onClick={() => onTabChange?.(tab.key)}
                 style={{
-                  background: "none",
-                  border: "none",
-                  borderBottom: activeTab === tab.key
-                    ? "2px solid #0d6efd"
-                    : "2px solid transparent",
-                  color: activeTab === tab.key
-                    ? "#0d6efd"
-                    : "var(--ems-text-muted)",
-                  fontWeight: activeTab === tab.key ? 600 : 400,
-                  fontSize: 13,
-                  padding: "0.65rem 1rem",
+                  background: activeTab === tab.key ? "#0d6efd" : "var(--ems-bg-surface)",
+                  border: `1px solid ${activeTab === tab.key ? "#0d6efd" : "var(--ems-border)"}`,
+                  borderRadius: 7,
+                  color: activeTab === tab.key ? "#fff" : "var(--ems-text-secondary)",
+                  fontWeight: activeTab === tab.key ? 700 : 500,
+                  fontSize: 12,
+                  padding: "5px 14px",
                   cursor: "pointer",
                   whiteSpace: "nowrap",
-                  transition: "all 0.15s",
+                  transition: "all 0.13s",
+                  letterSpacing: 0.2,
                 }}
               >
                 {tab.label}

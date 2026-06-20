@@ -59,6 +59,17 @@ export async function getPatientCalls(patientId) {
   return data;
 }
 
+export async function updateCall(callId, callData, headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(callData),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to update call");
+  return data;
+}
+
 export async function cancelCall(callId, cancelReason, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/cancel`, {
     method: "PATCH",
