@@ -619,11 +619,11 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
 
           {/* Cancel form */}
           {showCancelForm && (
-            <div style={{ background: "#1a0f0f", borderTop: "1px solid #dc354544", padding: "12px 18px" }}>
+            <div style={{ background: "var(--ems-board-bg-header)", borderTop: "1px solid #dc354544", padding: "12px 18px" }}>
               <div style={{ fontSize: 12, color: "#ea868f", fontWeight: 600, marginBottom: 6 }}>Cancel Call — Reason Required</div>
               <textarea
                 className="form-control form-control-sm mb-2"
-                style={{ background: "var(--ems-board-bg-card-alt)", color: "#fff", border: "1px solid #dc354555", resize: "vertical", fontSize: 13 }}
+                style={{ background: "var(--ems-board-bg)", color: "var(--ems-board-text)", border: "1px solid #dc354555", resize: "vertical", fontSize: 13 }}
                 rows={2}
                 placeholder="State the reason for cancellation..."
                 value={cancelReason}
@@ -641,7 +641,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                 </button>
                 <button
                   className="btn btn-sm"
-                  style={{ background: "transparent", color: "#6c757d", border: "1px solid #2a3347", fontSize: 13 }}
+                  style={{ background: "transparent", color: "#6c757d", border: "1px solid var(--ems-board-border)", fontSize: 13 }}
                   onClick={() => { setShowCancelForm(false); setCancelReason(""); setCancelError(""); }}
                 >
                   Back
@@ -651,7 +651,7 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
           )}
 
           {/* Footer actions */}
-          <div style={{ background: "var(--ems-board-bg-header)", borderTop: "1px solid #2a3347", padding: "12px 18px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ background: "var(--ems-board-bg-header)", borderTop: "1px solid var(--ems-board-border)", padding: "12px 18px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             {call.status !== "cancelled" && !showCancelForm && (
               <>
                 {!isCompleted && (
@@ -1018,7 +1018,7 @@ export default function DispatchBoardPage() {
         {error && <span className="text-danger small">{error}</span>}
         <span className="ms-auto text-muted small">
           {expandedCalls.length} open · {board.units.length} units ·{" "}
-          <span style={{ color: "#6ea8fe" }}>double-click unit → advance status</span>
+          <span style={{ color: "#6ea8fe" }}>click unit → inspect · double-click → advance status</span>
         </span>
       </div>
 
@@ -1158,9 +1158,10 @@ export default function DispatchBoardPage() {
                 <tr>
                   <th style={{ width: 80, color: "#6c757d", fontWeight: 500 }}>Unit</th>
                   <th style={{ width: 110, color: "#6c757d", fontWeight: 500 }}>Type</th>
-                  <th style={{ width: 180, color: "#6c757d", fontWeight: 500 }}>Status</th>
+                  <th style={{ width: 200, color: "#6c757d", fontWeight: 500 }}>Status</th>
                   <th style={{ width: 60, color: "#6c757d", fontWeight: 500 }}>Crew</th>
                   <th style={{ color: "#6c757d", fontWeight: 500 }}>Assigned Calls</th>
+                  <th style={{ width: 110, color: "#6c757d", fontWeight: 500 }}></th>
                 </tr>
               </thead>
               <tbody style={{ background: "var(--ems-board-bg)" }}>
@@ -1191,12 +1192,7 @@ export default function DispatchBoardPage() {
                       <td className="fw-bold align-middle" style={{ color: "var(--ems-board-text)" }}>{unit.truckNumber}</td>
                       <td className="align-middle"><UnitTypeBadge unitType={unit.unitType} /></td>
                       <td className="align-middle">
-                        <div className="d-flex align-items-center gap-2">
-                          <StatusPill status={unit.dispatchStatus} />
-                          <span style={{ fontSize: 10, color: unit.dispatchStatus === "at_destination" ? "#75b798" : "#495057" }}>
-                            {unit.dispatchStatus === "at_destination" ? "→ Complete Call" : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
-                          </span>
-                        </div>
+                        <StatusPill status={unit.dispatchStatus} />
                       </td>
                       <td className="align-middle text-center">
                         <span className={`badge ${(unit.crewCount || 0) < minCrewForType(unit.unitType) ? "bg-danger" : "bg-secondary"}`}>
@@ -1234,6 +1230,27 @@ export default function DispatchBoardPage() {
                           )}
                         </div>
                       </td>
+                      <td className="align-middle" onClick={(e) => e.stopPropagation()}>
+                        {unit.dispatchStatus !== "out_of_service" && (
+                          <button
+                            className="btn btn-sm"
+                            style={{
+                              fontSize: 11,
+                              padding: "3px 10px",
+                              background: "transparent",
+                              border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#495057"}55`,
+                              color: STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#6c757d",
+                              whiteSpace: "nowrap",
+                            }}
+                            onClick={() => handleUnitDoubleClick(unit)}
+                            title="Advance to next status"
+                          >
+                            {unit.dispatchStatus === "at_destination"
+                              ? "✓ Complete"
+                              : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -1262,7 +1279,7 @@ export default function DispatchBoardPage() {
           {selectedUnit && (
             <div style={{ background: "var(--ems-board-bg-header)", height: bottomHeight, overflowY: "auto", flexShrink: 0 }}>
               {/* Unit header */}
-              <div className="px-3 py-2 d-flex align-items-center gap-3 flex-wrap" style={{ borderBottom: "1px solid #2a3347" }}>
+              <div className="px-3 py-2 d-flex align-items-center gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--ems-board-border)" }}>
                 <span className="fw-bold" style={{ color: "var(--ems-board-text)" }}>Unit {selectedUnit.truckNumber}</span>
                 <UnitTypeBadge unitType={selectedUnit.unitType} />
                 <StatusPill status={selectedUnit.dispatchStatus} />
@@ -1275,7 +1292,7 @@ export default function DispatchBoardPage() {
               </div>
 
               {/* Status buttons */}
-              <div className="px-3 py-2 d-flex flex-wrap gap-2" style={{ borderBottom: "1px solid #2a3347" }}>
+              <div className="px-3 py-2 d-flex flex-wrap gap-2" style={{ borderBottom: "1px solid var(--ems-board-border)" }}>
                 {["available", "en_route", "on_scene", "transporting", "at_destination"].map((s) => {
                   const active = selectedUnit.dispatchStatus === s;
                   const c = STATUS_COLORS[s];
@@ -1341,7 +1358,7 @@ export default function DispatchBoardPage() {
                 ))}
                 {(selectedUnit.completedCalls || []).length > 0 && (
                   <>
-                    <div className="text-muted small mb-2 mt-1" style={{ borderTop: "1px solid #2a3347", paddingTop: 8 }}>
+                    <div className="text-muted small mb-2 mt-1" style={{ borderTop: "1px solid var(--ems-board-border)", paddingTop: 8 }}>
                       Completed
                     </div>
                     {(selectedUnit.completedCalls || []).map((call) => (

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { useToast } from "../components/ui/ToastProvider";
 import {
@@ -31,6 +31,7 @@ import { createCrewPreset, getCrewPresets } from "../api/crewPresetApi";
 
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import { getTodayDate } from "../utils/callUtils";
+import EntityDrawer from "../components/ui/EntityDrawer";
 
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
@@ -70,7 +71,6 @@ function CrewPlannerPage() {
   */
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
-  const [employeesError, setEmployeesError] = useState("");
 
   /*
     Selected planning date.
@@ -84,8 +84,6 @@ function CrewPlannerPage() {
   */
   const [units, setUnits] = useState([]);
   const [unitsLoading, setUnitsLoading] = useState(false);
-  const [unitsError, setUnitsError] = useState("");
-  const [unitsMessage, setUnitsMessage] = useState("");
 
   /*
     Crew preset state.
@@ -109,6 +107,7 @@ function CrewPlannerPage() {
     Drawer state for create/edit unit form.
   */
   const [showUnitDrawer, setShowUnitDrawer] = useState(false);
+  const [drawerTab, setDrawerTab] = useState("form");
 
   /*
     Stores the ID of the unit currently being edited.
@@ -128,7 +127,7 @@ function CrewPlannerPage() {
   */
   const loadEmployees = async () => {
     setEmployeesLoading(true);
-    setEmployeesError("");
+    
 
     try {
       const data = await getEmployees();
@@ -136,9 +135,7 @@ function CrewPlannerPage() {
     } catch (error) {
       console.error("Failed to load employees:", error);
       setEmployees([]);
-      setEmployeesError(
-        error.message || "Failed to load employees from backend."
-      );
+      toast.error("Load failed", error.message || "Failed to load employees");
     } finally {
       setEmployeesLoading(false);
     }
@@ -149,7 +146,6 @@ function CrewPlannerPage() {
   */
   const loadUnits = async () => {
     setUnitsLoading(true);
-    setUnitsError("");
 
     try {
       const data = await getCrewUnits(selectedDate);
@@ -157,7 +153,7 @@ function CrewPlannerPage() {
     } catch (error) {
       console.error("Failed to load crew units:", error);
       setUnits([]);
-      setUnitsError(error.message || "Failed to load crew units.");
+      toast.error("Load failed", error.message);
     } finally {
       setUnitsLoading(false);
     }
@@ -446,8 +442,6 @@ function CrewPlannerPage() {
   */
   const handleSelectedDateChange = (event) => {
     setSelectedDate(event.target.value);
-    setUnitsMessage("");
-    setUnitsError("");
   };
 
   /*
@@ -519,9 +513,6 @@ function CrewPlannerPage() {
       return;
     }
 
-    setUnitsError("");
-    setUnitsMessage("");
-
     try {
       await createCrewPreset({
         presetName: presetName.trim(),
@@ -531,12 +522,12 @@ function CrewPlannerPage() {
       });
 
       setPresetName("");
-      setUnitsMessage("Crew preset created successfully.");
+      toast.success("Preset saved", "Crew preset created successfully.");
 
       await loadCrewPresets();
     } catch (error) {
       console.error("Failed to create crew preset:", error);
-      setUnitsError(error.message || "Failed to create crew preset.");
+      toast.error("Preset failed", error.message);
     }
   };
 
@@ -655,9 +646,8 @@ function CrewPlannerPage() {
     setEditingUnitId(null);
     setSelectedPresetId("");
     setPresetName("");
-    setUnitsMessage("");
-    setUnitsError("");
     setShowUnitDrawer(true);
+    setDrawerTab("form");
   };
 
   /*
@@ -688,9 +678,8 @@ function CrewPlannerPage() {
     });
 
     setSelectedPresetId("");
-    setUnitsMessage("");
-    setUnitsError("");
     setShowUnitDrawer(true);
+    setDrawerTab("form");
   };
 
   /*
@@ -859,25 +848,23 @@ function CrewPlannerPage() {
     }
 
     setUnitsLoading(true);
-    setUnitsError("");
-    setUnitsMessage("");
 
     try {
       const unitPayload = buildUnitPayload();
 
       if (editingUnitId) {
         await updateCrewUnit(editingUnitId, unitPayload);
-        setUnitsMessage("Crew unit updated successfully.");
+        toast.success("Unit updated");
       } else {
         await createCrewUnit(unitPayload);
-        setUnitsMessage("Crew unit created successfully.");
+        toast.success("Unit created");
       }
 
       resetUnitForm();
       await loadUnits();
     } catch (error) {
       console.error("Failed to save crew unit:", error);
-      setUnitsError(error.message || "Failed to save crew unit.");
+      toast.error("Save failed", error.message);
     } finally {
       setUnitsLoading(false);
     }
@@ -913,10 +900,10 @@ function CrewPlannerPage() {
         endDate: nightForm.endDate || null,
       });
       setNightDialog(null);
-      setUnitsMessage("Night crew created successfully.");
+      toast.success("Night crew created");
       await loadUnits();
     } catch (err) {
-      setUnitsError(err.message || "Failed to create night crew.");
+      toast.error("Night crew failed", err.message);
     } finally {
       setUnitsLoading(false);
     }
@@ -937,9 +924,8 @@ function CrewPlannerPage() {
     setEditingUnitId(null);
     setSelectedPresetId("");
     setPresetName("");
-    setUnitsMessage("");
-    setUnitsError("");
     setShowUnitDrawer(true);
+    setDrawerTab("form");
   };
 
   /*
@@ -957,8 +943,6 @@ function CrewPlannerPage() {
     const isCurrentlyEditing = String(editingUnitId) === String(unitId);
 
     setUnitsLoading(true);
-    setUnitsError("");
-    setUnitsMessage("");
 
     try {
       await deleteCrewUnit(unitId);
@@ -967,11 +951,11 @@ function CrewPlannerPage() {
         resetUnitForm();
       }
 
-      setUnitsMessage("Crew unit deleted successfully.");
+      toast.success("Unit deleted");
       await loadUnits();
     } catch (error) {
       console.error("Failed to delete crew unit:", error);
-      setUnitsError(error.message || "Failed to delete crew unit.");
+      toast.error("Delete failed", error.message);
     } finally {
       setUnitsLoading(false);
     }
@@ -1012,7 +996,7 @@ function CrewPlannerPage() {
 
             return (
               <option key={employee.id} value={employee.id}>
-                {employee.firstName} {employee.lastName} —{" "}
+                {employee.firstName} {employee.lastName} â€”{" "}
                 {getEmployeeRoleLabel(employee.role)}
                 {isAlreadyAssigned ? " [ALREADY ASSIGNED]" : ""}
               </option>
@@ -1064,72 +1048,15 @@ function CrewPlannerPage() {
         </div>
       </div>
 
-      {employeesError && (
-        <div className="alert alert-danger mb-0">{employeesError}</div>
-      )}
-
-      {unitsError && <div className="alert alert-danger mb-0">{unitsError}</div>}
-
-      {unitsMessage && (
-        <div className="alert alert-success mb-0">{unitsMessage}</div>
-      )}
-
       <section className="content-panel">
         <div className="content-panel-header">
-          <div>
-            <h4>Shift Planning</h4>
-            <p>
-              Review and manage planned units for the selected shift date.
-            </p>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
-              onClick={handleShowCreateUnit}
-              disabled={unitsLoading || employeesLoading}
-            >
-              <FaSun style={{ fontSize: 11 }} />
-              <FaPlus style={{ fontSize: 10 }} />
-              Day Unit
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-              onClick={handleShowCreateNightUnit}
-              disabled={unitsLoading || employeesLoading}
-              style={{ color: "#6ea8fe", borderColor: "#6ea8fe" }}
-            >
-              <FaMoon style={{ fontSize: 11 }} />
-              <FaPlus style={{ fontSize: 10 }} />
-              Night Unit
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1"
-              onClick={loadUnits}
-              disabled={unitsLoading}
-            >
-              <FaRedo />
-              Refresh Units
-            </button>
-          </div>
-        </div>
-
-        <div className="row g-3 align-items-end">
-          <div className="col-md-4">
-            <label htmlFor="selectedDate" className="form-label fw-semibold">
-              Planning Date
-            </label>
-
-            <div className="input-group">
-              <span className="input-group-text">
-                <FaCalendarDay />
-              </span>
-
+          <div className="d-flex align-items-center gap-3 flex-wrap">
+            <div>
+              <h4 className="mb-0">Shift Planning</h4>
+              <p className="mb-0">Crew assignments for the selected date.</p>
+            </div>
+            <div className="input-group" style={{ width: 200 }}>
+              <span className="input-group-text"><FaCalendarDay /></span>
               <input
                 id="selectedDate"
                 type="date"
@@ -1140,13 +1067,32 @@ function CrewPlannerPage() {
               />
             </div>
           </div>
-
-          <div className="col-md-8">
-            <p className="text-muted mb-0">
-              Use this date to review current, previous, or future crew
-              assignments. Planned units are shown first because they are the
-              main working view.
-            </p>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+              onClick={handleShowCreateUnit}
+              disabled={unitsLoading || employeesLoading}
+            >
+              <FaSun style={{ fontSize: 11 }} /><FaPlus style={{ fontSize: 10 }} /> Day Unit
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+              onClick={handleShowCreateNightUnit}
+              disabled={unitsLoading || employeesLoading}
+              style={{ color: "#6ea8fe", borderColor: "#6ea8fe" }}
+            >
+              <FaMoon style={{ fontSize: 11 }} /><FaPlus style={{ fontSize: 10 }} /> Night Unit
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+              onClick={loadUnits}
+              disabled={unitsLoading}
+            >
+              <FaRedo /> Refresh
+            </button>
           </div>
         </div>
       </section>
@@ -1164,32 +1110,28 @@ function CrewPlannerPage() {
         getMedicalSlotLabel={getMedicalSlotLabel}
       />
 
-      <UnassignedEmployeesCard
-        unassignedEmployees={unassignedEmployees}
-        employeesLoading={employeesLoading}
-        getCprWarning={getCprWarning}
-      />
-
       {/* Make Night Dialog */}
       {nightDialog && (
-        <div className="employee-drawer-overlay" style={{ zIndex: 1060 }}>
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1060,
+          background: "var(--ems-overlay-bg, rgba(15,23,42,0.5))",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
           <div style={{
-            background: "#0d1117", border: "1px solid #2a3347", borderRadius: 16,
-            padding: "2rem", width: "100%", maxWidth: 440,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5)", color: "#e9ecef",
-            margin: "auto",
+            background: "var(--ems-bg-surface)", border: "1px solid var(--ems-border)",
+            borderRadius: 16, padding: "1.75rem", width: "100%", maxWidth: 440,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.2)", color: "var(--ems-text-primary)",
           }}>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
               <FaMoon style={{ color: "#6ea8fe" }} /> Make Night Crew
             </div>
-            <p style={{ color: "#adb5bd", fontSize: 14, marginBottom: 16 }}>
+            <p style={{ color: "var(--ems-text-muted)", fontSize: 14, marginBottom: 16 }}>
               Copying crew from Truck <strong>{nightDialog.sourceUnit.truckNumber}</strong> to a night shift.
               {nightDialog.hasExisting && (
-                <span style={{ color: "#ffc107" }}> A night crew already exists for this date.</span>
+                <span style={{ color: "var(--bs-warning)" }}> A night crew already exists for this date.</span>
               )}
             </p>
-
-            <div className="row g-2 mb-3" data-bs-theme="dark">
+            <div className="row g-2 mb-3">
               <div className="col-6">
                 <label className="form-label" style={{ fontSize: 12 }}>Night Start Time</label>
                 <input type="time" className="form-control form-control-sm" value={nightForm.startTime}
@@ -1206,61 +1148,51 @@ function CrewPlannerPage() {
                   onChange={e => setNightForm(f => ({ ...f, endDate: e.target.value }))} />
               </div>
             </div>
-
             {nightDialog.hasExisting ? (
               <div className="d-flex gap-2 flex-wrap">
-                <button className="btn btn-sm btn-danger flex-fill" onClick={() => handleConfirmNight(true)}>
-                  Replace existing night crew
-                </button>
-                <button className="btn btn-sm btn-outline-primary flex-fill" onClick={() => handleConfirmNight(false)}>
-                  Keep both
-                </button>
-                <button className="btn btn-sm btn-outline-secondary w-100" onClick={() => setNightDialog(null)}>
-                  Cancel
-                </button>
+                <button className="btn btn-sm btn-danger flex-fill" onClick={() => handleConfirmNight(true)}>Replace existing night crew</button>
+                <button className="btn btn-sm btn-outline-primary flex-fill" onClick={() => handleConfirmNight(false)}>Keep both</button>
+                <button className="btn btn-sm btn-outline-secondary w-100 mt-1" onClick={() => setNightDialog(null)}>Cancel</button>
               </div>
             ) : (
               <div className="d-flex gap-2">
-                <button className="btn btn-sm btn-primary flex-fill" onClick={() => handleConfirmNight(false)}>
-                  Create Night Crew
-                </button>
-                <button className="btn btn-sm btn-outline-secondary" onClick={() => setNightDialog(null)}>
-                  Cancel
-                </button>
+                <button className="btn btn-sm btn-primary flex-fill" onClick={() => handleConfirmNight(false)}>Create Night Crew</button>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setNightDialog(null)}>Cancel</button>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {showUnitDrawer && (
-        <div className="crew-drawer-overlay" onClick={handleCloseDrawer}>
-          <aside
-            className="crew-drawer"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="crew-drawer-header">
-              <div>
-                <h4>{editingUnitId ? "Edit Unit" : "Create Unit"}</h4>
-
-                <p>
-                  Assign truck information, crew members, presets, and patient
-                  order.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                onClick={handleCloseDrawer}
-                disabled={unitsLoading}
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveUnit} className="crew-drawer-form">
-              <div className="crew-drawer-body">
+      <EntityDrawer
+        open={showUnitDrawer}
+        onClose={handleCloseDrawer}
+        title={editingUnitId ? "Edit Unit" : "Create Unit"}
+        subtitle="Truck info, crew members, presets, and patient order"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={handleCloseDrawer}
+              disabled={unitsLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="crew-drawer-form"
+              className="btn btn-primary d-inline-flex align-items-center gap-2"
+              disabled={unitsLoading || employeesLoading}
+            >
+              <FaPlus />
+              {unitsLoading ? "Saving..." : editingUnitId ? "Update Unit" : "Create Unit"}
+            </button>
+          </>
+        }
+      >
+        <form id="crew-drawer-form" onSubmit={handleSaveUnit}>
+            <div>
                 {employeesLoading ? (
                   <div className="empty-state">
                     <FaUsers />
@@ -1422,9 +1354,43 @@ function CrewPlannerPage() {
                         <span className="crew-form-section-icon">
                           <FaUsers />
                         </span>
-
                         <h5>Crew Assignment</h5>
                       </div>
+
+                      {/* Available staff reference */}
+                      {unassignedEmployees.length > 0 && (
+                        <div style={{
+                          background: "var(--ems-bg-surface-2)",
+                          border: "1px solid var(--ems-border)",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          marginBottom: 12,
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--ems-text-muted)", marginBottom: 8 }}>
+                            Available Staff ({unassignedEmployees.length})
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {unassignedEmployees.map((emp) => {
+                              const cprWarn = getCprWarning(emp);
+                              return (
+                                <span key={emp.id} style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5,
+                                  fontSize: 12, padding: "3px 10px", borderRadius: 20,
+                                  background: cprWarn ? "rgba(220,53,69,0.08)" : "var(--ems-section-bg)",
+                                  border: `1px solid ${cprWarn ? "rgba(220,53,69,0.3)" : "var(--ems-section-border)"}`,
+                                  color: "var(--ems-text-primary)",
+                                }}>
+                                  {emp.firstName} {emp.lastName}
+                                  <span style={{ fontSize: 10, color: "var(--ems-text-muted)" }}>
+                                    {getEmployeeRoleLabel(emp.role)}
+                                  </span>
+                                  {cprWarn && <span style={{ fontSize: 10, color: "#f87171" }}>⚠</span>}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="row g-3">
                         <CrewPresetsSection
@@ -1464,38 +1430,13 @@ function CrewPlannerPage() {
                     </div>
                   </>
                 )}
-              </div>
-
-              <div className="crew-drawer-footer">
-                <button
-                  type="submit"
-                  className="btn btn-primary d-inline-flex align-items-center gap-2"
-                  disabled={unitsLoading || employeesLoading}
-                >
-                  <FaPlus />
-                  {unitsLoading
-                    ? "Saving..."
-                    : editingUnitId
-                    ? "Update Unit"
-                    : "Create Unit"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                  onClick={handleCloseDrawer}
-                  disabled={unitsLoading}
-                >
-                  <FaTimes />
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </aside>
-        </div>
-      )}
+            </div>
+          </form>
+      </EntityDrawer>
     </div>
   );
 }
 
 export default CrewPlannerPage;
+
+

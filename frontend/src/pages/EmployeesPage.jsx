@@ -909,7 +909,7 @@ function EmployeesPage() {
         onClose={resetForm}
         title={editingEmployeeId ? "Edit Employee" : "Add Employee"}
         subtitle={editingEmployeeId ? "Update profile, time & pay, or documents" : "Fill in the employee details below"}
-        width={520}
+        width="50vw"
         tabs={editingEmployeeId ? [
           { key: "profile",   label: "Profile" },
           { key: "timepay",   label: "Time & Pay" },

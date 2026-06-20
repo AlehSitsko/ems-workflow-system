@@ -661,6 +661,14 @@
   border-radius: 16px;
   background: var(--ems-bg-surface);
   overflow: hidden;
+  transition: border-color 0.15s;
+}
+.compact-call-card:hover {
+  border-color: var(--ems-primary, #0d6efd);
+}
+.compact-call-card.selected {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 1px #0d6efd22;
 }
 
 .compact-call-main {

@@ -22,7 +22,7 @@ export default function EntityDrawer({
   onClose,
   title,
   subtitle,
-  width = 480,
+  width = "50vw",
   footer,
   tabs,
   activeTab,
@@ -50,9 +50,6 @@ export default function EntityDrawer({
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
-  const activeTabContent = tabs
-    ? tabs.find((t) => t.key === activeTab)?.content
-    : null;
 
   return (
     <>
@@ -198,8 +195,6 @@ export default function EntityDrawer({
             >
               Loading…
             </div>
-          ) : tabs ? (
-            activeTabContent
           ) : (
             children
           )}
