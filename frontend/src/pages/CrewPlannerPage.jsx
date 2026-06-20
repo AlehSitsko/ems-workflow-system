@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useConfirm } from "../components/ui/ConfirmDialog";
+import { useToast } from "../components/ui/ToastProvider";
 import {
   FaAmbulance,
   FaCalendarDay,
@@ -60,6 +62,8 @@ const initialUnitForm = {
 };
 
 function CrewPlannerPage() {
+  const confirm = useConfirm();
+  const toast = useToast();
   /*
     Employee state.
     Employees are loaded from the backend and used for crew assignment.
@@ -506,12 +510,12 @@ function CrewPlannerPage() {
   */
   const handleSavePreset = async () => {
     if (!presetName.trim()) {
-      alert("Preset Name is required.");
+      toast.warning("Preset name required", "Enter a name before saving.");
       return;
     }
 
     if (!unitForm.crew.driver && !unitForm.crew.medical) {
-      alert("Select at least one crew member before saving a preset.");
+      toast.warning("No crew selected", "Select at least one crew member before saving a preset.");
       return;
     }
 
@@ -626,11 +630,14 @@ function CrewPlannerPage() {
   /*
     Closes the drawer with a confirmation prompt if the form has unsaved data.
   */
-  const handleCloseDrawer = () => {
+  const handleCloseDrawer = async () => {
     if (isUnitFormDirty()) {
-      const confirmed = window.confirm(
-        "You have unsaved changes. Are you sure you want to close without saving?"
-      );
+      const confirmed = await confirm({
+        title: "Discard unsaved changes?",
+        message: "You have unsaved changes. Close without saving?",
+        variant: "warning",
+        confirmLabel: "Discard",
+      });
       if (!confirmed) return;
     }
     resetUnitForm();
@@ -939,13 +946,13 @@ function CrewPlannerPage() {
     Deletes a planned unit.
   */
   const handleDeleteUnit = async (unitId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this planned unit?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete planned unit?",
+      message: "This will remove the unit and its crew assignment.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!confirmed) return;
 
     const isCurrentlyEditing = String(editingUnitId) === String(unitId);
 

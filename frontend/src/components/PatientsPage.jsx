@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useConfirm } from "./ui/ConfirmDialog";
+import { useToast } from "./ui/ToastProvider";
 import {
   FaAddressCard,
   FaAmbulance,
@@ -82,6 +84,8 @@ const PatientFormSection = ({ title, icon: Icon, children }) => (
 
 // Main patient management component.
 const PatientsPage = () => {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [searchName, setSearchName] = useState("");
   const [searchDob, setSearchDob] = useState("");
 
@@ -153,19 +157,17 @@ const PatientsPage = () => {
   };
 
   // Close the patient drawer only after confirming unsaved changes.
-  const closePatientFormSafely = () => {
-    if (loading) {
-      return;
-    }
+  const closePatientFormSafely = async () => {
+    if (loading) return;
 
     if (isPatientFormDirty()) {
-      const shouldClose = window.confirm(
-        "Discard unsaved patient changes? All entered patient information will be lost."
-      );
-
-      if (!shouldClose) {
-        return;
-      }
+      const shouldClose = await confirm({
+        title: "Discard unsaved changes?",
+        message: "All entered patient information will be lost.",
+        variant: "warning",
+        confirmLabel: "Discard",
+      });
+      if (!shouldClose) return;
     }
 
     resetPatientForm();
@@ -257,7 +259,13 @@ const PatientsPage = () => {
 
   // Delete a patient record.
   const handleDeletePatient = async (id) => {
-    if (!window.confirm("Delete this patient?")) return;
+    const ok = await confirm({
+      title: "Delete patient?",
+      message: "This will permanently remove the patient record.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
 
     setError("");
 

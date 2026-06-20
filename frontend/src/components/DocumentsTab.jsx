@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from "react";
+import { useConfirm } from "./ui/ConfirmDialog";
+import { useToast } from "./ui/ToastProvider";
 import {
   FaFileAlt, FaTrash, FaDownload, FaEdit, FaCheck, FaTimes,
   FaPlus, FaEye, FaSpinner,
@@ -48,6 +50,8 @@ const EMPTY_FORM = {
 };
 
 export default function DocumentsTab({ employeeId, currentUser }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -170,19 +174,26 @@ export default function DocumentsTab({ employeeId, currentUser }) {
   }
 
   async function handleDelete(doc) {
-    if (!window.confirm(`Delete "${doc.title}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${doc.title}"?`,
+      message: "This action cannot be undone.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await deleteDocument(doc.id, currentUser);
       setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+      toast.success("Document deleted");
     } catch {
-      setError("Failed to delete document");
+      toast.error("Delete failed", "Failed to delete document");
     }
   }
 
   return (
-    <div style={{ padding: "16px 20px", color: "#e9ecef", background: "#0d1117", minHeight: "100%" }}>
+    <div style={{ minHeight: "100%" }}>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h6 className="mb-0" style={{ color: "#c9d1d9" }}>Documents</h6>
+        <h6 className="mb-0" style={{ color: "var(--ems-text-primary)" }}>Documents</h6>
         {canEdit && (
           <button className="btn btn-sm btn-primary" onClick={openNew}>
             <FaPlus style={{ marginRight: 4 }} />Add Document
@@ -198,16 +209,16 @@ export default function DocumentsTab({ employeeId, currentUser }) {
         <form
           onSubmit={handleSubmit}
           className="mb-4 p-3 rounded"
-          style={{ background: "#161b22", border: "1px solid #2a3347" }}
+          style={{ background: "var(--ems-bg-surface-2)", border: "1px solid var(--ems-border)" }}
         >
           <div className="row g-2">
             <div className="col-md-6">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Type</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Type</label>
               <select
                 className="form-select form-select-sm"
                 value={form.doc_type}
                 onChange={(e) => setForm((f) => ({ ...f, doc_type: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347" }}
+                style={{}}
               >
                 {DOC_TYPES.map((t) => (
                   <option key={t} value={t}>{DOC_LABELS[t]}</option>
@@ -215,74 +226,74 @@ export default function DocumentsTab({ employeeId, currentUser }) {
               </select>
             </div>
             <div className="col-md-6">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Title *</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Title *</label>
               <input
                 className="form-control form-control-sm"
                 required
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347" }}
+                style={{}}
               />
             </div>
             <div className="col-md-6">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Document #</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Document #</label>
               <input
                 className="form-control form-control-sm"
                 value={form.document_number}
                 onChange={(e) => setForm((f) => ({ ...f, document_number: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347" }}
+                style={{}}
               />
             </div>
             <div className="col-md-6">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Issuing Body</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Issuing Body</label>
               <input
                 className="form-control form-control-sm"
                 value={form.issuing_body}
                 onChange={(e) => setForm((f) => ({ ...f, issuing_body: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347" }}
+                style={{}}
               />
             </div>
             <div className="col-md-4">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Issue Date</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Issue Date</label>
               <input
                 type="date"
                 className="form-control form-control-sm"
                 value={form.issued_date}
                 onChange={(e) => setForm((f) => ({ ...f, issued_date: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347", colorScheme: "dark" }}
+                style={{ colorScheme: "inherit" }}
               />
             </div>
             <div className="col-md-4">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Expiry Date</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Expiry Date</label>
               <input
                 type="date"
                 className="form-control form-control-sm"
                 value={form.expiry_date}
                 onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347", colorScheme: "dark" }}
+                style={{ colorScheme: "inherit" }}
               />
             </div>
             {!editId && (
               <div className="col-md-4">
-                <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>File (PDF/Image/DOCX)</label>
+                <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>File (PDF/Image/DOCX)</label>
                 <input
                   ref={fileRef}
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                   className="form-control form-control-sm"
                   onChange={(e) => setForm((f) => ({ ...f, file: e.target.files[0] || null }))}
-                  style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347" }}
+                  style={{}}
                 />
               </div>
             )}
             <div className="col-12">
-              <label className="form-label" style={{ color: "#8b949e", fontSize: 12 }}>Notes</label>
+              <label className="form-label" style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>Notes</label>
               <textarea
                 className="form-control form-control-sm"
                 rows={2}
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                style={{ background: "#0d1117", color: "#e9ecef", borderColor: "#2a3347" }}
+                style={{}}
               />
             </div>
           </div>
@@ -298,9 +309,9 @@ export default function DocumentsTab({ employeeId, currentUser }) {
       )}
 
       {loading ? (
-        <div style={{ color: "#8b949e", fontSize: 13 }}>Loading…</div>
+        <div style={{ color: "var(--ems-text-muted)", fontSize: 13 }}>Loading…</div>
       ) : docs.length === 0 ? (
-        <div style={{ color: "#8b949e", fontSize: 13 }}>No documents on file.</div>
+        <div style={{ color: "var(--ems-text-muted)", fontSize: 13 }}>No documents on file.</div>
       ) : (
         <div className="d-flex flex-column gap-2">
           {docs.map((doc) => {
@@ -309,25 +320,25 @@ export default function DocumentsTab({ employeeId, currentUser }) {
               <div
                 key={doc.id}
                 className="d-flex align-items-start gap-3 p-3 rounded"
-                style={{ background: "#161b22", border: "1px solid #2a3347" }}
+                style={{ background: "var(--ems-bg-surface-2)", border: "1px solid var(--ems-border)" }}
               >
-                <FaFileAlt style={{ color: "#58a6ff", marginTop: 3, flexShrink: 0 }} />
+                <FaFileAlt style={{ color: "#0d6efd", marginTop: 3, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="d-flex align-items-center gap-2 flex-wrap">
-                    <span style={{ fontWeight: 600, color: "#c9d1d9" }}>{doc.title}</span>
+                    <span style={{ fontWeight: 600, color: "var(--ems-text-primary)" }}>{doc.title}</span>
                     <span className="badge bg-secondary" style={{ fontSize: 10 }}>
                       {DOC_LABELS[doc.doc_type] || doc.doc_type}
                     </span>
                     <span className={badge.cls} style={{ fontSize: 10 }}>{badge.label}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: "#8b949e", marginTop: 3 }}>
+                  <div style={{ fontSize: 12, color: "var(--ems-text-muted)", marginTop: 3 }}>
                     {doc.document_number && <span className="me-3">#{doc.document_number}</span>}
                     {doc.issuing_body && <span className="me-3">{doc.issuing_body}</span>}
                     {doc.issued_date && <span className="me-3">Issued: {doc.issued_date}</span>}
                     {doc.expiry_date && <span>Expires: {doc.expiry_date}</span>}
                   </div>
                   {doc.notes && (
-                    <div style={{ fontSize: 12, color: "#6e7681", marginTop: 2 }}>{doc.notes}</div>
+                    <div style={{ fontSize: 12, color: "var(--ems-text-subtle)", marginTop: 2 }}>{doc.notes}</div>
                   )}
                 </div>
                 <div className="d-flex gap-1 flex-shrink-0">
@@ -392,16 +403,16 @@ export default function DocumentsTab({ employeeId, currentUser }) {
           <div
             style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "10px 16px", background: "#161b22", borderBottom: "1px solid #2a3347",
+              padding: "10px 16px", background: "var(--ems-bg-surface-2)", borderBottom: "1px solid var(--ems-border)",
               flexShrink: 0,
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <FaFileAlt style={{ color: "#58a6ff" }} />
-              <span style={{ color: "#c9d1d9", fontWeight: 600 }}>{preview.doc.title}</span>
+              <FaFileAlt style={{ color: "#0d6efd" }} />
+              <span style={{ color: "var(--ems-text-primary)", fontWeight: 600 }}>{preview.doc.title}</span>
               {preview.doc.file_name && (
-                <span style={{ color: "#8b949e", fontSize: 12 }}>{preview.doc.file_name}</span>
+                <span style={{ color: "var(--ems-text-muted)", fontSize: 12 }}>{preview.doc.file_name}</span>
               )}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -435,8 +446,8 @@ export default function DocumentsTab({ employeeId, currentUser }) {
                 style={{ width: "100%", height: "100%", border: "none", borderRadius: 4, background: "#fff" }}
               />
             ) : (
-              <div style={{ textAlign: "center", color: "#8b949e" }}>
-                <FaFileAlt style={{ fontSize: 48, marginBottom: 16, color: "#58a6ff" }} />
+              <div style={{ textAlign: "center", color: "var(--ems-text-muted)" }}>
+                <FaFileAlt style={{ fontSize: 48, marginBottom: 16, color: "#0d6efd" }} />
                 <p>This file type cannot be previewed in the browser.</p>
                 <button className="btn btn-primary" onClick={() => handleDownload(preview.doc)}>
                   <FaDownload style={{ marginRight: 6 }} />Download to view

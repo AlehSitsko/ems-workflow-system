@@ -10,8 +10,10 @@ import {
 } from "react-icons/fa";
 
 import { getCalls, uncancelCall } from "../api/callsApi";
+import { useToast } from "../components/ui/ToastProvider";
 
 const CallsPage = ({ currentUser }) => {
+  const toast = useToast();
   const [calls, setCalls] = useState([]);
 
   const [dateOfCall, setDateOfCall] = useState("");
@@ -253,7 +255,7 @@ const CallsPage = ({ currentUser }) => {
     try {
       await uncancelCall(callId, headers);
       setCalls((prev) => prev.map((c) => c.id === callId ? { ...c, status: "new", cancel_reason: null } : c));
-    } catch (e) { alert(`Uncancel failed: ${e.message}`); }
+    } catch (e) { toast.error("Uncancel failed", e.message); }
   };
 
   const callsWithCriticalMissing = calls.filter(

@@ -3,6 +3,8 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import "./App.css";
 import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./components/ui/ToastProvider";
+import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 
 import AppLayout from "./components/layout/AppLayout";
 
@@ -174,6 +176,8 @@ function App() {
 
   return (
     <ThemeProvider>
+    <ToastProvider>
+    <ConfirmProvider>
     <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
@@ -319,6 +323,8 @@ function App() {
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </HashRouter>
+    </ConfirmProvider>
+    </ToastProvider>
     </ThemeProvider>
   );
 }

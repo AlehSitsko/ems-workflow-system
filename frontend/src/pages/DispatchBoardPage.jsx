@@ -1,5 +1,6 @@
 import API_BASE from "../api/config.js";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useToast } from "../components/ui/ToastProvider";
 import {
   FaMapMarkerAlt,
   FaClock,
@@ -743,6 +744,7 @@ function WarningModal({ warning, onConfirm, onCancel }) {
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function DispatchBoardPage() {
+  const toast = useToast();
   const [date, setDate] = useState(todayStr());
   const [board, setBoard] = useState({ openCalls: [], completedCalls: [], cancelledCalls: [], units: [] });
   const [callFilter, setCallFilter] = useState("open"); // "open" | "all" | "completed" | "cancelled"
@@ -863,7 +865,7 @@ export default function DispatchBoardPage() {
     try {
       await assignCall(call.id, unit.id, currentUser?.display_name || "");
       await loadBoard(date);
-    } catch (e) { alert(`Assignment failed: ${e.message}`); }
+    } catch (e) { toast.error("Assignment failed", e.message); }
   }
 
   function handleWarningConfirm() {
@@ -898,28 +900,28 @@ export default function DispatchBoardPage() {
     try {
       await updateUnitStatus(unitId, status);
       await loadBoard(date);
-    } catch (e) { alert(`Status update failed: ${e.message}`); }
+    } catch (e) { toast.error("Status update failed", e.message); }
   }
 
   async function handleUnassign(assignmentId) {
     try {
       await unassignCall(assignmentId);
       await loadBoard(date);
-    } catch (e) { alert(`Unassign failed: ${e.message}`); }
+    } catch (e) { toast.error("Unassign failed", e.message); }
   }
 
   async function handleComplete(assignmentId) {
     try {
       await completeAssignment(assignmentId);
       await loadBoard(date);
-    } catch (e) { alert(`Complete failed: ${e.message}`); }
+    } catch (e) { toast.error("Complete failed", e.message); }
   }
 
   async function handleReopen(assignmentId) {
     try {
       await reopenAssignment(assignmentId);
       await loadBoard(date);
-    } catch (e) { alert(`Reopen failed: ${e.message}`); }
+    } catch (e) { toast.error("Reopen failed", e.message); }
   }
 
   async function handleCancelCall(callId, reason) {
@@ -939,7 +941,7 @@ export default function DispatchBoardPage() {
     try {
       await uncancelCall(callId, headers);
       await loadBoard(date);
-    } catch (e) { alert(`Uncancel failed: ${e.message}`); }
+    } catch (e) { toast.error("Uncancel failed", e.message); }
   }
 
   async function handleSetWillCallTime(callId, pickupTime) {
@@ -951,7 +953,7 @@ export default function DispatchBoardPage() {
         body: JSON.stringify({ pickup_time: pickupTime }),
       });
       await loadBoard(date);
-    } catch (e) { alert(`Failed to set pickup time: ${e.message}`); }
+    } catch (e) { toast.error("Failed to set pickup time", e.message); }
   }
 
   function handleCardClick(call, isCompleted) {
