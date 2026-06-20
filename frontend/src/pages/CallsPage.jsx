@@ -10,8 +10,11 @@ import {
 } from "react-icons/fa";
 
 import { getCalls, uncancelCall } from "../api/callsApi";
+import { useToast } from "../components/ui/ToastProvider";
+import EntityDrawer from "../components/ui/EntityDrawer";
 
 const CallsPage = ({ currentUser }) => {
+  const toast = useToast();
   const [calls, setCalls] = useState([]);
 
   const [dateOfCall, setDateOfCall] = useState("");
@@ -20,7 +23,9 @@ const CallsPage = ({ currentUser }) => {
   const [minQualityScore, setMinQualityScore] = useState("");
   const [maxQualityScore, setMaxQualityScore] = useState("");
 
-  const [expandedCallId, setExpandedCallId] = useState(null);
+  const [selectedCall, setSelectedCall] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState("summary");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
@@ -235,14 +240,17 @@ const CallsPage = ({ currentUser }) => {
     setMinQualityScore("");
     setMaxQualityScore("");
     setCalls([]);
-    setExpandedCallId(null);
+    setSelectedCall(null);
+    setDrawerOpen(false);
     setPage(1);
     setTotal(0);
     setError("");
   };
 
-  const toggleCallDetails = (callId) => {
-    setExpandedCallId((currentId) => (currentId === callId ? null : callId));
+  const openCallDrawer = (call) => {
+    setSelectedCall(call);
+    setDrawerTab("summary");
+    setDrawerOpen(true);
   };
 
   const handleUncancel = async (callId) => {
@@ -252,8 +260,10 @@ const CallsPage = ({ currentUser }) => {
     };
     try {
       await uncancelCall(callId, headers);
-      setCalls((prev) => prev.map((c) => c.id === callId ? { ...c, status: "new", cancel_reason: null } : c));
-    } catch (e) { alert(`Uncancel failed: ${e.message}`); }
+      const updated = { ...selectedCall, status: "new", cancel_reason: null };
+      setCalls((prev) => prev.map((c) => c.id === callId ? updated : c));
+      if (selectedCall?.id === callId) setSelectedCall(updated);
+    } catch (e) { toast.error("Uncancel failed", e.message); }
   };
 
   const callsWithCriticalMissing = calls.filter(
@@ -489,163 +499,52 @@ const CallsPage = ({ currentUser }) => {
         {calls.length === 0 ? (
           <div className="empty-state">
             <FaClipboardList />
-
             <h5>No calls loaded</h5>
-
-            <p>
-              Apply filters, load today’s calls, or load all calls to view
-              records.
-            </p>
+            <p>Apply filters, load today’s calls, or load all calls to view records.</p>
           </div>
         ) : (
           <div className="compact-call-list">
             {calls.map((call) => {
-              const isExpanded = expandedCallId === call.id;
-
+              const isSelected = selectedCall?.id === call.id;
               return (
-                <div className="compact-call-card" key={call.id}>
+                <div
+                  className={`compact-call-card${isSelected ? " selected" : ""}`}
+                  key={call.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => openCallDrawer(call)}
+                >
                   <div className="compact-call-main">
                     <div>
-                      <div className="compact-call-date">
-                        {call.date_of_call || "—"}
-                      </div>
-
-                      <div className="compact-call-muted">
-                        Dispatcher: {call.dispatcher_name || "—"}
-                      </div>
-
-                      <div className="compact-call-muted">
-                        Received: {formatReceivedAt(call.received_at)}
-                      </div>
+                      <div className="compact-call-date">{call.date_of_call || "—"}</div>
+                      <div className="compact-call-muted">Dispatcher: {call.dispatcher_name || "—"}</div>
+                      <div className="compact-call-muted">Received: {formatReceivedAt(call.received_at)}</div>
                     </div>
-
                     <div>
                       <div className="compact-call-label">Trip</div>
-
-                      <div>
-                        {call.trip_date || "—"}{" "}
-                        {call.pickup_time ? `at ${call.pickup_time}` : ""}
-                      </div>
-
-                      <div className="compact-call-muted">
-                        Appointment: {call.appointment_time || "—"}
-                      </div>
+                      <div>{call.trip_date || "—"} {call.pickup_time ? `at ${call.pickup_time}` : ""}</div>
+                      <div className="compact-call-muted">Appointment: {call.appointment_time || "—"}</div>
                     </div>
-
                     <div className="compact-call-address">
                       <div className="compact-call-label">Route</div>
-
-                      <div>
-                        {call.pickup_address || "—"} →{" "}
-                        {call.dropoff_address || "—"}
-                      </div>
+                      <div>{call.pickup_address || "—"} → {call.dropoff_address || "—"}</div>
                     </div>
-
                     <div>
                       <div className="compact-call-label">Status</div>
-
                       {renderStatusBadge(call.status)}
                     </div>
-
                     <div>
                       <div className="compact-call-label">Service</div>
-
                       {renderServiceBadge(call.service_level)}
                     </div>
-
                     <div>
                       <div className="compact-call-label">Quality</div>
-
                       {renderQualityBadge(call.quality_score)}
                     </div>
-
                     <div>
                       <div className="compact-call-label">Issues</div>
-
                       {renderIssueBadge(call)}
                     </div>
-
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={() => toggleCallDetails(call.id)}
-                    >
-                      {isExpanded ? "Hide" : "Details"}
-                    </button>
                   </div>
-
-                  {isExpanded && (
-                    <div className="compact-call-details">
-                      <div>
-                        <strong>Received At:</strong>{" "}
-                        {formatReceivedAt(call.received_at)}
-                      </div>
-
-                      <div>
-                        <strong>Status:</strong>{" "}
-                        {formatCallStatus(call.status)}
-                      </div>
-
-                      <div>
-                        <strong>Caller Type:</strong>{" "}
-                        {call.caller_type || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Call Type:</strong>{" "}
-                        {call.call_type || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Service Level:</strong>{" "}
-                        {formatServiceLevel(call.service_level)}
-                      </div>
-
-                      <div>
-                        <strong>Pickup Time:</strong>{" "}
-                        {call.pickup_time || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Appointment Time:</strong>{" "}
-                        {call.appointment_time || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Missing Critical:</strong>{" "}
-                        {call.missing_critical_fields || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Missing Optional:</strong>{" "}
-                        {call.missing_optional_fields || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Explanation:</strong>{" "}
-                        {call.missing_info_explanation || "—"}
-                      </div>
-
-                      <div>
-                        <strong>Notes:</strong>{" "}
-                        {call.notes || "—"}
-                      </div>
-                      {call.status === "cancelled" && (
-                        <div style={{ marginTop: 10 }}>
-                          <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6 }}>
-                            Cancelled{call.cancel_reason ? `: ${call.cancel_reason}` : ""}
-                          </div>
-                          <button
-                            className="btn btn-sm"
-                            style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid #f59e0b44", fontSize: 12 }}
-                            onClick={() => handleUncancel(call.id)}
-                          >
-                            ↩ Uncancel
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -665,8 +564,81 @@ const CallsPage = ({ currentUser }) => {
           </div>
         )}
       </section>
+
+      <EntityDrawer
+        open={drawerOpen}
+        onClose={() => { setDrawerOpen(false); setSelectedCall(null); }}
+        title={selectedCall ? `Call — ${selectedCall.date_of_call || "—"}` : ""}
+        subtitle={selectedCall ? `${selectedCall.dispatcher_name || "—"} · ${formatCallStatus(selectedCall.status)}` : ""}
+        tabs={[
+          { key: "summary", label: "Summary" },
+          { key: "trip", label: "Trip" },
+          { key: "quality", label: "Quality" },
+        ]}
+        activeTab={drawerTab}
+        onTabChange={setDrawerTab}
+      >
+        {selectedCall && drawerTab === "summary" && (
+          <div className="patient-detail-grid">
+            <Di label="Date" value={selectedCall.date_of_call} />
+            <Di label="Received At" value={formatReceivedAt(selectedCall.received_at)} />
+            <Di label="Dispatcher" value={selectedCall.dispatcher_name} />
+            <Di label="Status" value={formatCallStatus(selectedCall.status)} />
+            <Di label="Caller Type" value={selectedCall.caller_type} />
+            <Di label="Call Type" value={selectedCall.call_type} />
+            <Di label="Service Level" value={formatServiceLevel(selectedCall.service_level)} />
+            <Di label="Notes" value={selectedCall.notes} />
+            {selectedCall.status === "cancelled" && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ fontSize: 12, color: "var(--bs-danger)", marginBottom: 8 }}>
+                  Cancelled{selectedCall.cancel_reason ? `: ${selectedCall.cancel_reason}` : ""}
+                </div>
+                <button
+                  className="btn btn-sm btn-outline-warning"
+                  onClick={() => handleUncancel(selectedCall.id)}
+                >
+                  ↩ Uncancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedCall && drawerTab === "trip" && (
+          <div className="patient-detail-grid">
+            <Di label="Trip Date" value={selectedCall.trip_date} />
+            <Di label="Pickup Time" value={selectedCall.pickup_time} />
+            <Di label="Appointment Time" value={selectedCall.appointment_time} />
+            <Di label="Pickup Address" value={selectedCall.pickup_address} />
+            <Di label="Dropoff Address" value={selectedCall.dropoff_address} />
+            <Di label="Patient Name" value={selectedCall.patient_name} />
+            <Di label="Patient DOB" value={selectedCall.patient_dob} />
+            <Di label="PCS Required" value={selectedCall.pcs_required ? "Yes" : "No"} />
+          </div>
+        )}
+
+        {selectedCall && drawerTab === "quality" && (
+          <div className="patient-detail-grid">
+            <Di label="Quality Score" value={selectedCall.quality_score != null ? `${selectedCall.quality_score}%` : "—"} />
+            <Di label="Missing Critical" value={selectedCall.missing_critical_fields || "None"} />
+            <Di label="Missing Optional" value={selectedCall.missing_optional_fields || "None"} />
+            <Di label="Explanation" value={selectedCall.missing_info_explanation} />
+          </div>
+        )}
+      </EntityDrawer>
     </div>
   );
 };
+
+function Di({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--ems-text-muted)", marginBottom: 2 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 14, color: "var(--ems-text-primary)" }}>{value || "—"}</div>
+    </div>
+  );
+}
 
 export default CallsPage;

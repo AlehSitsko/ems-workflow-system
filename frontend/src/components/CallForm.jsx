@@ -5,6 +5,7 @@ import React, {
   useState,
   useEffect,
 } from "react";
+import { useToast } from "./ui/ToastProvider";
 
 import {
   FaClipboardCheck,
@@ -29,6 +30,7 @@ import { getLoggedDispatcherName, getTodayDate } from "../utils/callUtils";
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger exposed methods externally.
 const CallForm = forwardRef((props, ref) => {
+  const toast = useToast();
   const formRef = useRef(null);
 
   const initialFormData = {
@@ -195,7 +197,7 @@ const CallForm = forwardRef((props, ref) => {
     const trimmedDob = formData.dob.trim();
 
     if (!trimmedLastName && !trimmedDob) {
-      window.alert("Please enter Last Name or Date of Birth before searching.");
+      toast.warning("Search field required", "Enter Last Name or Date of Birth before searching.");
       return;
     }
 
@@ -206,11 +208,11 @@ const CallForm = forwardRef((props, ref) => {
       setPatientSearchResults(results);
 
       if (results.length === 0) {
-        window.alert("No matching patients found.");
+        toast.info("No patients found", "No matching patients in the system.");
       }
     } catch (err) {
       console.error("Failed to search patient:", err);
-      window.alert("Failed to search patient.");
+      toast.error("Search failed", "Could not search patients.");
     }
   };
 
@@ -336,9 +338,7 @@ const CallForm = forwardRef((props, ref) => {
       currentQualityReport.criticalMissing.length > 0 &&
       !missingInfoExplanation.trim()
     ) {
-      window.alert(
-        "Critical information is missing. Please provide an explanation before saving."
-      );
+      toast.warning("Explanation required", "Critical information is missing. Please provide an explanation before saving.");
       return;
     }
 

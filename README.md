@@ -843,19 +843,34 @@ Recommended workflow:
 * Dispatch Board fully theme-aware via `--ems-board-*` tokens
 * All hardcoded dark inline styles replaced with CSS variable references
 
+### UI Standardization (complete)
+
+* `EntityDrawer` — shared right-side drawer component (50vw, header / tabs / scrollable body / sticky footer)
+* `ToastProvider` / `useToast` — non-blocking success and error feedback
+* `ConfirmDialog` / `useConfirm` — promise-based confirmation for destructive actions
+* `window.alert` and `window.confirm` removed across all modules
+* PatientsPage: EntityDrawer with Overview / Edit / Call History tabs
+* CallsPage: EntityDrawer with Summary / Trip / Quality tabs
+* EmployeesPage: EntityDrawer integration
+* CrewPlannerPage: EntityDrawer for unit form; available staff inline in Crew Assignment section
+* Dispatch Board: inline Next Status button per unit row; all text colors via CSS variables
+* Call.notes structured fields migrated to dedicated columns (dispatcher_name, caller_phone, caller_note)
+* `docs/UI_STANDARD.md` — reference document for cards vs tables, drawer/modal/toast rules, module patterns, design tokens
+
+### Block 1.1 — Notes Field Migration (complete)
+
+* Structured lines (Dispatcher, Phone, Caller note) extracted from Call.notes into proper columns
+* One-time migration script: `backend/scripts/migrate_notes_to_columns.py`
+* Frontend regex fallback removed — all fields read directly from dedicated columns
+
 ## Roadmap
 
-### UI Standardization (next priority)
-
-* Unified page layout: PageHeader + optional SummaryBar + ContentPanel with filters
-* Consistent interaction pattern: edit/create always in a right side drawer
-* Standardized filter bar across all list pages
-* Uniform stat cards, status badges, and data tables
-* Applied across all 13+ modules: Dashboard, Calls, Patients, Employees, Crew Planner, Payroll, Compliance, Supervisor, Users, Audit Log, Notifications
+### Block 5.2 — Assignment Conflict Validation
 
 ### Block 5.2 — Assignment Conflict Validation
 
 * On assign: check for time overlap on the same unit
+
 * Returns warning modal (not a block) — dispatcher can override
 * Consistent with existing ALS-on-BLS warning pattern
 
@@ -939,8 +954,8 @@ Recommended workflow:
 ## Current Status
 
 ```text
-Stable — Blocks 1–4 complete, Audit Log complete, Theme System Phase 1 complete
-Next: UI Standardization across all modules
+Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization complete
+Next: Block 5.2 — Assignment Conflict Validation
 ```
 
 Current implemented workflow:
@@ -971,6 +986,8 @@ Compliance Dashboard (employee × doc type grid, cert scan)
 Crew Planning (Day + Night shifts)
 ↓
 Crew Presets
+↓
+UI Standardization (EntityDrawer across all modules)
 ↓
 Dispatch Board
 ↓

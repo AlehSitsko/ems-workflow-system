@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { useConfirm } from "../components/ui/ConfirmDialog";
+import { useToast } from "../components/ui/ToastProvider";
+import EntityDrawer from "../components/ui/EntityDrawer";
 import {
   FaBriefcaseMedical,
   FaClock,
@@ -193,6 +196,8 @@ const initialFormData = {
 };
 
 function EmployeesPage() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const currentUser = getCurrentUser();
   const [employees, setEmployees] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
@@ -561,13 +566,13 @@ function EmployeesPage() {
     const cprWarning = getCprWarning(employeePayload);
 
     if (cprWarning) {
-      const confirmed = window.confirm(
-        `Warning: ${cprWarning}. CPR is expected for all employees. Do you want to save this record anyway?`
-      );
-
-      if (!confirmed) {
-        return;
-      }
+      const confirmed = await confirm({
+        title: "CPR certification warning",
+        message: `${cprWarning}. CPR is expected for all employees. Save this record anyway?`,
+        variant: "warning",
+        confirmLabel: "Save anyway",
+      });
+      if (!confirmed) return;
     }
 
     setLoading(true);
@@ -632,13 +637,13 @@ function EmployeesPage() {
     Deletes one employee by id.
   */
   const handleDelete = async (employeeId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this employee?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete employee?",
+      message: "This action cannot be undone.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!confirmed) return;
 
     setLoading(true);
     setError("");
@@ -665,15 +670,15 @@ function EmployeesPage() {
     Loads predefined test employees into the backend.
   */
   const handleLoadTestEmployees = async () => {
-    const confirmed = window.confirm(
-      employees.length > 0
-        ? "This will add test employees and clear all planned units. Continue?"
-        : "Load test employees and clear all planned units?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Load test employees?",
+      message: employees.length > 0
+        ? "This will add test employees and clear all planned units."
+        : "Load test employees and clear all planned units?",
+      variant: "warning",
+      confirmLabel: "Load",
+    });
+    if (!confirmed) return;
 
     setLoading(true);
     setError("");
@@ -899,66 +904,46 @@ function EmployeesPage() {
         )}
       </section>
 
-      {showEmployeeForm && (
-        <div className="employee-drawer-overlay">
-          <aside
-            className="employee-drawer"
-            onClick={(event) => event.stopPropagation()}
-            style={drawerTab !== "profile" ? { background: "#0d1117" } : undefined}
-          >
-            <div className="employee-drawer-header" style={drawerTab !== "profile" ? { background: "#0d1117", borderBottom: "1px solid #2a3347", color: "#e9ecef" } : undefined}>
-              <div style={{ flex: 1 }}>
-                <h4 style={drawerTab !== "profile" ? { color: "#e9ecef" } : undefined}>{editingEmployeeId ? "Edit Employee" : "Add Employee"}</h4>
-                {editingEmployeeId && (
-                  <div className="d-flex gap-1 mt-2">
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${drawerTab === "profile" ? "btn-primary" : "btn-outline-secondary"}`}
-                      style={{ fontSize: 12 }}
-                      onClick={() => setDrawerTab("profile")}
-                    >
-                      <FaIdBadge style={{ marginRight: 4 }} />Profile
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${drawerTab === "timepay" ? "btn-primary" : "btn-outline-secondary"}`}
-                      style={{ fontSize: 12 }}
-                      onClick={() => setDrawerTab("timepay")}
-                    >
-                      <FaClock style={{ marginRight: 4 }} />Time & Pay
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${drawerTab === "documents" ? "btn-primary" : "btn-outline-secondary"}`}
-                      style={{ fontSize: 12 }}
-                      onClick={() => setDrawerTab("documents")}
-                    >
-                      <FaFileAlt style={{ marginRight: 4 }} />Documents
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                onClick={resetForm}
-                disabled={loading}
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            {drawerTab === "timepay" && editingEmployeeId ? (
-              <div style={{ flex: 1, overflowY: "auto", background: "#0d1117", display: "flex", flexDirection: "column" }}>
-                <TimePayTab employeeId={editingEmployeeId} currentUser={currentUser} />
-              </div>
-            ) : drawerTab === "documents" && editingEmployeeId ? (
-              <div style={{ flex: 1, overflowY: "auto", background: "#0d1117", display: "flex", flexDirection: "column" }}>
-                <DocumentsTab employeeId={editingEmployeeId} currentUser={currentUser} />
-              </div>
-            ) : (
-            <form onSubmit={handleSubmit} className="employee-drawer-form">
+      <EntityDrawer
+        open={showEmployeeForm}
+        onClose={resetForm}
+        title={editingEmployeeId ? "Edit Employee" : "Add Employee"}
+        subtitle={editingEmployeeId ? "Update profile, time & pay, or documents" : "Fill in the employee details below"}
+        width="50vw"
+        tabs={editingEmployeeId ? [
+          { key: "profile",   label: "Profile" },
+          { key: "timepay",   label: "Time & Pay" },
+          { key: "documents", label: "Documents" },
+        ] : undefined}
+        activeTab={drawerTab}
+        onTabChange={setDrawerTab}
+        footer={drawerTab === "profile" ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={resetForm}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="employee-drawer-form"
+              className="btn btn-primary btn-sm"
+              disabled={loading}
+            >
+              {loading ? "Saving…" : editingEmployeeId ? "Update Employee" : "Add Employee"}
+            </button>
+          </>
+        ) : null}
+      >
+        {drawerTab === "timepay" && editingEmployeeId ? (
+          <TimePayTab employeeId={editingEmployeeId} currentUser={currentUser} />
+        ) : drawerTab === "documents" && editingEmployeeId ? (
+          <DocumentsTab employeeId={editingEmployeeId} currentUser={currentUser} />
+        ) : (
+            <form id="employee-drawer-form" onSubmit={handleSubmit} className="employee-drawer-form">
               <div className="employee-drawer-body">
                 <div className="employee-form-section">
                   <div className="employee-form-section-header">
@@ -1306,35 +1291,9 @@ function EmployeesPage() {
                 </div>
               </div>
 
-              <div className="employee-drawer-footer">
-                <button
-                  type="submit"
-                  className="btn btn-primary d-inline-flex align-items-center gap-2"
-                  disabled={loading}
-                >
-                  <FaPlus />
-                  {loading
-                    ? "Saving..."
-                    : editingEmployeeId
-                    ? "Update Employee"
-                    : "Add Employee"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                  onClick={resetForm}
-                  disabled={loading}
-                >
-                  <FaTimes />
-                  Cancel
-                </button>
-              </div>
             </form>
-            )}
-          </aside>
-        </div>
-      )}
+        )}
+      </EntityDrawer>
 
       {/* Scan "Attach Later?" dialog */}
       {showScanDialog && (

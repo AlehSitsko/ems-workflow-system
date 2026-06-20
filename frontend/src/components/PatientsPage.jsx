@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useConfirm } from "./ui/ConfirmDialog";
+import { useToast } from "./ui/ToastProvider";
+import EntityDrawer from "./ui/EntityDrawer";
 import {
   FaAddressCard,
   FaAmbulance,
@@ -82,6 +85,8 @@ const PatientFormSection = ({ title, icon: Icon, children }) => (
 
 // Main patient management component.
 const PatientsPage = () => {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [searchName, setSearchName] = useState("");
   const [searchDob, setSearchDob] = useState("");
 
@@ -95,6 +100,8 @@ const PatientsPage = () => {
   const [showPatientForm, setShowPatientForm] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState(null);
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [drawerTab, setDrawerTab] = useState("overview"); // "overview" | "edit" | "history"
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -125,14 +132,21 @@ const PatientsPage = () => {
     setNewPatient(emptyPatient);
     setEditingPatientId(null);
     setShowPatientForm(false);
+    setDrawerOpen(false);
+    setSelectedPatient(null);
+    setPatientCalls([]);
+    setDrawerTab("overview");
   };
 
   // Open the drawer in add mode.
   const handleShowAddForm = () => {
     setNewPatient(emptyPatient);
     setEditingPatientId(null);
+    setSelectedPatient(null);
     setError("");
     setShowPatientForm(true);
+    setDrawerTab("edit");
+    setDrawerOpen(true);
   };
 
   // Handle text, select, and checkbox field changes.
@@ -153,19 +167,17 @@ const PatientsPage = () => {
   };
 
   // Close the patient drawer only after confirming unsaved changes.
-  const closePatientFormSafely = () => {
-    if (loading) {
-      return;
-    }
+  const closePatientFormSafely = async () => {
+    if (loading) return;
 
     if (isPatientFormDirty()) {
-      const shouldClose = window.confirm(
-        "Discard unsaved patient changes? All entered patient information will be lost."
-      );
-
-      if (!shouldClose) {
-        return;
-      }
+      const shouldClose = await confirm({
+        title: "Discard unsaved changes?",
+        message: "All entered patient information will be lost.",
+        variant: "warning",
+        confirmLabel: "Discard",
+      });
+      if (!shouldClose) return;
     }
 
     resetPatientForm();
@@ -257,7 +269,13 @@ const PatientsPage = () => {
 
   // Delete a patient record.
   const handleDeletePatient = async (id) => {
-    if (!window.confirm("Delete this patient?")) return;
+    const ok = await confirm({
+      title: "Delete patient?",
+      message: "This will permanently remove the patient record.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
 
     setError("");
 
@@ -278,52 +296,48 @@ const PatientsPage = () => {
     }
   };
 
-  // Select a patient for preview and load call history.
+  // Open drawer in view mode for a patient.
   const handleSelectPatient = async (patient) => {
     setSelectedPatient(patient);
+    setDrawerTab("overview");
+    setDrawerOpen(true);
     await loadPatientCalls(patient.id);
   };
 
-  // Start editing an existing patient and open the drawer.
+  // Open drawer in edit mode for a patient.
   const handleEditPatient = async (patient) => {
     setEditingPatientId(patient.id);
-
     setNewPatient({
       first_name: patient.first_name || "",
       last_name: patient.last_name || "",
       dob: patient.dob || "",
       gender: patient.gender || "",
-
       phone: patient.phone || "",
       secondary_phone: patient.secondary_phone || "",
       address: patient.address || "",
       city: patient.city || "",
       state: patient.state || "",
       zip_code: patient.zip_code || "",
-
       insurance: patient.insurance || "",
       member_id: patient.member_id || "",
       policy_number: patient.policy_number || "",
       requires_auth: patient.requires_auth || false,
       copay_required: patient.copay_required || false,
       insurance_notes: patient.insurance_notes || "",
-
       default_service_level: patient.default_service_level || "",
       weight: patient.weight || "",
       oxygen_required: patient.oxygen_required || false,
       stairs: patient.stairs || false,
       special_equipment_notes: patient.special_equipment_notes || "",
-
       facility_name: patient.facility_name || "",
       room_number: patient.room_number || "",
       emergency_contact_name: patient.emergency_contact_name || "",
       emergency_contact_phone: patient.emergency_contact_phone || "",
-
       notes: patient.notes || "",
     });
-
     setSelectedPatient(patient);
-    setShowPatientForm(true);
+    setDrawerTab("edit");
+    setDrawerOpen(true);
     await loadPatientCalls(patient.id);
   };
 
@@ -493,10 +507,10 @@ const PatientsPage = () => {
 
               return (
                 <div
-                  className={`patient-list-card ${
-                    isSelected ? "selected" : ""
-                  }`}
+                  className={`patient-list-card ${isSelected ? "selected" : ""}`}
                   key={patient.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleSelectPatient(patient)}
                 >
                   <div className="patient-list-main">
                     <div className="patient-list-avatar">
@@ -524,18 +538,7 @@ const PatientsPage = () => {
                     </span>
                   </div>
 
-                  <div className="patient-list-actions">
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${
-                        isSelected ? "btn-success" : "btn-outline-primary"
-                      }`}
-                      onClick={() => handleSelectPatient(patient)}
-                      disabled={loading}
-                    >
-                      {isSelected ? "Selected" : "Select"}
-                    </button>
-
+                  <div className="patient-list-actions" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
@@ -576,7 +579,7 @@ const PatientsPage = () => {
         </section>
       )}
 
-      {selectedPatient && (
+      {false && selectedPatient && (
         <section className="content-panel">
           <div className="content-panel-header">
             <div>
@@ -661,7 +664,7 @@ const PatientsPage = () => {
         </section>
       )}
 
-      {selectedPatient && (
+      {false && selectedPatient && (
         <section className="content-panel">
           <div className="content-panel-header">
             <div>
@@ -720,37 +723,130 @@ const PatientsPage = () => {
         </section>
       )}
 
-      {showPatientForm && (
-        <div
-          className="patient-drawer-overlay"
-          onClick={handlePatientDrawerOverlayClick}
-        >
-          <aside
-            className="patient-drawer"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="patient-drawer-header">
-              <div>
-                <h4>{editingPatientId ? "Edit Patient" : "Add Patient"}</h4>
-
-                <p>
-                  Maintain patient demographics, contact information, insurance,
-                  and EMS-specific details.
-                </p>
-              </div>
-
+      <EntityDrawer
+        open={drawerOpen}
+        onClose={closePatientFormSafely}
+        title={
+          selectedPatient
+            ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
+            : "Add Patient"
+        }
+        subtitle={
+          selectedPatient
+            ? `DOB: ${selectedPatient.dob || "—"} · ${selectedPatient.default_service_level || "No Service"}`
+            : "New patient record"
+        }
+        width="50vw"
+        tabs={
+          selectedPatient
+            ? [
+                { key: "overview", label: "Overview" },
+                { key: "edit", label: "Edit" },
+                { key: "history", label: "Call History" },
+              ]
+            : undefined
+        }
+        activeTab={drawerTab}
+        onTabChange={setDrawerTab}
+        footer={
+          drawerTab === "edit" ? (
+            <>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary"
+                className="btn btn-outline-secondary"
                 onClick={closePatientFormSafely}
                 disabled={loading}
               >
-                <FaTimes />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="patient-drawer-form"
+                className="btn btn-primary d-inline-flex align-items-center gap-2"
+                disabled={loading}
+              >
+                <FaPlus />
+                {loading ? "Saving..." : editingPatientId ? "Update Patient" : "Add Patient"}
+              </button>
+            </>
+          ) : null
+        }
+      >
+        {drawerTab === "overview" && selectedPatient && (
+          <div className="patient-detail-grid">
+            <DetailItem label="Name" value={`${selectedPatient.first_name || ""} ${selectedPatient.last_name || ""}`.trim()} />
+            <DetailItem label="DOB" value={selectedPatient.dob} />
+            <DetailItem label="Gender" value={selectedPatient.gender} />
+            <DetailItem label="Phone" value={selectedPatient.phone} />
+            <DetailItem label="Secondary Phone" value={selectedPatient.secondary_phone} />
+            <DetailItem label="Address" value={`${selectedPatient.address || ""}, ${selectedPatient.city || ""} ${selectedPatient.state || ""} ${selectedPatient.zip_code || ""}`.trim()} />
+            <DetailItem label="Insurance" value={selectedPatient.insurance} />
+            <DetailItem label="Member ID" value={selectedPatient.member_id} />
+            <DetailItem label="Policy Number" value={selectedPatient.policy_number} />
+            <DetailItem label="Requires Auth" value={selectedPatient.requires_auth ? "Yes" : "No"} />
+            <DetailItem label="Copay Required" value={selectedPatient.copay_required ? "Yes" : "No"} />
+            <DetailItem label="Default Service" value={selectedPatient.default_service_level} />
+            <DetailItem label="Weight" value={selectedPatient.weight} />
+            <DetailItem label="Oxygen Required" value={selectedPatient.oxygen_required ? "Yes" : "No"} />
+            <DetailItem label="Stairs" value={selectedPatient.stairs ? "Yes" : "No"} />
+            <DetailItem label="Facility" value={selectedPatient.facility_name} />
+            <DetailItem label="Room" value={selectedPatient.room_number} />
+            <DetailItem label="Emergency Contact" value={`${selectedPatient.emergency_contact_name || ""} ${selectedPatient.emergency_contact_phone || ""}`.trim()} />
+            <DetailItem label="Notes" value={selectedPatient.notes} />
+            <div style={{ gridColumn: "1 / -1", marginTop: 8, display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-warning"
+                onClick={() => { setEditingPatientId(selectedPatient.id); setNewPatient({ first_name: selectedPatient.first_name || "", last_name: selectedPatient.last_name || "", dob: selectedPatient.dob || "", gender: selectedPatient.gender || "", phone: selectedPatient.phone || "", secondary_phone: selectedPatient.secondary_phone || "", address: selectedPatient.address || "", city: selectedPatient.city || "", state: selectedPatient.state || "", zip_code: selectedPatient.zip_code || "", insurance: selectedPatient.insurance || "", member_id: selectedPatient.member_id || "", policy_number: selectedPatient.policy_number || "", requires_auth: selectedPatient.requires_auth || false, copay_required: selectedPatient.copay_required || false, insurance_notes: selectedPatient.insurance_notes || "", default_service_level: selectedPatient.default_service_level || "", weight: selectedPatient.weight || "", oxygen_required: selectedPatient.oxygen_required || false, stairs: selectedPatient.stairs || false, special_equipment_notes: selectedPatient.special_equipment_notes || "", facility_name: selectedPatient.facility_name || "", room_number: selectedPatient.room_number || "", emergency_contact_name: selectedPatient.emergency_contact_name || "", emergency_contact_phone: selectedPatient.emergency_contact_phone || "", notes: selectedPatient.notes || "" }); setShowPatientForm(true); setDrawerTab("edit"); }}
+              >
+                <FaEdit style={{ marginRight: 4 }} /> Edit Patient
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger"
+                onClick={() => handleDeletePatient(selectedPatient.id)}
+              >
+                <FaTrash style={{ marginRight: 4 }} /> Delete
               </button>
             </div>
+          </div>
+        )}
 
-            <form onSubmit={handleCreatePatient} className="patient-drawer-form">
-              <div className="patient-drawer-body">
+        {drawerTab === "history" && (
+          patientCalls.length === 0 ? (
+            <div className="empty-state">
+              <FaHistory />
+              <h5>No calls found</h5>
+              <p>No call records are currently linked to this patient.</p>
+            </div>
+          ) : (
+            <div className="patient-call-list">
+              {patientCalls.map((call) => (
+                <div className="patient-call-card" key={call.id}>
+                  <div>
+                    <div className="patient-call-date">{call.date_of_call || "—"}</div>
+                    <div className="patient-call-muted">Trip: {call.trip_date || "—"} {call.pickup_time ? `at ${call.pickup_time}` : ""}</div>
+                  </div>
+                  <div>
+                    <div className="patient-call-label">Route</div>
+                    <div>{call.pickup_address || "—"} → {call.dropoff_address || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="patient-call-label">Service</div>
+                    <div>{call.service_level || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="patient-call-label">Notes</div>
+                    <div>{call.notes || "—"}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {drawerTab === "edit" && (
+          <form id="patient-drawer-form" onSubmit={handleCreatePatient}>
                 <PatientFormSection title="Basic Information" icon={FaIdCard}>
                   <div className="row g-3">
                     <div className="col-md-6">
@@ -1116,36 +1212,9 @@ const PatientsPage = () => {
                     disabled={loading}
                   />
                 </PatientFormSection>
-              </div>
-
-              <div className="patient-drawer-footer">
-                <button
-                  type="submit"
-                  className="btn btn-primary d-inline-flex align-items-center gap-2"
-                  disabled={loading}
-                >
-                  <FaPlus />
-                  {loading
-                    ? "Saving..."
-                    : editingPatientId
-                    ? "Update Patient"
-                    : "Add Patient"}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-                  onClick={closePatientFormSafely}
-                  disabled={loading}
-                >
-                  <FaTimes />
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </aside>
-        </div>
-      )}
+          </form>
+        )}
+      </EntityDrawer>
     </div>
   );
 };

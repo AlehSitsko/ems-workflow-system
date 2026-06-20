@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useConfirm } from "./ui/ConfirmDialog";
+import { useToast } from "./ui/ToastProvider";
 import {
   getTimeEntries, createTimeEntry, updateTimeEntry, deleteTimeEntry,
   getPayConfig, savePayConfig,
@@ -39,6 +41,8 @@ function defaultDateRange() {
 const canManage = (role) => ["admin", "supervisor", "hr"].includes(role);
 
 export default function TimePayTab({ employeeId, currentUser }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(defaultDateRange());
@@ -103,7 +107,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
       setAddForm({ clock_in: "", clock_out: "", break_minutes: 0, notes: "", entry_type: "manual" });
       setShowAddForm(false);
       await loadEntries();
-    } catch (err) { alert(err.message); }
+    } catch (err) { toast.error("Save failed", err.message); }
     setSaving(false);
   };
 
@@ -122,11 +126,18 @@ export default function TimePayTab({ employeeId, currentUser }) {
   };
 
   const handleDelete = async (entryId) => {
-    if (!window.confirm("Delete this time entry?")) return;
+    const ok = await confirm({
+      title: "Delete this time entry?",
+      message: "This action cannot be undone.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await deleteTimeEntry(entryId);
       await loadEntries();
-    } catch { /* noop */ }
+      toast.success("Time entry deleted");
+    } catch { toast.error("Delete failed"); }
   };
 
   const handleSavePayConfig = async (e) => {
@@ -141,17 +152,18 @@ export default function TimePayTab({ employeeId, currentUser }) {
       });
       setPayConfig(cfg);
       setShowPayConfig(false);
-    } catch (err) { alert(err.message); }
+      toast.success("Pay config saved");
+    } catch (err) { toast.error("Save failed", err.message); }
     setSaving(false);
   };
 
   const manage = canManage(currentUser?.role);
 
   return (
-    <div data-bs-theme="dark" style={{ overflowY: "auto", flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16, background: "#0d1117", color: "#e9ecef" }}>
+    <div style={{ overflowY: "auto", flex: 1, padding: 0, display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* Pay Summary */}
-      <div style={{ background: "#1a2236", borderRadius: 10, padding: "14px 16px" }}>
+      <div style={{ background: "var(--ems-bg-surface-2)", border: "1px solid var(--ems-border)", borderRadius: 10, padding: "14px 16px" }}>
         <div className="d-flex align-items-center justify-content-between mb-2">
           <div style={{ fontSize: 12, color: "#6c757d", textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>
             Pay Period Summary
@@ -176,7 +188,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
 
       {/* Pay Config Form */}
       {showPayConfig && manage && (
-        <form onSubmit={handleSavePayConfig} style={{ background: "#151b27", borderRadius: 8, padding: "14px 16px", border: "1px solid #2a3347" }}>
+        <form onSubmit={handleSavePayConfig} style={{ background: "var(--ems-section-bg)", borderRadius: 8, padding: "14px 16px", border: "1px solid var(--ems-section-border)" }}>
           <div style={{ fontSize: 12, color: "#6c757d", marginBottom: 10, fontWeight: 700, textTransform: "uppercase" }}>Pay Configuration</div>
           <div className="row g-2">
             <div className="col-6">
@@ -224,7 +236,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
 
       {/* Add Entry Form */}
       {showAddForm && manage && (
-        <form onSubmit={handleAddEntry} style={{ background: "#151b27", borderRadius: 8, padding: "14px 16px", border: "1px solid #2a3347" }}>
+        <form onSubmit={handleAddEntry} style={{ background: "var(--ems-section-bg)", borderRadius: 8, padding: "14px 16px", border: "1px solid var(--ems-section-border)" }}>
           <div style={{ fontSize: 12, color: "#6c757d", marginBottom: 10, fontWeight: 700, textTransform: "uppercase" }}>Add Manual Entry</div>
           <div className="row g-2">
             <div className="col-6">
@@ -261,22 +273,22 @@ export default function TimePayTab({ employeeId, currentUser }) {
           {entries.map((entry) => {
             const st = STATUS_COLOR[entry.status] || STATUS_COLOR.pending;
             return (
-              <div key={entry.id} style={{ background: "#151b27", borderRadius: 8, padding: "10px 14px", border: "1px solid #2a3347" }}>
+              <div key={entry.id} style={{ background: "var(--ems-section-bg)", borderRadius: 8, padding: "10px 14px", border: "1px solid var(--ems-section-border)" }}>
                 <div className="d-flex align-items-start justify-content-between gap-2">
                   <div style={{ flex: 1 }}>
                     <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                      <span style={{ fontSize: 13, color: "#e9ecef", fontWeight: 600 }}>
+                      <span style={{ fontSize: 13, color: "var(--ems-text-primary)", fontWeight: 600 }}>
                         {formatDateTime(entry.clock_in)}
                       </span>
                       <span style={{ fontSize: 12, color: "#6c757d" }}>→ {formatDateTime(entry.clock_out)}</span>
                       <span style={{ fontSize: 11, padding: "1px 8px", borderRadius: 20, background: st.bg, color: st.color, fontWeight: 600 }}>
                         {st.label}
                       </span>
-                      <span style={{ fontSize: 11, color: "#6c757d", background: "#1a2236", padding: "1px 8px", borderRadius: 20 }}>
+                      <span style={{ fontSize: 11, color: "var(--ems-text-muted)", background: "var(--ems-bg-surface-2)", padding: "1px 8px", borderRadius: 20 }}>
                         {entry.entry_type}
                       </span>
                     </div>
-                    <div className="d-flex gap-3" style={{ fontSize: 12, color: "#adb5bd" }}>
+                    <div className="d-flex gap-3" style={{ fontSize: 12, color: "var(--ems-text-muted)" }}>
                       <span>⏱ {formatDuration(entry.duration_minutes)}</span>
                       {entry.break_minutes > 0 && <span>☕ {entry.break_minutes}m break</span>}
                       {entry.notes && <span style={{ color: "#6c757d" }}>{entry.notes}</span>}
@@ -290,7 +302,7 @@ export default function TimePayTab({ employeeId, currentUser }) {
                       {entry.status === "disputed" && (
                         <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", background: "rgba(25,135,84,0.12)", color: "#75b798", border: "1px solid #75b79844" }} onClick={() => handleApprove(entry)} title="Clear dispute">✓</button>
                       )}
-                      <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "#6c757d", border: "1px solid #2a3347" }} onClick={() => handleDelete(entry.id)}>✕</button>
+                      <button className="btn btn-sm" style={{ fontSize: 10, padding: "2px 8px", color: "var(--ems-text-muted)", border: "1px solid var(--ems-border)" }} onClick={() => handleDelete(entry.id)}>✕</button>
                     </div>
                   )}
                 </div>
@@ -307,7 +319,7 @@ function Stat({ label, value, color }) {
   return (
     <div style={{ background: "#151b27", borderRadius: 8, padding: "8px 14px", minWidth: 90 }}>
       <div style={{ fontSize: 10, color: "#6c757d", marginBottom: 2, textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: color || "#e9ecef" }}>{value}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: color || "var(--ems-text-primary)" }}>{value}</div>
     </div>
   );
 }

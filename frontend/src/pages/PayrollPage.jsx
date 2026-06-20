@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { FaMoneyBillWave, FaDownload, FaPlus, FaCheck, FaSearch, FaEdit, FaSave, FaTimes, FaTrash } from "react-icons/fa";
 import { getPeriods, createPeriod, updatePeriod, updatePeriodStatus, deletePeriod, getPeriodSummary, exportPayroll } from "../api/payrollApi";
 import { getCurrentUser } from "../api/authApi";
+import { useConfirm } from "../components/ui/ConfirmDialog";
+import { useToast } from "../components/ui/ToastProvider";
 
 const STATUS_META = {
   open:     { label: "Open",     color: "#6c757d", bg: "rgba(108,117,125,0.12)" },
@@ -33,6 +35,8 @@ function weekAgoStr() {
 }
 
 export default function PayrollPage() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const currentUser = getCurrentUser();
   const canManage = ["admin", "supervisor", "hr"].includes(currentUser?.role);
 
@@ -81,7 +85,7 @@ export default function PayrollPage() {
       await load();
       setShowCreate(false);
       handleSelect(p);
-    } catch (err) { alert(err.message); }
+    } catch (err) { toast.error("Create failed", err.message); }
     setCreating(false);
   };
 
@@ -107,19 +111,26 @@ export default function PayrollPage() {
       setLoadingSummary(true);
       try { setSummary(await getPeriodSummary(updated.id)); } catch { /* noop */ }
       finally { setLoadingSummary(false); }
-    } catch (err) { alert(err.message); }
+    } catch (err) { toast.error("Save failed", err.message); }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     if (!selected) return;
-    if (!window.confirm(`Delete period ${selected.start_date} → ${selected.end_date}? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete pay period?`,
+      message: `${selected.start_date} → ${selected.end_date}. This cannot be undone.`,
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
       await deletePeriod(selected.id);
       setSelected(null);
       setSummary(null);
       await load();
-    } catch (err) { alert(err.message); }
+      toast.success("Pay period deleted");
+    } catch (err) { toast.error("Delete failed", err.message); }
   };
 
   const handleAdvanceStatus = async () => {
@@ -130,7 +141,8 @@ export default function PayrollPage() {
       const updated = await updatePeriodStatus(selected.id, next, next === "exported" ? "csv" : undefined);
       setSelected(updated);
       await load();
-    } catch (err) { alert(err.message); }
+      toast.success("Status updated", `Period moved to ${next}`);
+    } catch (err) { toast.error("Update failed", err.message); }
   };
 
   const handleExport = (fmt) => {

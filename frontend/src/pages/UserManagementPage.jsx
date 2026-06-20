@@ -7,6 +7,8 @@ import {
   updateUser,
 } from "../api/authApi";
 import { kioskEmployees } from "../api/timeApi";
+import { useConfirm } from "../components/ui/ConfirmDialog";
+import { useToast } from "../components/ui/ToastProvider";
 
 const initialFormData = {
   username: "",
@@ -18,6 +20,8 @@ const initialFormData = {
 };
 
 function UserManagementPage() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [editingUserId, setEditingUserId] = useState(null);
@@ -146,34 +150,27 @@ function UserManagementPage() {
   const handleToggleActive = async (user) => {
     const newStatus = !user.is_active;
 
-    const confirmed = window.confirm(
-      newStatus
-        ? `Activate user "${user.username}"?`
-        : `Deactivate user "${user.username}"?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
+    const ok = await confirm({
+      title: newStatus ? `Activate "${user.username}"?` : `Deactivate "${user.username}"?`,
+      message: newStatus
+        ? "This user will regain access to the system."
+        : "This user will lose access to the system.",
+      variant: newStatus ? "info" : "danger",
+      confirmLabel: newStatus ? "Activate" : "Deactivate",
+    });
+    if (!ok) return;
 
     setLoading(true);
-
     setError("");
     setMessage("");
 
     try {
       await toggleUserActive(user.id, newStatus);
-
-      setMessage(
-        newStatus
-          ? "User activated successfully."
-          : "User deactivated successfully."
-      );
-
+      toast.success(newStatus ? "User activated" : "User deactivated", `"${user.username}" updated.`);
       await loadUsers();
     } catch (err) {
       console.error("Failed to update user status:", err);
-
+      toast.error("Update failed", err.message || "Failed to update user status.");
       setError(err.message || "Failed to update user status.");
     } finally {
       setLoading(false);

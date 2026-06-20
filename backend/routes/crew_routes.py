@@ -63,8 +63,8 @@ def create_daily_crew_unit():
         unit_type=data.get("unitType", "BLS"),
         truck_number=truck_number,
         start_time=start_time,
-        end_time=data.get("endTime", "").strip() or None,
-        end_date=data.get("endDate", "").strip() or None,
+        end_time=(data.get("endTime") or "").strip() or None,
+        end_date=(data.get("endDate") or "").strip() or None,
         shift_type=data.get("shiftType", "day"),
 
         driver_id=parse_optional_employee_id(crew.get("driver")),
@@ -114,8 +114,8 @@ def update_daily_crew_unit(id):
     unit.unit_type = data.get("unitType", "BLS")
     unit.truck_number = data.get("truckNumber", "").strip()
     unit.start_time = data.get("startTime", "").strip()
-    unit.end_time = data.get("endTime", "").strip() or None
-    unit.end_date = data.get("endDate", "").strip() or None
+    unit.end_time = (data.get("endTime") or "").strip() or None
+    unit.end_date = (data.get("endDate") or "").strip() or None
     unit.shift_type = data.get("shiftType", unit.shift_type or "day")
 
     unit.driver_id = parse_optional_employee_id(crew.get("driver"))
@@ -154,8 +154,8 @@ def make_night_crew(id):
     data = request.get_json() or {}
 
     replace = data.get("replace", False)   # if True, delete existing night units for this date first
-    end_date = data.get("endDate", "").strip() or None
-    end_time = data.get("endTime", "").strip() or None
+    end_date = (data.get("endDate") or "").strip() or None
+    end_time = (data.get("endTime") or "").strip() or None
 
     if replace:
         existing_night = DailyCrewUnit.query.filter_by(
