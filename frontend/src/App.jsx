@@ -245,7 +245,7 @@ function App() {
           path="/manual"
           element={
             <ProtectedLayout>
-              <UserManualPage />
+              <UserManualPage currentUser={currentUser} />
             </ProtectedLayout>
           }
         />
