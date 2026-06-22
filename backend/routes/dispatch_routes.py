@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Call, DailyCrewUnit, CallAssignment, Patient
+from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee
 from notification_utils import create_notification
 from audit_utils import log_action
 
@@ -42,6 +42,15 @@ def _call_with_patient(call):
 def _crew_count(unit):
     slots = [unit.driver_id, unit.medical_id, unit.assist1_id, unit.assist2_id]
     return sum(1 for s in slots if s is not None)
+
+
+def _emp_short(emp_id):
+    if not emp_id:
+        return None
+    emp = db.session.get(Employee, emp_id)
+    if not emp:
+        return None
+    return f"{emp.first_name} {emp.last_name[0]}." if emp.last_name else emp.first_name
 
 
 @dispatch_bp.route("/board", methods=["GET"])
@@ -105,6 +114,11 @@ def get_board():
     for unit in units:
         ud = unit.to_dict()
         ud["crewCount"] = _crew_count(unit)
+        ud["crewNames"] = {
+            "driver":  _emp_short(unit.driver_id),
+            "medical": _emp_short(unit.medical_id),
+        }
+        ud["patientOrder"] = unit._parse_patient_order()
         ud["assignedCalls"] = calls_by_unit.get(unit.id, [])
         ud["completedCalls"] = completed_by_unit.get(unit.id, [])
         unit_dicts.append(ud)
@@ -114,10 +128,22 @@ def get_board():
     completed_day = [c for c in all_day_calls if c.status == "completed"]
     cancelled_day = [c for c in all_day_calls if c.status == "cancelled"]
 
+    # Enrich completed calls with their last assignment_id so Reopen works
+    def _completed_call_dict(call):
+        d = _call_with_patient(call)
+        last_a = (
+            CallAssignment.query
+            .filter_by(call_id=call.id, is_active=False)
+            .order_by(CallAssignment.id.desc())
+            .first()
+        )
+        d["assignment_id"] = last_a.id if last_a else None
+        return d
+
     return jsonify({
         "date": date,
         "openCalls":      [_call_with_patient(c) for c in open_only],
-        "completedCalls": [_call_with_patient(c) for c in completed_day],
+        "completedCalls": [_completed_call_dict(c) for c in completed_day],
         "cancelledCalls": [_call_with_patient(c) for c in cancelled_day],
         "units": unit_dicts,
     })

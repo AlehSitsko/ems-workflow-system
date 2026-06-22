@@ -232,7 +232,7 @@ Current features:
 
 ## Dispatch Board
 
-The Dispatch Board is the live operational dispatch interface.
+The Dispatch Board is the live operational dispatch interface. Crew planning, call management, and real-time dispatch are unified in a single page.
 
 Current features:
 
@@ -252,6 +252,7 @@ Current features:
 * Crew count badge with danger color when below minimum
 * Assigned call badges with +R indicator for return rides
 * Completed call badges with strikethrough
+* Patient queue sub-row under each unit row — shows assigned calls sorted by pickup time, derived from actual assignments (not manual entry)
 * Single-click unit row to open the unit detail panel
 * Double-click unit row to advance to the next operational status
 * Unit detail panel with full status button controls
@@ -263,10 +264,24 @@ Current features:
 * Done button to mark a call as completed
 * Completed calls displayed at bottom of unit panel with strikethrough and reduced opacity
 * Unassign button to return call to Open Calls
+* Reopen completed call from Done tab (restores to assigned status)
 * Resizable Open Calls column via drag divider
 * Call detail modal with sections and visual hierarchy
+* Dispatch Timestamps section in call detail modal — shows dispatched / on scene / transporting / at destination / completed times with inline editing
 * Call cancellation with mandatory reason field
+* + New Call button — opens full call create/edit drawer directly from the board
+* Edit Call button in call detail modal footer — opens call in edit drawer
 * Full dark / light theme support via CSS design tokens
+
+Crew planning (integrated):
+
+* + Day Unit and + Night Unit buttons in board header
+* Edit and Delete buttons on each unit row
+* Unit create/edit drawer embedded in the board — no separate Crew Planner page required
+* Left panel Staff tab showing unassigned employees for the date
+* Calls / Staff toggle in left panel
+* Make Night flow from unit edit drawer
+* All crew planner validation rules enforced inline
 
 Operational rules enforced:
 
@@ -924,6 +939,25 @@ Recommended workflow:
 * `PATCH /api/calls/<id>/uncancel` — restore cancelled call to new
 * `PATCH /api/dispatch/assign/<id>/reopen` — reopen completed assignment
 
+### Dispatch Board — Crew Planning Integration (complete)
+
+* Crew Planner fully embedded in Dispatch Board (Variant C)
+* + Day Unit / + Night Unit buttons in board header
+* Edit / Delete buttons on unit rows
+* Unit create/edit drawer with full crew assignment and validation
+* Left panel Staff tab: shows unassigned employees for the date
+* Calls / Staff toggle in left panel
+* Patient queue sub-row: derived from actual assigned calls sorted by pickup time; stale manual entries no longer shown
+
+### Dispatch Board — Call Management (complete)
+
+* + New Call button in left panel opens `CallDrawer` for create mode
+* CallDrawer supports patient search (name + DOB + phone), new patient creation with dedup check, full trip and caller fields
+* Edit Call from call detail modal footer — opens CallDrawer in edit mode
+* Dispatch Timestamps inline editing in call detail modal (dispatched / on scene / transporting / at destination / completed)
+* Completed calls in Done tab now carry `assignment_id` from backend — Reopen works correctly from any context
+* `patient_order` JSON column on `DailyCrewUnit` stores `[{name, time, callId}]` — board display derives from live assignments, not stored order
+
 ## Roadmap
 
 ### Block 5.2 — Assignment Conflict Validation
@@ -1015,7 +1049,8 @@ Recommended workflow:
 ## Current Status
 
 ```text
-Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phase 1 + Phase 2 complete, Call Editing + Return Ride from Calls page complete
+Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phases 1–3 complete,
+Call Editing + Return Ride complete, Dispatch Board fully unified (crew planning + call management + timestamps)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 

@@ -19,27 +19,6 @@ function PlannedUnitsList({
   const dayUnits = units.filter((u) => (u.shiftType || "day") === "day");
   const nightUnits = units.filter((u) => u.shiftType === "night");
 
-  const renderCrewMember = (label, employeeId) => {
-    const employee = getEmployeeById(employeeId);
-    if (!employee) {
-      return (
-        <div className="crew-member-card empty">
-          <div className="crew-member-label">{label}</div>
-          <div className="crew-member-name">Not assigned</div>
-        </div>
-      );
-    }
-    return (
-      <div className="crew-member-card">
-        <div className="crew-member-label">{label}</div>
-        <div className="crew-member-name">{getEmployeeName(employeeId)}</div>
-        <span className={`employee-role-badge ${getEmployeeRoleClass(employee.role)}`}>
-          {getEmployeeRoleLabel(employee.role)}
-        </span>
-      </div>
-    );
-  };
-
   const renderTimeRange = (unit) => {
     const start = unit.startTime || "—";
     if (!unit.endTime) return start;
@@ -49,30 +28,102 @@ function PlannedUnitsList({
     return `${start} – ${endLabel}`;
   };
 
-  const renderUnit = (unit, isNight) => (
-    <div
-      key={unit.id}
-      className="planned-unit-card"
-      style={isNight ? { borderLeft: "3px solid #6ea8fe" } : undefined}
-    >
-      <div className="planned-unit-header">
-        <div>
-          <div className="planned-unit-title">
+  const renderCrewSlot = (label, employeeId) => {
+    const employee = getEmployeeById(employeeId);
+    return (
+      <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <div className="compact-call-label">{label}</div>
+        {employee ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+              background: "var(--ems-bg-surface-2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, fontWeight: 800, color: "var(--ems-text-secondary)",
+            }}>
+              {(employee.firstName?.[0] || "?").toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ems-text-primary)", lineHeight: 1.2 }}>
+                {employee.firstName} {employee.lastName}
+              </div>
+              <span className={`employee-role-badge ${getEmployeeRoleClass(employee.role)}`} style={{ fontSize: 10 }}>
+                {getEmployeeRoleLabel(employee.role)}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 11, color: "var(--ems-text-muted)", fontStyle: "italic" }}>Not assigned</div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPatientOrder = (unit) => {
+    const all = [unit.firstPatient, ...(unit.nextPatients || [])].filter(Boolean);
+    if (all.length === 0) return (
+      <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 6,
+        background: "#6c757d14", color: "#6c757d", border: "1px solid #6c757d30" }}>
+        No patient
+      </span>
+    );
+    return (
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {all.map((p, i) => (
+          <span key={i} style={{
+            fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 6,
+            background: "var(--ems-bg-surface-2)", color: "var(--ems-text-secondary)",
+            border: "1px solid var(--ems-border-light)",
+          }}>
+            {i + 1}. {p}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const renderUnit = (unit, isNight) => {
+    const medicalLabel = isMedicalSlotVisible(unit.unitType) ? getMedicalSlotLabel(unit.unitType) : null;
+
+    return (
+      <div
+        key={unit.id}
+        className="planned-unit-row"
+        style={isNight ? { borderLeft: "3px solid #6ea8fe" } : undefined}
+      >
+        {/* Col 1: time + truck + badges */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--ems-text-primary)" }}>
             {renderTimeRange(unit)} — Truck {unit.truckNumber || "—"}
           </div>
-          <div className="planned-unit-badges">
-            <span className="badge text-bg-primary">{unit.unitType}</span>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+            <span className={`badge ${unit.unitType === "ALS" ? "text-bg-primary" : "text-bg-success"}`} style={{ fontSize: 10 }}>
+              {unit.unitType}
+            </span>
             {isNight && (
-              <span className="badge" style={{ background: "#1a2a4a", color: "#6ea8fe" }}>
-                <FaMoon style={{ marginRight: 4 }} />Night
+              <span className="badge" style={{ background: "#1a2a4a", color: "#6ea8fe", fontSize: 10 }}>
+                <FaMoon style={{ marginRight: 3, fontSize: 9 }} />Night
               </span>
             )}
-            <span className="badge text-bg-secondary">Date: {unit.shiftDate}</span>
-            <span className="badge text-bg-dark">First: {unit.firstPatient || "—"}</span>
           </div>
         </div>
 
-        <div className="planned-unit-actions">
+        {/* Col 2: crew slots */}
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {renderCrewSlot("Driver", unit.crew.driver)}
+          {medicalLabel && renderCrewSlot(medicalLabel, unit.crew.medical)}
+          {renderCrewSlot("Assist 1", unit.crew.assist1)}
+          {renderCrewSlot("Assist 2", unit.crew.assist2)}
+        </div>
+
+        {/* Col 3: patient order */}
+        <div style={{ minWidth: 0 }}>
+          <div className="compact-call-label">Patient Order</div>
+          <div style={{ marginTop: 3 }}>{renderPatientOrder(unit)}</div>
+        </div>
+
+        {/* Col 4: actions */}
+        <div style={{ display: "flex", gap: 6, flexShrink: 0, justifyContent: "flex-end", alignItems: "center" }}>
           {!isNight && onMakeNight && (
             <button
               type="button"
@@ -102,31 +153,24 @@ function PlannedUnitsList({
           </button>
         </div>
       </div>
-
-      <div className="planned-unit-section">
-        <div className="employee-section-label">Crew</div>
-        <div className="crew-member-grid">
-          {renderCrewMember("Driver", unit.crew.driver)}
-          {isMedicalSlotVisible(unit.unitType) &&
-            renderCrewMember(getMedicalSlotLabel(unit.unitType), unit.crew.medical)}
-          {renderCrewMember("Assist 1", unit.crew.assist1)}
-          {renderCrewMember("Assist 2", unit.crew.assist2)}
-        </div>
-      </div>
-
-      <div className="planned-unit-section">
-        <div className="employee-section-label">Patient Order</div>
-        <ol className="planned-patient-list">
-          <li>{unit.firstPatient || "—"}</li>
-          {(unit.nextPatients || []).map((patient, index) => (
-            <li key={`saved-patient-${unit.id}-${index}`}>{patient}</li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const isEmpty = units.length === 0;
+
+  const sectionHeader = (icon, label, count, color) => (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "6px 0", marginBottom: 8,
+      borderBottom: `1px solid ${color}33`,
+    }}>
+      {icon}
+      <span style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {label}
+      </span>
+      <span className="badge" style={{ fontSize: 10, background: `${color}22`, color }}>{count}</span>
+    </div>
+  );
 
   return (
     <section className="content-panel">
@@ -151,47 +195,25 @@ function PlannedUnitsList({
       ) : (
         <>
           {/* Day section */}
-          <div style={{ marginBottom: dayUnits.length > 0 ? 8 : 0 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "6px 0", marginBottom: 8,
-              borderBottom: "1px solid #e4e8f0",
-            }}>
-              <FaSun style={{ color: "#ffc107", fontSize: 13 }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#6c757d", textTransform: "uppercase", letterSpacing: 1 }}>
-                Day Crew
-              </span>
-              <span className="badge text-bg-secondary" style={{ fontSize: 10 }}>{dayUnits.length}</span>
-            </div>
-            {dayUnits.length === 0 ? (
-              <p className="text-muted small" style={{ paddingLeft: 4 }}>No day units for this date.</p>
-            ) : (
-              <div className="planned-unit-list">
-                {dayUnits.map((u) => renderUnit(u, false))}
-              </div>
-            )}
+          <div style={{ marginBottom: 20 }}>
+            {sectionHeader(<FaSun style={{ color: "#ffc107", fontSize: 13 }} />, "Day Crew", dayUnits.length, "#b45309")}
+            {dayUnits.length === 0
+              ? <p className="text-muted small" style={{ paddingLeft: 4 }}>No day units for this date.</p>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {dayUnits.map((u) => renderUnit(u, false))}
+                </div>
+            }
           </div>
 
           {/* Night section */}
-          <div style={{ marginTop: 16 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "6px 0", marginBottom: 8,
-              borderBottom: "1px solid #1a2a4a",
-            }}>
-              <FaMoon style={{ color: "#6ea8fe", fontSize: 13 }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#6ea8fe", textTransform: "uppercase", letterSpacing: 1 }}>
-                Night Crew
-              </span>
-              <span className="badge" style={{ fontSize: 10, background: "#1a2a4a", color: "#6ea8fe" }}>{nightUnits.length}</span>
-            </div>
-            {nightUnits.length === 0 ? (
-              <p className="text-muted small" style={{ paddingLeft: 4 }}>No night units. Use <FaMoon style={{ fontSize: 11 }} /> on a day unit to create one, or add a new Night unit.</p>
-            ) : (
-              <div className="planned-unit-list">
-                {nightUnits.map((u) => renderUnit(u, true))}
-              </div>
-            )}
+          <div>
+            {sectionHeader(<FaMoon style={{ color: "#6ea8fe", fontSize: 13 }} />, "Night Crew", nightUnits.length, "#6ea8fe")}
+            {nightUnits.length === 0
+              ? <p className="text-muted small" style={{ paddingLeft: 4 }}>No night units. Use <FaMoon style={{ fontSize: 11 }} /> on a day unit to create one, or add a new Night unit.</p>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {nightUnits.map((u) => renderUnit(u, true))}
+                </div>
+            }
           </div>
         </>
       )}

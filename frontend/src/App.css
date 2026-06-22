@@ -1311,6 +1311,22 @@ textarea.form-control {
   white-space: nowrap;
 }
 
+.planned-unit-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(280px, 2.5fr) minmax(160px, 1.2fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--ems-border);
+  border-radius: 10px;
+  background: var(--ems-bg-surface);
+  transition: border-color 0.15s ease;
+}
+
+.planned-unit-row:hover {
+  border-color: #0d6efd55;
+}
+
 .planned-unit-card {
   padding: 1rem;
   border: 1px solid var(--ems-border);
@@ -1711,6 +1727,10 @@ textarea.form-control {
 
   .patient-call-card,
   .patient-list-card {
+    grid-template-columns: 1fr;
+  }
+
+  .planned-unit-row {
     grid-template-columns: 1fr;
   }
 

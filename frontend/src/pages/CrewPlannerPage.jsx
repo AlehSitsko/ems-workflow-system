@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 
 import { getEmployees } from "../api/employeesApi";
+import { getCalls } from "../api/callsApi";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
 import UnassignedEmployeesCard from "../components/crew/UnassignedEmployeesCard";
 import PlannedUnitsList from "../components/crew/PlannedUnitsList";
@@ -32,6 +33,7 @@ import { createCrewPreset, getCrewPresets } from "../api/crewPresetApi";
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import { getTodayDate } from "../utils/callUtils";
 import EntityDrawer from "../components/ui/EntityDrawer";
+import TimeInput from "../components/ui/TimeInput";
 
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
@@ -58,8 +60,8 @@ const initialUnitForm = {
   endDate: "",
   shiftType: "day",
   crew: { ...initialCrew },
-  firstPatient: "",
-  nextPatients: [""],
+  patientOrder: [],
+  noPatient: false,
 };
 
 function CrewPlannerPage() {
@@ -122,6 +124,9 @@ function CrewPlannerPage() {
   const [nightDialog, setNightDialog] = useState(null);
   const [nightForm, setNightForm] = useState({ startTime: "", endTime: "", endDate: "" });
 
+  /* Open calls for the selected date — used in Patient Order picker */
+  const [openCalls, setOpenCalls] = useState([]);
+
   /*
     Loads employees from the backend.
   */
@@ -148,8 +153,12 @@ function CrewPlannerPage() {
     setUnitsLoading(true);
 
     try {
-      const data = await getCrewUnits(selectedDate);
-      setUnits(Array.isArray(data) ? data : []);
+      const [unitsData, callsData] = await Promise.all([
+        getCrewUnits(selectedDate),
+        getCalls({ trip_date: selectedDate }, 1, 100),
+      ]);
+      setUnits(Array.isArray(unitsData) ? unitsData : []);
+      setOpenCalls(Array.isArray(callsData?.items) ? callsData.items : []);
     } catch (error) {
       console.error("Failed to load crew units:", error);
       setUnits([]);
@@ -403,6 +412,10 @@ function CrewPlannerPage() {
       if (editingUnitId && String(unit.id) === String(editingUnitId)) {
         return;
       }
+      // Only warn if the unit is on the same date as the form being filled
+      if (unit.shiftDate !== unitForm.shiftDate) {
+        return;
+      }
 
       Object.entries(unit.crew || {}).forEach(([role, assignedEmployeeId]) => {
         if (String(assignedEmployeeId) === normalizedEmployeeId) {
@@ -531,61 +544,8 @@ function CrewPlannerPage() {
     }
   };
 
-  /*
-    Handles first patient field change.
-  */
-  const handleFirstPatientChange = (event) => {
-    setUnitForm((prev) => ({
-      ...prev,
-      firstPatient: event.target.value,
-    }));
-  };
-
-  /*
-    Handles one next-patient field by index.
-  */
-  const handleNextPatientChange = (index, value) => {
-    setUnitForm((prev) => {
-      const updatedPatients = [...prev.nextPatients];
-      updatedPatients[index] = value;
-
-      return {
-        ...prev,
-        nextPatients: updatedPatients,
-      };
-    });
-  };
-
-  /*
-    Adds another optional next-patient input.
-  */
-  const handleAddNextPatientField = () => {
-    setUnitForm((prev) => ({
-      ...prev,
-      nextPatients: [...prev.nextPatients, ""],
-    }));
-  };
-
-  /*
-    Removes a next-patient input.
-    At least one empty field is kept for easier data entry.
-  */
-  const handleRemoveNextPatientField = (index) => {
-    setUnitForm((prev) => {
-      if (prev.nextPatients.length === 1) {
-        return {
-          ...prev,
-          nextPatients: [""],
-        };
-      }
-
-      return {
-        ...prev,
-        nextPatients: prev.nextPatients.filter(
-          (_, patientIndex) => patientIndex !== index
-        ),
-      };
-    });
+  const handlePatientOrderChange = (newOrder) => {
+    setUnitForm((prev) => ({ ...prev, patientOrder: newOrder }));
   };
 
   /*
@@ -609,12 +569,11 @@ function CrewPlannerPage() {
   const isUnitFormDirty = () => {
     if (unitForm.truckNumber.trim()) return true;
     if (unitForm.startTime.trim()) return true;
-    if (unitForm.firstPatient.trim()) return true;
+    if (unitForm.noPatient || unitForm.patientOrder.length > 0) return true;
     if (unitForm.crew.driver) return true;
     if (unitForm.crew.medical) return true;
     if (unitForm.crew.assist1) return true;
     if (unitForm.crew.assist2) return true;
-    if (unitForm.nextPatients.some((p) => p.trim())) return true;
     return false;
   };
 
@@ -670,11 +629,8 @@ function CrewPlannerPage() {
         assist1: unit.crew?.assist1 || "",
         assist2: unit.crew?.assist2 || "",
       },
-      firstPatient: unit.firstPatient || "",
-      nextPatients:
-        unit.nextPatients && unit.nextPatients.length > 0
-          ? [...unit.nextPatients]
-          : [""],
+      patientOrder: Array.isArray(unit.patientOrder) ? unit.patientOrder : [],
+      noPatient: !unit.firstPatient && !(unit.patientOrder && unit.patientOrder.length > 0),
     });
 
     setSelectedPresetId("");
@@ -716,8 +672,8 @@ function CrewPlannerPage() {
       errors.push("Start Time is required.");
     }
 
-    if (!unitForm.firstPatient.trim()) {
-      errors.push("First Patient is required.");
+    if (!unitForm.noPatient && unitForm.patientOrder.length === 0) {
+      errors.push("Add at least one patient, or check \"No patient assigned\".");
     }
 
     if (!unitForm.crew.driver) {
@@ -812,13 +768,11 @@ function CrewPlannerPage() {
     Builds the payload expected by the backend for create/update requests.
   */
   const buildUnitPayload = () => {
-    const cleanedNextPatients = unitForm.nextPatients
-      .map((patient) => patient.trim())
-      .filter(Boolean);
-
     const existingUnit = editingUnitId
       ? units.find((unit) => String(unit.id) === String(editingUnitId))
       : null;
+
+    const patientOrder = unitForm.noPatient ? [] : unitForm.patientOrder;
 
     return {
       shiftDate: unitForm.shiftDate,
@@ -829,8 +783,7 @@ function CrewPlannerPage() {
       endDate: unitForm.endDate || null,
       shiftType: unitForm.shiftType || "day",
       crew: { ...unitForm.crew },
-      firstPatient: unitForm.firstPatient.trim(),
-      nextPatients: cleanedNextPatients,
+      patientOrder,
       notes: "",
       createdAt: existingUnit?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -996,9 +949,7 @@ function CrewPlannerPage() {
 
             return (
               <option key={employee.id} value={employee.id}>
-                {employee.firstName} {employee.lastName} â€”{" "}
-                {getEmployeeRoleLabel(employee.role)}
-                {isAlreadyAssigned ? " [ALREADY ASSIGNED]" : ""}
+                {`${employee.firstName} ${employee.lastName} — ${getEmployeeRoleLabel(employee.role)}${isAlreadyAssigned ? " [ALREADY ASSIGNED]" : ""}`}
               </option>
             );
           })}
@@ -1108,13 +1059,18 @@ function CrewPlannerPage() {
             <div className="row g-2 mb-3">
               <div className="col-6">
                 <label className="form-label" style={{ fontSize: 12 }}>Night Start Time</label>
-                <input type="time" className="form-control form-control-sm" value={nightForm.startTime}
-                  onChange={e => setNightForm(f => ({ ...f, startTime: e.target.value }))} />
+                <TimeInput
+                  showFormatToggle
+                  value={nightForm.startTime}
+                  onChange={(v) => setNightForm(f => ({ ...f, startTime: v }))}
+                />
               </div>
               <div className="col-6">
                 <label className="form-label" style={{ fontSize: 12 }}>End Time</label>
-                <input type="time" className="form-control form-control-sm" value={nightForm.endTime}
-                  onChange={e => setNightForm(f => ({ ...f, endTime: e.target.value }))} />
+                <TimeInput
+                  value={nightForm.endTime}
+                  onChange={(v) => setNightForm(f => ({ ...f, endTime: v }))}
+                />
               </div>
               <div className="col-12">
                 <label className="form-label" style={{ fontSize: 12 }}>End Date (next day)</label>
@@ -1278,20 +1234,24 @@ function CrewPlannerPage() {
                         </div>
 
                         <div className="col-md-6">
-                          <label htmlFor="startTime" className="form-label fw-semibold">Start Time</label>
-                          <input
-                            id="startTime" name="startTime" type="time"
-                            className="form-control" value={unitForm.startTime}
-                            onChange={handleUnitFieldChange} disabled={unitsLoading}
+                          <label className="form-label fw-semibold">
+                            Start Time
+                            <span className="badge text-bg-danger ms-2" style={{ fontSize: 10 }}>Required</span>
+                          </label>
+                          <TimeInput
+                            showFormatToggle
+                            value={unitForm.startTime}
+                            onChange={(v) => setUnitForm(prev => ({ ...prev, startTime: v }))}
+                            disabled={unitsLoading}
                           />
                         </div>
 
                         <div className="col-md-6">
-                          <label htmlFor="endTime" className="form-label fw-semibold">End Time <span className="text-muted fw-normal">(optional)</span></label>
-                          <input
-                            id="endTime" name="endTime" type="time"
-                            className="form-control" value={unitForm.endTime}
-                            onChange={handleUnitFieldChange} disabled={unitsLoading}
+                          <label className="form-label fw-semibold">End Time <span className="text-muted fw-normal">(optional)</span></label>
+                          <TimeInput
+                            value={unitForm.endTime}
+                            onChange={(v) => setUnitForm(prev => ({ ...prev, endTime: v }))}
+                            disabled={unitsLoading}
                           />
                         </div>
 
@@ -1393,12 +1353,11 @@ function CrewPlannerPage() {
 
                     <div className="crew-form-section">
                       <PatientOrderSection
-                        firstPatient={unitForm.firstPatient}
-                        nextPatients={unitForm.nextPatients}
-                        onFirstPatientChange={handleFirstPatientChange}
-                        onNextPatientChange={handleNextPatientChange}
-                        onAddNextPatientField={handleAddNextPatientField}
-                        onRemoveNextPatientField={handleRemoveNextPatientField}
+                        patientOrder={unitForm.patientOrder}
+                        noPatient={unitForm.noPatient}
+                        openCalls={openCalls}
+                        onPatientOrderChange={handlePatientOrderChange}
+                        onNoPatientChange={(val) => setUnitForm(prev => ({ ...prev, noPatient: val }))}
                         disabled={unitsLoading}
                       />
                     </div>

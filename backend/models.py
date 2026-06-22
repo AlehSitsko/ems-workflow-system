@@ -182,11 +182,12 @@ class DailyCrewUnit(db.Model):
         nullable=True,
     )
 
-    # Patient order.
-    first_patient = db.Column(db.String(255), nullable=False)
-
-    # Stored as JSON text.
+    # Patient order — legacy fields kept for migration compatibility.
+    first_patient = db.Column(db.String(255), nullable=True)
     next_patients = db.Column(db.Text)
+
+    # New: structured patient order [{name, time, callId}]
+    patient_order = db.Column(db.Text)
 
     # Optional notes.
     notes = db.Column(db.Text)
@@ -202,14 +203,8 @@ class DailyCrewUnit(db.Model):
     org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
     def to_dict(self):
-        try:
-            parsed_next_patients = json.loads(
-                self.next_patients
-            ) if self.next_patients else []
-        except Exception as e:
-            import sys
-            print(f"[WARN] DailyCrewUnit {self.id} next_patients parse error: {e}", file=sys.stderr)
-            parsed_next_patients = []
+        # Prefer new patient_order; fall back to legacy first_patient/next_patients
+        patient_order = self._parse_patient_order()
 
         return {
             "id": self.id,
@@ -230,9 +225,11 @@ class DailyCrewUnit(db.Model):
                 "assist2": str(self.assist2_id) if self.assist2_id else "",
             },
 
-            "firstPatient": self.first_patient,
+            "patientOrder": patient_order,
 
-            "nextPatients": parsed_next_patients,
+            # Legacy — kept so existing Crew Planner code doesn't break until removed
+            "firstPatient": patient_order[0]["name"] if patient_order else self.first_patient,
+            "nextPatients": [p["name"] for p in patient_order[1:]] if len(patient_order) > 1 else [],
 
             "notes": self.notes or "",
 
@@ -241,6 +238,29 @@ class DailyCrewUnit(db.Model):
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
+
+    def _parse_patient_order(self):
+        """Return patient_order as list of {name, time, callId} dicts."""
+        if self.patient_order:
+            try:
+                data = json.loads(self.patient_order)
+                if isinstance(data, list):
+                    return data
+            except Exception:
+                pass
+
+        # Legacy fallback: build from first_patient / next_patients
+        result = []
+        if self.first_patient:
+            result.append({"name": self.first_patient, "time": "", "callId": None})
+        try:
+            next_list = json.loads(self.next_patients) if self.next_patients else []
+        except Exception:
+            next_list = []
+        for name in next_list:
+            if isinstance(name, str) and name.strip():
+                result.append({"name": name.strip(), "time": "", "callId": None})
+        return result
 
 
 class CrewPreset(db.Model):
@@ -460,7 +480,18 @@ class Call(db.Model):
             "patient_loaded_at": self.patient_loaded_at,
             "arrived_dest_at":   self.arrived_dest_at,
             "completed_at":      self.completed_at,
+
+            "patient_name": self._patient_name(),
         }
+
+    def _patient_name(self):
+        if not self.patient_id:
+            return None
+        # Patient is defined later in this file but available at call time
+        p = db.session.get(Patient, self.patient_id)
+        if not p:
+            return None
+        return f"{p.first_name} {p.last_name}".strip()
 
 
 class NotificationEvent(db.Model):

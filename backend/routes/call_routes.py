@@ -32,6 +32,7 @@ call_bp = Blueprint("call", __name__, url_prefix="/api/calls")
 @call_bp.route("", methods=["GET"])
 def get_calls():
     date_of_call = request.args.get("date_of_call", "").strip()
+    trip_date = request.args.get("trip_date", "").strip()
     dispatcher_name = request.args.get("dispatcher_name", "").strip()
     status = request.args.get("status", "").strip()
 
@@ -42,6 +43,9 @@ def get_calls():
 
     if date_of_call:
         query = query.filter(Call.date_of_call == date_of_call)
+
+    if trip_date:
+        query = query.filter(Call.trip_date == trip_date)
 
     if dispatcher_name:
         query = query.filter(
