@@ -3,6 +3,8 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
+from sqlalchemy.orm import joinedload
+
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, UserNotificationPrefs
 from notification_utils import create_notification
 from audit_utils import log_action
@@ -45,10 +47,10 @@ def _crew_count(unit):
     return sum(1 for s in slots if s is not None)
 
 
-def _emp_short(emp_id):
+def _emp_short(emp_id, emp_cache=None):
     if not emp_id:
         return None
-    emp = db.session.get(Employee, emp_id)
+    emp = emp_cache.get(emp_id) if emp_cache else db.session.get(Employee, emp_id)
     if not emp:
         return None
     return f"{emp.first_name} {emp.last_name[0]}." if emp.last_name else emp.first_name
@@ -95,9 +97,33 @@ def get_board():
         .all()
     ) if unit_ids else []
 
+    # Batch-load all calls and patients referenced by assignments — eliminates N+1
+    all_assignment_call_ids = list({a.call_id for a in active_assignments + completed_assignments})
+    if all_assignment_call_ids:
+        calls_bulk = {
+            c.id: c for c in
+            Call.query.filter(Call.id.in_(all_assignment_call_ids))
+                      .options(joinedload(Call.patient))
+                      .all()
+        }
+        for c in calls_bulk.values():
+            c._patient_cache = c.patient
+    else:
+        calls_bulk = {}
+
+    # Batch-load all employees referenced by crew slots
+    crew_ids = set()
+    for unit in units:
+        for eid in [unit.driver_id, unit.medical_id, unit.assist1_id, unit.assist2_id]:
+            if eid:
+                crew_ids.add(eid)
+    emp_cache = {}
+    if crew_ids:
+        emp_cache = {e.id: e for e in Employee.query.filter(Employee.id.in_(crew_ids)).all()}
+
     calls_by_unit = {}
     for a in active_assignments:
-        call = db.session.get(Call, a.call_id)
+        call = calls_bulk.get(a.call_id)
         if call:
             cd = _call_with_patient(call)
             cd["assignment_id"] = a.id
@@ -105,7 +131,7 @@ def get_board():
 
     completed_by_unit = {}
     for a in completed_assignments:
-        call = db.session.get(Call, a.call_id)
+        call = calls_bulk.get(a.call_id)
         if call and call.status == "completed":
             cd = _call_with_patient(call)
             cd["assignment_id"] = a.id
@@ -116,8 +142,8 @@ def get_board():
         ud = unit.to_dict()
         ud["crewCount"] = _crew_count(unit)
         ud["crewNames"] = {
-            "driver":  _emp_short(unit.driver_id),
-            "medical": _emp_short(unit.medical_id),
+            "driver":  _emp_short(unit.driver_id, emp_cache),
+            "medical": _emp_short(unit.medical_id, emp_cache),
         }
         ud["patientOrder"] = unit._parse_patient_order()
         ud["assignedCalls"] = calls_by_unit.get(unit.id, [])
@@ -129,16 +155,35 @@ def get_board():
     completed_day = [c for c in all_day_calls if c.status == "completed"]
     cancelled_day = [c for c in all_day_calls if c.status == "cancelled"]
 
-    # Enrich completed calls with their last assignment_id so Reopen works
+    # Batch-load last assignments for completed calls — avoids 1 query per completed call
+    completed_day_ids = [c.id for c in completed_day]
+    last_assignment_by_call = {}
+    if completed_day_ids:
+        from sqlalchemy import func
+        subq = (
+            db.session.query(
+                CallAssignment.call_id,
+                func.max(CallAssignment.id).label("max_id")
+            )
+            .filter(CallAssignment.call_id.in_(completed_day_ids), CallAssignment.is_active == False)
+            .group_by(CallAssignment.call_id)
+            .subquery()
+        )
+        for a in CallAssignment.query.join(subq, CallAssignment.id == subq.c.max_id).all():
+            last_assignment_by_call[a.call_id] = a.id
+
+    # Pre-cache patients for open/completed/cancelled calls
+    day_calls_no_patient = [c for c in all_day_calls if not hasattr(c, "_patient_cache")]
+    if day_calls_no_patient:
+        day_patient_ids = list({c.patient_id for c in day_calls_no_patient if c.patient_id})
+        if day_patient_ids:
+            patients_map = {p.id: p for p in Patient.query.filter(Patient.id.in_(day_patient_ids)).all()}
+            for c in day_calls_no_patient:
+                c._patient_cache = patients_map.get(c.patient_id)
+
     def _completed_call_dict(call):
         d = _call_with_patient(call)
-        last_a = (
-            CallAssignment.query
-            .filter_by(call_id=call.id, is_active=False)
-            .order_by(CallAssignment.id.desc())
-            .first()
-        )
-        d["assignment_id"] = last_a.id if last_a else None
+        d["assignment_id"] = last_assignment_by_call.get(call.id)
         return d
 
     return jsonify({

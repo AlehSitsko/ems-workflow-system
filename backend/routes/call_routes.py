@@ -2,7 +2,9 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Call
+from sqlalchemy.orm import joinedload
+
+from models import db, Call, Patient
 from notification_utils import create_notification
 from audit_utils import log_action
 
@@ -70,9 +72,16 @@ def get_calls():
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 25, type=int), 100)
 
-    pagination = query.order_by(Call.id.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
+    pagination = (
+        query
+        .options(joinedload(Call.patient))
+        .order_by(Call.id.desc())
+        .paginate(page=page, per_page=per_page, error_out=False)
     )
+
+    # Pre-cache patient on each call to avoid N+1 in _patient_name()
+    for call in pagination.items:
+        call._patient_cache = call.patient
 
     return jsonify({
         "items": [call.to_dict() for call in pagination.items],
