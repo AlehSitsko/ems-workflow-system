@@ -399,6 +399,7 @@ class Call(db.Model):
         db.ForeignKey("patient.id"),
         nullable=True
     )
+    patient = db.relationship("Patient", foreign_keys=[patient_id], lazy="select")
 
     dispatcher_name = db.Column(db.String(100))
 
@@ -495,9 +496,12 @@ class Call(db.Model):
         }
 
     def _patient_name(self):
+        # Avoid N+1: callers should join Patient and set _patient_cache when loading in bulk.
+        if hasattr(self, "_patient_cache") and self._patient_cache is not None:
+            p = self._patient_cache
+            return f"{p.first_name} {p.last_name}".strip()
         if not self.patient_id:
             return None
-        # Patient is defined later in this file but available at call time
         p = db.session.get(Patient, self.patient_id)
         if not p:
             return None
