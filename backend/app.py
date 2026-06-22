@@ -24,6 +24,7 @@ from routes.time_routes import time_bp
 from routes.payroll_routes import payroll_bp
 from routes.document_routes import doc_bp
 from routes.audit_routes import audit_bp
+from routes.settings_routes import settings_bp
 
 
 app = Flask(__name__)
@@ -84,6 +85,9 @@ app.register_blueprint(doc_bp)
 
 # Register audit log routes.
 app.register_blueprint(audit_bp)
+
+# Register per-user settings routes.
+app.register_blueprint(settings_bp)
 
 
 @app.route("/")

@@ -44,3 +44,29 @@ export async function updateUnitStatus(unitId, status) {
   if (!res.ok) throw new Error("Failed to update unit status");
   return res.json();
 }
+
+export async function updateCallOrder(unitId, callIds) {
+  const res = await fetch(`${BASE}/units/${unitId}/call-order`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callIds }),
+  });
+  if (!res.ok) throw new Error("Failed to update call order");
+  return res.json();
+}
+
+export async function getDispatchThresholds(userId) {
+  const res = await fetch(`${BASE}/dispatch-thresholds?user_id=${userId}`);
+  if (!res.ok) return { pickup_late_after: 0, stuck_after: 30 };
+  return res.json();
+}
+
+export async function saveDispatchThresholds(userId, thresholds) {
+  const res = await fetch(`${BASE}/dispatch-thresholds`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, ...thresholds }),
+  });
+  if (!res.ok) throw new Error("Failed to save thresholds");
+  return res.json();
+}

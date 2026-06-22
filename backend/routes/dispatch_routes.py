@@ -1,8 +1,9 @@
+import json
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee
+from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, UserNotificationPrefs
 from notification_utils import create_notification
 from audit_utils import log_action
 
@@ -274,6 +275,7 @@ def update_unit_status(unit_id):
 
     old_status = unit.dispatch_status
     unit.dispatch_status = status
+    unit.dispatch_status_changed_at = datetime.now().isoformat(timespec="seconds")
     uid, uname = _audit_user()
 
     # Stamp the active call on this unit with the corresponding lifecycle timestamp.
@@ -294,7 +296,9 @@ def update_unit_status(unit_id):
             active_call = db.session.get(Call, active_assignment.call_id)
             if active_call:
                 field = STATUS_TO_CALL_FIELD[status]
-                setattr(active_call, field, datetime.now().isoformat(timespec="seconds"))
+                # Only stamp once — never overwrite an existing timestamp.
+                if not getattr(active_call, field):
+                    setattr(active_call, field, datetime.now().isoformat(timespec="seconds"))
 
     log_action("unit.status_changed", "unit", unit_id,
                f"Unit {unit.truck_number}",
@@ -305,3 +309,45 @@ def update_unit_status(unit_id):
     ud = unit.to_dict()
     ud["crewCount"] = _crew_count(unit)
     return jsonify(ud)
+
+
+@dispatch_bp.route("/units/<int:unit_id>/call-order", methods=["PATCH"])
+def update_call_order(unit_id):
+    unit = db.session.get(DailyCrewUnit, unit_id)
+    if not unit:
+        return jsonify({"error": "Unit not found"}), 404
+    data = request.get_json() or {}
+    call_ids = data.get("callIds", [])
+    unit.call_priority = json.dumps([int(i) for i in call_ids])
+    db.session.commit()
+    return jsonify({"ok": True, "callPriority": json.loads(unit.call_priority)})
+
+
+@dispatch_bp.route("/dispatch-thresholds", methods=["GET"])
+def get_dispatch_thresholds():
+    from settings_utils import load_user_settings
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"pickup_late_after": 0, "stuck_after": 30})
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"pickup_late_after": 0, "stuck_after": 30})
+    return jsonify(load_user_settings(user).get("dispatch", {"pickup_late_after": 0, "stuck_after": 30}))
+
+
+@dispatch_bp.route("/dispatch-thresholds", methods=["PUT"])
+def save_dispatch_thresholds():
+    from settings_utils import save_user_settings
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+    thresholds = {
+        "pickup_late_after": int(data.get("pickup_late_after", 0)),
+        "stuck_after": int(data.get("stuck_after", 30)),
+    }
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+    save_user_settings(user, {"dispatch": thresholds})
+    return jsonify(thresholds)

@@ -188,3 +188,24 @@
   --ems-board-tab-inactive: #334155;
   --ems-board-divider-col:  col-resize;
 }
+
+/* ── Dispatch overdue / stuck animations ──────────────────────────────────── */
+@keyframes ems-pulse-red {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+@keyframes ems-border-pulse {
+  0%, 100% { border-color: rgba(220, 53, 69, 0.8); box-shadow: 0 0 0 0 rgba(220,53,69,0.3); }
+  50%       { border-color: rgba(220, 53, 69, 0.3); box-shadow: 0 0 0 4px rgba(220,53,69,0.05); }
+}
+
+.ems-overdue-text {
+  animation: ems-pulse-red 1.4s ease-in-out infinite;
+  color: #dc3545 !important;
+  font-weight: 700 !important;
+}
+
+.ems-overdue-card {
+  animation: ems-border-pulse 1.4s ease-in-out infinite;
+  border-left: 3px solid #dc3545 !important;
+}

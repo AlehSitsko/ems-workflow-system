@@ -1,5 +1,5 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FaBars,
   FaPhoneAlt,
@@ -7,6 +7,8 @@ import {
   FaSignOutAlt,
   FaSun,
   FaMoon,
+  FaCog,
+  FaChevronDown,
 } from "react-icons/fa";
 
 import { hasCallIntakeAccess } from "../../api/authApi";
@@ -56,23 +58,159 @@ const pageTitles = {
   },
 };
 
+function UserMenu({ currentUser, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+
+  const userInitials = currentUser?.display_name
+    ? currentUser.display_name
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "U";
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const action = (fn) => () => { setOpen(false); fn(); };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: open ? "var(--ems-bg-surface-2, rgba(255,255,255,0.07))" : "transparent",
+          border: "1px solid " + (open ? "var(--ems-border)" : "transparent"),
+          borderRadius: 10,
+          padding: "5px 10px 5px 5px",
+          cursor: "pointer",
+          transition: "all 0.15s",
+        }}
+        aria-label="User menu"
+      >
+        <div className="topbar-user-avatar">{userInitials}</div>
+        <div className="topbar-user-info" style={{ textAlign: "left" }}>
+          <div className="topbar-user-name">{currentUser?.display_name || "User"}</div>
+          <div className="topbar-user-role">{currentUser?.role || "unknown"}</div>
+        </div>
+        <FaChevronDown
+          style={{
+            fontSize: 10,
+            color: "var(--ems-text-muted)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 0.15s",
+          }}
+        />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            minWidth: 210,
+            background: "var(--ems-bg-surface)",
+            border: "1px solid var(--ems-border)",
+            borderRadius: 12,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+            zIndex: 2000,
+            overflow: "hidden",
+          }}
+        >
+          {/* Header */}
+          <div style={{ padding: "12px 16px 10px", borderBottom: "1px solid var(--ems-border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ems-text-primary)" }}>
+              {currentUser?.display_name || "User"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ems-text-muted)", marginTop: 1, textTransform: "capitalize" }}>
+              {currentUser?.role || "unknown"}
+            </div>
+          </div>
+
+          {/* Items */}
+          <div style={{ padding: "6px 0" }}>
+            <MenuItem
+              icon={<FaCog />}
+              label="Settings"
+              onClick={action(() => navigate("/notifications"))}
+            />
+            <MenuItem
+              icon={theme === "light" ? <FaMoon /> : <FaSun />}
+              label={theme === "light" ? "Dark mode" : "Light mode"}
+              onClick={action(toggleTheme)}
+            />
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--ems-border)", padding: "6px 0" }}>
+            <MenuItem
+              icon={<FaSignOutAlt />}
+              label="Log out"
+              danger
+              onClick={action(onLogout)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuItem({ icon, label, onClick, danger }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        padding: "8px 16px",
+        background: hovered ? "var(--ems-bg-surface-2, rgba(255,255,255,0.06))" : "transparent",
+        border: "none",
+        cursor: "pointer",
+        fontSize: 13,
+        color: danger
+          ? (hovered ? "#f1707a" : "#dc3545")
+          : (hovered ? "var(--ems-text-primary)" : "var(--ems-text-secondary)"),
+        textAlign: "left",
+        transition: "all 0.1s",
+      }}
+    >
+      <span style={{ fontSize: 13, width: 16, display: "flex", justifyContent: "center" }}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
 function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, markRead, markAllRead }) {
   const location = useLocation();
-  const { theme, toggleTheme } = useTheme();
 
   const currentPage = pageTitles[location.pathname] || {
     title: "EMS Workflow System",
     subtitle: "Operational management platform",
   };
-
-  const userInitials = currentUser?.display_name
-    ? currentUser.display_name
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "U";
 
   return (
     <header className="app-topbar">
@@ -105,15 +243,6 @@ function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, ma
           </Link>
         )}
 
-        <button
-          type="button"
-          className="topbar-icon-button"
-          onClick={toggleTheme}
-          title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-        >
-          {theme === "light" ? <FaMoon style={{ fontSize: 15 }} /> : <FaSun style={{ fontSize: 15 }} />}
-        </button>
-
         <NotificationBell
           notifications={notifications}
           unreadCount={unreadCount}
@@ -121,28 +250,7 @@ function Topbar({ currentUser, onLogout, notifications = [], unreadCount = 0, ma
           markAllRead={markAllRead}
         />
 
-        <div className="topbar-user">
-          <div className="topbar-user-avatar">{userInitials}</div>
-
-          <div className="topbar-user-info">
-            <div className="topbar-user-name">
-              {currentUser?.display_name || "User"}
-            </div>
-
-            <div className="topbar-user-role">
-              {currentUser?.role || "unknown"}
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm topbar-logout-button"
-          onClick={onLogout}
-        >
-          <FaSignOutAlt />
-          <span>Logout</span>
-        </button>
+        <UserMenu currentUser={currentUser} onLogout={onLogout} />
       </div>
     </header>
   );

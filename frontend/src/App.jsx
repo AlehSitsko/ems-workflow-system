@@ -5,6 +5,7 @@ import "./App.css";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
+import { UserSettingsProvider } from "./context/UserSettingsContext";
 
 import AppLayout from "./components/layout/AppLayout";
 
@@ -178,6 +179,7 @@ function App() {
     <ThemeProvider>
     <ToastProvider>
     <ConfirmProvider>
+    <UserSettingsProvider currentUser={currentUser}>
     <HashRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
@@ -323,6 +325,7 @@ function App() {
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </HashRouter>
+    </UserSettingsProvider>
     </ConfirmProvider>
     </ToastProvider>
     </ThemeProvider>

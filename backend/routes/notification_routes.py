@@ -29,13 +29,11 @@ def _get_user(user_id):
 
 
 def _get_prefs_dict(user_id):
-    prefs = UserNotificationPrefs.query.get(user_id)
-    if not prefs or not prefs.prefs_json:
+    from settings_utils import load_user_settings
+    user = _get_user(user_id)
+    if not user:
         return {}
-    try:
-        return json.loads(prefs.prefs_json)
-    except Exception:
-        return {}
+    return load_user_settings(user).get("notifications", {})
 
 
 @notif_bp.route("", methods=["GET"])
@@ -158,15 +156,10 @@ def update_prefs():
         return jsonify({"error": "user_id required"}), 400
 
     allowed_types = ROLE_EVENT_TYPES.get(user.role, set())
-    # Only save prefs for allowed types.
     filtered = {k: bool(v) for k, v in new_prefs.items() if k in allowed_types}
 
-    prefs = UserNotificationPrefs.query.get(user.id)
-    if not prefs:
-        prefs = UserNotificationPrefs(user_id=user.id)
-        db.session.add(prefs)
-    prefs.prefs_json = json.dumps(filtered)
-    db.session.commit()
+    from settings_utils import save_user_settings
+    save_user_settings(user, {"notifications": filtered})
     return jsonify({"ok": True})
 
 
