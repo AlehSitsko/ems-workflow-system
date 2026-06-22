@@ -1004,7 +1004,15 @@ Recommended workflow:
 
 ## Roadmap
 
-### Block 5.2 — Assignment Conflict Validation
+### Interactive User Manual (complete)
+
+* Full rewrite of `UserManualPage` — static SOP replaced with a two-panel interactive reference
+* Left sidebar: sticky navigation (does not scroll with content), section search, role filter ("My role only")
+* 13 sections covering every system module: Getting Started, Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees & HR, Crew Planner, Payroll, Compliance Dashboard, Notifications & Settings, Audit Log, Quick Reference
+* Accordion layout — each section expands/collapses on click; clicking a sidebar link scrolls to and opens the section
+* Callout blocks: Tip (blue), Warning (red), Note (green) with icons
+* Numbered step flows for SOP workflows (call intake, payroll, etc.)
+* Quick Reference section: dispatch keyboard actions, status sequence, lifecycle timestamp map, role access matrix
 
 ### Block 5.2 — Assignment Conflict Validation
 
@@ -1096,7 +1104,8 @@ Recommended workflow:
 Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phases 1–3 complete,
 Call Editing + Return Ride complete, Dispatch Board fully unified (crew planning + call management + timestamps +
 priority queue + operational alerts), Per-User Settings System complete (notifications + dispatch thresholds +
-UI panel sizes, unified settings blob, UserSettingsContext, user menu dropdown in Topbar)
+UI panel sizes, unified settings blob, UserSettingsContext, user menu dropdown in Topbar),
+Interactive User Manual complete (sticky sidebar, search, role filter, 13 accordion sections, callout blocks)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 
