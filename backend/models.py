@@ -194,6 +194,10 @@ class DailyCrewUnit(db.Model):
 
     # Dispatch operational status.
     dispatch_status = db.Column(db.String(50), default="available")
+    dispatch_status_changed_at = db.Column(db.String(50))  # when status last changed
+
+    # Manual call priority order — JSON: [call_id, ...]. Empty = sort by pickup_time.
+    call_priority = db.Column(db.Text)
 
     # Timestamps.
     created_at = db.Column(db.String(50))
@@ -234,6 +238,9 @@ class DailyCrewUnit(db.Model):
             "notes": self.notes or "",
 
             "dispatchStatus": self.dispatch_status or "available",
+            "statusChangedAt": self.dispatch_status_changed_at,
+
+            "callPriority": json.loads(self.call_priority) if self.call_priority else [],
 
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
@@ -545,6 +552,7 @@ class UserNotificationPrefs(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), primary_key=True)
     prefs_json = db.Column(db.Text)   # JSON: {"call_new_today": true, ...}
     push_sub_json = db.Column(db.Text)  # Web Push subscription object JSON
+    dispatch_thresholds_json = db.Column(db.Text)  # JSON: {pickup_late_after: N, stuck_after: N}
 
 
 class CallAssignment(db.Model):

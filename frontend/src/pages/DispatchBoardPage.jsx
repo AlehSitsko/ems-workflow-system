@@ -23,6 +23,8 @@ import {
   completeAssignment,
   reopenAssignment,
   updateUnitStatus,
+  updateCallOrder,
+  getDispatchThresholds,
 } from "../api/dispatchApi";
 import { cancelCall, uncancelCall, getCalls, updateCall } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
@@ -271,7 +273,8 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
   );
 }
 
-function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick, onSetPickupTime }) {
+function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick, onSetPickupTime,
+  isFirst, isLast, isOverdue, onSetHighPriority, onMoveUp, onMoveDown, hasPriorityControls }) {
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturnCall = (call.call_type || "").toLowerCase() === "return";
@@ -281,22 +284,47 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
 
   const [wcTime, setWcTime] = useState(call.pickup_time || "");
 
-  const borderColor = emergency ? "#dc3545" : willCall ? "#ffc107" : isReturnCall ? "#6ea8fe" : "#495057";
+  const borderColor = isOverdue ? "#dc3545" : emergency ? "#dc3545" : willCall ? "#ffc107" : isReturnCall ? "#6ea8fe" : "#495057";
 
   return (
-    <div className="mb-2" style={{ cursor: "pointer" }} onClick={() => onCardClick && onCardClick(call, false)}>
+    <div className={`mb-2${isOverdue ? " ems-overdue-card" : ""}`} style={{ cursor: "pointer", borderRadius: 6 }} onClick={() => onCardClick && onCardClick(call, false)}>
       {/* Primary leg */}
       <div style={{
-        background: "var(--ems-board-bg)",
+        background: isOverdue ? "rgba(220,53,69,0.07)" : "var(--ems-board-bg)",
         borderRadius: 6,
         borderLeft: `3px solid ${borderColor}`,
         padding: "8px 10px",
         marginBottom: ret ? 2 : 0,
       }}>
         <div className="d-flex align-items-start gap-2">
+          {/* Priority controls — left side */}
+          {hasPriorityControls && (
+            <div className="d-flex flex-column gap-1 flex-shrink-0" onClick={e => e.stopPropagation()} style={{ marginTop: 2 }}>
+              <button
+                title="Set High Priority"
+                className="btn btn-sm"
+                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: isFirst ? "rgba(255,193,7,0.2)" : "transparent", color: isFirst ? "#ffc107" : "var(--ems-board-text-muted)", border: `1px solid ${isFirst ? "#ffc10744" : "#2a3347"}` }}
+                onClick={() => onSetHighPriority && onSetHighPriority(call.id)}
+              >⚡</button>
+              <button
+                title="Move Up"
+                disabled={isFirst}
+                className="btn btn-sm"
+                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: "transparent", color: isFirst ? "#2a3347" : "var(--ems-board-text-muted)", border: "1px solid #2a3347" }}
+                onClick={() => onMoveUp && onMoveUp(call.id)}
+              >▲</button>
+              <button
+                title="Move Down"
+                disabled={isLast}
+                className="btn btn-sm"
+                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: "transparent", color: isLast ? "#2a3347" : "var(--ems-board-text-muted)", border: "1px solid #2a3347" }}
+                onClick={() => onMoveDown && onMoveDown(call.id)}
+              >▼</button>
+            </div>
+          )}
           <div className="flex-grow-1 min-width-0">
             <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
-              <span className="fw-bold" style={{ color: "var(--ems-board-text)", fontSize: 13 }}>
+              <span className={`fw-bold${isOverdue ? " ems-overdue-text" : ""}`} style={{ color: isOverdue ? "#dc3545" : "var(--ems-board-text)", fontSize: 13 }}>
                 {call.patient_name || `Call #${call.id}`}
               </span>
               {willCall ? (
@@ -911,6 +939,11 @@ export default function DispatchBoardPage() {
   const [pendingAssign, setPendingAssign] = useState(null);
   const [callModal, setCallModal] = useState(null); // { call, isCompleted }
 
+  // Dispatch visual alert thresholds (loaded from user prefs)
+  const [dispatchThresholds, setDispatchThresholds] = useState({ pickup_late_after: 0, stuck_after: 30 });
+  // Current clock — updates every 30s for overdue detection
+  const [now, setNow] = useState(() => new Date());
+
   // Left panel tab: "calls" | "staff"
   const [leftPanelTab, setLeftPanelTab] = useState("calls");
 
@@ -1004,6 +1037,18 @@ export default function DispatchBoardPage() {
     const interval = setInterval(() => loadBoard(date, true), 30_000);
     return () => clearInterval(interval);
   }, [date, loadBoard]);
+
+  // Load dispatch visual alert thresholds for current user.
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    getDispatchThresholds(currentUser.id).then(t => setDispatchThresholds(t)).catch(() => {});
+  }, [currentUser?.id]);
+
+  // Clock tick every 30 s for overdue detection.
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   // ── Drag & drop ────────────────────────────────────────────────────────
 
@@ -1130,6 +1175,77 @@ export default function DispatchBoardPage() {
 
   function handleCardClick(call, isCompleted) {
     setCallModal({ call, isCompleted });
+  }
+
+  // ── Call priority helpers ───────────────────────────────────────────────
+
+  function sortCallsByPriority(calls, callPriority) {
+    if (!callPriority || callPriority.length === 0) {
+      return [...calls].sort((a, b) => timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time));
+    }
+    const rank = {};
+    callPriority.forEach((id, i) => { rank[id] = i; });
+    return [...calls].sort((a, b) => {
+      const ra = rank[a.id] !== undefined ? rank[a.id] : 9999;
+      const rb = rank[b.id] !== undefined ? rank[b.id] : 9999;
+      if (ra !== rb) return ra - rb;
+      return timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time);
+    });
+  }
+
+  async function handleSetHighPriority(unit, callId) {
+    const ids = sortCallsByPriority(unit.assignedCalls || [], unit.callPriority || []).map(c => c.id);
+    const newOrder = [callId, ...ids.filter(id => id !== callId)];
+    try {
+      await updateCallOrder(unit.id, newOrder);
+      await loadBoard(date, true);
+    } catch (e) { toast.error("Priority update failed", e.message); }
+  }
+
+  async function handleMoveCall(unit, callId, direction) {
+    const sorted = sortCallsByPriority(unit.assignedCalls || [], unit.callPriority || []);
+    const ids = sorted.map(c => c.id);
+    const idx = ids.indexOf(callId);
+    if (idx < 0) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= ids.length) return;
+    [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+    try {
+      await updateCallOrder(unit.id, ids);
+      await loadBoard(date, true);
+    } catch (e) { toast.error("Reorder failed", e.message); }
+  }
+
+  async function handleResetPriority(unit) {
+    try {
+      await updateCallOrder(unit.id, []);
+      await loadBoard(date, true);
+    } catch (e) { toast.error("Reset failed", e.message); }
+  }
+
+  // ── Overdue / stuck detection ───────────────────────────────────────────
+
+  function getCallOverdueMinutes(call, unitStatus) {
+    if (['on_scene', 'transporting', 'at_destination'].includes(unitStatus)) return 0;
+    if (!call.pickup_time || call.pickup_time === "will_call") return 0;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const pickupMin = timeToMinutes(call.pickup_time);
+    if (pickupMin >= 9999) return 0; // will_call
+    return Math.max(0, nowMin - pickupMin);
+  }
+
+  function getUnitStuckMinutes(unit) {
+    if (!unit.statusChangedAt || unit.dispatchStatus === 'available' || unit.dispatchStatus === 'out_of_service') return 0;
+    const changed = new Date(unit.statusChangedAt);
+    return Math.max(0, (now - changed) / 60000);
+  }
+
+  function isCallOverdue(call, unitStatus) {
+    return getCallOverdueMinutes(call, unitStatus) > (dispatchThresholds.pickup_late_after ?? 0);
+  }
+
+  function isUnitStuck(unit) {
+    return getUnitStuckMinutes(unit) > (dispatchThresholds.stuck_after ?? 30);
   }
 
   // ── Crew Planner logic ─────────────────────────────────────────────────
@@ -1696,7 +1812,14 @@ export default function DispatchBoardPage() {
                       <td className="fw-bold align-middle" style={{ color: "var(--ems-board-text)", fontSize: 15 }}>{unit.truckNumber}</td>
                       <td className="align-middle"><UnitTypeBadge unitType={unit.unitType} /></td>
                       <td className="align-middle">
-                        <StatusPill status={unit.dispatchStatus} />
+                        <span className={isUnitStuck(unit) ? "ems-overdue-card" : ""} style={{ display: "inline-flex", borderRadius: 20 }}>
+                          <StatusPill status={unit.dispatchStatus} />
+                        </span>
+                        {isUnitStuck(unit) && (
+                          <span className="ems-overdue-text" style={{ fontSize: 9, marginLeft: 4, display: "inline-block" }}>
+                            {Math.round(getUnitStuckMinutes(unit))}m
+                          </span>
+                        )}
                       </td>
                       <td className="align-middle">
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1788,30 +1911,31 @@ export default function DispatchBoardPage() {
                         </div>
                       </td>
                     </tr>
-                    {/* Patient queue sub-row — derived from actual assigned calls, sorted by pickup_time */}
+                    {/* Patient queue sub-row — sorted by priority, with overdue pulse */}
                     {(() => {
-                      const allCalls = (unit.assignedCalls || [])
-                        .slice()
-                        .sort((a, b) => timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time));
+                      const allCalls = sortCallsByPriority(unit.assignedCalls || [], unit.callPriority || []);
                       if (allCalls.length === 0) return null;
                       return (
                         <tr style={{ background: isSelected ? "rgba(13,110,253,0.06)" : "var(--ems-board-bg)", borderLeft: isSelected ? "3px solid #6ea8fe" : "3px solid transparent" }}>
                           <td colSpan={6} style={{ paddingTop: 0, paddingBottom: 6, paddingLeft: 16 }}>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ems-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginRight: 2 }}>Patients:</span>
-                              {allCalls.map((c, idx) => (
-                                <span key={c.id} style={{
-                                  fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 6,
-                                  background: "var(--ems-board-bg-badge)",
-                                  color: "var(--ems-board-text)",
-                                  border: "1px solid var(--ems-board-border)",
-                                  display: "flex", alignItems: "center", gap: 4,
-                                }}>
-                                  <span style={{ fontSize: 10, color: "var(--ems-text-muted)", fontWeight: 700 }}>{idx + 1}.</span>
-                                  {c.patient_name || `Call #${c.id}`}
-                                  {c.pickup_time && <span style={{ fontSize: 10, color: "var(--ems-text-muted)", marginLeft: 2 }}>{c.pickup_time}</span>}
-                                </span>
-                              ))}
+                              {allCalls.map((c, idx) => {
+                                const overdue = isCallOverdue(c, unit.dispatchStatus);
+                                return (
+                                  <span key={c.id} className={overdue ? "ems-overdue-card" : ""} style={{
+                                    fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 6,
+                                    background: overdue ? "rgba(220,53,69,0.1)" : "var(--ems-board-bg-badge)",
+                                    color: overdue ? "#dc3545" : "var(--ems-board-text)",
+                                    border: `1px solid ${overdue ? "#dc354555" : "var(--ems-board-border)"}`,
+                                    display: "flex", alignItems: "center", gap: 4,
+                                  }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: overdue ? "#dc3545" : "var(--ems-text-muted)" }}>{idx + 1}.</span>
+                                    {c.patient_name || `Call #${c.id}`}
+                                    {c.pickup_time && <span className={overdue ? "ems-overdue-text" : ""} style={{ fontSize: 10, color: overdue ? "#dc3545" : "var(--ems-text-muted)", marginLeft: 2 }}>{c.pickup_time}</span>}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </td>
                         </tr>
@@ -1904,25 +2028,43 @@ export default function DispatchBoardPage() {
                 {(selectedUnit.assignedCalls || []).length === 0 && (selectedUnit.completedCalls || []).length === 0 && (
                   <p className="text-muted small mb-0">No calls assigned</p>
                 )}
-                {[...(selectedUnit.assignedCalls || [])]
-                  .sort((a, b) => {
-                    // Will call always goes to the end
-                    const aWc = isWillCall(a) ? 999999 : timeToMinutes(a.pickup_time);
-                    const bWc = isWillCall(b) ? 999999 : timeToMinutes(b.pickup_time);
-                    return aWc - bWc;
-                  })
-                  .map((call, idx) => (
-                  <AssignedCallCard
-                    key={call.id}
-                    call={call}
-                    unitStatus={selectedUnit.dispatchStatus}
-                    isCurrent={idx === 0}
-                    onUnassign={handleUnassign}
-                    onComplete={handleComplete}
-                    onCardClick={handleCardClick}
-                    onSetPickupTime={handleSetWillCallTime}
-                  />
-                ))}
+                {(() => {
+                  const sorted = sortCallsByPriority(selectedUnit.assignedCalls || [], selectedUnit.callPriority || []);
+                  const manualOrder = (selectedUnit.callPriority || []).length > 0;
+                  return (
+                    <>
+                      {manualOrder && (
+                        <div className="d-flex align-items-center justify-content-between mb-2" style={{ fontSize: 11, color: "#ffc107" }}>
+                          <span>⚡ Manual priority active</span>
+                          <button
+                            className="btn btn-sm"
+                            style={{ fontSize: 10, padding: "1px 8px", color: "var(--ems-board-text-muted)", background: "transparent", border: "1px solid #2a3347" }}
+                            onClick={() => handleResetPriority(selectedUnit)}
+                          >Reset to time order</button>
+                        </div>
+                      )}
+                      {sorted.map((call, idx) => (
+                        <AssignedCallCard
+                          key={call.id}
+                          call={call}
+                          unitStatus={selectedUnit.dispatchStatus}
+                          isCurrent={idx === 0}
+                          onUnassign={handleUnassign}
+                          onComplete={handleComplete}
+                          onCardClick={handleCardClick}
+                          onSetPickupTime={handleSetWillCallTime}
+                          isFirst={idx === 0}
+                          isLast={idx === sorted.length - 1}
+                          isOverdue={isCallOverdue(call, selectedUnit.dispatchStatus)}
+                          hasPriorityControls={sorted.length > 1}
+                          onSetHighPriority={(callId) => handleSetHighPriority(selectedUnit, callId)}
+                          onMoveUp={(callId) => handleMoveCall(selectedUnit, callId, "up")}
+                          onMoveDown={(callId) => handleMoveCall(selectedUnit, callId, "down")}
+                        />
+                      ))}
+                    </>
+                  );
+                })()}
                 {(selectedUnit.completedCalls || []).length > 0 && (
                   <>
                     <div className="text-muted small mb-2 mt-1" style={{ borderTop: "1px solid var(--ems-board-border)", paddingTop: 8 }}>

@@ -40,6 +40,7 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
   const [form, setForm] = useState(emptyForm(defaultTripDate));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState([]);
+  const [isDirty, setIsDirty] = useState(false);
 
   // Patient search
   const [patientMode, setPatientMode] = useState("search"); // "search" | "create"
@@ -91,9 +92,16 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
     setSearchName("");
     setSearchDob("");
     setSearchPhone("");
+    setIsDirty(false);
   }, [open, callToEdit, defaultTripDate]);
 
-  const field = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }));
+  const setFormDirty = (updater) => { setForm(updater); setIsDirty(true); };
+  const field = (key) => (e) => setFormDirty(p => ({ ...p, [key]: e.target.value }));
+
+  const handleCloseRequest = () => {
+    if (isDirty && !window.confirm("You have unsaved changes. Close without saving?")) return;
+    onClose();
+  };
 
   const handleSearch = async () => {
     const name = searchName.trim();
@@ -116,17 +124,18 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
   };
 
   const handleSelectPatient = (p) => {
-    setForm(prev => ({
+    setFormDirty(prev => ({
       ...prev,
       patientId: p.id,
       patientName: `${p.first_name} ${p.last_name}`,
+      pickupAddress: prev.pickupAddress.trim() ? prev.pickupAddress : (p.address || ""),
     }));
     setSearchResults(null);
     setSearchName("");
   };
 
   const handleClearPatient = () => {
-    setForm(prev => ({ ...prev, patientId: null, patientName: "" }));
+    setFormDirty(prev => ({ ...prev, patientId: null, patientName: "" }));
   };
 
   const handleCreatePatient = async () => {
@@ -146,7 +155,7 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
         return;
       }
       const created = await createPatient({ first_name: firstName.trim(), last_name: lastName.trim(), dob: dob.trim() || null, phone: phone.trim() || null, address: address.trim() || null });
-      setForm(prev => ({ ...prev, patientId: created.id, patientName: `${created.first_name} ${created.last_name}` }));
+      setFormDirty(prev => ({ ...prev, patientId: created.id, patientName: `${created.first_name} ${created.last_name}` }));
       setPatientMode("search");
       setNewPatient(emptyNewPatient());
     } catch (e) {
@@ -224,11 +233,12 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
     <EntityDrawer
       open={open}
       onClose={onClose}
+      onCloseRequested={handleCloseRequest}
       title={callToEdit ? `Edit Call #${callToEdit.id}` : "New Call"}
       subtitle={callToEdit ? `Patient: ${form.patientName || "—"}` : "Create a new transport call"}
       footer={
         <>
-          <button type="button" className="btn btn-outline-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="btn btn-outline-secondary" onClick={handleCloseRequest} disabled={saving}>Cancel</button>
           <button type="submit" form="call-drawer-form" className="btn btn-primary" disabled={saving}>
             {saving ? "Saving…" : callToEdit ? "Update Call" : "Create Call"}
           </button>
@@ -390,7 +400,7 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
                 <button key={sl} type="button"
                   className={`btn btn-sm ${form.serviceLevel === sl.toLowerCase() ? "btn-primary" : "btn-outline-secondary"}`}
                   style={{ fontSize: 11 }}
-                  onClick={() => setForm(p => ({ ...p, serviceLevel: sl.toLowerCase() }))}
+                  onClick={() => setFormDirty(p => ({ ...p, serviceLevel: sl.toLowerCase() }))}
                 >
                   {sl}
                 </button>
@@ -405,11 +415,11 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
           </div>
           <div className="col-md-6">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Pickup Time</label>
-            <TimeInput showFormatToggle value={form.pickupTime} onChange={v => setForm(p => ({ ...p, pickupTime: v }))} disabled={saving} />
+            <TimeInput showFormatToggle value={form.pickupTime} onChange={v => setFormDirty(p => ({ ...p, pickupTime: v }))} disabled={saving} />
           </div>
           <div className="col-md-6">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Appt. Time (optional)</label>
-            <TimeInput value={form.appointmentTime} onChange={v => setForm(p => ({ ...p, appointmentTime: v }))} disabled={saving} />
+            <TimeInput value={form.appointmentTime} onChange={v => setFormDirty(p => ({ ...p, appointmentTime: v }))} disabled={saving} />
           </div>
           <div className="col-md-6">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Date of Call</label>

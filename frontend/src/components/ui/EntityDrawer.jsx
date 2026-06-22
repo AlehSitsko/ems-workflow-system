@@ -4,22 +4,26 @@ import { useEffect, useRef } from "react";
  * EntityDrawer — стандартный right-side drawer для всей системы.
  *
  * Props:
- *   open            boolean
- *   onClose         () => void
- *   title           string
- *   subtitle        string (optional)
- *   width           number (default 480)
- *   footer          ReactNode — sticky footer (Save/Cancel buttons и т.д.)
- *   tabs            Array<{ key, label, content }> (optional)
- *   activeTab       string
- *   onTabChange     (key) => void
- *   loading         boolean
- *   hasUnsavedChanges boolean — если true, закрытие требует подтверждения (caller обрабатывает)
- *   children        ReactNode — содержимое (если tabs не используются)
+ *   open                boolean
+ *   onClose             () => void  — закрывает немедленно
+ *   onCloseRequested    () => void  — вызывается при клике overlay / ✕ / Escape;
+ *                                     если передан — caller решает, закрывать ли
+ *                                     (например, показать confirm); если не передан —
+ *                                     вызывается onClose напрямую
+ *   title               string
+ *   subtitle            string (optional)
+ *   width               number (default 480)
+ *   footer              ReactNode
+ *   tabs                Array<{ key, label, content }> (optional)
+ *   activeTab           string
+ *   onTabChange         (key) => void
+ *   loading             boolean
+ *   children            ReactNode
  */
 export default function EntityDrawer({
   open,
   onClose,
+  onCloseRequested,
   title,
   subtitle,
   width = "50vw",
@@ -31,14 +35,15 @@ export default function EntityDrawer({
   children,
 }) {
   const drawerRef = useRef(null);
+  const requestClose = onCloseRequested || onClose;
 
   // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => { if (e.key === "Escape") requestClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [open, requestClose]);
 
   // Lock body scroll when open
   useEffect(() => {
@@ -55,7 +60,7 @@ export default function EntityDrawer({
     <>
       {/* Overlay */}
       <div
-        onClick={onClose}
+        onClick={requestClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -118,7 +123,7 @@ export default function EntityDrawer({
             )}
           </div>
           <button
-            onClick={onClose}
+            onClick={requestClose}
             style={{
               background: "none",
               border: "none",
