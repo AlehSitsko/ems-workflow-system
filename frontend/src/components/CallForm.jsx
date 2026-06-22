@@ -410,8 +410,7 @@ const CallForm = forwardRef((props, ref) => {
         await createCall(returnPayload);
       }
 
-      console.log("Call saved:", savedCall);
-      setSubmitMessage("Call and patient record saved successfully.");
+setSubmitMessage("Call and patient record saved successfully.");
 
       clearFormData();
     } catch (err) {

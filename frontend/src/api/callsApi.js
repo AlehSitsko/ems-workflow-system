@@ -8,6 +8,7 @@ export async function getCalls(filters = {}, page = 1, per_page = 25) {
   const params = new URLSearchParams();
 
   if (filters.date_of_call) params.append("date_of_call", filters.date_of_call);
+  if (filters.trip_date) params.append("trip_date", filters.trip_date);
   if (filters.dispatcher_name) params.append("dispatcher_name", filters.dispatcher_name);
   if (filters.min_quality_score) params.append("min_quality_score", filters.min_quality_score);
   if (filters.max_quality_score) params.append("max_quality_score", filters.max_quality_score);

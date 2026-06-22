@@ -1,16 +1,20 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import API_BASE from "../api/config.js";
-import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmDialog";
 import {
   FaMapMarkerAlt,
   FaClock,
   FaUser,
-  FaAmbulance,
   FaPhoneAlt,
   FaClipboardList,
   FaArrowRight,
-  FaCalendarAlt,
   FaIdBadge,
+  FaSun,
+  FaMoon,
+  FaPlus,
+  FaEdit,
+  FaTrash,
 } from "react-icons/fa";
 import {
   fetchBoard,
@@ -20,8 +24,15 @@ import {
   reopenAssignment,
   updateUnitStatus,
 } from "../api/dispatchApi";
-import { cancelCall, uncancelCall } from "../api/callsApi";
+import { cancelCall, uncancelCall, getCalls, updateCall } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
+import { getEmployees } from "../api/employeesApi";
+import { createCrewUnit, updateCrewUnit, deleteCrewUnit, makeNightCrew } from "../api/crewApi";
+import EntityDrawer from "../components/ui/EntityDrawer";
+import TimeInput from "../components/ui/TimeInput";
+import PatientOrderSection from "../components/crew/PatientOrderSection";
+import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
+import CallDrawer from "../components/dispatch/CallDrawer";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -430,11 +441,78 @@ function CompletedCallCard({ call, onCardClick }) {
   );
 }
 
-function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel, onUncancel }) {
+const TS_FIELDS = [
+  { key: "dispatched_at",    label: "Dispatched",   color: "#6ea8fe" },
+  { key: "arrived_pickup_at", label: "On Scene",    color: "#75b798" },
+  { key: "patient_loaded_at", label: "Transporting", color: "#ffc107" },
+  { key: "arrived_dest_at",  label: "At Dest",      color: "#c29ffa" },
+  { key: "completed_at",     label: "Completed",    color: "#adb5bd" },
+];
+
+function isoToLocalTime(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch { return ""; }
+}
+
+function isoToLocalDate(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch { return ""; }
+}
+
+function setIsoTime(existingIso, callDate, timeStr) {
+  // Build a new ISO string preserving date (use call's trip_date if no existing ts)
+  const date = existingIso ? new Date(existingIso).toISOString().slice(0, 10)
+    : (callDate || new Date().toISOString().slice(0, 10));
+  const dt = new Date(`${date}T${timeStr}:00`);
+  if (isNaN(dt)) return existingIso;
+  return dt.toISOString().slice(0, 19);
+}
+
+function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel, onUncancel, onEdit, onTimestampsUpdated }) {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
   const [cancelling, setCancelling] = useState(false);
+
+  // Timestamps editing
+  const [showTs, setShowTs] = useState(false);
+  const [tsValues, setTsValues] = useState({});
+  const [tsSaving, setTsSaving] = useState(false);
+  const [tsError, setTsError] = useState("");
+
+  useEffect(() => {
+    const init = {};
+    TS_FIELDS.forEach(f => { init[f.key] = isoToLocalTime(call[f.key]); });
+    setTsValues(init);
+  }, [call]);
+
+  const handleTsSave = async () => {
+    setTsSaving(true);
+    setTsError("");
+    try {
+      const payload = {};
+      TS_FIELDS.forEach(f => {
+        const t = (tsValues[f.key] || "").trim();
+        if (t) payload[f.key] = setIsoTime(call[f.key], call.trip_date, t);
+        else payload[f.key] = null;
+      });
+      await updateCall(call.id, payload);
+      if (onTimestampsUpdated) onTimestampsUpdated();
+      setShowTs(false);
+    } catch (e) {
+      setTsError(e.message || "Save failed");
+    } finally {
+      setTsSaving(false);
+    }
+  };
 
   const handleCancelSubmit = async () => {
     if (!cancelReason.trim()) { setCancelError("Reason is required."); return; }
@@ -552,6 +630,57 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ems-board-text-muted)" }}>{call.trip_date || "—"}</div>
                 </div>
               </div>
+            </Section>
+
+            {/* Timestamps */}
+            <Section icon={FaClock} title="Dispatch Timestamps">
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: showTs ? 10 : 0 }}>
+                {TS_FIELDS.map(f => {
+                  const ts = call[f.key];
+                  return (
+                    <div key={f.key} style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "5px 10px", minWidth: 90, opacity: ts ? 1 : 0.45 }}>
+                      <div style={{ fontSize: 9, color: f.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>{f.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: ts ? "var(--ems-board-text)" : "var(--ems-board-text-muted)" }}>
+                        {ts ? isoToLocalTime(ts) : "—"}
+                      </div>
+                      {ts && <div style={{ fontSize: 9, color: "var(--ems-board-text-muted)" }}>{isoToLocalDate(ts)}</div>}
+                    </div>
+                  );
+                })}
+                <button
+                  className="btn btn-sm"
+                  style={{ fontSize: 11, padding: "4px 10px", background: showTs ? "rgba(13,110,253,0.18)" : "transparent", color: showTs ? "#6ea8fe" : "var(--ems-board-text-muted)", border: `1px solid ${showTs ? "#6ea8fe55" : "var(--ems-board-border)"}`, borderRadius: 7, marginLeft: "auto" }}
+                  onClick={() => { setShowTs(v => !v); setTsError(""); }}
+                >
+                  {showTs ? "Cancel" : "✏ Edit"}
+                </button>
+              </div>
+              {showTs && (
+                <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 10, padding: "12px 14px", border: "1px solid var(--ems-board-border)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 10 }}>
+                    {TS_FIELDS.map(f => (
+                      <div key={f.key}>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: f.color, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>{f.label}</label>
+                        <input
+                          type="time"
+                          value={tsValues[f.key] || ""}
+                          onChange={e => setTsValues(p => ({ ...p, [f.key]: e.target.value }))}
+                          style={{ width: "100%", fontSize: 13, padding: "4px 8px", borderRadius: 7, border: "1px solid var(--ems-board-border)", background: "var(--ems-board-bg)", color: "var(--ems-board-text)", outline: "none" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {tsError && <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6 }}>{tsError}</div>}
+                  <button
+                    className="btn btn-sm"
+                    style={{ fontSize: 12, padding: "5px 16px", background: "rgba(13,110,253,0.18)", color: "#6ea8fe", border: "1px solid #6ea8fe55", fontWeight: 600 }}
+                    onClick={handleTsSave}
+                    disabled={tsSaving}
+                  >
+                    {tsSaving ? "Saving…" : "Save Timestamps"}
+                  </button>
+                </div>
+              )}
             </Section>
 
             {/* Patient / contact */}
@@ -700,6 +829,15 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                 </button>
               </div>
             )}
+            {onEdit && (
+              <button
+                className="btn btn-sm"
+                style={{ background: "rgba(13,110,253,0.1)", color: "#6ea8fe", border: "1px solid #6ea8fe44", fontSize: 13, padding: "6px 14px" }}
+                onClick={() => { onEdit(call); onClose(); }}
+              >
+                ✏ Edit Call
+              </button>
+            )}
             <button
               className="btn btn-sm ms-auto"
               style={{ background: "transparent", color: "var(--ems-board-text-muted)", border: "1px solid #2a3347", fontSize: 13, padding: "6px 14px" }}
@@ -737,10 +875,30 @@ function WarningModal({ warning, onConfirm, onCancel }) {
   );
 }
 
+// ── Crew Planner constants ─────────────────────────────────────────────────
+
+const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
+
+const initialCrew = { driver: "", medical: "", assist1: "", assist2: "" };
+
+const initialUnitForm = {
+  shiftDate: todayStr(),
+  unitType: "BLS",
+  truckNumber: "",
+  startTime: "",
+  endTime: "",
+  endDate: "",
+  shiftType: "day",
+  crew: { ...initialCrew },
+  patientOrder: [],
+  noPatient: false,
+};
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function DispatchBoardPage() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [date, setDate] = useState(todayStr());
   const [board, setBoard] = useState({ openCalls: [], completedCalls: [], cancelledCalls: [], units: [] });
   const [callFilter, setCallFilter] = useState("open"); // "open" | "all" | "completed" | "cancelled"
@@ -752,6 +910,23 @@ export default function DispatchBoardPage() {
   const [warning, setWarning] = useState(null);
   const [pendingAssign, setPendingAssign] = useState(null);
   const [callModal, setCallModal] = useState(null); // { call, isCompleted }
+
+  // Left panel tab: "calls" | "staff"
+  const [leftPanelTab, setLeftPanelTab] = useState("calls");
+
+  // Crew planner state (embedded)
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [crewOpenCalls, setCrewOpenCalls] = useState([]);
+  const [unitForm, setUnitForm] = useState({ ...initialUnitForm });
+  const [editingUnitId, setEditingUnitId] = useState(null);
+  const [showUnitDrawer, setShowUnitDrawer] = useState(false);
+  const [nightDialog, setNightDialog] = useState(null);
+  const [nightForm, setNightForm] = useState({ startTime: "", endTime: "", endDate: "" });
+  const [crewSaving, setCrewSaving] = useState(false);
+
+  // Call drawer state
+  const [callDrawer, setCallDrawer] = useState({ open: false, call: null }); // call=null → create mode
 
   // Resizable left panel (horizontal)
   const [leftWidth, setLeftWidth] = useState(280);
@@ -914,6 +1089,7 @@ export default function DispatchBoardPage() {
   }
 
   async function handleReopen(assignmentId) {
+    if (!assignmentId) { toast.error("Reopen failed", "No assignment linked to this call."); return; }
     try {
       await reopenAssignment(assignmentId);
       await loadBoard(date);
@@ -956,6 +1132,248 @@ export default function DispatchBoardPage() {
     setCallModal({ call, isCompleted });
   }
 
+  // ── Crew Planner logic ─────────────────────────────────────────────────
+
+  const loadEmployees = useCallback(async () => {
+    setEmployeesLoading(true);
+    try {
+      const data = await getEmployees();
+      setEmployees(Array.isArray(data) ? data : []);
+    } catch (e) {
+      toast.error("Failed to load employees", e.message);
+    } finally {
+      setEmployeesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadEmployees(); }, [loadEmployees]);
+
+  // When date changes, reload open calls for patient picker
+  useEffect(() => {
+    getCalls({ trip_date: date }, 1, 100)
+      .then(d => setCrewOpenCalls(Array.isArray(d?.items) ? d.items : []))
+      .catch(() => {});
+  }, [date]);
+
+  const getEmployeeById = (id) => employees.find(e => String(e.id) === String(id));
+  const getEmployeeName = (id) => { const e = getEmployeeById(id); return e ? `${e.firstName} ${e.lastName}` : "Not assigned"; };
+
+  const normalizeLicense = (l) => l ? { hasLicense: Boolean(l.hasLicense), licenseName: l.licenseName || "", expirationDate: l.expirationDate || "" } : { hasLicense: false, licenseName: "", expirationDate: "" };
+  const getLicenseStatus = (l) => {
+    const nl = normalizeLicense(l);
+    if (!nl.hasLicense) return "No License";
+    if (!nl.expirationDate) return "Active";
+    const diff = Math.ceil((new Date(`${nl.expirationDate}T23:59:59`) - new Date()) / 86400000);
+    return diff < 0 ? "Expired" : diff <= 30 ? "Expiring Soon" : "Active";
+  };
+  const getCprWarning = (emp) => {
+    const s = getLicenseStatus(normalizeLicense(emp.cpr));
+    if (!normalizeLicense(emp.cpr).hasLicense) return "Missing CPR";
+    if (s === "Expired") return "CPR Expired";
+    if (s === "Expiring Soon") return "CPR Expiring Soon";
+    return "";
+  };
+
+  const isEmployeeEligibleForRole = (emp, role, unitType) => {
+    if (!emp.isActive || emp.status !== "active") return false;
+    if (role === "driver") return Boolean(emp.evoc?.hasLicense) || String(emp.role || "").toLowerCase() === "driver";
+    if (role === "medical") {
+      if (unitType === "BLS") return Boolean(emp.emt?.hasLicense || emp.paramedic?.hasLicense);
+      if (unitType === "ALS") return Boolean(emp.paramedic?.hasLicense);
+      return false;
+    }
+    return true;
+  };
+
+  const isMedicalSlotVisible = (t) => t === "ALS" || t === "BLS";
+
+  const getSelectedEmployeeIds = (currentRole) =>
+    Object.entries(unitForm.crew).filter(([r, id]) => r !== currentRole && id).map(([, id]) => String(id));
+
+  const getAvailableEmployeesForRole = (role) => {
+    const selected = getSelectedEmployeeIds(role);
+    return employees.filter(emp => !selected.includes(String(emp.id)) && isEmployeeEligibleForRole(emp, role, unitForm.unitType));
+  };
+
+  const getEmployeeAssignmentsInOtherUnits = (empId) => {
+    const nid = String(empId);
+    const result = [];
+    board.units.forEach(unit => {
+      if (editingUnitId && String(unit.id) === String(editingUnitId)) return;
+      if (unit.shiftDate !== unitForm.shiftDate) return;
+      Object.entries(unit.crew || {}).forEach(([role, id]) => {
+        if (String(id) === nid) result.push({ unitId: unit.id, truckNumber: unit.truckNumber, unitType: unit.unitType, startTime: unit.startTime, role });
+      });
+    });
+    return result;
+  };
+
+  const assignedEmployeeIds = useMemo(() => {
+    const ids = [];
+    board.units.forEach(unit => {
+      if (editingUnitId && String(unit.id) === String(editingUnitId)) return;
+      Object.values(unit.crew || {}).forEach(id => { if (id) ids.push(String(id)); });
+    });
+    return ids;
+  }, [board.units, editingUnitId]);
+
+  const unassignedStaff = useMemo(() =>
+    employees.filter(emp => emp.isActive && emp.status === "active" && !assignedEmployeeIds.includes(String(emp.id))),
+    [employees, assignedEmployeeIds]
+  );
+
+  const unitValidationErrors = useMemo(() => {
+    const errors = [];
+    if (!unitForm.shiftDate.trim()) errors.push("Shift Date is required.");
+    if (!unitForm.truckNumber.trim()) errors.push("Truck Number is required.");
+    if (!unitForm.startTime.trim()) errors.push("Start Time is required.");
+    if (!unitForm.noPatient && unitForm.patientOrder.length === 0) errors.push("Add at least one patient, or check \"No patient assigned\".");
+    if (!unitForm.crew.driver) errors.push("Driver is required.");
+    if (unitForm.unitType === "BLS" && !unitForm.crew.medical) errors.push("BLS unit requires an EMT or Paramedic.");
+    if (unitForm.unitType === "ALS" && !unitForm.crew.medical) errors.push("ALS unit requires a Paramedic.");
+    return errors;
+  }, [unitForm]);
+
+  const unitWarningMessages = useMemo(() => {
+    const warnings = [];
+    Object.values(unitForm.crew).filter(Boolean).map(id => getEmployeeById(id)).filter(Boolean).forEach(emp => {
+      const w = getCprWarning(emp);
+      if (w) warnings.push(`${emp.firstName} ${emp.lastName}: ${w}.`);
+      getEmployeeAssignmentsInOtherUnits(emp.id).forEach(a => {
+        warnings.push(`${emp.firstName} ${emp.lastName} is already assigned to Truck ${a.truckNumber} (${a.unitType}, ${a.startTime}) as ${a.role}.`);
+      });
+    });
+    return warnings;
+  }, [unitForm, employees, board.units, editingUnitId]);
+
+  const buildUnitPayload = () => ({
+    shiftDate: unitForm.shiftDate,
+    unitType: unitForm.unitType,
+    truckNumber: unitForm.truckNumber.trim(),
+    startTime: unitForm.startTime,
+    endTime: unitForm.endTime || null,
+    endDate: unitForm.endDate || null,
+    shiftType: unitForm.shiftType || "day",
+    crew: { ...unitForm.crew },
+    patientOrder: unitForm.noPatient ? [] : unitForm.patientOrder,
+    notes: "",
+    createdAt: editingUnitId ? undefined : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  const resetUnitForm = () => {
+    setUnitForm({ ...initialUnitForm, shiftDate: date });
+    setEditingUnitId(null);
+    setShowUnitDrawer(false);
+  };
+
+  const handleShowCreateUnit = () => {
+    setUnitForm({ ...initialUnitForm, shiftDate: date });
+    setEditingUnitId(null);
+    setShowUnitDrawer(true);
+  };
+
+  const handleShowCreateNightUnit = () => {
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    setUnitForm({ ...initialUnitForm, shiftDate: date, shiftType: "night", endDate: nextDay.toISOString().slice(0, 10) });
+    setEditingUnitId(null);
+    setShowUnitDrawer(true);
+  };
+
+  const handleEditUnit = (unit) => {
+    setEditingUnitId(unit.id);
+    setUnitForm({
+      shiftDate: unit.shiftDate || date,
+      unitType: unit.unitType || "BLS",
+      truckNumber: unit.truckNumber || "",
+      startTime: unit.startTime || "",
+      endTime: unit.endTime || "",
+      endDate: unit.endDate || "",
+      shiftType: unit.shiftType || "day",
+      crew: { driver: unit.crew?.driver || "", medical: unit.crew?.medical || "", assist1: unit.crew?.assist1 || "", assist2: unit.crew?.assist2 || "" },
+      patientOrder: Array.isArray(unit.patientOrder) ? unit.patientOrder : [],
+      noPatient: !(unit.patientOrder && unit.patientOrder.length > 0),
+    });
+    setShowUnitDrawer(true);
+  };
+
+  const handleSaveUnit = async (e) => {
+    e.preventDefault();
+    if (unitValidationErrors.length > 0) return;
+    setCrewSaving(true);
+    try {
+      const payload = buildUnitPayload();
+      if (editingUnitId) { await updateCrewUnit(editingUnitId, payload); toast.success("Unit updated"); }
+      else { await createCrewUnit(payload); toast.success("Unit created"); }
+      resetUnitForm();
+      await loadBoard(date);
+    } catch (err) {
+      toast.error("Save failed", err.message);
+    } finally {
+      setCrewSaving(false);
+    }
+  };
+
+  const handleDeleteUnit = async (unitId) => {
+    const confirmed = await confirm({ title: "Delete planned unit?", message: "This will remove the unit and its crew assignment.", variant: "danger", confirmLabel: "Delete" });
+    if (!confirmed) return;
+    setCrewSaving(true);
+    try {
+      await deleteCrewUnit(unitId);
+      if (String(editingUnitId) === String(unitId)) resetUnitForm();
+      toast.success("Unit deleted");
+      await loadBoard(date);
+    } catch (err) {
+      toast.error("Delete failed", err.message);
+    } finally {
+      setCrewSaving(false);
+    }
+  };
+
+  const handleMakeNight = (unit) => {
+    const hasExisting = board.units.some(u => u.shiftType === "night");
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+    setNightForm({ startTime: unit.startTime || "", endTime: "", endDate: nextDay.toISOString().slice(0, 10) });
+    setNightDialog({ sourceUnit: unit, hasExisting });
+  };
+
+  const handleConfirmNight = async (replace) => {
+    if (!nightDialog) return;
+    setCrewSaving(true);
+    try {
+      await makeNightCrew(nightDialog.sourceUnit.id, { replace, startTime: nightForm.startTime, endTime: nightForm.endTime || null, endDate: nightForm.endDate || null });
+      setNightDialog(null);
+      toast.success("Night crew created");
+      await loadBoard(date);
+    } catch (err) {
+      toast.error("Night crew failed", err.message);
+    } finally {
+      setCrewSaving(false);
+    }
+  };
+
+  const renderCrewSelect = (role, label) => {
+    const available = getAvailableEmployeesForRole(role);
+    const required = (role === "driver") || (role === "medical" && (unitForm.unitType === "BLS" || unitForm.unitType === "ALS"));
+    return (
+      <div className="col-md-6">
+        <label className="form-label fw-semibold">
+          {label}
+          {required && <span className="badge text-bg-danger ms-2" style={{ fontSize: 10 }}>Required</span>}
+        </label>
+        <select className="form-select" value={unitForm.crew[role]} onChange={e => setUnitForm(p => ({ ...p, crew: { ...p.crew, [role]: e.target.value } }))} disabled={crewSaving}>
+          <option value="">Select employee...</option>
+          {available.map(emp => {
+            const assigned = getEmployeeAssignmentsInOtherUnits(emp.id).length > 0;
+            return <option key={emp.id} value={emp.id}>{`${emp.firstName} ${emp.lastName} — ${getEmployeeRoleLabel(emp.role)}${assigned ? " [ALREADY ASSIGNED]" : ""}`}</option>;
+          })}
+        </select>
+      </div>
+    );
+  };
+
   // ── Derived data ───────────────────────────────────────────────────────
 
   const expandedCalls = expandAndSort(board.openCalls);
@@ -995,26 +1413,45 @@ export default function DispatchBoardPage() {
           onReopen={handleReopen}
           onCancel={handleCancelCall}
           onUncancel={handleUncancelCall}
+          onEdit={(call) => setCallDrawer({ open: true, call })}
+          onTimestampsUpdated={() => loadBoard(date)}
         />
       )}
 
       {/* Header */}
-      <div className="d-flex align-items-center gap-3 px-3 py-2" style={{ background: "var(--ems-board-bg-header)", borderBottom: "1px solid #2a3347", flexShrink: 0 }}>
+      <div className="d-flex align-items-center gap-2 px-3 py-2 flex-wrap" style={{ background: "var(--ems-board-bg-header)", borderBottom: "1px solid #2a3347", flexShrink: 0 }}>
         <h5 className="mb-0 fw-bold" style={{ color: "var(--ems-board-text)", fontSize: 16 }}>Dispatch Board</h5>
         <input
           type="date"
           className="form-control form-control-sm"
-          style={{ width: 160, background: "var(--ems-board-bg-input)", color: "var(--ems-board-text)", border: "1px solid var(--ems-board-border)" }}
+          style={{ width: 150, background: "var(--ems-board-bg-input)", color: "var(--ems-board-text)", border: "1px solid var(--ems-board-border)" }}
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
-        <button className="btn btn-sm btn-outline-secondary" onClick={() => loadBoard(date)} disabled={loading}>
+        <button className="btn btn-sm btn-outline-secondary" onClick={() => loadBoard(date)} disabled={loading} style={{ fontSize: 12 }}>
           {loading ? "Loading…" : "Refresh"}
         </button>
+        <div style={{ width: 1, height: 20, background: "#2a3347", margin: "0 4px" }} />
+        <button
+          className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+          style={{ fontSize: 12 }}
+          onClick={handleShowCreateUnit}
+          disabled={employeesLoading || crewSaving}
+        >
+          <FaSun style={{ fontSize: 10 }} /><FaPlus style={{ fontSize: 9 }} /> Day Unit
+        </button>
+        <button
+          className="btn btn-sm d-inline-flex align-items-center gap-1"
+          style={{ fontSize: 12, color: "#6ea8fe", border: "1px solid #6ea8fe44", background: "transparent" }}
+          onClick={handleShowCreateNightUnit}
+          disabled={employeesLoading || crewSaving}
+        >
+          <FaMoon style={{ fontSize: 10 }} /><FaPlus style={{ fontSize: 9 }} /> Night Unit
+        </button>
         {error && <span className="text-danger small">{error}</span>}
-        <span className="ms-auto text-muted small">
+        <span className="ms-auto text-muted small d-none d-lg-inline">
           {expandedCalls.length} open · {board.units.length} units ·{" "}
-          <span style={{ color: "#6ea8fe" }}>click unit → inspect · double-click → advance status</span>
+          <span style={{ color: "#6ea8fe" }}>click → inspect · dbl-click → status</span>
         </span>
       </div>
 
@@ -1034,8 +1471,36 @@ export default function DispatchBoardPage() {
         }}>
           {/* Column header */}
           <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
-            {/* Filter tabs */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+            {/* New Call button */}
+            <button
+              className="btn btn-sm btn-primary w-100 d-flex align-items-center justify-content-center gap-1 mb-2"
+              style={{ fontSize: 12, fontWeight: 700 }}
+              onClick={() => setCallDrawer({ open: true, call: null })}
+            >
+              <FaPlus style={{ fontSize: 10 }} /> New Call
+            </button>
+
+            {/* Calls / Staff toggle */}
+            <div style={{ display: "flex", gap: 3, marginBottom: 8, background: "var(--ems-board-bg)", borderRadius: 8, padding: 3 }}>
+              {[
+                { key: "calls", label: "Calls", count: expandedCalls.length },
+                { key: "staff", label: "Staff", count: unassignedStaff.length, warn: unassignedStaff.length > 0 },
+              ].map(({ key, label, count, warn }) => (
+                <button key={key} onClick={() => setLeftPanelTab(key)} style={{
+                  flex: 1, padding: "4px 2px", fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+                  border: "none", borderRadius: 6, cursor: "pointer",
+                  background: leftPanelTab === key ? "var(--ems-board-bg-badge)" : "transparent",
+                  color: leftPanelTab === key ? "var(--ems-board-text)" : "var(--ems-board-tab-inactive)",
+                  transition: "all 0.15s",
+                }}>
+                  {label}
+                  <span style={{ marginLeft: 4, background: warn && leftPanelTab !== key ? "#f59e0b22" : "transparent", color: warn ? "#f59e0b" : "#475569", borderRadius: 8, padding: "0 5px", fontSize: 9 }}>{count}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Call filter tabs — only show on calls tab */}
+            {leftPanelTab === "calls" && <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
               {[
                 { key: "open",      label: "Open",      count: expandedCalls.length,              color: "#6ea8fe" },
                 { key: "completed", label: "Done",       count: (board.completedCalls||[]).length, color: "#75b798" },
@@ -1071,11 +1536,53 @@ export default function DispatchBoardPage() {
                   </span>
                 </button>
               ))}
-            </div>
+            </div>}
           </div>
 
+          {/* Staff tab */}
+          {leftPanelTab === "staff" && (
+            <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px 8px" }}>
+              {employeesLoading ? (
+                <div style={{ padding: 20, textAlign: "center", color: "var(--ems-board-tab-inactive)", fontSize: 12 }}>Loading staff…</div>
+              ) : unassignedStaff.length === 0 ? (
+                <div style={{ padding: 20, textAlign: "center", color: "var(--ems-board-tab-inactive)", fontSize: 12 }}>
+                  <div style={{ fontSize: 20, marginBottom: 6 }}>✓</div>
+                  All staff assigned
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ems-board-tab-inactive)", letterSpacing: 1, padding: "4px 4px 8px", borderBottom: "1px solid var(--ems-board-border)", marginBottom: 6 }}>
+                    UNASSIGNED STAFF — {unassignedStaff.length}
+                  </div>
+                  {unassignedStaff.map(emp => (
+                    <div key={emp.id} style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", marginBottom: 4,
+                      borderRadius: 7, background: "var(--ems-board-bg-card)", border: "1px solid var(--ems-board-border)",
+                    }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                        background: "var(--ems-board-bg-badge)", display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, fontWeight: 700, color: "var(--ems-board-text)",
+                      }}>
+                        {emp.firstName?.[0]}{emp.lastName?.[0]}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ems-board-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {emp.firstName} {emp.lastName}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--ems-board-tab-inactive)" }}>
+                          {getEmployeeRoleLabel(emp.role)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Call list */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px 8px" }}>
+          {leftPanelTab === "calls" && <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px 8px" }}>
             {/* Open calls — split emergency / scheduled */}
             {callFilter === "open" && (
               <>
@@ -1133,7 +1640,7 @@ export default function DispatchBoardPage() {
                 ))}
               </>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* Drag divider */}
@@ -1155,7 +1662,7 @@ export default function DispatchBoardPage() {
                   <th style={{ width: 80, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Unit</th>
                   <th style={{ width: 110, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Type</th>
                   <th style={{ width: 200, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
-                  <th style={{ width: 60, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Crew</th>
+                  <th style={{ width: 200, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Crew</th>
                   <th style={{ color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Assigned Calls</th>
                   <th style={{ width: 110 }}></th>
                 </tr>
@@ -1166,8 +1673,9 @@ export default function DispatchBoardPage() {
                   const isDragOver = dragOverUnitId === unit.id;
 //                   const sc = STATUS_COLORS[unit.dispatchStatus] || "#adb5bd";
                   return (
+                    <React.Fragment key={unit.id}>
                     <tr
-                      key={unit.id}
+                      key={`unit-${unit.id}`}
                       onClick={() => handleUnitClick(unit)}
                       onDoubleClick={() => handleUnitDoubleClick(unit)}
                       onDragOver={(e) => handleDragOver(e, unit.id)}
@@ -1190,10 +1698,26 @@ export default function DispatchBoardPage() {
                       <td className="align-middle">
                         <StatusPill status={unit.dispatchStatus} />
                       </td>
-                      <td className="align-middle text-center">
-                        <span className={`badge ${(unit.crewCount || 0) < minCrewForType(unit.unitType) ? "bg-danger" : "bg-secondary"}`}>
-                          {unit.crewCount || 0}
-                        </span>
+                      <td className="align-middle">
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className={`badge ${(unit.crewCount || 0) < minCrewForType(unit.unitType) ? "bg-danger" : "bg-secondary"}`} style={{ fontSize: 10 }}>
+                            {unit.crewCount || 0}
+                          </span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            {unit.crewNames?.driver && (
+                              <span style={{ fontSize: 11, color: "var(--ems-board-text)", lineHeight: 1.3 }}>
+                                <span style={{ fontSize: 10, color: "var(--ems-text-muted)", marginRight: 3 }}>DRV</span>
+                                {unit.crewNames.driver}
+                              </span>
+                            )}
+                            {unit.crewNames?.medical && (
+                              <span style={{ fontSize: 11, color: "var(--ems-board-text)", lineHeight: 1.3 }}>
+                                <span style={{ fontSize: 10, color: "var(--ems-text-muted)", marginRight: 3 }}>MED</span>
+                                {unit.crewNames.medical}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="align-middle">
                         <div className="d-flex flex-wrap gap-1 align-items-center">
@@ -1228,28 +1752,72 @@ export default function DispatchBoardPage() {
                         </div>
                       </td>
                       <td className="align-middle" onClick={(e) => e.stopPropagation()}>
-                        {unit.dispatchStatus !== "out_of_service" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap" }}>
+                          {unit.dispatchStatus !== "out_of_service" && (
+                            <button
+                              className="btn btn-sm"
+                              style={{
+                                fontSize: 11, padding: "3px 8px",
+                                background: STATUS_BG[STATUS_NEXT[unit.dispatchStatus]] || "transparent",
+                                border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#49505788"}`,
+                                color: STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "var(--ems-board-text-muted)",
+                                fontWeight: 600, whiteSpace: "nowrap",
+                              }}
+                              onClick={() => handleUnitDoubleClick(unit)}
+                              title="Advance to next status"
+                            >
+                              {unit.dispatchStatus === "at_destination" ? "✓ Complete" : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
+                            </button>
+                          )}
                           <button
                             className="btn btn-sm"
-                            style={{
-                              fontSize: 11,
-                              padding: "3px 10px",
-                              background: STATUS_BG[STATUS_NEXT[unit.dispatchStatus]] || "transparent",
-                              border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#49505788"}`,
-                              color: STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "var(--ems-board-text-muted)",
-                              fontWeight: 600,
-                              whiteSpace: "nowrap",
-                            }}
-                            onClick={() => handleUnitDoubleClick(unit)}
-                            title="Advance to next status"
+                            style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #2a3347", color: "var(--ems-board-text-muted)" }}
+                            onClick={() => handleEditUnit(unit)}
+                            title="Edit unit"
                           >
-                            {unit.dispatchStatus === "at_destination"
-                              ? "✓ Complete"
-                              : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
+                            <FaEdit style={{ fontSize: 10 }} />
                           </button>
-                        )}
+                          <button
+                            className="btn btn-sm"
+                            style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #dc354533", color: "#ea868f" }}
+                            onClick={() => handleDeleteUnit(unit.id)}
+                            title="Delete unit"
+                          >
+                            <FaTrash style={{ fontSize: 10 }} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
+                    {/* Patient queue sub-row — derived from actual assigned calls, sorted by pickup_time */}
+                    {(() => {
+                      const allCalls = (unit.assignedCalls || [])
+                        .slice()
+                        .sort((a, b) => timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time));
+                      if (allCalls.length === 0) return null;
+                      return (
+                        <tr style={{ background: isSelected ? "rgba(13,110,253,0.06)" : "var(--ems-board-bg)", borderLeft: isSelected ? "3px solid #6ea8fe" : "3px solid transparent" }}>
+                          <td colSpan={6} style={{ paddingTop: 0, paddingBottom: 6, paddingLeft: 16 }}>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ems-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginRight: 2 }}>Patients:</span>
+                              {allCalls.map((c, idx) => (
+                                <span key={c.id} style={{
+                                  fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 6,
+                                  background: "var(--ems-board-bg-badge)",
+                                  color: "var(--ems-board-text)",
+                                  border: "1px solid var(--ems-board-border)",
+                                  display: "flex", alignItems: "center", gap: 4,
+                                }}>
+                                  <span style={{ fontSize: 10, color: "var(--ems-text-muted)", fontWeight: 700 }}>{idx + 1}.</span>
+                                  {c.patient_name || `Call #${c.id}`}
+                                  {c.pickup_time && <span style={{ fontSize: 10, color: "var(--ems-text-muted)", marginLeft: 2 }}>{c.pickup_time}</span>}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                    </React.Fragment>
                   );
                 })}
                 {board.units.length === 0 && !loading && (
@@ -1370,6 +1938,150 @@ export default function DispatchBoardPage() {
           )}
         </div>
       </div>
+
+      {/* Call Create/Edit Drawer */}
+      <CallDrawer
+        open={callDrawer.open}
+        callToEdit={callDrawer.call}
+        defaultTripDate={date}
+        onClose={() => setCallDrawer({ open: false, call: null })}
+        onSaved={() => { setCallDrawer({ open: false, call: null }); loadBoard(date); }}
+      />
+
+      {/* Unit Create/Edit Drawer */}
+      <EntityDrawer
+        open={showUnitDrawer}
+        onClose={resetUnitForm}
+        title={editingUnitId ? "Edit Unit" : "Create Unit"}
+        subtitle="Truck info, crew members, and patient order"
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary" onClick={resetUnitForm} disabled={crewSaving}>Cancel</button>
+            <button type="submit" form="board-crew-form" className="btn btn-primary d-inline-flex align-items-center gap-2" disabled={crewSaving || employeesLoading}>
+              <FaPlus style={{ fontSize: 11 }} />
+              {crewSaving ? "Saving..." : editingUnitId ? "Update Unit" : "Create Unit"}
+            </button>
+          </>
+        }
+      >
+        <form id="board-crew-form" onSubmit={handleSaveUnit}>
+          {unitValidationErrors.length > 0 && (
+            <div className="alert alert-danger mb-3">
+              <ul className="mb-0">{unitValidationErrors.map((m, i) => <li key={i}>{m}</li>)}</ul>
+            </div>
+          )}
+          {unitWarningMessages.length > 0 && (
+            <div className="alert alert-warning mb-3">
+              <ul className="mb-0">{unitWarningMessages.map((m, i) => <li key={i}>{m}</li>)}</ul>
+            </div>
+          )}
+          <div className="row g-3">
+            {/* Shift Date */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Shift Date</label>
+              <input type="date" className="form-control" value={unitForm.shiftDate} onChange={e => setUnitForm(p => ({ ...p, shiftDate: e.target.value }))} disabled={crewSaving} />
+            </div>
+            {/* Unit Type */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Unit Type</label>
+              <select className="form-select" value={unitForm.unitType} onChange={e => setUnitForm(p => ({ ...p, unitType: e.target.value }))} disabled={crewSaving}>
+                {UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            {/* Truck Number */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Truck Number <span className="badge text-bg-danger ms-1" style={{ fontSize: 10 }}>Required</span></label>
+              <input type="text" className="form-control" value={unitForm.truckNumber} onChange={e => setUnitForm(p => ({ ...p, truckNumber: e.target.value }))} disabled={crewSaving} />
+            </div>
+            {/* Shift Type */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Shift Type</label>
+              <div className="d-flex gap-2">
+                {["day", "night"].map(t => (
+                  <button key={t} type="button"
+                    className={`btn btn-sm flex-fill ${unitForm.shiftType === t ? (t === "night" ? "btn-secondary" : "btn-warning") : "btn-outline-secondary"}`}
+                    style={unitForm.shiftType === t && t === "night" ? { background: "#1a2a4a", color: "#6ea8fe", borderColor: "#6ea8fe" } : undefined}
+                    onClick={() => setUnitForm(p => ({ ...p, shiftType: t }))}
+                  >
+                    {t === "day" ? <><FaSun style={{ marginRight: 4 }} />Day</> : <><FaMoon style={{ marginRight: 4 }} />Night</>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Start Time */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">Start Time <span className="badge text-bg-danger ms-1" style={{ fontSize: 10 }}>Required</span></label>
+              <TimeInput showFormatToggle value={unitForm.startTime} onChange={v => setUnitForm(p => ({ ...p, startTime: v }))} disabled={crewSaving} />
+            </div>
+            {/* End Time */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">End Time <span className="text-muted fw-normal">(optional)</span></label>
+              <TimeInput value={unitForm.endTime} onChange={v => setUnitForm(p => ({ ...p, endTime: v }))} disabled={crewSaving} />
+            </div>
+            {/* End Date */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold">End Date <span className="text-muted fw-normal">(if next day)</span></label>
+              <input type="date" className="form-control" value={unitForm.endDate} onChange={e => setUnitForm(p => ({ ...p, endDate: e.target.value }))} disabled={crewSaving} />
+            </div>
+            {/* Crew */}
+            <div className="col-12"><hr /><h5 className="mb-0">Crew</h5></div>
+            {renderCrewSelect("driver", "Driver")}
+            {isMedicalSlotVisible(unitForm.unitType) && renderCrewSelect("medical", unitForm.unitType === "ALS" ? "Paramedic" : "EMT")}
+            {renderCrewSelect("assist1", "Assist 1 (optional)")}
+            {renderCrewSelect("assist2", "Assist 2 (optional)")}
+            {/* Patient Order */}
+            <PatientOrderSection
+              patientOrder={unitForm.patientOrder}
+              noPatient={unitForm.noPatient}
+              openCalls={crewOpenCalls}
+              onPatientOrderChange={newOrder => setUnitForm(p => ({ ...p, patientOrder: newOrder }))}
+              onNoPatientChange={val => setUnitForm(p => ({ ...p, noPatient: val }))}
+              disabled={crewSaving}
+            />
+          </div>
+        </form>
+      </EntityDrawer>
+
+      {/* Make Night Dialog */}
+      {nightDialog && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1070, background: "rgba(15,23,42,0.65)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--ems-bg-surface, #1e2a3a)", border: "1px solid var(--ems-border, #2a3347)", borderRadius: 16, padding: "1.75rem", width: "100%", maxWidth: 440, boxShadow: "0 8px 32px rgba(0,0,0,0.2)", color: "var(--ems-text-primary, #e2e8f0)" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <FaMoon style={{ color: "#6ea8fe" }} /> Make Night Crew
+            </div>
+            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 16 }}>
+              Copying crew from Truck <strong>{nightDialog.sourceUnit.truckNumber}</strong> to a night shift.
+              {nightDialog.hasExisting && <span style={{ color: "#f59e0b" }}> A night crew already exists for this date.</span>}
+            </p>
+            <div className="row g-2 mb-3">
+              <div className="col-6">
+                <label className="form-label" style={{ fontSize: 12 }}>Night Start Time</label>
+                <TimeInput showFormatToggle value={nightForm.startTime} onChange={v => setNightForm(f => ({ ...f, startTime: v }))} />
+              </div>
+              <div className="col-6">
+                <label className="form-label" style={{ fontSize: 12 }}>End Time</label>
+                <TimeInput value={nightForm.endTime} onChange={v => setNightForm(f => ({ ...f, endTime: v }))} />
+              </div>
+              <div className="col-12">
+                <label className="form-label" style={{ fontSize: 12 }}>End Date (next day)</label>
+                <input type="date" className="form-control form-control-sm" value={nightForm.endDate} onChange={e => setNightForm(f => ({ ...f, endDate: e.target.value }))} />
+              </div>
+            </div>
+            {nightDialog.hasExisting ? (
+              <div className="d-flex gap-2 flex-wrap">
+                <button className="btn btn-sm btn-danger flex-fill" onClick={() => handleConfirmNight(true)} disabled={crewSaving}>Replace existing night crew</button>
+                <button className="btn btn-sm btn-outline-primary flex-fill" onClick={() => handleConfirmNight(false)} disabled={crewSaving}>Keep both</button>
+                <button className="btn btn-sm btn-outline-secondary w-100 mt-1" onClick={() => setNightDialog(null)}>Cancel</button>
+              </div>
+            ) : (
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-primary flex-fill" onClick={() => handleConfirmNight(false)} disabled={crewSaving}>Create Night Crew</button>
+                <button className="btn btn-sm btn-outline-secondary" onClick={() => setNightDialog(null)}>Cancel</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .badge-als { background: rgba(13,110,253,0.2); color: #6ea8fe; border: 1px solid #6ea8fe44; }
