@@ -24,7 +24,6 @@ import {
   reopenAssignment,
   updateUnitStatus,
   updateCallOrder,
-  getDispatchThresholds,
 } from "../api/dispatchApi";
 import { cancelCall, uncancelCall, getCalls, updateCall } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
@@ -35,6 +34,7 @@ import TimeInput from "../components/ui/TimeInput";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import CallDrawer from "../components/dispatch/CallDrawer";
+import { useUserSettings } from "../context/UserSettingsContext";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -939,8 +939,9 @@ export default function DispatchBoardPage() {
   const [pendingAssign, setPendingAssign] = useState(null);
   const [callModal, setCallModal] = useState(null); // { call, isCompleted }
 
-  // Dispatch visual alert thresholds (loaded from user prefs)
-  const [dispatchThresholds, setDispatchThresholds] = useState({ pickup_late_after: 0, stuck_after: 30 });
+  // All user settings from context
+  const { settings: userSettings, updateSettings, settingsLoaded } = useUserSettings();
+  const dispatchThresholds = userSettings.dispatch;
   // Current clock — updates every 30s for overdue detection
   const [now, setNow] = useState(() => new Date());
 
@@ -975,6 +976,26 @@ export default function DispatchBoardPage() {
   const rowDragStartH = useRef(300);
   const bottomHeightRef = useRef(300);
 
+  // Ref so the drag mouseup handler can call updateSettings without stale closure
+  const updateSettingsRef = useRef(updateSettings);
+  updateSettingsRef.current = updateSettings;
+
+  // Initialize panel sizes from saved user settings (runs once when settings load)
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const saved = userSettings.ui?.panels?.dispatch;
+    if (saved?.leftWidth) {
+      setLeftWidth(saved.leftWidth);
+      leftWidthRef.current = saved.leftWidth;
+      dragStartW.current = saved.leftWidth;
+    }
+    if (saved?.bottomHeight) {
+      setBottomHeight(saved.bottomHeight);
+      bottomHeightRef.current = saved.bottomHeight;
+      rowDragStartH.current = saved.bottomHeight;
+    }
+  }, [settingsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     function onMove(e) {
       if (isDragging.current) {
@@ -991,7 +1012,16 @@ export default function DispatchBoardPage() {
         setBottomHeight(next);
       }
     }
-    function onUp() { isDragging.current = false; isRowDragging.current = false; }
+    function onUp() {
+      if (isDragging.current || isRowDragging.current) {
+        updateSettingsRef.current?.({ ui: { panels: { dispatch: {
+          leftWidth:    leftWidthRef.current,
+          bottomHeight: bottomHeightRef.current,
+        }}}});
+      }
+      isDragging.current = false;
+      isRowDragging.current = false;
+    }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
@@ -1037,12 +1067,6 @@ export default function DispatchBoardPage() {
     const interval = setInterval(() => loadBoard(date, true), 30_000);
     return () => clearInterval(interval);
   }, [date, loadBoard]);
-
-  // Load dispatch visual alert thresholds for current user.
-  useEffect(() => {
-    if (!currentUser?.id) return;
-    getDispatchThresholds(currentUser.id).then(t => setDispatchThresholds(t)).catch(() => {});
-  }, [currentUser?.id]);
 
   // Clock tick every 30 s for overdue detection.
   useEffect(() => {
@@ -1565,9 +1589,23 @@ export default function DispatchBoardPage() {
           <FaMoon style={{ fontSize: 10 }} /><FaPlus style={{ fontSize: 9 }} /> Night Unit
         </button>
         {error && <span className="text-danger small">{error}</span>}
-        <span className="ms-auto text-muted small d-none d-lg-inline">
+        <span className="ms-auto text-muted small d-none d-lg-inline d-flex align-items-center gap-2">
           {expandedCalls.length} open · {board.units.length} units ·{" "}
           <span style={{ color: "#6ea8fe" }}>click → inspect · dbl-click → status</span>
+          {(leftWidth !== 280 || bottomHeight !== 300) && (
+            <button
+              type="button"
+              onClick={() => {
+                setLeftWidth(280); leftWidthRef.current = 280;
+                setBottomHeight(300); bottomHeightRef.current = 300;
+                updateSettingsRef.current?.({ ui: { panels: { dispatch: { leftWidth: 280, bottomHeight: 300 } } } });
+              }}
+              style={{ fontSize: 10, padding: "1px 7px", background: "transparent", border: "1px solid #475569", borderRadius: 5, color: "#94a3b8", cursor: "pointer", lineHeight: 1.6 }}
+              title="Reset panel sizes to default"
+            >
+              ⊞ Reset layout
+            </button>
+          )}
         </span>
       </div>
 

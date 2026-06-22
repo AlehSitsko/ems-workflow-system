@@ -325,17 +325,19 @@ def update_call_order(unit_id):
 
 @dispatch_bp.route("/dispatch-thresholds", methods=["GET"])
 def get_dispatch_thresholds():
+    from settings_utils import load_user_settings
     user_id = request.args.get("user_id", type=int)
     if not user_id:
         return jsonify({"pickup_late_after": 0, "stuck_after": 30})
-    prefs = UserNotificationPrefs.query.get(user_id)
-    if not prefs or not prefs.dispatch_thresholds_json:
+    user = db.session.get(User, user_id)
+    if not user:
         return jsonify({"pickup_late_after": 0, "stuck_after": 30})
-    return jsonify(json.loads(prefs.dispatch_thresholds_json))
+    return jsonify(load_user_settings(user).get("dispatch", {"pickup_late_after": 0, "stuck_after": 30}))
 
 
 @dispatch_bp.route("/dispatch-thresholds", methods=["PUT"])
 def save_dispatch_thresholds():
+    from settings_utils import save_user_settings
     data = request.get_json() or {}
     user_id = data.get("user_id")
     if not user_id:
@@ -344,10 +346,8 @@ def save_dispatch_thresholds():
         "pickup_late_after": int(data.get("pickup_late_after", 0)),
         "stuck_after": int(data.get("stuck_after", 30)),
     }
-    prefs = UserNotificationPrefs.query.get(user_id)
-    if not prefs:
-        prefs = UserNotificationPrefs(user_id=user_id)
-        db.session.add(prefs)
-    prefs.dispatch_thresholds_json = json.dumps(thresholds)
-    db.session.commit()
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+    save_user_settings(user, {"dispatch": thresholds})
     return jsonify(thresholds)

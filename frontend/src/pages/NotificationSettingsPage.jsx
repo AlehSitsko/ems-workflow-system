@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaBell, FaSave } from "react-icons/fa";
 import { usePushNotifications } from "../hooks/usePushNotifications";
-import { getDispatchThresholds, saveDispatchThresholds } from "../api/dispatchApi";
-
+import { useUserSettings } from "../context/UserSettingsContext";
 import API_BASE from "../api/config.js";
 
 const GROUPS = [
@@ -21,62 +20,68 @@ const GROUPS = [
 ];
 
 function NotificationSettingsPage({ currentUser }) {
-  const [prefs, setPrefs] = useState({});
-  const [loading, setLoading] = useState(true);
+  // Available types + labels for this user's role (from backend, role-filtered)
+  const [availableTypes, setAvailableTypes] = useState({});
+  const [loadingTypes, setLoadingTypes] = useState(true);
+
+  // Local edits before saving
+  const [localNotifs, setLocalNotifs] = useState({});
+  const [localDispatch, setLocalDispatch] = useState({ pickup_late_after: 0, stuck_after: 30 });
+  const [hydrated, setHydrated] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [thresholds, setThresholds] = useState({ pickup_late_after: 0, stuck_after: 30 });
-  const { pushState, subscribe, dismiss: _dismiss } = usePushNotifications(currentUser);
 
+  const { settings, updateSettings, settingsLoaded } = useUserSettings();
+  const { pushState, subscribe } = usePushNotifications(currentUser);
+
+  // Load available types + labels from backend (role-specific metadata)
   useEffect(() => {
     if (!currentUser?.id) return;
     fetch(`${API_BASE}/api/notifications/prefs?user_id=${currentUser.id}`)
       .then((r) => r.json())
-      .then((data) => {
-        setPrefs(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-    getDispatchThresholds(currentUser.id).then(t => setThresholds(t)).catch(() => {});
+      .then((data) => { setAvailableTypes(data); setLoadingTypes(false); })
+      .catch(() => setLoadingTypes(false));
   }, [currentUser?.id]);
 
+  // Hydrate local state from context once both are ready
+  useEffect(() => {
+    if (!settingsLoaded || loadingTypes) return;
+    const notifValues = {};
+    Object.keys(availableTypes).forEach((type) => {
+      notifValues[type] = settings.notifications[type] ?? availableTypes[type]?.enabled ?? true;
+    });
+    setLocalNotifs(notifValues);
+    setLocalDispatch({ ...settings.dispatch });
+    setHydrated(true);
+  }, [settingsLoaded, loadingTypes, settings]);
+
   const toggle = (type) => {
-    setPrefs((prev) => ({
-      ...prev,
-      [type]: { ...prev[type], enabled: !prev[type].enabled },
-    }));
+    setLocalNotifs((prev) => ({ ...prev, [type]: !prev[type] }));
+    setSaved(false);
+  };
+
+  const setThreshold = (key, val) => {
+    const n = Math.max(0, parseInt(val, 10) || 0);
+    setLocalDispatch((prev) => ({ ...prev, [key]: n }));
     setSaved(false);
   };
 
   const handleSave = async () => {
     setSaving(true);
-    const flat = {};
-    Object.entries(prefs).forEach(([k, v]) => { flat[k] = v.enabled; });
     try {
-      await Promise.all([
-        fetch(`${API_BASE}/api/notifications/prefs`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: currentUser.id, prefs: flat }),
-        }),
-        saveDispatchThresholds(currentUser.id, thresholds),
-      ]);
+      await updateSettings({
+        notifications: localNotifs,
+        dispatch: localDispatch,
+      });
       setSaved(true);
     } catch { /* noop */ }
     setSaving(false);
   };
 
-  const setThreshold = (key, val) => {
-    const n = Math.max(0, parseInt(val, 10) || 0);
-    setThresholds(prev => ({ ...prev, [key]: n }));
-    setSaved(false);
-  };
-
-  if (loading) {
+  if (loadingTypes || !hydrated) {
     return <div className="page-stack"><p className="text-muted">Loading...</p></div>;
   }
-
-  const availableTypes = Object.keys(prefs);
 
   return (
     <div className="page-stack">
@@ -84,7 +89,7 @@ function NotificationSettingsPage({ currentUser }) {
         <div className="content-panel-header">
           <div>
             <h4>Notification Settings</h4>
-            <p>Choose which notifications you want to receive. Only event types available for your role are shown.</p>
+            <p>Your personal notification preferences — saved to your account across all sessions.</p>
           </div>
           <button
             type="button"
@@ -97,7 +102,7 @@ function NotificationSettingsPage({ currentUser }) {
           </button>
         </div>
 
-        {/* Browser Push section */}
+        {/* Browser Push */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6c757d", letterSpacing: 1, marginBottom: 10, textTransform: "uppercase" }}>
             Browser Notifications
@@ -126,12 +131,13 @@ function NotificationSettingsPage({ currentUser }) {
           </div>
         </div>
 
-        {availableTypes.length === 0 && (
+        {/* Notification type toggles */}
+        {Object.keys(availableTypes).length === 0 && (
           <p className="text-muted">No notification types available for your role.</p>
         )}
 
         {GROUPS.map((group) => {
-          const visible = group.types.filter((t) => prefs[t]);
+          const visible = group.types.filter((t) => availableTypes[t]);
           if (visible.length === 0) return null;
           return (
             <div key={group.label} style={{ marginBottom: 24 }}>
@@ -145,9 +151,9 @@ function NotificationSettingsPage({ currentUser }) {
                   style={{ padding: "10px 0", borderBottom: "1px solid #2a3347" }}
                 >
                   <div className="d-flex align-items-center gap-3">
-                    <FaBell style={{ color: prefs[type].enabled ? "#6ea8fe" : "#495057", fontSize: 14 }} />
-                    <span style={{ fontSize: 14, color: prefs[type].enabled ? "#fff" : "#6c757d" }}>
-                      {prefs[type].label}
+                    <FaBell style={{ color: localNotifs[type] ? "#6ea8fe" : "#495057", fontSize: 14 }} />
+                    <span style={{ fontSize: 14, color: localNotifs[type] ? "#fff" : "#6c757d" }}>
+                      {availableTypes[type]?.label || type}
                     </span>
                   </div>
                   <div className="form-check form-switch mb-0">
@@ -155,7 +161,7 @@ function NotificationSettingsPage({ currentUser }) {
                       type="checkbox"
                       className="form-check-input"
                       role="switch"
-                      checked={prefs[type].enabled}
+                      checked={!!localNotifs[type]}
                       onChange={() => toggle(type)}
                       style={{ cursor: "pointer" }}
                     />
@@ -172,14 +178,14 @@ function NotificationSettingsPage({ currentUser }) {
             Dispatch Visual Alerts
           </div>
           <p style={{ fontSize: 12, color: "#6c757d", marginBottom: 14 }}>
-            Controls when calls and units flash red on the Dispatch Board. Applies per user — each dispatcher can set their own thresholds.
+            Controls when calls and units flash red on the Dispatch Board. Saved per user.
           </p>
 
           <div className="d-flex align-items-center justify-content-between" style={{ padding: "12px 0", borderBottom: "1px solid #2a3347" }}>
             <div>
               <div style={{ fontSize: 14, color: "var(--ems-text-primary)" }}>Call overdue alert</div>
               <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
-                Flash call red in queue when pickup time is exceeded by this many minutes. 0 = immediately when past pickup.
+                Flash call red when pickup time is exceeded by this many minutes. 0 = immediately.
               </div>
             </div>
             <div className="d-flex align-items-center gap-2">
@@ -187,7 +193,7 @@ function NotificationSettingsPage({ currentUser }) {
                 type="number"
                 min="0"
                 max="120"
-                value={thresholds.pickup_late_after}
+                value={localDispatch.pickup_late_after}
                 onChange={e => setThreshold("pickup_late_after", e.target.value)}
                 style={{ width: 64, fontSize: 13, padding: "3px 8px", background: "var(--ems-bg-surface)", border: "1px solid var(--ems-border)", borderRadius: 6, color: "var(--ems-text-primary)", textAlign: "center" }}
               />
@@ -199,7 +205,7 @@ function NotificationSettingsPage({ currentUser }) {
             <div>
               <div style={{ fontSize: 14, color: "var(--ems-text-primary)" }}>Unit stuck alert</div>
               <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
-                Flash unit status red when the unit has been in the same status for this many minutes without advancing.
+                Flash unit status red when no status change for this many minutes.
               </div>
             </div>
             <div className="d-flex align-items-center gap-2">
@@ -207,7 +213,7 @@ function NotificationSettingsPage({ currentUser }) {
                 type="number"
                 min="5"
                 max="240"
-                value={thresholds.stuck_after}
+                value={localDispatch.stuck_after}
                 onChange={e => setThreshold("stuck_after", e.target.value)}
                 style={{ width: 64, fontSize: 13, padding: "3px 8px", background: "var(--ems-bg-surface)", border: "1px solid var(--ems-border)", borderRadius: 6, color: "var(--ems-text-primary)", textAlign: "center" }}
               />

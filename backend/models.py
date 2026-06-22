@@ -48,6 +48,9 @@ class User(db.Model):
     # Multi-tenancy foundation — nullable until full tenant isolation is enabled.
     org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
+    # Per-user settings blob: {notifications:{...}, dispatch:{...}, ui:{...}}
+    settings_json = db.Column(db.Text)
+
     def to_dict(self):
         # Never return password_hash to the frontend.
         return {

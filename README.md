@@ -31,7 +31,8 @@ The system is designed as an operational support platform. It is not intended to
 * Operational continuity during workflow disruptions
 * Modular architecture
 * In-app notification system with real-time polling
-* Dark / light theme with persistent user preference
+* Dark / light theme toggle in user menu
+* Per-user settings system — notifications, dispatch thresholds, and UI panel sizes saved server-side per user account
 
 The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, high-volume operational periods, and dispatcher training workflows.
 
@@ -104,6 +105,7 @@ ems-workflow-system/
 │   │   │   ├── dispatchApi.js
 │   │   │   ├── employeesApi.js
 │   │   │   ├── patientsApi.js
+│   │   │   ├── settingsApi.js
 │   │   │   ├── timeApi.js
 │   │   │   ├── payrollApi.js
 │   │   │   └── documentsApi.js
@@ -119,7 +121,8 @@ ems-workflow-system/
 │   │   │       ├── NotificationBell.jsx
 │   │   │       └── navigationConfig.js
 │   │   ├── context/
-│   │   │   └── ThemeContext.jsx
+│   │   │   ├── ThemeContext.jsx
+│   │   │   └── UserSettingsContext.jsx
 │   │   ├── hooks/
 │   │   │   └── useNotifications.js
 │   │   ├── pages/
@@ -265,13 +268,19 @@ Current features:
 * Completed calls displayed at bottom of unit panel with strikethrough and reduced opacity
 * Unassign button to return call to Open Calls
 * Reopen completed call from Done tab (restores to assigned status)
-* Resizable Open Calls column via drag divider
+* Resizable Open Calls column via drag divider (width saved per user)
+* Resizable unit detail panel via drag divider (height saved per user)
+* ⊞ Reset layout button appears when panel sizes differ from defaults
 * Call detail modal with sections and visual hierarchy
 * Dispatch Timestamps section in call detail modal — shows dispatched / on scene / transporting / at destination / completed times with inline editing
 * Call cancellation with mandatory reason field
 * + New Call button — opens full call create/edit drawer directly from the board
 * Edit Call button in call detail modal footer — opens call in edit drawer
 * Full dark / light theme support via CSS design tokens
+* Manual call priority queue: Set High Priority (⚡), move up/down (▲▼), reset to time order
+* Overdue call animation: call flashes red when pickup time exceeded (threshold configurable)
+* Unit stuck animation: unit status flashes red when no status change for N minutes (configurable)
+* Dispatch timestamps write-once: lifecycle fields (dispatched_at etc.) never overwritten on repeated status clicks
 
 Crew planning (integrated):
 
@@ -334,7 +343,7 @@ Current features:
 * Mark all read
 * Polling every 10 seconds
 * Role-filtered event delivery
-* Per-user notification preferences
+* Per-user notification preferences (stored in unified user settings blob)
 
 ### Notification Event Types
 
@@ -493,6 +502,7 @@ Current features:
 
 * id, username, password_hash, display_name, role, is_active
 * employee_id (nullable FK → Employee, for clock-in link)
+* settings_json — unified per-user settings blob: `{notifications:{...}, dispatch:{...}, ui:{panels:{...}}}`
 
 ### Employee
 
@@ -660,6 +670,14 @@ DELETE  /api/dispatch/assign/<assignment_id>
 PATCH   /api/dispatch/assign/<assignment_id>/complete
 PATCH   /api/dispatch/assign/<assignment_id>/reopen
 PATCH   /api/dispatch/units/<unit_id>/status
+PATCH   /api/dispatch/units/<unit_id>/call-order
+```
+
+### User Settings
+
+```text
+GET    /api/settings          (X-User-Id header)
+PATCH  /api/settings          (X-User-Id header, body is deep-merge patch)
 ```
 
 ### Notifications
@@ -953,10 +971,36 @@ Recommended workflow:
 
 * + New Call button in left panel opens `CallDrawer` for create mode
 * CallDrawer supports patient search (name + DOB + phone), new patient creation with dedup check, full trip and caller fields
+* CallDrawer auto-fills pickup address from selected patient's address record
+* CallDrawer warns before closing if form has unsaved changes (overlay, ✕, Cancel, Escape)
 * Edit Call from call detail modal footer — opens CallDrawer in edit mode
 * Dispatch Timestamps inline editing in call detail modal (dispatched / on scene / transporting / at destination / completed)
 * Completed calls in Done tab now carry `assignment_id` from backend — Reopen works correctly from any context
 * `patient_order` JSON column on `DailyCrewUnit` stores `[{name, time, callId}]` — board display derives from live assignments, not stored order
+
+### Dispatch Board — Operational Alerts + Priority Queue (complete)
+
+* Manual call priority queue per unit: ⚡ Set High Priority (moves to top), ▲▼ reorder, Reset to time order
+* `call_priority` JSON array on `DailyCrewUnit` stores `[call_id, ...]`; empty = auto sort by pickup_time
+* Overdue call animation: call row flashes red when pickup_time is exceeded by user-configurable threshold (default 0 min = immediately)
+* Unit stuck animation: unit status cell flashes red when no status change for user-configurable threshold (default 30 min)
+* `dispatch_status_changed_at` on `DailyCrewUnit` — timestamp updated on every unit status change, used for stuck detection
+* Overdue/stuck thresholds saved per user in unified settings blob (`settings.dispatch.pickup_late_after`, `settings.dispatch.stuck_after`)
+* Dispatch lifecycle timestamps write-once: `dispatched_at`, `arrived_pickup_at`, `patient_loaded_at`, `arrived_dest_at` never overwritten on repeated status clicks
+
+### Per-User Settings System (complete)
+
+* `settings_json` column on `User` model — unified blob: `{notifications, dispatch, ui}`
+* `settings_utils.py` — `DEFAULT_SETTINGS`, `deep_merge`, `load_user_settings` (auto-migrates from old `UserNotificationPrefs`), `save_user_settings`
+* `GET /api/settings` — full settings blob with defaults for current user
+* `PATCH /api/settings` — deep-merge patch, partial updates supported
+* `UserSettingsContext` — React context loaded once at login, available app-wide via `useUserSettings()`
+* `NotificationSettingsPage` — reads enabled values from context, saves via `updateSettings()`
+* `DispatchBoardPage` — reads dispatch thresholds from context, no separate fetch
+* Panel sizes (left column width, bottom panel height) auto-saved to `settings.ui.panels.dispatch` on drag end
+* Panel sizes restored from settings on page load
+* ⊞ Reset layout button in board header — visible only when sizes differ from defaults
+* User menu dropdown in Topbar (avatar click): Settings link, Dark/Light mode toggle, Log out
 
 ## Roadmap
 
@@ -1050,7 +1094,9 @@ Recommended workflow:
 
 ```text
 Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI Standardization Phases 1–3 complete,
-Call Editing + Return Ride complete, Dispatch Board fully unified (crew planning + call management + timestamps)
+Call Editing + Return Ride complete, Dispatch Board fully unified (crew planning + call management + timestamps +
+priority queue + operational alerts), Per-User Settings System complete (notifications + dispatch thresholds +
+UI panel sizes, unified settings blob, UserSettingsContext, user menu dropdown in Topbar)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 
