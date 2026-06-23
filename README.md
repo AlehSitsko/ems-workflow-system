@@ -1099,6 +1099,32 @@ Single-threaded response times (post-fix): patients list 3.7ms avg, calls list 4
 * Call volume by service level, date range, dispatcher
 * Export to PDF and CSV
 
+## Production Readiness Tasks
+
+### PostgreSQL Migration
+
+* SQLite does not support concurrent writes — parallel dispatch actions from 2+ users can produce lock errors
+* Replace SQLite with PostgreSQL (SQLAlchemy abstraction requires no model changes)
+* Data migration script from SQLite
+* Update `SQLALCHEMY_DATABASE_URI` in config — no other code changes required
+* Foundation already in place: all models use SQLAlchemy, Alembic handles schema migrations
+
+### Gunicorn Production Server
+
+* Flask dev server is single-threaded — only one request processed at a time
+* Stress test baseline: 184 req/s on dev server; expected ~4× improvement with Gunicorn workers
+* Switch: `gunicorn -w 4 -b 0.0.0.0:5050 app:app`
+* Add `nginx` as reverse proxy for static files and TLS termination
+* Consider `gunicorn --worker-class gevent` for I/O-bound workloads
+
+### Notification Polling → WebSocket
+
+* Current: each user polls `/api/notifications` every 10 seconds
+* At 15 users: 90 requests/min on this endpoint alone; at 100+ users this becomes a bottleneck
+* With index on `user_notification.user_id` current polling is acceptable up to ~50 concurrent users
+* Long-term: replace polling with WebSocket (Flask-SocketIO or a dedicated channel server) for push delivery
+* Short-term mitigation: increase poll interval to 30s for non-dispatch roles (HR, supervisor)
+
 ## Tier 3 — Before Production
 
 ### Subdomain Multi-Tenancy (activation)
