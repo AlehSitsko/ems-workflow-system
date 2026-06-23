@@ -1004,6 +1004,41 @@ Recommended workflow:
 
 ## Roadmap
 
+### Performance Optimization (complete)
+
+Stress-tested with 500+ patients, 300+ calls, 20 concurrent workers. All fixes applied and verified.
+
+Database indexes added (Alembic migration `a1b2c3d4e5f7`):
+
+| Table | Columns indexed |
+|---|---|
+| `call` | `trip_date`, `status`, `patient_id` |
+| `patient` | `last_name`, `dob` |
+| `call_assignment` | `unit_id`, `call_id`, `is_active` |
+| `daily_crew_unit` | `shift_date` |
+| `user_notification` | `user_id`, `is_read` |
+| `notification_event` | `created_at` |
+| `time_entry` | `employee_id` |
+| `audit_log` | `entity_type`, `timestamp` |
+| `employee_document` | `employee_id`, `expiry_date` |
+
+N+1 query eliminations:
+
+* `GET /api/calls` — `joinedload(Call.patient)` replaces 1 query per call; `_patient_cache` avoids redundant `db.session.get()` in `Call._patient_name()`
+* `GET /api/dispatch/board` — batch-load all assignment calls + patients in one query; batch-load crew employees via `emp_cache` dict; batch-load last `assignment_id` for completed calls via GROUP BY subquery
+
+Benchmark results (20 concurrent workers, 200 total requests, 512 patients / 333 calls in DB):
+
+| Metric | Before | After |
+|---|---|---|
+| Throughput | 139 req/s | 184 req/s (+32%) |
+| Avg latency | 124ms | 96ms (−23%) |
+| P95 latency | 366ms | 171ms (−53%) |
+| P99 latency | 428ms | 181ms (−58%) |
+| Error rate | 0/200 | 0/200 |
+
+Single-threaded response times (post-fix): patients list 3.7ms avg, calls list 4.5ms avg, dispatch board 6.2ms avg, notifications 10.1ms avg.
+
 ### Interactive User Manual (complete)
 
 * Full rewrite of `UserManualPage` — static SOP replaced with a two-panel interactive reference
@@ -1105,7 +1140,9 @@ Stable — Blocks 1–4 complete, Audit Log complete, Theme System complete, UI 
 Call Editing + Return Ride complete, Dispatch Board fully unified (crew planning + call management + timestamps +
 priority queue + operational alerts), Per-User Settings System complete (notifications + dispatch thresholds +
 UI panel sizes, unified settings blob, UserSettingsContext, user menu dropdown in Topbar),
-Interactive User Manual complete (sticky sidebar, search, role filter, 13 accordion sections, callout blocks)
+Interactive User Manual complete (sticky sidebar, search, role filter, 13 accordion sections, callout blocks),
+Performance optimization complete (17 DB indexes, N+1 eliminated in calls list + dispatch board,
++32% throughput, P95 −53% under 20 concurrent workers)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 
