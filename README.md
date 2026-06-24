@@ -1,5 +1,7 @@
 # EMS Workflow System
 
+**Developer:** [alehsitsko.dev](https://alehsitsko.dev)
+
 ## Overview
 
 EMS Workflow System is a modular operational platform designed to support EMS and medical transportation organizations with dispatcher workflows, patient records, employee management, crew planning, dispatch board operations, time tracking, payroll management, HR document management, supervisor oversight, and structured operational record keeping.
