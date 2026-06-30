@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { useToast } from "../components/ui/ToastProvider";
 import {
@@ -13,12 +13,15 @@ import {
   FaUsers,
 } from "react-icons/fa";
 
+import API_BASE from "../api/config.js";
 import { getEmployees } from "../api/employeesApi";
 import { getCalls } from "../api/callsApi";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
 import UnassignedEmployeesCard from "../components/crew/UnassignedEmployeesCard";
 import PlannedUnitsList from "../components/crew/PlannedUnitsList";
 import CrewPresetsSection from "../components/crew/CrewPresetsSection";
+import VehicleRegistrySection from "../components/crew/VehicleRegistrySection";
+import ShiftAlertsBlock from "../components/crew/ShiftAlertsBlock";
 
 import {
   createCrewUnit,
@@ -30,10 +33,17 @@ import {
 
 import { createCrewPreset, getCrewPresets } from "../api/crewPresetApi";
 
+import {
+  createVehicle,
+  deleteVehicle,
+  getVehicles,
+  toggleVehicleActive,
+} from "../api/vehiclesApi";
+
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import { getTodayDate } from "../utils/callUtils";
 import EntityDrawer from "../components/ui/EntityDrawer";
-import TimeInput from "../components/ui/TimeInput";
+import TimeInput, { TimeFormatToggle } from "../components/ui/TimeInput";
 
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
@@ -59,6 +69,10 @@ const initialUnitForm = {
   endTime: "",
   endDate: "",
   shiftType: "day",
+  shiftDurationHours: "",
+  shiftStatus: "scheduled",
+  actualEndTime: "",
+  delayReason: "",
   crew: { ...initialCrew },
   patientOrder: [],
   noPatient: false,
@@ -95,6 +109,14 @@ function CrewPlannerPage() {
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetName, setPresetName] = useState("");
+
+  /*
+    Vehicle registry state.
+    Master list of trucks used to populate the Truck Number dropdown.
+  */
+  const [vehicles, setVehicles] = useState([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [shiftAlerts, setShiftAlerts] = useState([]);
 
   /*
     Unit form state.
@@ -186,11 +208,93 @@ function CrewPlannerPage() {
   };
 
   /*
+    Loads the vehicle registry from the backend.
+  */
+  const loadVehicles = async () => {
+    setVehiclesLoading(true);
+
+    try {
+      const data = await getVehicles();
+      setVehicles(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load vehicles:", error);
+      setVehicles([]);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  };
+
+  const handleAddVehicle = async (vehicleData) => {
+    try {
+      await createVehicle(vehicleData);
+      await loadVehicles();
+    } catch (error) {
+      toast.error("Add failed", error.message || "Failed to add vehicle");
+    }
+  };
+
+  const handleToggleVehicleActive = async (vehicleId) => {
+    try {
+      await toggleVehicleActive(vehicleId);
+      await loadVehicles();
+    } catch (error) {
+      toast.error("Update failed", error.message || "Failed to update vehicle");
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicleId) => {
+    const ok = await confirm({
+      title: "Delete vehicle?",
+      message: "This removes the vehicle from the registry. Existing planned units keep their truck number.",
+      variant: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+
+    try {
+      await deleteVehicle(vehicleId);
+      await loadVehicles();
+    } catch (error) {
+      toast.error("Delete failed", error.message || "Failed to delete vehicle");
+    }
+  };
+
+  /*
+    Selecting a registered vehicle auto-fills truck number + unit type.
+  */
+  const handleVehicleSelect = (unitNumber) => {
+    const vehicle = vehicles.find((v) => v.unitNumber === unitNumber);
+    setUnitForm((prev) => ({
+      ...prev,
+      truckNumber: unitNumber,
+      unitType: vehicle ? vehicle.unitType : prev.unitType,
+    }));
+  };
+
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
+
+  const loadShiftAlerts = async (date) => {
+    try {
+      const d = date || selectedDateRef.current;
+      const res = await fetch(`${API_BASE}/api/crew-units/alerts?date=${d}`);
+      const data = await res.json();
+      setShiftAlerts(Array.isArray(data) ? data : []);
+    } catch {
+      setShiftAlerts([]);
+    }
+  };
+
+  /*
     Initial page load.
   */
   useEffect(() => {
     loadEmployees();
     loadCrewPresets();
+    loadVehicles();
+    loadShiftAlerts();
+    const alertInterval = setInterval(() => loadShiftAlerts(), 60_000);
+    return () => clearInterval(alertInterval);
   }, []);
 
   /*
@@ -199,6 +303,7 @@ function CrewPlannerPage() {
   */
   useEffect(() => {
     loadUnits();
+    loadShiftAlerts(selectedDate);
 
     setUnitForm((prev) => ({
       ...prev,
@@ -623,6 +728,10 @@ function CrewPlannerPage() {
       endTime: unit.endTime || "",
       endDate: unit.endDate || "",
       shiftType: unit.shiftType || "day",
+      shiftDurationHours: unit.shiftDurationHours != null ? String(unit.shiftDurationHours) : "",
+      shiftStatus: unit.shiftStatus || "scheduled",
+      actualEndTime: unit.actualEndTime || "",
+      delayReason: unit.delayReason || "",
       crew: {
         driver: unit.crew?.driver || "",
         medical: unit.crew?.medical || "",
@@ -782,6 +891,10 @@ function CrewPlannerPage() {
       endTime: unitForm.endTime || null,
       endDate: unitForm.endDate || null,
       shiftType: unitForm.shiftType || "day",
+      shiftDurationHours: (() => { const v = parseFloat(unitForm.shiftDurationHours); return isNaN(v) || v <= 0 ? null : v; })(),
+      shiftStatus: unitForm.shiftStatus || "scheduled",
+      actualEndTime: unitForm.actualEndTime || null,
+      delayReason: unitForm.delayReason || null,
       crew: { ...unitForm.crew },
       patientOrder,
       notes: "",
@@ -1022,6 +1135,8 @@ function CrewPlannerPage() {
         </div>
       </section>
 
+      <ShiftAlertsBlock alerts={shiftAlerts} />
+
       <PlannedUnitsList
         selectedDate={selectedDate}
         units={units}
@@ -1060,7 +1175,6 @@ function CrewPlannerPage() {
               <div className="col-6">
                 <label className="form-label" style={{ fontSize: 12 }}>Night Start Time</label>
                 <TimeInput
-                  showFormatToggle
                   value={nightForm.startTime}
                   onChange={(v) => setNightForm(f => ({ ...f, startTime: v }))}
                 />
@@ -1168,6 +1282,7 @@ function CrewPlannerPage() {
                         </span>
 
                         <h5>Unit Information</h5>
+                        <TimeFormatToggle />
                       </div>
 
                       <div className="row g-3">
@@ -1222,37 +1337,61 @@ function CrewPlannerPage() {
                             Truck Number
                           </label>
 
-                          <input
-                            id="truckNumber"
-                            name="truckNumber"
-                            type="text"
-                            className="form-control"
-                            value={unitForm.truckNumber}
-                            onChange={handleUnitFieldChange}
-                            disabled={unitsLoading}
-                          />
+                          {vehicles.filter((v) => v.isActive).length > 0 ? (
+                            <select
+                              id="truckNumber"
+                              name="truckNumber"
+                              className="form-select"
+                              value={unitForm.truckNumber}
+                              onChange={(e) => handleVehicleSelect(e.target.value)}
+                              disabled={unitsLoading}
+                            >
+                              <option value="">Select vehicle...</option>
+                              {vehicles.filter((v) => v.isActive).map((v) => (
+                                <option key={v.id} value={v.unitNumber}>
+                                  {v.unitName} (#{v.unitNumber}) — {v.unitType}
+                                </option>
+                              ))}
+                              {unitForm.truckNumber &&
+                                !vehicles.some((v) => v.unitNumber === unitForm.truckNumber) && (
+                                  <option value={unitForm.truckNumber}>
+                                    {unitForm.truckNumber} (not in registry)
+                                  </option>
+                              )}
+                            </select>
+                          ) : (
+                            <input
+                              id="truckNumber"
+                              name="truckNumber"
+                              type="text"
+                              className="form-control"
+                              value={unitForm.truckNumber}
+                              onChange={handleUnitFieldChange}
+                              disabled={unitsLoading}
+                            />
+                          )}
                         </div>
 
                         <div className="col-md-6">
-                          <label className="form-label fw-semibold">
-                            Start Time
-                            <span className="badge text-bg-danger ms-2" style={{ fontSize: 10 }}>Required</span>
-                          </label>
-                          <TimeInput
-                            showFormatToggle
-                            value={unitForm.startTime}
-                            onChange={(v) => setUnitForm(prev => ({ ...prev, startTime: v }))}
-                            disabled={unitsLoading}
-                          />
-                        </div>
-
-                        <div className="col-md-6">
-                          <label className="form-label fw-semibold">End Time <span className="text-muted fw-normal">(optional)</span></label>
-                          <TimeInput
-                            value={unitForm.endTime}
-                            onChange={(v) => setUnitForm(prev => ({ ...prev, endTime: v }))}
-                            disabled={unitsLoading}
-                          />
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold">
+                              Start Time
+                              <span className="badge text-bg-danger ms-2" style={{ fontSize: 10 }}>Required</span>
+                            </label>
+                            <TimeInput
+                              value={unitForm.startTime}
+                              onChange={(v) => setUnitForm(prev => ({ ...prev, startTime: v }))}
+                              disabled={unitsLoading}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label fw-semibold">End Time <span className="text-muted fw-normal">(optional)</span></label>
+                            <TimeInput
+                              value={unitForm.endTime}
+                              onChange={(v) => setUnitForm(prev => ({ ...prev, endTime: v }))}
+                              disabled={unitsLoading}
+                            />
+                          </div>
                         </div>
 
                         <div className="col-md-6">
@@ -1280,6 +1419,41 @@ function CrewPlannerPage() {
                             ))}
                           </div>
                         </div>
+
+                        <div className="col-md-6">
+                          <label htmlFor="shiftDurationHours" className="form-label fw-semibold">Shift Duration</label>
+                          <select
+                            id="shiftDurationHours" className="form-select"
+                            value={unitForm.shiftDurationHours}
+                            onChange={(e) => setUnitForm((p) => ({ ...p, shiftDurationHours: e.target.value }))}
+                            disabled={unitsLoading}
+                          >
+                            <option value="">Not set</option>
+                            <option value="8">8 hours</option>
+                            <option value="10">10 hours</option>
+                            <option value="12">12 hours</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                          {unitForm.shiftDurationHours === "custom" && (
+                            <input
+                              type="number" min="1" max="24" step="0.5"
+                              className="form-control mt-1"
+                              placeholder="Hours (e.g. 9.5)"
+                              onChange={(e) => setUnitForm((p) => ({ ...p, shiftDurationHours: e.target.value }))}
+                              disabled={unitsLoading}
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="row g-3 mt-1">
+                        <VehicleRegistrySection
+                          vehicles={vehicles}
+                          vehiclesLoading={vehiclesLoading}
+                          onAddVehicle={handleAddVehicle}
+                          onToggleActive={handleToggleVehicleActive}
+                          onDeleteVehicle={handleDeleteVehicle}
+                        />
                       </div>
                     </div>
 
@@ -1352,6 +1526,23 @@ function CrewPlannerPage() {
                     </div>
 
                     <div className="crew-form-section">
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${unitForm.noPatient && unitForm.patientOrder.length === 0 && !unitForm.patientOrder.some(p => p.name !== "on call") ? "btn-secondary" : "btn-outline-secondary"}`}
+                          onClick={() => {
+                            setUnitForm(prev => ({
+                              ...prev,
+                              noPatient: false,
+                              patientOrder: [{ name: "on call", time: "", callId: null }],
+                            }));
+                          }}
+                          disabled={unitsLoading}
+                          title="Set unit as on-call standby"
+                        >
+                          📞 On Call
+                        </button>
+                      </div>
                       <PatientOrderSection
                         patientOrder={unitForm.patientOrder}
                         noPatient={unitForm.noPatient}

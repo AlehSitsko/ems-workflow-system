@@ -5,7 +5,7 @@ from pywebpush import webpush, WebPushException
 
 VAPID_PRIVATE_KEY_PATH = os.path.join(os.path.dirname(__file__), "vapid_private.pem")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
-VAPID_CLAIMS_SUB = os.environ.get("VAPID_CLAIMS_SUB", "mailto:admin@example.com")
+VAPID_CLAIMS_SUB = os.environ.get("VAPID_CLAIMS_SUB", "mailto:sitskoaleh@gmail.com")
 
 
 def send_push(subscription_json: str, title: str, body: str, tag: str = "ems-notif") -> bool:

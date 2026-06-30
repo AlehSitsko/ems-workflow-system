@@ -173,6 +173,39 @@ function StatusPill({ status, size = "md" }) {
   );
 }
 
+// Returns severity level for shift timing: null | "minor" | "warning" | "serious" | "critical"
+function getShiftAlertSeverity(unit) {
+  if (!unit.startTime || !unit.shiftDurationHours || !unit.plannedEndTime) return null;
+  if (unit.shiftStatus === "completed" || unit.shiftStatus === "cancelled") return null;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  // Only apply alert coloring for today's units; stale units from past dates stay neutral.
+  if (unit.shiftDate && unit.shiftDate !== today) return null;
+  const dateStr = unit.shiftDate || today;
+  // Detect midnight crossover: if planned end is earlier than start, it's next day.
+  let plannedEnd = new Date(`${dateStr}T${unit.plannedEndTime}:00`);
+  if (unit.plannedEndTime < unit.startTime) {
+    plannedEnd = new Date(plannedEnd.getTime() + 24 * 60 * 60 * 1000);
+  }
+  const minutesLeft = (plannedEnd - now) / 60000;
+  if (minutesLeft > 30) return null;
+  if (minutesLeft > 15) return "warning";
+  if (minutesLeft > 0)  return "serious";
+  const delay = -minutesLeft;
+  if (delay < 30)  return "minor";
+  if (delay < 60)  return "warning";
+  if (delay < 120) return "serious";
+  return "critical";
+}
+
+// Maps severity to { border, bg } colors for the unit row
+const SHIFT_SEVERITY_STYLE = {
+  minor:    { border: "#fd7e14", bg: "rgba(253,126,20,0.06)"  },
+  warning:  { border: "#ffc107", bg: "rgba(255,193,7,0.10)"   },
+  serious:  { border: "#dc3545", bg: "rgba(220,53,69,0.09)"   },
+  critical: { border: "#dc3545", bg: "rgba(220,53,69,0.18)"   },
+};
+
 function UnitTypeBadge({ unitType }) {
   const als = (unitType || "").toUpperCase() === "ALS";
   return (
@@ -917,6 +950,8 @@ const initialUnitForm = {
   endTime: "",
   endDate: "",
   shiftType: "day",
+  shiftDurationHours: "",
+  shiftStatus: "scheduled",
   crew: { ...initialCrew },
   patientOrder: [],
   noPatient: false,
@@ -1386,20 +1421,25 @@ export default function DispatchBoardPage() {
     return warnings;
   }, [unitForm, employees, board.units, editingUnitId]);
 
-  const buildUnitPayload = () => ({
-    shiftDate: unitForm.shiftDate,
-    unitType: unitForm.unitType,
-    truckNumber: unitForm.truckNumber.trim(),
-    startTime: unitForm.startTime,
-    endTime: unitForm.endTime || null,
-    endDate: unitForm.endDate || null,
-    shiftType: unitForm.shiftType || "day",
-    crew: { ...unitForm.crew },
-    patientOrder: unitForm.noPatient ? [] : unitForm.patientOrder,
-    notes: "",
-    createdAt: editingUnitId ? undefined : new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+  const buildUnitPayload = () => {
+    const dur = parseFloat(unitForm.shiftDurationHours);
+    return {
+      shiftDate: unitForm.shiftDate,
+      unitType: unitForm.unitType,
+      truckNumber: unitForm.truckNumber.trim(),
+      startTime: unitForm.startTime,
+      endTime: unitForm.endTime || null,
+      endDate: unitForm.endDate || null,
+      shiftType: unitForm.shiftType || "day",
+      shiftDurationHours: !isNaN(dur) && dur > 0 ? dur : null,
+      shiftStatus: unitForm.shiftStatus || "scheduled",
+      crew: { ...unitForm.crew },
+      patientOrder: unitForm.noPatient ? [] : unitForm.patientOrder,
+      notes: "",
+      createdAt: editingUnitId ? undefined : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  };
 
   const resetUnitForm = () => {
     setUnitForm({ ...initialUnitForm, shiftDate: date });
@@ -1817,6 +1857,7 @@ export default function DispatchBoardPage() {
                   <th style={{ width: 110, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Type</th>
                   <th style={{ width: 200, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Status</th>
                   <th style={{ width: 200, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Crew</th>
+                  <th style={{ width: 140, color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Shift</th>
                   <th style={{ color: "var(--ems-board-text)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Assigned Calls</th>
                   <th style={{ width: 110 }}></th>
                 </tr>
@@ -1825,7 +1866,8 @@ export default function DispatchBoardPage() {
                 {board.units.map((unit) => {
                   const isSelected = selectedUnit?.id === unit.id;
                   const isDragOver = dragOverUnitId === unit.id;
-//                   const sc = STATUS_COLORS[unit.dispatchStatus] || "#adb5bd";
+                  const shiftSeverity = getShiftAlertSeverity(unit);
+                  const shiftStyle = shiftSeverity ? SHIFT_SEVERITY_STYLE[shiftSeverity] : null;
                   return (
                     <React.Fragment key={unit.id}>
                     <tr
@@ -1842,8 +1884,14 @@ export default function DispatchBoardPage() {
                           ? "rgba(255,193,7,0.10)"
                           : isSelected
                           ? "rgba(13,110,253,0.10)"
+                          : shiftStyle
+                          ? shiftStyle.bg
                           : "var(--ems-board-bg)",
-                        borderLeft: isSelected ? `3px solid #6ea8fe` : "3px solid transparent",
+                        borderLeft: isSelected
+                          ? "3px solid #6ea8fe"
+                          : shiftStyle
+                          ? `3px solid ${shiftStyle.border}`
+                          : "3px solid transparent",
                         outline: isDragOver ? "1px dashed #ffc107" : undefined,
                       }}
                     >
@@ -1879,6 +1927,39 @@ export default function DispatchBoardPage() {
                             )}
                           </div>
                         </div>
+                      </td>
+                      <td className="align-middle">
+                        {unit.startTime ? (
+                          <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--ems-board-text)" }}>
+                            <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                              {unit.startTime}
+                              {unit.plannedEndTime && (
+                                <span style={{ color: "var(--ems-text-muted)", fontWeight: 400 }}> → {unit.plannedEndTime}</span>
+                              )}
+                              {shiftSeverity && (
+                                <span style={{
+                                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                                  background: shiftStyle.border,
+                                  boxShadow: `0 0 4px ${shiftStyle.border}`,
+                                }} title={`Shift ${shiftSeverity}`} />
+                              )}
+                            </div>
+                            {unit.shiftDurationHours && (
+                              <span
+                                className="badge"
+                                style={{
+                                  fontSize: 10,
+                                  background: shiftStyle ? shiftStyle.border : "var(--bs-secondary)",
+                                  color: "#fff",
+                                }}
+                              >
+                                {unit.shiftDurationHours}h
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--ems-text-muted)", fontSize: 11 }}>—</span>
+                        )}
                       </td>
                       <td className="align-middle">
                         <div className="d-flex flex-wrap gap-1 align-items-center">
@@ -2191,7 +2272,7 @@ export default function DispatchBoardPage() {
             {/* Start Time */}
             <div className="col-md-6">
               <label className="form-label fw-semibold">Start Time <span className="badge text-bg-danger ms-1" style={{ fontSize: 10 }}>Required</span></label>
-              <TimeInput showFormatToggle value={unitForm.startTime} onChange={v => setUnitForm(p => ({ ...p, startTime: v }))} disabled={crewSaving} />
+              <TimeInput value={unitForm.startTime} onChange={v => setUnitForm(p => ({ ...p, startTime: v }))} disabled={crewSaving} />
             </div>
             {/* End Time */}
             <div className="col-md-6">
@@ -2236,7 +2317,7 @@ export default function DispatchBoardPage() {
             <div className="row g-2 mb-3">
               <div className="col-6">
                 <label className="form-label" style={{ fontSize: 12 }}>Night Start Time</label>
-                <TimeInput showFormatToggle value={nightForm.startTime} onChange={v => setNightForm(f => ({ ...f, startTime: v }))} />
+                <TimeInput value={nightForm.startTime} onChange={v => setNightForm(f => ({ ...f, startTime: v }))} />
               </div>
               <div className="col-6">
                 <label className="form-label" style={{ fontSize: 12 }}>End Time</label>

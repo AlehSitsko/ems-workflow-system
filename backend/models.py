@@ -146,6 +146,34 @@ class Employee(db.Model):
         }
 
 
+class Vehicle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    unit_name = db.Column(db.String(50), nullable=False)     # "Ambu-1"
+    unit_number = db.Column(db.String(50), nullable=False)   # "214"
+    unit_type = db.Column(db.String(50), nullable=False)     # "ALS" | "BLS" | "BARI" | "CCT"
+    is_active = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text)
+
+    created_at = db.Column(db.String(50))
+    updated_at = db.Column(db.String(50))
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "unitName": self.unit_name,
+            "unitNumber": self.unit_number,
+            "unitType": self.unit_type,
+            "isActive": self.is_active,
+            "notes": self.notes or "",
+            "createdAt": self.created_at,
+            "updatedAt": self.updated_at,
+        }
+
+
 class DailyCrewUnit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -159,6 +187,12 @@ class DailyCrewUnit(db.Model):
     end_time = db.Column(db.String(20))       # HH:MM, optional
     end_date = db.Column(db.String(20))       # YYYY-MM-DD, for night shifts ending next day
     shift_type = db.Column(db.String(10), default="day")  # "day" | "night"
+
+    # Shift duration and status (Block 5.8).
+    shift_duration_hours = db.Column(db.Float, nullable=True)   # 8 / 10 / 12 / custom
+    shift_status = db.Column(db.String(20), default="scheduled")  # scheduled/active/near_end/delayed/completed/cancelled
+    actual_end_time = db.Column(db.String(20), nullable=True)   # HH:MM recorded on completion
+    delay_reason = db.Column(db.Text, nullable=True)
 
     # Crew assignments.
     driver_id = db.Column(
@@ -245,6 +279,13 @@ class DailyCrewUnit(db.Model):
 
             "callPriority": json.loads(self.call_priority) if self.call_priority else [],
 
+            "shiftDurationHours": self.shift_duration_hours,
+            "shiftStatus": self.shift_status or "scheduled",
+            "actualEndTime": self.actual_end_time or "",
+            "delayReason": self.delay_reason or "",
+            "plannedEndTime": self._compute_planned_end_time(),
+            "delayMinutes": self._compute_delay_minutes(),
+
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
@@ -271,6 +312,33 @@ class DailyCrewUnit(db.Model):
             if isinstance(name, str) and name.strip():
                 result.append({"name": name.strip(), "time": "", "callId": None})
         return result
+
+    def _compute_planned_end_time(self):
+        """Return HH:MM planned end time based on start_time + shift_duration_hours, or None."""
+        if not self.start_time or not self.shift_duration_hours:
+            return None
+        try:
+            from datetime import datetime, timedelta
+            start = datetime.strptime(self.start_time, "%H:%M")
+            end = start + timedelta(hours=self.shift_duration_hours)
+            return end.strftime("%H:%M")
+        except Exception:
+            return None
+
+    def _compute_delay_minutes(self):
+        """Return minutes past planned end time if completed late, else None."""
+        planned = self._compute_planned_end_time()
+        if not planned or not self.actual_end_time:
+            return None
+        try:
+            from datetime import datetime
+            fmt = "%H:%M"
+            planned_dt = datetime.strptime(planned, fmt)
+            actual_dt = datetime.strptime(self.actual_end_time, fmt)
+            delta = (actual_dt - planned_dt).total_seconds() / 60
+            return int(delta) if delta > 0 else 0
+        except Exception:
+            return None
 
 
 class CrewPreset(db.Model):

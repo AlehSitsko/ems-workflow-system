@@ -415,7 +415,7 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
           </div>
           <div className="col-md-6">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Pickup Time</label>
-            <TimeInput showFormatToggle value={form.pickupTime} onChange={v => setFormDirty(p => ({ ...p, pickupTime: v }))} disabled={saving} />
+            <TimeInput value={form.pickupTime} onChange={v => setFormDirty(p => ({ ...p, pickupTime: v }))} disabled={saving} />
           </div>
           <div className="col-md-6">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Appt. Time (optional)</label>

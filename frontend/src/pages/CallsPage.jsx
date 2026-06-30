@@ -741,7 +741,7 @@ const CallsPage = ({ currentUser }) => {
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Pickup Time</label>
-                  <TimeInput showFormatToggle value={editForm.pickup_time} onChange={v => setEditForm(f => ({ ...f, pickup_time: v }))} />
+                  <TimeInput value={editForm.pickup_time} onChange={v => setEditForm(f => ({ ...f, pickup_time: v }))} />
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Appointment Time</label>
