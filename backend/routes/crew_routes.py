@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 
@@ -8,6 +9,17 @@ from notification_utils import create_notification
 
 
 crew_bp = Blueprint("crew", __name__, url_prefix="/api/crew-units")
+
+
+def _parse_duration(value):
+    """Coerce shiftDurationHours to float, return None for invalid/missing values."""
+    if value is None or value == "" or value == "custom":
+        return None
+    try:
+        v = float(value)
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _apply_patient_order(unit, data):
@@ -72,6 +84,10 @@ def create_daily_crew_unit():
         end_time=(data.get("endTime") or "").strip() or None,
         end_date=(data.get("endDate") or "").strip() or None,
         shift_type=data.get("shiftType", "day"),
+        shift_duration_hours=_parse_duration(data.get("shiftDurationHours")),
+        shift_status=data.get("shiftStatus", "scheduled"),
+        actual_end_time=(data.get("actualEndTime") or "").strip() or None,
+        delay_reason=(data.get("delayReason") or "").strip() or None,
         driver_id=parse_optional_employee_id(crew.get("driver")),
         medical_id=parse_optional_employee_id(crew.get("medical")),
         assist1_id=parse_optional_employee_id(crew.get("assist1")),
@@ -82,8 +98,12 @@ def create_daily_crew_unit():
     )
     _apply_patient_order(unit, data)
 
-    db.session.add(unit)
-    db.session.commit()
+    try:
+        db.session.add(unit)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
     if not any([unit.driver_id, unit.medical_id, unit.assist1_id, unit.assist2_id]):
         create_notification(
@@ -106,15 +126,34 @@ def update_daily_crew_unit(id):
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
+    shift_date = data.get("shiftDate", "").strip()
+    truck_number = data.get("truckNumber", "").strip()
+    start_time = data.get("startTime", "").strip()
+
+    if not shift_date:
+        return jsonify({"error": "Shift date is required"}), 400
+    if not truck_number:
+        return jsonify({"error": "Truck Number is required"}), 400
+    if not start_time:
+        return jsonify({"error": "Start Time is required"}), 400
+
     crew = data.get("crew") or {}
 
-    unit.shift_date = data.get("shiftDate", "").strip()
+    unit.shift_date = shift_date
     unit.unit_type = data.get("unitType", "BLS")
-    unit.truck_number = data.get("truckNumber", "").strip()
-    unit.start_time = data.get("startTime", "").strip()
+    unit.truck_number = truck_number
+    unit.start_time = start_time
     unit.end_time = (data.get("endTime") or "").strip() or None
     unit.end_date = (data.get("endDate") or "").strip() or None
     unit.shift_type = data.get("shiftType", unit.shift_type or "day")
+    if "shiftDurationHours" in data:
+        unit.shift_duration_hours = _parse_duration(data.get("shiftDurationHours"))
+    if "shiftStatus" in data:
+        unit.shift_status = data.get("shiftStatus") or "scheduled"
+    if "actualEndTime" in data:
+        unit.actual_end_time = (data.get("actualEndTime") or "").strip() or None
+    if "delayReason" in data:
+        unit.delay_reason = (data.get("delayReason") or "").strip() or None
     unit.driver_id = parse_optional_employee_id(crew.get("driver"))
     unit.medical_id = parse_optional_employee_id(crew.get("medical"))
     unit.assist1_id = parse_optional_employee_id(crew.get("assist1"))
@@ -123,7 +162,11 @@ def update_daily_crew_unit(id):
     unit.updated_at = data.get("updatedAt")
     _apply_patient_order(unit, data)
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
     return jsonify(unit.to_dict())
 
 
@@ -132,8 +175,12 @@ def delete_daily_crew_unit(id):
     unit = DailyCrewUnit.query.get(id)
     if not unit:
         return jsonify({"error": "Crew unit not found"}), 404
-    db.session.delete(unit)
-    db.session.commit()
+    try:
+        db.session.delete(unit)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
     return jsonify({"message": "Crew unit deleted"})
 
 
@@ -160,6 +207,10 @@ def make_night_crew(id):
         start_time=data.get("startTime", source.start_time),
         end_time=end_time,
         end_date=end_date,
+        shift_duration_hours=source.shift_duration_hours,
+        shift_status="scheduled",
+        actual_end_time=None,
+        delay_reason=None,
         driver_id=source.driver_id,
         medical_id=source.medical_id,
         assist1_id=source.assist1_id,
@@ -171,6 +222,112 @@ def make_night_crew(id):
         created_at=source.created_at,
         updated_at=source.updated_at,
     )
-    db.session.add(night_unit)
-    db.session.commit()
+    try:
+        db.session.add(night_unit)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
     return jsonify(night_unit.to_dict()), 201
+
+
+# ---------------------------------------------------------------------------
+# Shift alert helper
+# ---------------------------------------------------------------------------
+
+def _compute_shift_alerts(unit, now_dt=None):
+    """
+    Return an alert dict for a unit if it is near_end or delayed, else None.
+
+    Severity tiers:
+      - near_end:  minutes_left in (15, 30]  → "warning"
+                   minutes_left in (0, 15]   → "serious"
+      - delayed:   delay_min in [1, 30)      → "minor"
+                   delay_min in [30, 60)     → "warning"
+                   delay_min in [60, 120)    → "serious"
+                   delay_min >= 120          → "critical"
+    """
+    if not unit.start_time or not unit.shift_duration_hours:
+        return None
+    if unit.shift_status in ("completed", "cancelled"):
+        return None
+
+    planned_end_str = unit._compute_planned_end_time()
+    if not planned_end_str:
+        return None
+
+    if now_dt is None:
+        now_dt = datetime.now()
+
+    try:
+        planned_end_dt = datetime.strptime(
+            f"{unit.shift_date} {planned_end_str}", "%Y-%m-%d %H:%M"
+        )
+        # Midnight crossover: planned end time earlier than start time means next day.
+        if planned_end_str < unit.start_time:
+            planned_end_dt += timedelta(days=1)
+    except Exception:
+        return None
+
+    minutes_left = (planned_end_dt - now_dt).total_seconds() / 60
+
+    if minutes_left > 30:
+        return None  # not yet near end
+
+    if minutes_left > 0:
+        # Near-end window
+        severity = "serious" if minutes_left <= 15 else "warning"
+        return {
+            "unitId": unit.id,
+            "truckNumber": unit.truck_number,
+            "unitType": unit.unit_type,
+            "shiftDate": unit.shift_date,
+            "alertType": "near_end",
+            "severity": severity,
+            "minutesLeft": round(minutes_left),
+            "plannedEndTime": planned_end_str,
+        }
+    else:
+        # Past planned end — delayed
+        delay_min = abs(minutes_left)
+        if delay_min < 30:
+            severity = "minor"
+        elif delay_min < 60:
+            severity = "warning"
+        elif delay_min < 120:
+            severity = "serious"
+        else:
+            severity = "critical"
+        return {
+            "unitId": unit.id,
+            "truckNumber": unit.truck_number,
+            "unitType": unit.unit_type,
+            "shiftDate": unit.shift_date,
+            "alertType": "delayed",
+            "severity": severity,
+            "delayMinutes": round(delay_min),
+            "plannedEndTime": planned_end_str,
+        }
+
+
+@crew_bp.route("/alerts", methods=["GET"])
+def get_shift_alerts():
+    """
+    Return active near-end and delayed alerts for all non-completed units today.
+    Optional ?date=YYYY-MM-DD to check a specific date.
+    """
+    date_filter = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+    units = DailyCrewUnit.query.filter_by(shift_date=date_filter).all()
+
+    now_dt = datetime.now()
+    alerts = []
+    for unit in units:
+        alert = _compute_shift_alerts(unit, now_dt)
+        if alert:
+            alerts.append(alert)
+
+    # Sort: critical first
+    severity_order = {"critical": 0, "serious": 1, "warning": 2, "minor": 3}
+    alerts.sort(key=lambda a: severity_order.get(a["severity"], 9))
+
+    return jsonify(alerts)

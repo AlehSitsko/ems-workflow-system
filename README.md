@@ -1085,6 +1085,25 @@ Single-threaded response times (post-fix): patients list 3.7ms avg, calls list 4
 * Visible in Call Detail Modal
 * Accessible to all roles with call access
 
+### Block 5.8 — Vehicle Registry, Shift Timing, Delay Alerts & Auto-fill Crew
+
+Planned, scoped within Crew Planner (not a separate page):
+
+* **Vehicle Registry** (inline tab/section in Crew Planner) — `Vehicle` model: unit_name, unit_number, unit_type (ALS/BLS/Bariatric/CCT), is_active, notes. Replaces free-text `truck_number` with a dropdown; `unit_type` auto-fills from the selected vehicle.
+* **Shift duration** — `shift_duration_hours` (8–12, select with Custom option) on `DailyCrewUnit`, used in parallel with the existing `start_time`/`end_time` fields (not a replacement). `planned_end_time` computed (start_time + duration), not stored.
+* **Shift status** — `shift_status` (scheduled / active / near_end / delayed / completed / cancelled), `actual_end_time`, `delay_reason` fields. `delay_minutes` computed from `actual_end_time` vs `planned_end_time`, not stored.
+* **Delay & near-end alerts** — backend helper computes near_end (<30 min left, not completed) and delayed (past planned_end_time, not completed) with severity tiers (minor/warning/serious/critical). Alerts surfaced in a dedicated block at the top of Crew Planner **and** as bell notifications (event types `unit_shift_near_end`, `unit_shift_overdue`) sent to admin/supervisor/dispatcher via the existing `run_temporal_checks` pipeline; deduplicated per unit per 25/55 min to avoid spam.
+* **Dispatch Board shift sync** — each unit row on the Dispatch Board shows start time, shift duration badge (8h/10h/12h/Xh), and computed planned end time so dispatchers see timing without switching pages.
+* **UI — time format toggle** — 12h/24h preference stored in localStorage and controlled by a single toggle in the Unit Information form header (not per-field); all TimeInput fields on the page react to it via a shared `ems-time-format` CustomEvent.
+* **UI — On Call quick button** — one-click button in the Patient Order section that sets the unit as "on call" standby (pre-fills patient name "on call", clears any other patients).
+* **Soft overlap warning** — creating/editing a unit with a time range overlapping another active unit on the same vehicle returns a warning, not a hard block. Consistent with the existing ALS-on-BLS override pattern.
+* **Auto-fill crew** — button in the unit form that proposes Driver/Medical/Assist assignments from available employees for the date:
+  * Computed across all units for the date in two passes — first pass fills Medical on ALS units (Paramedic required), second pass distributes remaining staff (including surplus Paramedics, who can fill any medical-capable slot including Assist) to BLS/Bariatric units.
+  * Bariatric units prioritize filling Assist1/Assist2 before Driver/Medical.
+  * Driver slot prefers EVOC + medical-capable staff when paired with a Paramedic medical assignment.
+  * Paramedic certification satisfies any medical-capable slot (Medical on ALS/BLS, Assist on any unit type); EMT satisfies Medical on BLS and Assist slots; Driver requires EVOC regardless of medical cert.
+  * If no qualified candidate exists for a slot, the slot is left empty (not filled with an unqualified person) and visually flagged with a warning indicator plus a message on the unit card (e.g. "No Paramedic available for ALS unit").
+
 ### Approve Rules — Clock-in Sync
 
 * Sync clock-in with Crew Planner shift start time

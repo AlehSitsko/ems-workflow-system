@@ -8,25 +8,29 @@ from push_utils import send_push
 ROLE_EVENT_TYPES = {
     "admin":      {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "employee_added",
-                   "doc_expiring", "cert_no_scan"},
+                   "doc_expiring", "cert_no_scan",
+                   "unit_shift_near_end", "unit_shift_overdue"},
     "supervisor": {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "doc_expiring",
-                   "cert_no_scan"},
-    "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status"},
+                   "cert_no_scan", "unit_shift_near_end", "unit_shift_overdue"},
+    "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status",
+                   "unit_shift_near_end", "unit_shift_overdue"},
     "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan"},
 }
 
 # Roles that receive each event type.
 EVENT_TARGET_ROLES = {
-    "call_unassigned_soon": ["admin", "supervisor", "dispatcher"],
-    "call_new_today":       ["admin", "supervisor", "dispatcher"],
-    "call_als_on_bls":      ["admin", "supervisor", "dispatcher"],
-    "unit_stuck_status":    ["admin", "supervisor", "dispatcher"],
-    "unit_understaffed":    ["admin", "supervisor"],
-    "cert_expiring":        ["admin", "supervisor", "hr"],
-    "employee_added":       ["admin", "hr"],
-    "doc_expiring":         ["admin", "supervisor", "hr"],
-    "cert_no_scan":         ["admin", "supervisor", "hr"],
+    "call_unassigned_soon":  ["admin", "supervisor", "dispatcher"],
+    "call_new_today":        ["admin", "supervisor", "dispatcher"],
+    "call_als_on_bls":       ["admin", "supervisor", "dispatcher"],
+    "unit_stuck_status":     ["admin", "supervisor", "dispatcher"],
+    "unit_understaffed":     ["admin", "supervisor"],
+    "cert_expiring":         ["admin", "supervisor", "hr"],
+    "employee_added":        ["admin", "hr"],
+    "doc_expiring":          ["admin", "supervisor", "hr"],
+    "cert_no_scan":          ["admin", "supervisor", "hr"],
+    "unit_shift_near_end":   ["admin", "supervisor", "dispatcher"],
+    "unit_shift_overdue":    ["admin", "supervisor", "dispatcher"],
 }
 
 
@@ -202,6 +206,29 @@ def run_temporal_checks():
                 f"{emp.first_name} {emp.last_name} — {cert_label} scan missing",
                 f"{cert_label} certification is recorded but no scan/photo has been uploaded.",
                 entity_type="employee", entity_id=composite_id, dedup_minutes=23 * 60,
+            )
+
+    # unit_shift_near_end / unit_shift_overdue: check shift timing alerts.
+    from models import DailyCrewUnit
+    from routes.crew_routes import _compute_shift_alerts
+    day_units = DailyCrewUnit.query.filter_by(shift_date=today).all()
+    for unit in day_units:
+        alert = _compute_shift_alerts(unit, now_dt)
+        if not alert:
+            continue
+        if alert["alertType"] == "near_end":
+            create_notification(
+                "unit_shift_near_end", alert["severity"],
+                f"Unit {unit.truck_number} ending soon",
+                f"Planned end {alert['plannedEndTime']} — {alert['minutesLeft']} min remaining.",
+                entity_type="unit", entity_id=unit.id, dedup_minutes=25,
+            )
+        else:
+            create_notification(
+                "unit_shift_overdue", alert["severity"],
+                f"Unit {unit.truck_number} overdue",
+                f"Planned end was {alert['plannedEndTime']} — {alert['delayMinutes']} min ago.",
+                entity_type="unit", entity_id=unit.id, dedup_minutes=55,
             )
 
     # doc_expiring: check HR documents with expiry_date set.

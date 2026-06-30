@@ -15,7 +15,51 @@ function h12toH24(h, period) {
   return n === 12 ? 12 : n + 12;
 }
 
-export default function TimeInput({ value, onChange, id, showFormatToggle = false }) {
+// Standalone toggle — place once per page above all TimeInput fields.
+export function TimeFormatToggle() {
+  const [fmt, setFmt] = useState(() => {
+    try { return localStorage.getItem(PREF_KEY) || "12"; } catch { return "12"; }
+  });
+
+  useEffect(() => {
+    const handler = (e) => { if (e.detail) setFmt(e.detail); };
+    window.addEventListener("ems-time-format", handler);
+    return () => window.removeEventListener("ems-time-format", handler);
+  }, []);
+
+  const switchFmt = (f) => {
+    if (f === fmt) return;
+    setFmt(f);
+    try { localStorage.setItem(PREF_KEY, f); } catch {}
+    window.dispatchEvent(new CustomEvent("ems-time-format", { detail: f }));
+  };
+
+  const pill = (label, active, onClick) => (
+    <button
+      key={label}
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: "3px 9px", fontSize: 11, fontWeight: 700, borderRadius: 6,
+        border: `1px solid ${active ? "#0d6efd" : "var(--ems-border)"}`,
+        background: active ? "#0d6efd" : "transparent",
+        color: active ? "#fff" : "var(--ems-text-muted)",
+        cursor: "pointer", lineHeight: 1.6, transition: "all 0.12s",
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ display: "flex", gap: 3 }}>
+      {pill("12h", fmt === "12", () => switchFmt("12"))}
+      {pill("24h", fmt === "24", () => switchFmt("24"))}
+    </div>
+  );
+}
+
+export default function TimeInput({ value, onChange, id }) {
   const [fmt, setFmt] = useState(() => {
     try { return localStorage.getItem(PREF_KEY) || "12"; } catch { return "12"; }
   });
@@ -25,10 +69,9 @@ export default function TimeInput({ value, onChange, id, showFormatToggle = fals
 
   // Sync format when another TimeInput on the page switches it
   useEffect(() => {
-    const handler = (e) => { if (e.detail && e.detail !== fmt) setFmt(e.detail); };
+    const handler = (e) => { if (e.detail) setFmt(e.detail); };
     window.addEventListener("ems-time-format", handler);
     return () => window.removeEventListener("ems-time-format", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync incoming HH:MM value into local state
@@ -63,25 +106,6 @@ export default function TimeInput({ value, onChange, id, showFormatToggle = fals
     }
     onChange(`${String(h24).padStart(2, "0")}:${String(mNum).padStart(2, "0")}`);
   }, [fmt, onChange]);
-
-  const switchFmt = (f) => {
-    if (f === fmt) return;
-    // Convert current displayed hour when switching
-    if (f === "24" && hour) {
-      const h24 = h12toH24(hour, period);
-      if (h24 !== null) setHour(String(h24).padStart(2, "0"));
-    } else if (f === "12" && hour) {
-      const h24 = parseInt(hour, 10);
-      if (!isNaN(h24)) {
-        const { h12, period: per } = h24toH12(h24);
-        setHour(h12);
-        setPeriod(per);
-      }
-    }
-    setFmt(f);
-    try { localStorage.setItem(PREF_KEY, f); } catch {}
-    window.dispatchEvent(new CustomEvent("ems-time-format", { detail: f }));
-  };
 
   const onHourChange = (v) => {
     const raw = v.replace(/\D/g, "").slice(0, 2);
@@ -159,13 +183,6 @@ export default function TimeInput({ value, onChange, id, showFormatToggle = fals
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-      {/* Format toggle — rendered only when showFormatToggle=true */}
-      {showFormatToggle && (
-        <div style={{ display: "flex", gap: 3 }}>
-          {pill("12h", fmt === "12", () => switchFmt("12"))}
-          {pill("24h", fmt === "24", () => switchFmt("24"))}
-        </div>
-      )}
       {/* Inputs */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input

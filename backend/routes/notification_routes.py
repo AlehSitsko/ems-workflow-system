@@ -8,18 +8,6 @@ from notification_utils import ROLE_EVENT_TYPES, run_temporal_checks
 
 notif_bp = Blueprint("notifications", __name__, url_prefix="/api/notifications")
 
-NOTIFICATION_LABELS = {
-    "call_unassigned_soon": "Unassigned call soon",
-    "call_new_today":       "New call today",
-    "call_als_on_bls":      "ALS on BLS unit",
-    "unit_stuck_status":    "Unit stuck in status",
-    "unit_understaffed":    "Unit understaffed",
-    "cert_expiring":        "Certificate expiring",
-    "employee_added":       "New employee added",
-    "doc_expiring":         "HR document expiring",
-    "cert_no_scan":         "Certification scan missing",
-}
-
 
 def _get_user(user_id):
     try:

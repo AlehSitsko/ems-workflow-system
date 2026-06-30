@@ -764,7 +764,6 @@ function CallFormPage() {
                   <div className="col-md-3">
                     <label className="form-label">Pickup Time</label>
                     <TimeInput
-                      showFormatToggle
                       value={guidedCallData.pickupTime}
                       onChange={v => setGuidedCallData(prev => ({ ...prev, pickupTime: v }))}
                     />

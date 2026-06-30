@@ -15,6 +15,7 @@ from routes.auth_routes import auth_bp
 from routes.employee_routes import employee_bp
 from routes.crew_routes import crew_bp
 from routes.crew_preset_routes import crew_preset_bp
+from routes.vehicle_routes import vehicle_bp
 from routes.patient_routes import patient_bp
 from routes.call_routes import call_bp
 from routes.analytics_routes import analytics_bp
@@ -58,6 +59,9 @@ app.register_blueprint(crew_bp)
 
 # Register reusable crew preset routes.
 app.register_blueprint(crew_preset_bp)
+
+# Register vehicle registry routes.
+app.register_blueprint(vehicle_bp)
 
 # Register patient management routes.
 app.register_blueprint(patient_bp)
