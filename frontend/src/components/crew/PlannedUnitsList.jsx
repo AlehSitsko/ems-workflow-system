@@ -11,7 +11,6 @@ function PlannedUnitsList({
   onEditUnit,
   onDeleteUnit,
   onMakeNight,
-  getEmployeeName,
   getEmployeeById,
   isMedicalSlotVisible,
   getMedicalSlotLabel,

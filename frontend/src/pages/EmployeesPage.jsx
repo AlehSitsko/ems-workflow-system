@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useConfirm } from "../components/ui/ConfirmDialog";
-import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/useConfirm";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import {
   FaBriefcaseMedical,
@@ -197,7 +196,6 @@ const initialFormData = {
 
 function EmployeesPage() {
   const confirm = useConfirm();
-  const toast = useToast();
   const currentUser = getCurrentUser();
   const [employees, setEmployees] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
@@ -378,22 +376,6 @@ function EmployeesPage() {
   };
 
   /*
-    Maps certification status values to Bootstrap badge classes.
-  */
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case "Active":
-        return "text-bg-success";
-      case "Expiring Soon":
-        return "text-bg-warning";
-      case "Expired":
-        return "text-bg-danger";
-      default:
-        return "text-bg-secondary";
-    }
-  };
-
-  /*
     Maps operational employee status values to Bootstrap badge classes.
   */
   const getEmployeeStatusBadgeClass = (status) => {
@@ -481,30 +463,6 @@ function EmployeesPage() {
             {getEmployeeRoleLabel(position)}
           </span>
         ))}
-      </div>
-    );
-  };
-
-  /*
-    Renders a compact license badge in employee cards.
-  */
-  const renderLicenseBadge = (licenseType, license) => {
-    const normalizedLicense = normalizeLicense(license);
-    const status = getLicenseStatus(normalizedLicense);
-
-    return (
-      <div className="employee-license-pill">
-        <div className="employee-license-name">{licenseType.toUpperCase()}</div>
-
-        <span className={`badge ${getStatusBadgeClass(status)}`}>{status}</span>
-
-        {normalizedLicense.hasLicense && (
-          <div className="employee-license-details">
-            {normalizedLicense.expirationDate
-              ? `Exp: ${normalizedLicense.expirationDate}`
-              : "No expiration"}
-          </div>
-        )}
       </div>
     );
   };

@@ -94,7 +94,7 @@ function EventRow({ entry, isFirst }) {
   );
 }
 
-function EntityCard({ entityKey, entries }) {
+function EntityCard({ entries }) {
   const [open, setOpen] = useState(false);
   const first = entries[0];
   const entCfg = ENTITY_CONFIG[first.entity_type] || ENTITY_CONFIG.call;
@@ -287,7 +287,7 @@ export default function AuditLogPage({ currentUser }) {
         ) : (
           <div className="d-flex flex-column gap-2">
             {grouped.map(([key, entries]) => (
-              <EntityCard key={key} entityKey={key} entries={entries} />
+              <EntityCard key={key} entries={entries} />
             ))}
           </div>
         )}

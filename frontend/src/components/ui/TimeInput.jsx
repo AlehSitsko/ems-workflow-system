@@ -30,7 +30,9 @@ export function TimeFormatToggle() {
   const switchFmt = (f) => {
     if (f === fmt) return;
     setFmt(f);
-    try { localStorage.setItem(PREF_KEY, f); } catch {}
+    try { localStorage.setItem(PREF_KEY, f); } catch {
+      // Ignore localStorage write failures (private mode, quota exceeded, etc).
+    }
     window.dispatchEvent(new CustomEvent("ems-time-format", { detail: f }));
   };
 
@@ -89,7 +91,6 @@ export default function TimeInput({ value, onChange, id }) {
       setHour(h12);
       setPeriod(per);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, fmt]);
 
   const emit = useCallback((h, m, p) => {

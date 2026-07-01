@@ -8,7 +8,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/favicon.ico",
+      icon: new URL("vite.svg", self.registration.scope).href,
       tag: data.tag || "ems-notif",
       renotify: true,
     })
@@ -22,7 +22,7 @@ self.addEventListener("notificationclick", (event) => {
       for (const client of clientList) {
         if (client.focus) return client.focus();
       }
-      return self.clients.openWindow("/");
+      return self.clients.openWindow(self.registration.scope);
     })
   );
 });

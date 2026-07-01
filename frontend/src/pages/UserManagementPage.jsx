@@ -9,8 +9,8 @@ import {
 } from "../api/authApi";
 import { kioskEmployees } from "../api/timeApi";
 import EntityDrawer from "../components/ui/EntityDrawer";
-import { useConfirm } from "../components/ui/ConfirmDialog";
-import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/useConfirm";
+import { useToast } from "../components/ui/useToast";
 
 const initialFormData = {
   username: "",

@@ -11,7 +11,7 @@ import {
 
 import { getCalls, uncancelCall, updateCall, createCall } from "../api/callsApi";
 import { localIsoNow } from "../utils/callUtils";
-import { useToast } from "../components/ui/ToastProvider";
+import { useToast } from "../components/ui/useToast";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
 

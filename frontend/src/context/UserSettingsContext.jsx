@@ -1,38 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getSettings, patchSettings } from "../api/settingsApi";
-
-const DEFAULT_SETTINGS = {
-  notifications: {
-    call_new_today:       true,
-    call_unassigned_soon: true,
-    call_als_on_bls:      true,
-    unit_stuck_status:    true,
-    unit_understaffed:    true,
-    cert_expiring:        true,
-    employee_added:       false,
-    doc_expiring:         true,
-    cert_no_scan:         false,
-  },
-  dispatch: {
-    pickup_late_after: 0,
-    stuck_after:       30,
-  },
-  ui: {
-    time_format: "24h",
-    panels: {
-      dispatch: {
-        leftWidth:    280,
-        bottomHeight: 300,
-      },
-    },
-  },
-};
-
-const UserSettingsContext = createContext({
-  settings: DEFAULT_SETTINGS,
-  updateSettings: async () => {},
-  settingsLoaded: false,
-});
+import { UserSettingsContext, DEFAULT_SETTINGS } from "./useUserSettings";
 
 export function UserSettingsProvider({ currentUser, children }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -70,5 +38,3 @@ export function UserSettingsProvider({ currentUser, children }) {
     </UserSettingsContext.Provider>
   );
 }
-
-export const useUserSettings = () => useContext(UserSettingsContext);

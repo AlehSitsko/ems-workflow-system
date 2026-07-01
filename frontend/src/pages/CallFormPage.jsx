@@ -28,7 +28,6 @@ import PriceCalculator from "../components/PriceCalculator";
 import ExportButtons from "../components/ExportButtons";
 
 import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
-import { useConfirm } from "../components/ui/ConfirmDialog";
 import TimeInput from "../components/ui/TimeInput";
 
 // Initial guided call state.
@@ -61,8 +60,6 @@ const getInitialGuidedCallData = () => ({
 });
 
 function CallFormPage() {
-  const confirm = useConfirm();
-
   // Create a ref to access methods exposed by the CallForm component.
   const callFormRef = useRef();
 
@@ -142,27 +139,6 @@ function CallFormPage() {
   // Switch back to classic call intake mode.
   const handleUseClassicMode = () => {
     setIntakeMode("classic");
-    setShowPatientLookupDrawer(false);
-  };
-
-  // Reset guided intake with confirmation if data was entered.
-  const handleCancelIntake = async () => {
-    const hasData = guidedCallData.firstName.trim() ||
-      guidedCallData.lastName.trim() ||
-      guidedCallData.pickupAddress.trim() ||
-      guidedCallData.tripDate.trim();
-
-    if (hasData) {
-      const ok = await confirm({
-        title: "Cancel intake?",
-        message: "All entered data will be lost. This action cannot be undone.",
-        variant: "danger",
-        confirmLabel: "Cancel Intake",
-      });
-      if (!ok) return;
-    }
-
-    resetGuidedWorkflow();
     setShowPatientLookupDrawer(false);
   };
 

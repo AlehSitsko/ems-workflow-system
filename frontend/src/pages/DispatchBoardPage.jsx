@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import API_BASE from "../api/config.js";
-import { useToast } from "../components/ui/ToastProvider";
-import { useConfirm } from "../components/ui/ConfirmDialog";
+import { useToast } from "../components/ui/useToast";
+import { useConfirm } from "../components/ui/useConfirm";
 import {
   FaMapMarkerAlt,
   FaClock,
@@ -34,7 +34,7 @@ import TimeInput from "../components/ui/TimeInput";
 import PatientOrderSection from "../components/crew/PatientOrderSection";
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import CallDrawer from "../components/dispatch/CallDrawer";
-import { useUserSettings } from "../context/UserSettingsContext";
+import { useUserSettings } from "../context/useUserSettings";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -602,7 +602,6 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const accentColor = emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : isCompleted ? "#6c757d" : "#0d6efd";
   const slColor = { bls: "#75b798", als: "#6ea8fe", emergency: "#ea868f", stretcher: "#c29ffa" }[call.service_level?.toLowerCase()] || "#adb5bd";
 
-  // eslint-disable-next-line no-unused-vars
   const Section = ({ icon: Icon, title, children }) => (
     <div style={{ marginBottom: 14 }}>
       <div className="d-flex align-items-center gap-2 mb-2">
@@ -1331,7 +1330,6 @@ export default function DispatchBoardPage() {
   }, [date]);
 
   const getEmployeeById = (id) => employees.find(e => String(e.id) === String(id));
-  const getEmployeeName = (id) => { const e = getEmployeeById(id); return e ? `${e.firstName} ${e.lastName}` : "Not assigned"; };
 
   const normalizeLicense = (l) => l ? { hasLicense: Boolean(l.hasLicense), licenseName: l.licenseName || "", expirationDate: l.expirationDate || "" } : { hasLicense: false, licenseName: "", expirationDate: "" };
   const getLicenseStatus = (l) => {
@@ -2009,6 +2007,16 @@ export default function DispatchBoardPage() {
                               title="Advance to next status"
                             >
                               {unit.dispatchStatus === "at_destination" ? "✓ Complete" : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
+                            </button>
+                          )}
+                          {unit.shiftType !== "night" && (
+                            <button
+                              className="btn btn-sm"
+                              style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #2a3347", color: "var(--ems-board-text-muted)" }}
+                              onClick={() => handleMakeNight(unit)}
+                              title="Make night crew"
+                            >
+                              <FaMoon style={{ fontSize: 10 }} />
                             </button>
                           )}
                           <button

@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useConfirm } from "../components/ui/ConfirmDialog";
-import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/useConfirm";
+import { useToast } from "../components/ui/useToast";
 import {
   FaAmbulance,
   FaCalendarDay,
@@ -131,7 +131,6 @@ function CrewPlannerPage() {
     Drawer state for create/edit unit form.
   */
   const [showUnitDrawer, setShowUnitDrawer] = useState(false);
-  const [drawerTab, setDrawerTab] = useState("form");
 
   /*
     Stores the ID of the unit currently being edited.
@@ -711,7 +710,6 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setPresetName("");
     setShowUnitDrawer(true);
-    setDrawerTab("form");
   };
 
   /*
@@ -744,7 +742,6 @@ function CrewPlannerPage() {
 
     setSelectedPresetId("");
     setShowUnitDrawer(true);
-    setDrawerTab("form");
   };
 
   /*
@@ -991,7 +988,6 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setPresetName("");
     setShowUnitDrawer(true);
-    setDrawerTab("form");
   };
 
   /*

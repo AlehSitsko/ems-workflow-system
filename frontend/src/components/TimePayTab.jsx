@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useConfirm } from "./ui/ConfirmDialog";
-import { useToast } from "./ui/ToastProvider";
+import { useConfirm } from "./ui/useConfirm";
+import { useToast } from "./ui/useToast";
 import {
   getTimeEntries, createTimeEntry, updateTimeEntry, deleteTimeEntry,
   getPayConfig, savePayConfig,
