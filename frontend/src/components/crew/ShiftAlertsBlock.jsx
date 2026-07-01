@@ -19,7 +19,7 @@ function ShiftAlertsBlock({ alerts }) {
 
   return (
     <div className="mb-3">
-      {alerts.map((alert, i) => {
+      {alerts.map((alert) => {
         const isDelayed = alert.alertType === "delayed";
         const borderColor = alert.severity === "critical" || alert.severity === "serious"
           ? "danger"

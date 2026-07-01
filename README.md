@@ -158,7 +158,6 @@ The application currently uses an MVP authentication system with local user reco
 * supervisor
 * dispatcher
 * hr
-* driver
 
 ### Current Features
 
@@ -201,10 +200,6 @@ Staff and crew planning access.
 Can access: Dashboard, Employees, Crew Planner, Payroll, Compliance Dashboard, Kiosk, Notifications (cert_expiring, employee_added only), User Manual
 
 Cannot access: Dispatch Board, Call Taking Form, Patients, Calls, Supervisor analytics
-
-### Driver
-
-Clock in/out only (via Kiosk or Dashboard widget).
 
 ## Current Modules
 

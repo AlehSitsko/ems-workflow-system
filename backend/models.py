@@ -150,7 +150,7 @@ class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     unit_name = db.Column(db.String(50), nullable=False)     # "Ambu-1"
-    unit_number = db.Column(db.String(50), nullable=False)   # "214"
+    unit_number = db.Column(db.String(50), nullable=False, unique=True)   # "214"
     unit_type = db.Column(db.String(50), nullable=False)     # "ALS" | "BLS" | "BARI" | "CCT"
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text)

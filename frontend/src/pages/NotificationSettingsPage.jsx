@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaBell, FaSave } from "react-icons/fa";
 import { usePushNotifications } from "../hooks/usePushNotifications";
-import { useUserSettings } from "../context/UserSettingsContext";
+import { useUserSettings } from "../context/useUserSettings";
 import API_BASE from "../api/config.js";
 
 const GROUPS = [

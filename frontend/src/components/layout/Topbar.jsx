@@ -13,7 +13,7 @@ import {
 
 import { hasCallIntakeAccess } from "../../api/authApi";
 import NotificationBell from "./NotificationBell";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../../context/useTheme";
 
 const pageTitles = {
   "/home": {

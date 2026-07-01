@@ -138,15 +138,15 @@ def seed_employees(count=100):
     ok = 0
     for i in range(count):
         r = SESSION.post(f"{BASE}/api/employees", json={
-            "first_name": f"Emp{rstr(3)}",
-            "last_name": f"Test{rstr(4)}",
+            "firstName": f"Emp{rstr(3)}",
+            "lastName": f"Test{rstr(4)}",
             "phone": f"555-{random.randint(1000,9999)}",
             "email": f"emp{i}@test.com",
-            "employee_number": f"EMP{1000+i}",
-            "hire_date": f"202{random.randint(0,4)}-{random.randint(1,12):02d}-01",
+            "employeeNumber": f"EMP{1000+i}",
+            "hireDate": f"202{random.randint(0,4)}-{random.randint(1,12):02d}-01",
             "role": random.choice(ROLES),
             "status": "active",
-            "is_active": True,
+            "isActive": True,
         })
         if r.status_code == 201:
             CREATED_IDS["employees"].append(r.json()["id"])

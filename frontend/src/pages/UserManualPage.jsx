@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   FaChevronDown, FaChevronRight, FaSearch, FaTh, FaPhone, FaUsers,
   FaClipboardList, FaCalendarAlt, FaBell, FaCog, FaAmbulance,
@@ -14,14 +14,14 @@ const SECTIONS = [
     id: "getting-started",
     icon: <FaStar />,
     title: "Getting Started",
-    roles: ["admin", "supervisor", "dispatcher", "hr", "driver"],
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <GettingStarted />,
   },
   {
     id: "dashboard",
     icon: <FaTh />,
     title: "Dashboard",
-    roles: ["admin", "supervisor", "dispatcher", "hr", "driver"],
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <DashboardSection />,
   },
   {
@@ -98,7 +98,7 @@ const SECTIONS = [
     id: "shortcuts",
     icon: <FaKeyboard />,
     title: "Quick Reference",
-    roles: ["admin", "supervisor", "dispatcher", "hr", "driver"],
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <ShortcutsSection />,
   },
 ];
@@ -179,7 +179,6 @@ function GettingStarted() {
           "Dispatcher → Dispatch Board, Call Form, Patients, Calls, Crew Planner.",
           "HR → Employees, Crew Planner, Payroll, Compliance.",
           "Admin / Supervisor → full access to all modules.",
-          "Driver → Dashboard clock widget and Kiosk only.",
         ]} />
         <Note>Login is rate-limited: 10 attempts per minute per IP address. After multiple failures, wait 60 seconds before trying again.</Note>
       </Sub>
@@ -711,23 +710,23 @@ function ShortcutsSection() {
           <table style={{ fontSize: 12, width: "100%", borderCollapse: "collapse", color: "var(--ems-text-secondary)" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--ems-border)" }}>
-                {["Module", "Admin", "Supervisor", "Dispatcher", "HR", "Driver"].map(h => (
+                {["Module", "Admin", "Supervisor", "Dispatcher", "HR"].map(h => (
                   <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 700, color: "var(--ems-text-primary)", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {[
-                ["Dispatch Board", "✓", "✓", "✓", "—", "—"],
-                ["Call Form", "✓", "✓", "✓", "—", "—"],
-                ["Patients / Calls", "✓", "✓", "✓", "—", "—"],
-                ["Employees", "✓", "✓", "—", "✓", "—"],
-                ["Crew Planner", "✓", "✓", "✓", "✓", "—"],
-                ["Payroll", "✓", "✓", "—", "✓", "—"],
-                ["Compliance", "✓", "✓", "—", "✓", "—"],
-                ["Audit Log", "✓", "✓", "—", "—", "—"],
-                ["User Management", "✓", "—", "—", "—", "—"],
-                ["Kiosk / Clock", "✓", "✓", "✓", "✓", "✓"],
+                ["Dispatch Board", "✓", "✓", "✓", "—"],
+                ["Call Form", "✓", "✓", "✓", "—"],
+                ["Patients / Calls", "✓", "✓", "✓", "—"],
+                ["Employees", "✓", "✓", "—", "✓"],
+                ["Crew Planner", "✓", "✓", "✓", "✓"],
+                ["Payroll", "✓", "✓", "—", "✓"],
+                ["Compliance", "✓", "✓", "—", "✓"],
+                ["Audit Log", "✓", "✓", "—", "—"],
+                ["User Management", "✓", "—", "—", "—"],
+                ["Kiosk / Clock", "✓", "✓", "✓", "✓"],
               ].map(([mod, ...vals]) => (
                 <tr key={mod} style={{ borderBottom: "1px solid var(--ems-border)" }}>
                   <td style={{ padding: "5px 10px", fontWeight: 600 }}>{mod}</td>

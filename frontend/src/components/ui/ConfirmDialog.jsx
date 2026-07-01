@@ -1,12 +1,5 @@
-import { createContext, useContext, useState, useCallback } from "react";
-
-const ConfirmContext = createContext(null);
-
-export function useConfirm() {
-  const ctx = useContext(ConfirmContext);
-  if (!ctx) throw new Error("useConfirm must be used inside ConfirmProvider");
-  return ctx;
-}
+import { useState, useCallback } from "react";
+import { ConfirmContext } from "./useConfirm";
 
 const VARIANTS = {
   danger:  { confirmClass: "btn btn-danger",   icon: "⚠" },

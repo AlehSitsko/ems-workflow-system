@@ -5,7 +5,7 @@ import React, {
   useState,
   useEffect,
 } from "react";
-import { useToast } from "./ui/ToastProvider";
+import { useToast } from "./ui/useToast";
 
 import {
   FaClipboardCheck,

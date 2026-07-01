@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useConfirm } from "./ui/ConfirmDialog";
-import { useToast } from "./ui/ToastProvider";
+import { useConfirm } from "./ui/useConfirm";
+import { useToast } from "./ui/useToast";
 import EntityDrawer from "./ui/EntityDrawer";
 import {
   FaAddressCard,
@@ -68,7 +68,6 @@ const DetailItem = ({ label, value }) => (
   </div>
 );
 
-// eslint-disable-next-line no-unused-vars
 const PatientFormSection = ({ title, icon: Icon, children }) => (
   <div className="patient-form-section">
     <div className="patient-form-section-header">
@@ -97,7 +96,6 @@ const PatientsPage = () => {
   const [currentFilters, setCurrentFilters] = useState({});
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const [showPatientForm, setShowPatientForm] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState(null);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [drawerTab, setDrawerTab] = useState("overview"); // "overview" | "edit" | "history"
@@ -131,7 +129,6 @@ const PatientsPage = () => {
   const resetPatientForm = () => {
     setNewPatient(emptyPatient);
     setEditingPatientId(null);
-    setShowPatientForm(false);
     setDrawerOpen(false);
     setSelectedPatient(null);
     setPatientCalls([]);
@@ -144,7 +141,6 @@ const PatientsPage = () => {
     setEditingPatientId(null);
     setSelectedPatient(null);
     setError("");
-    setShowPatientForm(true);
     setDrawerTab("edit");
     setDrawerOpen(true);
   };
@@ -183,11 +179,6 @@ const PatientsPage = () => {
     resetPatientForm();
   };
 
-  // Prevent accidental data loss when the user clicks outside the drawer.
-  const handlePatientDrawerOverlayClick = () => {
-    closePatientFormSafely();
-  };
-
   // Load call history for a selected patient.
   const loadPatientCalls = async (patientId) => {
     try {
@@ -217,7 +208,6 @@ const PatientsPage = () => {
 
       setNewPatient(emptyPatient);
       setEditingPatientId(null);
-      setShowPatientForm(false);
       setSelectedPatient(savedPatient);
       setHasSearched(true);
 
@@ -599,150 +589,6 @@ const PatientsPage = () => {
         </section>
       )}
 
-      {false && selectedPatient && (
-        <section className="content-panel">
-          <div className="content-panel-header">
-            <div>
-              <h4>Selected Patient</h4>
-              <p>Quick view of the currently selected patient record.</p>
-            </div>
-
-            <span className="badge text-bg-success">Selected</span>
-          </div>
-
-          <div className="patient-detail-grid">
-            <DetailItem
-              label="Name"
-              value={`${selectedPatient.first_name || ""} ${
-                selectedPatient.last_name || ""
-              }`.trim()}
-            />
-
-            <DetailItem label="DOB" value={selectedPatient.dob} />
-            <DetailItem label="Gender" value={selectedPatient.gender} />
-            <DetailItem label="Phone" value={selectedPatient.phone} />
-            <DetailItem
-              label="Secondary Phone"
-              value={selectedPatient.secondary_phone}
-            />
-
-            <DetailItem
-              label="Address"
-              value={`${selectedPatient.address || ""}, ${
-                selectedPatient.city || ""
-              } ${selectedPatient.state || ""} ${
-                selectedPatient.zip_code || ""
-              }`.trim()}
-            />
-
-            <DetailItem label="Insurance" value={selectedPatient.insurance} />
-            <DetailItem label="Member ID" value={selectedPatient.member_id} />
-            <DetailItem
-              label="Policy Number"
-              value={selectedPatient.policy_number}
-            />
-
-            <DetailItem
-              label="Requires Auth"
-              value={selectedPatient.requires_auth ? "Yes" : "No"}
-            />
-
-            <DetailItem
-              label="Copay Required"
-              value={selectedPatient.copay_required ? "Yes" : "No"}
-            />
-
-            <DetailItem
-              label="Default Service"
-              value={selectedPatient.default_service_level}
-            />
-
-            <DetailItem label="Weight" value={selectedPatient.weight} />
-
-            <DetailItem
-              label="Oxygen Required"
-              value={selectedPatient.oxygen_required ? "Yes" : "No"}
-            />
-
-            <DetailItem
-              label="Stairs"
-              value={selectedPatient.stairs ? "Yes" : "No"}
-            />
-
-            <DetailItem label="Facility" value={selectedPatient.facility_name} />
-            <DetailItem label="Room" value={selectedPatient.room_number} />
-
-            <DetailItem
-              label="Emergency Contact"
-              value={`${selectedPatient.emergency_contact_name || ""} ${
-                selectedPatient.emergency_contact_phone || ""
-              }`.trim()}
-            />
-
-            <DetailItem label="Notes" value={selectedPatient.notes} />
-          </div>
-        </section>
-      )}
-
-      {false && selectedPatient && (
-        <section className="content-panel">
-          <div className="content-panel-header">
-            <div>
-              <h4>Patient Call History</h4>
-              <p>Previous calls linked to the selected patient.</p>
-            </div>
-
-            <span className="badge text-bg-secondary">
-              {patientCalls.length}
-            </span>
-          </div>
-
-          {patientCalls.length === 0 ? (
-            <div className="empty-state">
-              <FaHistory />
-
-              <h5>No calls found</h5>
-
-              <p>No call records are currently linked to this patient.</p>
-            </div>
-          ) : (
-            <div className="patient-call-list">
-              {patientCalls.map((call) => (
-                <div className="patient-call-card" key={call.id}>
-                  <div>
-                    <div className="patient-call-date">
-                      {call.date_of_call || "—"}
-                    </div>
-
-                    <div className="patient-call-muted">
-                      Trip: {call.trip_date || "—"} {" "}
-                      {call.pickup_time ? `at ${call.pickup_time}` : ""}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="patient-call-label">Route</div>
-                    <div>
-                      {call.pickup_address || "—"} → {call.dropoff_address || "—"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="patient-call-label">Service</div>
-                    <div>{call.service_level || "—"}</div>
-                  </div>
-
-                  <div>
-                    <div className="patient-call-label">Notes</div>
-                    <div>{call.notes || "—"}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
       <EntityDrawer
         open={drawerOpen}
         onClose={closePatientFormSafely}
@@ -817,7 +663,7 @@ const PatientsPage = () => {
               <button
                 type="button"
                 className="btn btn-sm btn-outline-warning"
-                onClick={() => { setEditingPatientId(selectedPatient.id); setNewPatient({ first_name: selectedPatient.first_name || "", last_name: selectedPatient.last_name || "", dob: selectedPatient.dob || "", gender: selectedPatient.gender || "", phone: selectedPatient.phone || "", secondary_phone: selectedPatient.secondary_phone || "", address: selectedPatient.address || "", city: selectedPatient.city || "", state: selectedPatient.state || "", zip_code: selectedPatient.zip_code || "", insurance: selectedPatient.insurance || "", member_id: selectedPatient.member_id || "", policy_number: selectedPatient.policy_number || "", requires_auth: selectedPatient.requires_auth || false, copay_required: selectedPatient.copay_required || false, insurance_notes: selectedPatient.insurance_notes || "", default_service_level: selectedPatient.default_service_level || "", weight: selectedPatient.weight || "", oxygen_required: selectedPatient.oxygen_required || false, stairs: selectedPatient.stairs || false, special_equipment_notes: selectedPatient.special_equipment_notes || "", facility_name: selectedPatient.facility_name || "", room_number: selectedPatient.room_number || "", emergency_contact_name: selectedPatient.emergency_contact_name || "", emergency_contact_phone: selectedPatient.emergency_contact_phone || "", notes: selectedPatient.notes || "" }); setShowPatientForm(true); setDrawerTab("edit"); }}
+                onClick={() => { setEditingPatientId(selectedPatient.id); setNewPatient({ first_name: selectedPatient.first_name || "", last_name: selectedPatient.last_name || "", dob: selectedPatient.dob || "", gender: selectedPatient.gender || "", phone: selectedPatient.phone || "", secondary_phone: selectedPatient.secondary_phone || "", address: selectedPatient.address || "", city: selectedPatient.city || "", state: selectedPatient.state || "", zip_code: selectedPatient.zip_code || "", insurance: selectedPatient.insurance || "", member_id: selectedPatient.member_id || "", policy_number: selectedPatient.policy_number || "", requires_auth: selectedPatient.requires_auth || false, copay_required: selectedPatient.copay_required || false, insurance_notes: selectedPatient.insurance_notes || "", default_service_level: selectedPatient.default_service_level || "", weight: selectedPatient.weight || "", oxygen_required: selectedPatient.oxygen_required || false, stairs: selectedPatient.stairs || false, special_equipment_notes: selectedPatient.special_equipment_notes || "", facility_name: selectedPatient.facility_name || "", room_number: selectedPatient.room_number || "", emergency_contact_name: selectedPatient.emergency_contact_name || "", emergency_contact_phone: selectedPatient.emergency_contact_phone || "", notes: selectedPatient.notes || "" }); setDrawerTab("edit"); }}
               >
                 <FaEdit style={{ marginRight: 4 }} /> Edit Patient
               </button>

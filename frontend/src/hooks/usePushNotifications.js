@@ -35,7 +35,7 @@ export function usePushNotifications(user) {
   // Register service worker once.
   useEffect(() => {
     if (!supported) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
   }, []);
 
   const subscribe = useCallback(async () => {

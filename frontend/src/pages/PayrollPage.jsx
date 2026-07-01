@@ -3,8 +3,8 @@ import { FaMoneyBillWave, FaDownload, FaPlus, FaCheck, FaSearch, FaEdit, FaTrash
 import { getPeriods, createPeriod, updatePeriod, updatePeriodStatus, deletePeriod, getPeriodSummary, exportPayroll } from "../api/payrollApi";
 import { getCurrentUser } from "../api/authApi";
 import EntityDrawer from "../components/ui/EntityDrawer";
-import { useConfirm } from "../components/ui/ConfirmDialog";
-import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/useConfirm";
+import { useToast } from "../components/ui/useToast";
 
 const STATUS_META = {
   open:     { label: "Open",     color: "#6c757d", bg: "rgba(108,117,125,0.12)" },
