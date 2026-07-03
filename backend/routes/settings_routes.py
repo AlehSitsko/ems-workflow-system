@@ -27,5 +27,20 @@ def patch_settings():
     if not user:
         return jsonify({"error": "user not found"}), 404
     patch = request.get_json() or {}
+
+    time_format = (patch.get("ui") or {}).get("time_format")
+    if time_format is not None and time_format not in ("12h", "24h"):
+        return jsonify({"error": "ui.time_format must be '12h' or '24h'"}), 400
+
+    dispatch = patch.get("dispatch") or {}
+    for key, max_value in (("pickup_late_after", 120), ("stuck_after", 240)):
+        if key in dispatch:
+            try:
+                n = int(dispatch[key])
+            except (TypeError, ValueError):
+                return jsonify({"error": f"dispatch.{key} must be an integer"}), 400
+            if not (0 <= n <= max_value):
+                return jsonify({"error": f"dispatch.{key} must be between 0 and {max_value}"}), 400
+
     merged = save_user_settings(user, patch)
     return jsonify(merged)

@@ -38,6 +38,8 @@ import {
 } from "../api/patientsApi";
 
 import { getPatientCalls } from "../api/callsApi";
+import { useUserSettings } from "../context/useUserSettings";
+import { formatTimeForDisplay } from "../utils/timeUtils";
 
 // Empty patient template used for create, reset, and cancel edit.
 const emptyPatient = {
@@ -114,6 +116,8 @@ const PatientFormSection = ({ title, icon: Icon, children }) => (
 const PatientsPage = () => {
   const confirm = useConfirm();
   const toast = useToast();
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const [searchName, setSearchName] = useState("");
   const [searchDob, setSearchDob] = useState("");
 
@@ -969,7 +973,7 @@ const PatientsPage = () => {
                 <div className="patient-call-card" key={call.id}>
                   <div>
                     <div className="patient-call-date">{call.date_of_call || "—"}</div>
-                    <div className="patient-call-muted">Trip: {call.trip_date || "—"} {call.pickup_time ? `at ${call.pickup_time}` : ""}</div>
+                    <div className="patient-call-muted">Trip: {call.trip_date || "—"} {call.pickup_time ? `at ${formatTimeForDisplay(call.pickup_time, timeFormat)}` : ""}</div>
                   </div>
                   <div>
                     <div className="patient-call-label">Route</div>

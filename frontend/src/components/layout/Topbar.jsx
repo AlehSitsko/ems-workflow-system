@@ -49,8 +49,8 @@ const pageTitles = {
     subtitle: "Create and manage system user accounts",
   },
   "/notifications": {
-    title: "Notification Settings",
-    subtitle: "Configure which alerts you receive",
+    title: "Settings",
+    subtitle: "Preferences, alerts, and notifications",
   },
   "/manual": {
     title: "User Manual",

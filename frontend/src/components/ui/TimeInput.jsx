@@ -1,111 +1,46 @@
 import { useState, useEffect, useCallback } from "react";
+import { useUserSettings } from "../../context/useUserSettings";
+import { normalizeTimeValue, convert12hTo24h, convert24hTo12h } from "../../utils/timeUtils";
 
-const PREF_KEY = "ems_time_format";
+// Time format is a per-user setting (Settings page), not a per-form switch —
+// see useUserSettings() / settings.ui.time_format ("12h" | "24h").
+export default function TimeInput({ value, onChange, id, disabled = false }) {
+  const { settings } = useUserSettings();
+  const fmt = settings?.ui?.time_format === "24h" ? "24" : "12";
 
-function h24toH12(h24) {
-  const per = h24 >= 12 ? "PM" : "AM";
-  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
-  return { h12: String(h12), period: per };
-}
-
-function h12toH24(h, period) {
-  const n = parseInt(h, 10);
-  if (isNaN(n)) return null;
-  if (period === "AM") return n === 12 ? 0 : n;
-  return n === 12 ? 12 : n + 12;
-}
-
-// Standalone toggle — place once per page above all TimeInput fields.
-export function TimeFormatToggle() {
-  const [fmt, setFmt] = useState(() => {
-    try { return localStorage.getItem(PREF_KEY) || "12"; } catch { return "12"; }
-  });
-
-  useEffect(() => {
-    const handler = (e) => { if (e.detail) setFmt(e.detail); };
-    window.addEventListener("ems-time-format", handler);
-    return () => window.removeEventListener("ems-time-format", handler);
-  }, []);
-
-  const switchFmt = (f) => {
-    if (f === fmt) return;
-    setFmt(f);
-    try { localStorage.setItem(PREF_KEY, f); } catch {
-      // Ignore localStorage write failures (private mode, quota exceeded, etc).
-    }
-    window.dispatchEvent(new CustomEvent("ems-time-format", { detail: f }));
-  };
-
-  const pill = (label, active, onClick) => (
-    <button
-      key={label}
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: "3px 9px", fontSize: 11, fontWeight: 700, borderRadius: 6,
-        border: `1px solid ${active ? "#0d6efd" : "var(--ems-border)"}`,
-        background: active ? "#0d6efd" : "transparent",
-        color: active ? "#fff" : "var(--ems-text-muted)",
-        cursor: "pointer", lineHeight: 1.6, transition: "all 0.12s",
-      }}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <div style={{ display: "flex", gap: 3 }}>
-      {pill("12h", fmt === "12", () => switchFmt("12"))}
-      {pill("24h", fmt === "24", () => switchFmt("24"))}
-    </div>
-  );
-}
-
-export default function TimeInput({ value, onChange, id }) {
-  const [fmt, setFmt] = useState(() => {
-    try { return localStorage.getItem(PREF_KEY) || "12"; } catch { return "12"; }
-  });
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
   const [period, setPeriod] = useState("AM");
 
-  // Sync format when another TimeInput on the page switches it
+  // Sync incoming stored value (24h "HH:MM") into local display state
   useEffect(() => {
-    const handler = (e) => { if (e.detail) setFmt(e.detail); };
-    window.addEventListener("ems-time-format", handler);
-    return () => window.removeEventListener("ems-time-format", handler);
-  }, []);
-
-  // Sync incoming HH:MM value into local state
-  useEffect(() => {
-    if (!value) { setHour(""); setMinute(""); setPeriod("AM"); return; }
-    const [hStr, mStr] = value.split(":");
-    const h24 = parseInt(hStr, 10);
-    if (isNaN(h24)) return;
-    const m = (mStr || "00").padStart(2, "0");
-    setMinute(m);
+    const norm = normalizeTimeValue(value);
+    if (!norm) { setHour(""); setMinute(""); setPeriod("AM"); return; }
+    const [hStr, mStr] = norm.split(":");
     if (fmt === "24") {
-      setHour(String(h24).padStart(2, "0"));
+      setHour(hStr);
+      setMinute(mStr);
     } else {
-      const { h12, period: per } = h24toH12(h24);
-      setHour(h12);
-      setPeriod(per);
+      const parts = convert24hTo12h(norm);
+      setHour(parts.hour);
+      setMinute(parts.minute);
+      setPeriod(parts.period);
     }
   }, [value, fmt]);
 
   const emit = useCallback((h, m, p) => {
     if (h === "" || m === "") { onChange(""); return; }
-    let h24;
+    let h24Str;
     if (fmt === "24") {
-      h24 = parseInt(h, 10);
+      const n = parseInt(h, 10);
+      const mNum = parseInt(m, 10);
+      h24Str = (isNaN(n) || n < 0 || n > 23 || isNaN(mNum) || mNum < 0 || mNum > 59)
+        ? null
+        : `${String(n).padStart(2, "0")}:${String(mNum).padStart(2, "0")}`;
     } else {
-      h24 = h12toH24(h, p);
+      h24Str = convert12hTo24h(h, m, p);
     }
-    const mNum = parseInt(m, 10);
-    if (h24 === null || isNaN(h24) || h24 < 0 || h24 > 23 || isNaN(mNum) || mNum < 0 || mNum > 59) {
-      onChange(""); return;
-    }
-    onChange(`${String(h24).padStart(2, "0")}:${String(mNum).padStart(2, "0")}`);
+    onChange(h24Str || "");
   }, [fmt, onChange]);
 
   const onHourChange = (v) => {
@@ -142,6 +77,7 @@ export default function TimeInput({ value, onChange, id }) {
   };
 
   const togglePeriod = (p) => {
+    if (disabled) return;
     setPeriod(p);
     emit(hour, minute, p);
   };
@@ -154,10 +90,12 @@ export default function TimeInput({ value, onChange, id }) {
     padding: "0.3rem 0.35rem",
     borderRadius: 7,
     border: "1px solid var(--ems-border)",
-    background: "var(--ems-bg-surface)",
+    background: disabled ? "var(--ems-bg-surface-2, rgba(255,255,255,0.05))" : "var(--ems-bg-surface)",
     color: "var(--ems-text-primary)",
     outline: "none",
     width: 46,
+    opacity: disabled ? 0.6 : 1,
+    cursor: disabled ? "not-allowed" : "text",
   };
 
   const pill = (label, active, onClick) => (
@@ -165,6 +103,7 @@ export default function TimeInput({ value, onChange, id }) {
       key={label}
       type="button"
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: "3px 9px",
         fontSize: 11,
@@ -173,7 +112,8 @@ export default function TimeInput({ value, onChange, id }) {
         border: `1px solid ${active ? "#0d6efd" : "var(--ems-border)"}`,
         background: active ? "#0d6efd" : "transparent",
         color: active ? "#fff" : "var(--ems-text-muted)",
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.6 : 1,
         lineHeight: 1.6,
         transition: "all 0.12s",
       }}
@@ -184,7 +124,6 @@ export default function TimeInput({ value, onChange, id }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-      {/* Inputs */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input
           id={id}
@@ -195,6 +134,7 @@ export default function TimeInput({ value, onChange, id }) {
           value={hour}
           onChange={e => onHourChange(e.target.value)}
           onBlur={onHourBlur}
+          disabled={disabled}
           style={inputBase}
         />
         <span style={{ fontWeight: 800, color: "var(--ems-text-muted)", userSelect: "none" }}>:</span>
@@ -206,6 +146,7 @@ export default function TimeInput({ value, onChange, id }) {
           value={minute}
           onChange={e => onMinuteChange(e.target.value)}
           onBlur={onMinuteBlur}
+          disabled={disabled}
           style={inputBase}
         />
         {fmt === "12" && (

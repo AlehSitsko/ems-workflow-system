@@ -9,7 +9,7 @@ import {
   FaUserCog,
   FaBookOpen,
   FaTh,
-  FaBell,
+  FaCog,
   FaClock,
   FaMoneyBillWave,
   FaShieldAlt,
@@ -136,9 +136,9 @@ export const navigationGroups = [
         canAccess: () => true,
       },
       {
-        label: "Notifications",
+        label: "Settings",
         path: "/notifications",
-        icon: FaBell,
+        icon: FaCog,
         canAccess: () => true,
       },
       {

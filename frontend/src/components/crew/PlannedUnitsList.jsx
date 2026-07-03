@@ -3,6 +3,8 @@ import {
   getEmployeeRoleClass,
   getEmployeeRoleLabel,
 } from "../../utils/employeeRoleUtils";
+import { useUserSettings } from "../../context/useUserSettings";
+import { formatTimeForDisplay } from "../../utils/timeUtils";
 
 function PlannedUnitsList({
   selectedDate,
@@ -15,15 +17,18 @@ function PlannedUnitsList({
   isMedicalSlotVisible,
   getMedicalSlotLabel,
 }) {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const dayUnits = units.filter((u) => (u.shiftType || "day") === "day");
   const nightUnits = units.filter((u) => u.shiftType === "night");
 
   const renderTimeRange = (unit) => {
-    const start = unit.startTime || "—";
+    const start = unit.startTime ? formatTimeForDisplay(unit.startTime, timeFormat) : "—";
     if (!unit.endTime) return start;
+    const endTimeLabel = formatTimeForDisplay(unit.endTime, timeFormat);
     const endLabel = unit.endDate && unit.endDate !== unit.shiftDate
-      ? `${unit.endTime} (${unit.endDate})`
-      : unit.endTime;
+      ? `${endTimeLabel} (${unit.endDate})`
+      : endTimeLabel;
     return `${start} – ${endLabel}`;
   };
 

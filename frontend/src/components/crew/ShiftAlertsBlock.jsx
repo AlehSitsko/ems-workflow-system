@@ -1,4 +1,6 @@
 import { FaExclamationTriangle, FaClock } from "react-icons/fa";
+import { useUserSettings } from "../../context/useUserSettings";
+import { formatTimeForDisplay } from "../../utils/timeUtils";
 
 const SEVERITY_CONFIG = {
   critical: { bg: "danger",   text: "Critical" },
@@ -15,6 +17,8 @@ function AlertBadge({ severity }) {
 }
 
 function ShiftAlertsBlock({ alerts }) {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   if (!alerts || alerts.length === 0) return null;
 
   return (
@@ -40,8 +44,8 @@ function ShiftAlertsBlock({ alerts }) {
               <strong>Unit {alert.truckNumber}</strong>
               {" "}
               {isDelayed
-                ? `overdue by ${alert.delayMinutes} min (planned end ${alert.plannedEndTime})`
-                : `ends in ${alert.minutesLeft} min (at ${alert.plannedEndTime})`
+                ? `overdue by ${alert.delayMinutes} min (planned end ${formatTimeForDisplay(alert.plannedEndTime, timeFormat)})`
+                : `ends in ${alert.minutesLeft} min (at ${formatTimeForDisplay(alert.plannedEndTime, timeFormat)})`
               }
             </div>
           </div>

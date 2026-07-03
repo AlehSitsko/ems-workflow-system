@@ -185,3 +185,33 @@ def push_unsubscribe():
         prefs.push_sub_json = None
         db.session.commit()
     return jsonify({"ok": True})
+
+
+@notif_bp.route("/test-push", methods=["POST"])
+def test_push():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+
+    prefs = UserNotificationPrefs.query.get(user_id)
+    if not prefs or not prefs.push_sub_json:
+        return jsonify({"error": "No active browser notification subscription for this user"}), 400
+
+    from push_utils import send_push
+    try:
+        ok = send_push(
+            prefs.push_sub_json,
+            "EMS Workflow",
+            "EMS Workflow notifications are working.",
+            tag="ems-test",
+        )
+    except Exception:
+        # Subscription expired (410 Gone) or otherwise invalid — clear it.
+        prefs.push_sub_json = None
+        db.session.commit()
+        return jsonify({"error": "Subscription is no longer valid. Please enable notifications again."}), 400
+
+    if not ok:
+        return jsonify({"error": "Failed to send test notification"}), 502
+    return jsonify({"ok": True})

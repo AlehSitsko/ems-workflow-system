@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS = {
     stuck_after:       30,
   },
   ui: {
-    time_format: "24h",
+    time_format: "12h",
     panels: {
       dispatch: {
         leftWidth:    280,

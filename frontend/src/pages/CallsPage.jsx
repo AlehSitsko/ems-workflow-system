@@ -14,9 +14,13 @@ import { localIsoNow } from "../utils/callUtils";
 import { useToast } from "../components/ui/useToast";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
+import { useUserSettings } from "../context/useUserSettings";
+import { formatTimeForDisplay } from "../utils/timeUtils";
 
 const CallsPage = ({ currentUser }) => {
   const toast = useToast();
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const [calls, setCalls] = useState([]);
 
   const [dateOfCall, setDateOfCall] = useState("");
@@ -560,8 +564,8 @@ const CallsPage = ({ currentUser }) => {
                     </div>
                     <div>
                       <div className="compact-call-label">Trip</div>
-                      <div>{call.trip_date || "—"} {call.pickup_time ? `at ${call.pickup_time}` : ""}</div>
-                      <div className="compact-call-muted">Appointment: {call.appointment_time || "—"}</div>
+                      <div>{call.trip_date || "—"} {call.pickup_time ? `at ${formatTimeForDisplay(call.pickup_time, timeFormat)}` : ""}</div>
+                      <div className="compact-call-muted">Appointment: {call.appointment_time ? formatTimeForDisplay(call.appointment_time, timeFormat) : "—"}</div>
                     </div>
                     <div className="compact-call-address">
                       <div className="compact-call-label">Route</div>
@@ -685,8 +689,8 @@ const CallsPage = ({ currentUser }) => {
         {selectedCall && drawerTab === "trip" && (
           <div className="patient-detail-grid">
             <Di label="Trip Date" value={selectedCall.trip_date} />
-            <Di label="Pickup Time" value={selectedCall.pickup_time} />
-            <Di label="Appointment Time" value={selectedCall.appointment_time} />
+            <Di label="Pickup Time" value={formatTimeForDisplay(selectedCall.pickup_time, timeFormat)} />
+            <Di label="Appointment Time" value={formatTimeForDisplay(selectedCall.appointment_time, timeFormat)} />
             <Di label="Pickup Address" value={selectedCall.pickup_address} />
             <Di label="Dropoff Address" value={selectedCall.dropoff_address} />
             <Di label="Patient Name" value={selectedCall.patient_name} />
