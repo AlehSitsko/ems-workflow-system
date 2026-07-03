@@ -80,8 +80,13 @@ def apply_employee_data(employee, data):
 
 
 # Convert an optional employee ID from the frontend into an integer or None.
+# Raises ValueError on a non-empty value that isn't a valid integer, so callers
+# can turn it into a 400 instead of letting it bubble up as an unhandled 500.
 def parse_optional_employee_id(value):
-    if value:
-        return int(value)
+    if value in (None, ""):
+        return None
 
-    return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid employee id: {value!r}")

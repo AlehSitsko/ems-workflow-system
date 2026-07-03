@@ -418,6 +418,25 @@ class Patient(db.Model):
     # General notes.
     notes = db.Column(db.Text)
 
+    # Dispatch-facing operational note — short, practical, not a medical note.
+    dispatch_comment = db.Column(db.Text)
+
+    # Transport / operational defaults.
+    default_mobility_level = db.Column(db.String(50))
+    transport_instructions = db.Column(db.Text)
+    access_instructions = db.Column(db.Text)
+    preferred_language = db.Column(db.String(50))
+    requires_interpreter = db.Column(db.Boolean, default=False)
+
+    # Reduced-exposure flag — UI may mask this patient's details in list views.
+    is_sensitive = db.Column(db.Boolean, default=False)
+
+    # Soft archive — replaces hard delete so call history keeps a valid patient reference.
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    archived_at = db.Column(db.String(50))
+    archived_by = db.Column(db.String(150))
+    archived_reason = db.Column(db.Text)
+
     # Multi-tenancy foundation.
     org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
 
@@ -456,6 +475,114 @@ class Patient(db.Model):
             "emergency_contact_phone": self.emergency_contact_phone,
 
             "notes": self.notes,
+
+            "dispatch_comment": self.dispatch_comment,
+
+            "default_mobility_level": self.default_mobility_level,
+            "transport_instructions": self.transport_instructions,
+            "access_instructions": self.access_instructions,
+            "preferred_language": self.preferred_language,
+            "requires_interpreter": self.requires_interpreter,
+
+            "is_sensitive": self.is_sensitive,
+
+            "is_archived": self.is_archived,
+            "archived_at": self.archived_at,
+            "archived_by": self.archived_by,
+            "archived_reason": self.archived_reason,
+        }
+
+
+class PatientAlert(db.Model):
+    __tablename__ = "patient_alert"
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    patient = db.relationship("Patient", foreign_keys=[patient_id])
+
+    category = db.Column(db.String(30), nullable=False)     # transport/safety/contact/facility/billing/equipment/behavior/language/other
+    severity = db.Column(db.String(20), nullable=False, default="info")  # info/warning/critical
+
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text)
+
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    expires_at = db.Column(db.String(20))  # YYYY-MM-DD, nullable = no expiration
+
+    created_at = db.Column(db.String(50))
+    created_by = db.Column(db.String(150))
+
+    updated_at = db.Column(db.String(50))
+
+    resolved_at = db.Column(db.String(50))
+    resolved_by = db.Column(db.String(150))
+    resolved_reason = db.Column(db.Text)
+
+    def status(self):
+        if not self.is_active:
+            return "resolved" if self.resolved_at else "inactive"
+        if self.expires_at:
+            from datetime import date
+            try:
+                if date.fromisoformat(self.expires_at) < date.today():
+                    return "expired"
+            except ValueError:
+                pass
+        return "active"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "category": self.category,
+            "severity": self.severity,
+            "title": self.title,
+            "description": self.description,
+            "is_active": self.is_active,
+            "expires_at": self.expires_at,
+            "status": self.status(),
+            "created_at": self.created_at,
+            "created_by": self.created_by,
+            "updated_at": self.updated_at,
+            "resolved_at": self.resolved_at,
+            "resolved_by": self.resolved_by,
+            "resolved_reason": self.resolved_reason,
+        }
+
+
+class PatientContact(db.Model):
+    __tablename__ = "patient_contact"
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False)
+    patient = db.relationship("Patient", foreign_keys=[patient_id])
+
+    name = db.Column(db.String(150), nullable=False)
+    relationship_label = db.Column(db.String(100))  # "relationship" is reserved by SQLAlchemy declarative
+    phone = db.Column(db.String(30))
+    email = db.Column(db.String(150))
+    is_primary = db.Column(db.Boolean, default=False)
+    can_authorize_transport = db.Column(db.Boolean, default=False)
+    preferred_contact_method = db.Column(db.String(30))  # phone/email/text
+    notes = db.Column(db.Text)
+
+    created_at = db.Column(db.String(50))
+    updated_at = db.Column(db.String(50))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "patient_id": self.patient_id,
+            "name": self.name,
+            "relationship": self.relationship_label,
+            "phone": self.phone,
+            "email": self.email,
+            "is_primary": self.is_primary,
+            "can_authorize_transport": self.can_authorize_transport,
+            "preferred_contact_method": self.preferred_contact_method,
+            "notes": self.notes,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
 

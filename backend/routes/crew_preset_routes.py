@@ -38,14 +38,22 @@ def create_crew_preset():
 
     crew = data.get("crew") or {}
 
+    try:
+        driver_id = parse_optional_employee_id(crew.get("driver"))
+        medical_id = parse_optional_employee_id(crew.get("medical"))
+        assist1_id = parse_optional_employee_id(crew.get("assist1"))
+        assist2_id = parse_optional_employee_id(crew.get("assist2"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     preset = CrewPreset(
         preset_name=preset_name,
         unit_type=data.get("unitType", "BLS"),
 
-        driver_id=parse_optional_employee_id(crew.get("driver")),
-        medical_id=parse_optional_employee_id(crew.get("medical")),
-        assist1_id=parse_optional_employee_id(crew.get("assist1")),
-        assist2_id=parse_optional_employee_id(crew.get("assist2")),
+        driver_id=driver_id,
+        medical_id=medical_id,
+        assist1_id=assist1_id,
+        assist2_id=assist2_id,
 
         notes=data.get("notes", "").strip(),
     )
@@ -76,13 +84,21 @@ def update_crew_preset(id):
 
     crew = data.get("crew") or {}
 
+    try:
+        driver_id = parse_optional_employee_id(crew.get("driver"))
+        medical_id = parse_optional_employee_id(crew.get("medical"))
+        assist1_id = parse_optional_employee_id(crew.get("assist1"))
+        assist2_id = parse_optional_employee_id(crew.get("assist2"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     preset.preset_name = preset_name
     preset.unit_type = data.get("unitType", "BLS")
 
-    preset.driver_id = parse_optional_employee_id(crew.get("driver"))
-    preset.medical_id = parse_optional_employee_id(crew.get("medical"))
-    preset.assist1_id = parse_optional_employee_id(crew.get("assist1"))
-    preset.assist2_id = parse_optional_employee_id(crew.get("assist2"))
+    preset.driver_id = driver_id
+    preset.medical_id = medical_id
+    preset.assist1_id = assist1_id
+    preset.assist2_id = assist2_id
 
     preset.notes = data.get("notes", "").strip()
 

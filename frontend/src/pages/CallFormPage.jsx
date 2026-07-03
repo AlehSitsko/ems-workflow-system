@@ -3,6 +3,8 @@ import {
   FaArrowLeft,
   FaArrowRight,
   FaCheckCircle,
+  FaExclamationTriangle,
+  FaHistory,
   FaPhoneAlt,
   FaPlus,
   FaSearch,
@@ -16,7 +18,11 @@ import {
   createPatient,
   findDuplicatePatient,
   getPatients,
+  getPatientAlerts,
+  getLastTripTemplate,
 } from "../api/patientsApi";
+
+const SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
 
 // Import the main call intake form component.
 import CallForm from "../components/CallForm";
@@ -82,6 +88,11 @@ function CallFormPage() {
   const [guidedPatientResults, setGuidedPatientResults] = useState([]);
   const [guidedLookupLoading, setGuidedLookupLoading] = useState(false);
   const [guidedLookupError, setGuidedLookupError] = useState("");
+
+  // Full record + active alerts for the selected patient, used to render the Risk Card.
+  const [selectedPatientDetail, setSelectedPatientDetail] = useState(null);
+  const [selectedPatientAlerts, setSelectedPatientAlerts] = useState([]);
+  const [lastTripTemplate, setLastTripTemplate] = useState(null);
 
   // Guided save state.
   const [guidedSaveLoading, setGuidedSaveLoading] = useState(false);
@@ -204,6 +215,11 @@ function CallFormPage() {
         patient.default_service_level?.toLowerCase() || prev.serviceLevel,
     }));
 
+    setSelectedPatientDetail(patient);
+    setLastTripTemplate(null);
+    getPatientAlerts(patient.id).then(setSelectedPatientAlerts).catch(() => setSelectedPatientAlerts([]));
+    getLastTripTemplate(patient.id).then((r) => setLastTripTemplate(r.template)).catch(() => setLastTripTemplate(null));
+
     setGuidedPatientResults([]);
     setGuidedLookupError("");
     setShowPatientLookupDrawer(false);
@@ -218,10 +234,26 @@ function CallFormPage() {
       patientId: null,
     }));
 
+    setSelectedPatientDetail(null);
+    setSelectedPatientAlerts([]);
+    setLastTripTemplate(null);
+
     setGuidedPatientResults([]);
     setGuidedLookupError("");
     setShowPatientLookupDrawer(false);
     setGuidedStep("trip");
+  };
+
+  // Fill pickup/dropoff/service level from the patient's most recent trip.
+  // Date, time, status, and assignment are intentionally left for the dispatcher to set fresh.
+  const handleUseLastTripTemplate = () => {
+    if (!lastTripTemplate) return;
+    setGuidedCallData((prev) => ({
+      ...prev,
+      pickupAddress: lastTripTemplate.pickup_address || prev.pickupAddress,
+      dropoffAddress: lastTripTemplate.dropoff_address || prev.dropoffAddress,
+      serviceLevel: lastTripTemplate.service_level?.toLowerCase() || prev.serviceLevel,
+    }));
   };
 
   // Reset guided workflow after save or manual restart.
@@ -233,6 +265,9 @@ function CallFormPage() {
     setGuidedSaveMessage("");
     setMissingInfoExplanation("");
     setShowPatientLookupDrawer(false);
+    setSelectedPatientDetail(null);
+    setSelectedPatientAlerts([]);
+    setLastTripTemplate(null);
   };
 
   // Sync return route from main trip route.
@@ -615,6 +650,52 @@ function CallFormPage() {
                   Complete caller, route, service, schedule, and return ride
                   details.
                 </p>
+
+                {selectedPatientDetail && (
+                  <div className="alert alert-light border mb-3" style={{ padding: "10px 14px" }}>
+                    <div className="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                      <div>
+                        <strong>
+                          <FaUserInjured style={{ marginRight: 6 }} />
+                          {selectedPatientDetail.first_name} {selectedPatientDetail.last_name}
+                        </strong>
+                        <span style={{ color: "var(--ems-text-muted)", marginLeft: 8, fontSize: 12 }}>
+                          DOB: {selectedPatientDetail.dob || "—"} · Default: {selectedPatientDetail.default_mobility_level || "—"} / {selectedPatientDetail.default_service_level || "No service"}
+                        </span>
+                      </div>
+                      {lastTripTemplate && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                          onClick={handleUseLastTripTemplate}
+                        >
+                          <FaHistory /> Use last trip as template
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedPatientAlerts.length > 0 && (
+                      <div className="d-flex flex-wrap gap-2 mt-2">
+                        {selectedPatientAlerts.map((a) => (
+                          <span
+                            key={a.id}
+                            className="badge"
+                            style={{ background: `${SEVERITY_COLOR[a.severity]}20`, color: SEVERITY_COLOR[a.severity], border: `1px solid ${SEVERITY_COLOR[a.severity]}50`, fontSize: 11 }}
+                          >
+                            <FaExclamationTriangle style={{ marginRight: 4 }} />
+                            {a.title}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedPatientDetail.dispatch_comment && (
+                      <div className="mt-2" style={{ fontSize: 13 }}>
+                        <strong>Dispatch note:</strong> {selectedPatientDetail.dispatch_comment}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="row g-3">
                   <div className="col-md-4">

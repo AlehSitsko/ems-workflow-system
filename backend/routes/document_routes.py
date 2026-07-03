@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from models import db, EmployeeDocument, Employee, DOC_TYPES
 from storage import save_file, delete_file, get_file_response
 from notification_utils import create_notification
+from utils.validation_utils import check_length
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
 
@@ -55,6 +56,12 @@ def upload_document(employee_id):
     title = (request.form.get("title") or "").strip()
     if not title:
         return jsonify({"error": "title is required"}), 400
+
+    try:
+        check_length(title, 200, "title")
+        check_length(request.form.get("notes"), 2000, "notes")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     file_path = file_name = file_size = mime_type = None
 
@@ -138,6 +145,18 @@ def update_document(doc_id):
 
     doc = EmployeeDocument.query.get_or_404(doc_id)
     data = request.get_json() or {}
+
+    if "doc_type" in data and data["doc_type"] not in DOC_TYPES:
+        return jsonify({"error": f"Invalid doc_type. Must be one of: {DOC_TYPES}"}), 400
+
+    if "title" in data and not (data.get("title") or "").strip():
+        return jsonify({"error": "title is required"}), 400
+
+    try:
+        check_length(data.get("title"), 200, "title")
+        check_length(data.get("notes"), 2000, "notes")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     for field in ("title", "doc_type", "document_number", "issuing_body",
                   "issued_date", "expiry_date", "notes"):

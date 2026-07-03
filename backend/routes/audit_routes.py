@@ -18,8 +18,8 @@ def get_audit_log():
     action      = request.args.get("action", "").strip() or None
     date_from   = request.args.get("date_from", "").strip() or None
     date_to     = request.args.get("date_to", "").strip() or None
-    page        = max(1, int(request.args.get("page", 1)))
-    per_page    = min(200, max(1, int(request.args.get("per_page", 50))))
+    page        = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page    = min(200, max(1, request.args.get("per_page", 50, type=int) or 50))
 
     q = AuditLog.query
 

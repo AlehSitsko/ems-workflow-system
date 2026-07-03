@@ -5,11 +5,23 @@ load_dotenv()
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
+from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 from limiter import limiter
 
 from models import db, User
+
+
+# SQLite does not enforce foreign key constraints unless told to per-connection.
+@event.listens_for(Engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    if dbapi_connection.__class__.__module__.startswith("sqlite3"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 from routes.auth_routes import auth_bp
 from routes.employee_routes import employee_bp
@@ -47,6 +59,18 @@ limiter.init_app(app)
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({"error": "Too many login attempts. Please wait a minute and try again."}), 429
+
+
+# Catch-all for unhandled exceptions — returns clean JSON instead of an HTML/stack-trace
+# page. HTTPExceptions (400/403/404/409/429/...) already carry a meaningful status/body
+# from the route itself, so they pass through unchanged.
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    if isinstance(error, HTTPException):
+        return error
+    db.session.rollback()
+    app.logger.exception(error)
+    return jsonify({"error": "Internal server error"}), 500
 
 # Register authentication and user management routes.
 app.register_blueprint(auth_bp)
@@ -167,4 +191,4 @@ with app.app_context():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5050, debug=True)
+    app.run(host="127.0.0.1", port=5050, debug=os.environ.get("FLASK_DEBUG") == "1")
