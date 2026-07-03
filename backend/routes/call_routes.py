@@ -7,13 +7,22 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, Patient
 from notification_utils import create_notification
 from audit_utils import log_action
-from utils.validation_utils import check_length
+from utils.validation_utils import check_length, is_valid_time
 
 
 def _user_name_from_request():
     return request.headers.get("X-User-Name") or None
 
 ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
+
+
+def _validate_time_field(value, field_name):
+    """Return value unchanged if empty or a valid HH:MM 24h time. Raises ValueError otherwise."""
+    if value is None or value == "":
+        return value
+    if not is_valid_time(value):
+        raise ValueError(f"{field_name} must be in HH:MM 24-hour format")
+    return value
 
 
 def _validate_quality_score(value):
@@ -119,6 +128,8 @@ def create_call():
 
     try:
         quality_score = _validate_quality_score(data.get("quality_score"))
+        _validate_time_field(data.get("pickup_time"), "pickup_time")
+        _validate_time_field(data.get("appointment_time"), "appointment_time")
         check_length(data.get("pickup_address"), 500, "pickup_address")
         check_length(data.get("dropoff_address"), 500, "dropoff_address")
         check_length(data.get("caller_phone"), 30, "caller_phone")
@@ -225,6 +236,10 @@ def update_call(call_id):
     try:
         if "quality_score" in data:
             data["quality_score"] = _validate_quality_score(data.get("quality_score"))
+        if "pickup_time" in data:
+            _validate_time_field(data.get("pickup_time"), "pickup_time")
+        if "appointment_time" in data:
+            _validate_time_field(data.get("appointment_time"), "appointment_time")
         check_length(data.get("pickup_address"), 500, "pickup_address")
         check_length(data.get("dropoff_address"), 500, "dropoff_address")
         check_length(data.get("caller_phone"), 30, "caller_phone")
@@ -303,6 +318,11 @@ def uncancel_call(call_id):
 def update_pickup_time(call_id):
     call = Call.query.get_or_404(call_id)
     data = request.get_json() or {}
-    call.pickup_time = data.get("pickup_time", "")
+    new_time = data.get("pickup_time", "")
+    try:
+        _validate_time_field(new_time, "pickup_time")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    call.pickup_time = new_time
     db.session.commit()
     return jsonify(call.to_dict())

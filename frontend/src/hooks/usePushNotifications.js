@@ -17,11 +17,30 @@ const supported =
   "serviceWorker" in navigator &&
   "PushManager" in window;
 
+// Full status classification for the Notification Settings UI:
+// "unsupported" | "insecure" | "not_enabled" | "blocked" | "enabled"
+export function getNotificationStatus() {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "unsupported";
+  }
+  if (!window.isSecureContext) {
+    return "insecure";
+  }
+  if (Notification.permission === "granted") {
+    return "enabled";
+  }
+  if (Notification.permission === "denied") {
+    return "blocked";
+  }
+  return "not_enabled";
+}
+
 export function usePushNotifications(user) {
   const [pushState, setPushState] = useState(() => {
     if (!supported) return "unsupported";
     return Notification.permission; // "default" | "granted" | "denied"
   });
+  const [status, setStatus] = useState(getNotificationStatus);
   const [bannerDismissed, setBannerDismissed] = useState(
     () => localStorage.getItem("push_banner_dismissed") === "1"
   );
@@ -30,6 +49,7 @@ export function usePushNotifications(user) {
   useEffect(() => {
     if (!supported) return;
     setPushState(Notification.permission);
+    setStatus(getNotificationStatus());
   }, []);
 
   // Register service worker once.
@@ -47,6 +67,7 @@ export function usePushNotifications(user) {
       permission = await Notification.requestPermission();
     }
     setPushState(permission);
+    setStatus(getNotificationStatus());
 
     if (permission !== "granted") {
       // User denied or dismissed — close banner.
@@ -83,11 +104,24 @@ export function usePushNotifications(user) {
     setBannerDismissed(true);
   }, []);
 
+  // Sends a real test push through the backend (VAPID) to this user's subscription.
+  const sendTestPush = useCallback(async () => {
+    if (!user?.id) throw new Error("Not logged in");
+    const res = await fetch(`${API_BASE}/api/notifications/test-push`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: user.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Failed to send test notification");
+    return data;
+  }, [user?.id]);
+
   const showBanner =
     supported &&
     !bannerDismissed &&
     pushState !== "granted" &&
     pushState !== "denied";
 
-  return { pushState, showBanner, subscribe, dismiss };
+  return { pushState, status, showBanner, subscribe, dismiss, sendTestPush };
 }

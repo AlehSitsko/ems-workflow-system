@@ -177,19 +177,19 @@ The application currently uses an MVP authentication system with local user reco
 
 Full system access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Users, Kiosk, Notifications, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Users, Kiosk, Settings, User Manual
 
 ### Supervisor
 
 Operational and management access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Kiosk, Notifications, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Kiosk, Settings, User Manual
 
 ### Dispatcher
 
 Operational workflow access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Crew Planner, Kiosk, Notifications, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Crew Planner, Kiosk, Settings, User Manual
 
 Cannot access: Employees, Users, Payroll, HR-only features
 
@@ -197,7 +197,7 @@ Cannot access: Employees, Users, Payroll, HR-only features
 
 Staff and crew planning access.
 
-Can access: Dashboard, Employees, Crew Planner, Payroll, Compliance Dashboard, Kiosk, Notifications (cert_expiring, employee_added only), User Manual
+Can access: Dashboard, Employees, Crew Planner, Payroll, Compliance Dashboard, Kiosk, Settings (cert_expiring, employee_added only), User Manual
 
 Cannot access: Dispatch Board, Call Taking Form, Patients, Calls, Supervisor analytics
 
@@ -354,6 +354,29 @@ Current features:
 | cert_expiring | Employee certification expiring | admin, supervisor, hr |
 | doc_expiring | HR document expiring (90/60/30/14/7 day thresholds) | admin, supervisor, hr |
 | employee_added | New employee added | admin, hr |
+
+## User Preferences
+
+Personal settings saved to the user's account (`Settings` in the avatar menu / Topbar) — apply across sessions and devices, not just the current browser.
+
+### Time Format
+
+* 12-hour or 24-hour, selected once in Settings — default is 12-hour (`2:30 PM`), matching typical US EMS usage
+* Applies everywhere a time-of-day is entered or displayed: Call Form (Classic and Guided), Dispatch Board (call cards, unit shift times, the New Call drawer, the call detail modal, shift alerts), Crew Planner (unit start/end time), Calls history and call detail, Patient call history
+* There is no per-form 12h/24h switch — every `TimeInput` reads the format from the user's settings
+* Internally, times are always sent to and stored by the backend as 24-hour `HH:MM` regardless of the display format; the backend rejects malformed time values (e.g. `25:99`) with `400`
+
+### Push Notifications
+
+* Background dispatch alerts delivered through the browser via the Push API (VAPID keys, service worker, server-side delivery) — arrive even when the tab isn't open
+* Status is read live from the browser's own `Notification` permission plus secure-context and browser-support checks, not just a saved preference: Unsupported, Requires HTTPS, not enabled yet, Blocked, or Enabled
+* When blocked, the panel explains how to re-allow notifications from the browser's site settings (lock icon near the address bar)
+* "Send test notification" is available once enabled, and sends a real push through the backend to confirm end-to-end delivery
+
+### Dispatch Visual Alerts
+
+* Separate from Push Notifications — controls the red flashing/highlighting on the Dispatch Board itself (overdue calls, stuck units), not a browser notification
+* Call overdue alert and Unit stuck alert thresholds (minutes), saved per user
 
 ## Employees
 
@@ -727,6 +750,10 @@ POST  /api/notifications/read
 POST  /api/notifications/read-all
 GET   /api/notifications/prefs?user_id=<id>
 PUT   /api/notifications/prefs
+GET   /api/notifications/vapid-public-key
+POST  /api/notifications/push-subscribe      (body: {user_id, subscription})
+POST  /api/notifications/push-unsubscribe    (body: {user_id})
+POST  /api/notifications/test-push           (body: {user_id} — sends a real push to confirm delivery)
 ```
 
 ### Audit Log
@@ -1080,6 +1107,19 @@ Recommended workflow:
 * Dispatch Board: minimal alert-severity and dispatch-note badges on call cards; full alert detail and dispatch note in the call detail modal's Patient Alerts section
 * Patient Drawer: Alerts and Contacts tabs, archived-patient banner with Restore action, "Show archived" toggle on the Patients page
 
+### Time Format Preference & Notification Settings Overhaul (complete)
+
+* `settings.ui.time_format` ("12h" | "24h", default "12h") is now the single source of truth for time display — the per-form 12h/24h toggle (`TimeFormatToggle`, previously shown next to Crew Planner's "Unit Information" header) has been removed
+* `TimeInput` reads the format from `useUserSettings()` instead of `localStorage` + a custom DOM event; `frontend/src/utils/timeUtils.js` centralizes `normalizeTimeValue`, `parseTimeToMinutes`, `convert12hTo24h`, `convert24hTo12h`, `formatTimeForDisplay`, `isValidTime` — tolerant of legacy time strings (`7:00`, `07:00`, `2:30 PM`), never crashes on an unparseable value
+* Classic Call Form's native `<input type="time">` fields (pickup/appointment/return time) replaced with `TimeInput` for format consistency with Guided mode
+* Backend validates `pickup_time`/`appointment_time` (`utils/validation_utils.is_valid_time`) on call create/update and the Will-Call pickup-time endpoint — malformed values return `400`; `PATCH /api/settings` validates `ui.time_format` and clamps `dispatch.pickup_late_after` / `dispatch.stuck_after` to sane ranges
+* Notification Settings page (`Settings` in the avatar menu) rewritten:
+  * New **Preferences** section with the Time Format control
+  * **Push Notifications** section replaces the old vague "Unavailable" label with a real status derived from `Notification.permission` + secure-context + browser-support checks: Unsupported / Requires HTTPS / not enabled yet / Blocked (with instructions) / Enabled (with a "Send test notification" button backed by a new `POST /api/notifications/test-push` endpoint)
+  * **Dispatch Visual Alerts** kept as its own section, distinct from Push Notifications
+  * Kept the "Push Notifications" name (rather than renaming to "Browser Notifications") because this project already has full push infrastructure — VAPID keys, service worker `push`/`notificationclick` handlers, backend subscription storage, and server-side delivery via `pywebpush` — not just the plain `Notification` API
+* Sidebar nav item for `/notifications` renamed from "Notifications" to "Settings" (gear icon) to match the page's expanded scope — same route, Topbar title, and user-menu link as before
+
 ## Roadmap
 
 ### Performance Optimization (complete)
@@ -1267,7 +1307,10 @@ Interactive User Manual complete (sticky sidebar, search, role filter, 13 accord
 Performance optimization complete (17 DB indexes, N+1 eliminated in calls list + dispatch board,
 +32% throughput, P95 −53% under 20 concurrent workers),
 Data integrity + Patient Module expansion complete (soft archive, duplicate prevention, validation hardening,
-patient alerts/contacts/dispatch comment, Risk Card + last-trip-template on Call Form, Dispatch Board alert badges)
+patient alerts/contacts/dispatch comment, Risk Card + last-trip-template on Call Form, Dispatch Board alert badges),
+Time Format preference + Notification Settings overhaul complete (global 12h/24h user setting replaces per-form
+toggles, tolerant time utils, backend time validation, Push Notifications status handling with real
+enable/blocked/test-notification flows, Dispatch Visual Alerts separated out)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 

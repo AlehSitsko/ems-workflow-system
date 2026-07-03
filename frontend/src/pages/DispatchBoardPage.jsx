@@ -38,6 +38,7 @@ import PatientOrderSection from "../components/crew/PatientOrderSection";
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import CallDrawer from "../components/dispatch/CallDrawer";
 import { useUserSettings } from "../context/useUserSettings";
+import { formatTimeForDisplay } from "../utils/timeUtils";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -229,6 +230,8 @@ function UnitTypeBadge({ unitType }) {
 }
 
 function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturn = call._slot === "return";
@@ -302,8 +305,8 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
       {/* Time */}
       {!willCall && call.pickup_time && (
         <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>
-          🕐 {call.pickup_time}
-          {call.appointment_time && !isReturn && <span style={{ color: "var(--ems-board-tab-inactive)", marginLeft: 6 }}>appt {call.appointment_time}</span>}
+          🕐 {formatTimeForDisplay(call.pickup_time, timeFormat)}
+          {call.appointment_time && !isReturn && <span style={{ color: "var(--ems-board-tab-inactive)", marginLeft: 6 }}>appt {formatTimeForDisplay(call.appointment_time, timeFormat)}</span>}
         </div>
       )}
       {willCall && <div style={{ fontSize: 11, color: "#ca8a04" }}>📞 Will call when ready</div>}
@@ -327,6 +330,8 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
 
 function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick, onSetPickupTime,
   isFirst, isLast, isOverdue, onSetHighPriority, onMoveUp, onMoveDown, hasPriorityControls }) {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const emergency = isEmergencyCall(call);
   const als = isAlsCall(call);
   const isReturnCall = (call.call_type || "").toLowerCase() === "return";
@@ -419,12 +424,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
             {willCall ? (
               <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: "#ffc107" }}>📞 Set pickup time:</span>
-                <input
-                  type="time"
-                  value={wcTime}
-                  onChange={(e) => setWcTime(e.target.value)}
-                  style={{ fontSize: 11, padding: "1px 4px", background: "var(--ems-board-bg-card-alt)", border: "1px solid #2a3347", borderRadius: 4, color: "#e9ecef", width: 90 }}
-                />
+                <TimeInput value={wcTime} onChange={setWcTime} />
                 <button
                   className="btn btn-sm"
                   style={{ fontSize: 10, padding: "1px 8px", background: "rgba(255,193,7,0.15)", color: "#ffc107", border: "1px solid #ffc10744" }}
@@ -435,8 +435,8 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
               </div>
             ) : call.pickup_time ? (
               <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>
-                🕐 {call.pickup_time}
-                {call.appointment_time ? ` · appt ${call.appointment_time}` : ""}
+                🕐 {formatTimeForDisplay(call.pickup_time, timeFormat)}
+                {call.appointment_time ? ` · appt ${formatTimeForDisplay(call.appointment_time, timeFormat)}` : ""}
               </div>
             ) : null}
             {call.pickup_address && (
@@ -484,7 +484,7 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
             <span className="text-muted" style={{ fontSize: 10 }}>unassigned to unit</span>
           </div>
           {ret.returnTime && (
-            <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>🕐 {ret.returnTime}</div>
+            <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>🕐 {formatTimeForDisplay(ret.returnTime, timeFormat)}</div>
           )}
           <div className="text-truncate" style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>
             {ret.returnPickup} → {ret.returnDestination}
@@ -496,6 +496,8 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
 }
 
 function CompletedCallCard({ call, onCardClick }) {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const ret = parseReturnInfo(call.notes);
   return (
     <div className="mb-2" style={{ opacity: 0.45, cursor: "pointer" }} onClick={() => onCardClick && onCardClick(call, true)}>
@@ -514,7 +516,7 @@ function CompletedCallCard({ call, onCardClick }) {
             COMPLETED
           </span>
           {call.pickup_time && (
-            <span className="text-muted" style={{ fontSize: 11 }}>🕐 {call.pickup_time}</span>
+            <span className="text-muted" style={{ fontSize: 11 }}>🕐 {formatTimeForDisplay(call.pickup_time, timeFormat)}</span>
           )}
         </div>
         {call.pickup_address && (
@@ -577,6 +579,8 @@ function setIsoTime(existingIso, callDate, timeStr) {
 }
 
 function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel, onUncancel, onEdit, onTimestampsUpdated }) {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
@@ -728,11 +732,11 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
               <div className="d-flex gap-2">
                 <div style={{ flex: 1, background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px" }}>
                   <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>PICKUP TIME</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ems-board-text)" }}>{call.pickup_time || "—"}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ems-board-text)" }}>{formatTimeForDisplay(call.pickup_time, timeFormat) || "—"}</div>
                 </div>
                 <div style={{ flex: 1, background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px" }}>
                   <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>APPT TIME</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ems-board-text)" }}>{call.appointment_time || "—"}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ems-board-text)" }}>{formatTimeForDisplay(call.appointment_time, timeFormat) || "—"}</div>
                 </div>
                 <div style={{ flex: 1, background: "var(--ems-board-bg-card-alt)", borderRadius: 8, padding: "8px 12px" }}>
                   <div style={{ fontSize: 10, color: "var(--ems-board-text-muted)", marginBottom: 3 }}>TRIP DATE</div>
@@ -1055,6 +1059,7 @@ export default function DispatchBoardPage() {
   // All user settings from context
   const { settings: userSettings, updateSettings, settingsLoaded } = useUserSettings();
   const dispatchThresholds = userSettings.dispatch;
+  const timeFormat = userSettings.ui?.time_format || "12h";
   // Current clock — updates every 30s for overdue detection
   const [now, setNow] = useState(() => new Date());
 
@@ -2009,9 +2014,9 @@ export default function DispatchBoardPage() {
                         {unit.startTime ? (
                           <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--ems-board-text)" }}>
                             <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-                              {unit.startTime}
+                              {formatTimeForDisplay(unit.startTime, timeFormat)}
                               {unit.plannedEndTime && (
-                                <span style={{ color: "var(--ems-text-muted)", fontWeight: 400 }}> → {unit.plannedEndTime}</span>
+                                <span style={{ color: "var(--ems-text-muted)", fontWeight: 400 }}> → {formatTimeForDisplay(unit.plannedEndTime, timeFormat)}</span>
                               )}
                               {shiftSeverity && (
                                 <span style={{
@@ -2138,7 +2143,7 @@ export default function DispatchBoardPage() {
                                   }}>
                                     <span style={{ fontSize: 10, fontWeight: 700, color: overdue ? "#dc3545" : "var(--ems-text-muted)" }}>{idx + 1}.</span>
                                     {c.patient_name || `Call #${c.id}`}
-                                    {c.pickup_time && <span className={overdue ? "ems-overdue-text" : ""} style={{ fontSize: 10, color: overdue ? "#dc3545" : "var(--ems-text-muted)", marginLeft: 2 }}>{c.pickup_time}</span>}
+                                    {c.pickup_time && <span className={overdue ? "ems-overdue-text" : ""} style={{ fontSize: 10, color: overdue ? "#dc3545" : "var(--ems-text-muted)", marginLeft: 2 }}>{formatTimeForDisplay(c.pickup_time, timeFormat)}</span>}
                                   </span>
                                 );
                               })}

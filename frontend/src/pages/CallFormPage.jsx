@@ -35,6 +35,8 @@ import ExportButtons from "../components/ExportButtons";
 
 import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
 import TimeInput from "../components/ui/TimeInput";
+import { useUserSettings } from "../context/useUserSettings";
+import { formatTimeForDisplay } from "../utils/timeUtils";
 
 // Initial guided call state.
 const getInitialGuidedCallData = () => ({
@@ -66,6 +68,9 @@ const getInitialGuidedCallData = () => ({
 });
 
 function CallFormPage() {
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
+
   // Create a ref to access methods exposed by the CallForm component.
   const callFormRef = useRef();
 
@@ -1010,8 +1015,8 @@ function CallFormPage() {
                     </div>
                     <div className="guided-review-muted">
                       Trip date: {guidedCallData.tripDate || "—"} · Pickup:{" "}
-                      {guidedCallData.pickupTime || "—"} · Appointment:{" "}
-                      {guidedCallData.appointmentTime || "—"}
+                      {formatTimeForDisplay(guidedCallData.pickupTime, timeFormat) || "—"} · Appointment:{" "}
+                      {formatTimeForDisplay(guidedCallData.appointmentTime, timeFormat) || "—"}
                     </div>
                   </div>
 

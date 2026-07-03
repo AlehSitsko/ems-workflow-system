@@ -631,7 +631,14 @@ function ComplianceSection() {
 function NotificationsSection() {
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Notifications alert you to operational events in real time. Settings are saved per user account.</p>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Notifications alert you to operational events in real time. All settings on this page are saved per user account and apply across sessions.</p>
+      <Sub title="Time Format">
+        <List items={[
+          "Set once in Settings — 12-hour (2:30 PM) or 24-hour (14:30). Default is 12-hour.",
+          "Applies everywhere a time is entered or shown: Call Form, Dispatch Board (including the New Call drawer), Crew Planner, Calls history, and call detail.",
+          "There is no separate 12h/24h switch inside any individual form — the format always follows your Settings preference.",
+        ]} />
+      </Sub>
       <Sub title="Notification Bell">
         <List items={[
           "Bell icon in the topbar shows unread count (capped at 99+).",
@@ -654,13 +661,20 @@ function NotificationsSection() {
         ]} />
         <Note>Only notification types relevant to your role are shown. Dispatchers do not receive cert or HR notifications.</Note>
       </Sub>
-      <Sub title="Settings (your avatar → Settings)">
+      <Sub title="Push Notifications">
         <List items={[
-          "Toggle each notification type on or off.",
-          "Browser Push Notifications — click Enable to receive alerts in the background (even when the tab is not active).",
+          "Background dispatch alerts delivered through your browser, even when the tab isn't open.",
+          "Status reflects your actual browser permission, not just a saved preference: Unsupported, Requires HTTPS, not enabled yet, Blocked, or Enabled.",
+          "Click Enable notifications to grant permission for the first time.",
+          "If Blocked, the panel explains how to re-allow notifications from your browser's site settings (lock icon near the address bar).",
+          "Once enabled, click Send test notification to confirm delivery end-to-end.",
+        ]} />
+      </Sub>
+      <Sub title="Dispatch Visual Alerts">
+        <List items={[
+          "Separate from Push Notifications — controls the red flashing/highlighting on the Dispatch Board itself, not a browser alert.",
           "Call overdue alert — minutes after pickup time before a call flashes red on the board.",
           "Unit stuck alert — minutes in the same status before the unit status flashes red.",
-          "All settings are saved to your account — restored automatically on next login.",
         ]} />
       </Sub>
       <Sub title="Panel Sizes">

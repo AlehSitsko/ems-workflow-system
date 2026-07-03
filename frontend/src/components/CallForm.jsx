@@ -30,6 +30,7 @@ import {
 const SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
 
 import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
+import TimeInput from "./ui/TimeInput";
 
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger exposed methods externally.
@@ -764,13 +765,10 @@ setSubmitMessage("Call and patient record saved successfully.");
                 Pickup Time
               </label>
 
-              <input
-                type="time"
-                className="form-control"
+              <TimeInput
                 id="pickupTime"
-                name="pickupTime"
                 value={formData.pickupTime}
-                onChange={handleChange}
+                onChange={(v) => setFormData((prev) => ({ ...prev, pickupTime: v }))}
                 disabled={isSubmitting}
               />
             </div>
@@ -781,13 +779,10 @@ setSubmitMessage("Call and patient record saved successfully.");
                   Appointment Time
                 </label>
 
-                <input
-                  type="time"
-                  className="form-control"
+                <TimeInput
                   id="appointmentTime"
-                  name="appointmentTime"
                   value={formData.appointmentTime}
-                  onChange={handleChange}
+                  onChange={(v) => setFormData((prev) => ({ ...prev, appointmentTime: v }))}
                   disabled={isSubmitting}
                 />
               </div>
@@ -898,13 +893,10 @@ setSubmitMessage("Call and patient record saved successfully.");
                       Return Pick Up Time
                     </label>
 
-                    <input
-                      type="time"
-                      className="form-control"
+                    <TimeInput
                       id="returnTime"
-                      name="returnTime"
                       value={formData.returnTime}
-                      onChange={handleChange}
+                      onChange={(v) => setFormData((prev) => ({ ...prev, returnTime: v }))}
                       disabled={isSubmitting}
                     />
                   </div>

@@ -43,7 +43,9 @@ import {
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import { getTodayDate } from "../utils/callUtils";
 import EntityDrawer from "../components/ui/EntityDrawer";
-import TimeInput, { TimeFormatToggle } from "../components/ui/TimeInput";
+import TimeInput from "../components/ui/TimeInput";
+import { useUserSettings } from "../context/useUserSettings";
+import { formatTimeForDisplay } from "../utils/timeUtils";
 
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
@@ -81,6 +83,8 @@ const initialUnitForm = {
 function CrewPlannerPage() {
   const confirm = useConfirm();
   const toast = useToast();
+  const { settings } = useUserSettings();
+  const timeFormat = settings?.ui?.time_format || "12h";
   /*
     Employee state.
     Employees are loaded from the backend and used for crew assignment.
@@ -824,13 +828,13 @@ function CrewPlannerPage() {
 
       existingAssignments.forEach((assignment) => {
         warnings.push(
-          `${employee.firstName} ${employee.lastName} is already assigned to Truck ${assignment.truckNumber} (${assignment.unitType}, ${assignment.startTime}) as ${assignment.role}.`
+          `${employee.firstName} ${employee.lastName} is already assigned to Truck ${assignment.truckNumber} (${assignment.unitType}, ${formatTimeForDisplay(assignment.startTime, timeFormat)}) as ${assignment.role}.`
         );
       });
     });
 
     return warnings;
-  }, [unitForm, employees, units, editingUnitId]);
+  }, [unitForm, employees, units, editingUnitId, timeFormat]);
 
   /*
     Collects employee IDs already assigned to existing units on the selected date.
@@ -1278,7 +1282,6 @@ function CrewPlannerPage() {
                         </span>
 
                         <h5>Unit Information</h5>
-                        <TimeFormatToggle />
                       </div>
 
                       <div className="row g-3">
