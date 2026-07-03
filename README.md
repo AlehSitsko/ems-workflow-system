@@ -458,6 +458,15 @@ Current features:
 * Apply existing preset
 * Faster daily planning
 
+## Vehicle Registry
+
+Current features:
+
+* Inline panel inside Crew Planner — master list of trucks/units used by the unit form and Dispatch Board
+* Fields: unit name, unit number, unit type (BLS / ALS / BARI / CCT), notes
+* Toggle active/inactive instead of deleting, to keep historical assignments intact
+* Selecting a vehicle in the crew unit form auto-fills its unit type
+
 ## Time Tracking
 
 Current features:
