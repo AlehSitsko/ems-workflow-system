@@ -9,6 +9,7 @@ import { useToast } from "./ui/useToast";
 
 import {
   FaClipboardCheck,
+  FaExclamationTriangle,
   FaPhoneAlt,
   FaRoute,
   FaSearch,
@@ -23,7 +24,10 @@ import {
   createPatient,
   findDuplicatePatient,
   getPatients,
+  getPatientAlerts,
 } from "../api/patientsApi";
+
+const SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
 
 import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
 
@@ -71,6 +75,7 @@ const CallForm = forwardRef((props, ref) => {
   const [formData, setFormData] = useState(initialFormData);
   const [patientSearchResults, setPatientSearchResults] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [selectedPatientAlerts, setSelectedPatientAlerts] = useState([]);
   const [missingInfoExplanation, setMissingInfoExplanation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
@@ -222,6 +227,7 @@ const CallForm = forwardRef((props, ref) => {
     }
 
     setSelectedPatient(patient);
+    getPatientAlerts(patient.id).then(setSelectedPatientAlerts).catch(() => setSelectedPatientAlerts([]));
 
     setFormData((prev) => ({
       ...prev,
@@ -250,6 +256,7 @@ const CallForm = forwardRef((props, ref) => {
     });
 
     setSelectedPatient(null);
+    setSelectedPatientAlerts([]);
     setPatientSearchResults([]);
     setMissingInfoExplanation("");
     setSubmitMessage("");
@@ -642,8 +649,31 @@ setSubmitMessage("Call and patient record saved successfully.");
 
           {selectedPatient && (
             <div className="alert alert-success mt-3 mb-0">
-              Selected Patient: {selectedPatient.first_name}{" "}
-              {selectedPatient.last_name} — DOB: {selectedPatient.dob || "—"}
+              <div>
+                Selected Patient: {selectedPatient.first_name}{" "}
+                {selectedPatient.last_name} — DOB: {selectedPatient.dob || "—"}
+              </div>
+
+              {selectedPatientAlerts.length > 0 && (
+                <div className="d-flex flex-wrap gap-2 mt-2">
+                  {selectedPatientAlerts.map((a) => (
+                    <span
+                      key={a.id}
+                      className="badge"
+                      style={{ background: `${SEVERITY_COLOR[a.severity]}20`, color: SEVERITY_COLOR[a.severity], border: `1px solid ${SEVERITY_COLOR[a.severity]}50`, fontSize: 11 }}
+                    >
+                      <FaExclamationTriangle style={{ marginRight: 4 }} />
+                      {a.title}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {selectedPatient.dispatch_comment && (
+                <div className="mt-2" style={{ fontSize: 13 }}>
+                  <strong>Dispatch note:</strong> {selectedPatient.dispatch_comment}
+                </div>
+              )}
             </div>
           )}
         </section>

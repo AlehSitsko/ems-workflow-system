@@ -49,7 +49,7 @@ def section(title):
 def rstr(n=5):
     return "".join(random.choices(string.ascii_uppercase, k=n))
 
-created = {"vehicles": [], "crew_units": []}
+created = {"vehicles": [], "crew_units": [], "patients": [], "calls": []}
 
 
 # ─── SECTION 1: VEHICLES ──────────────────────────────────────────────────────
@@ -400,10 +400,16 @@ def test_notifications():
 def test_data_integrity():
     section("DATA INTEGRITY — db rollback + no partial writes")
 
-    # 6.1 Valid call round-trip
-    r_patient = S.get(f"{BASE}/api/patients?per_page=1")
-    if r_patient.status_code == 200 and r_patient.json().get("patients"):
-        pid = r_patient.json()["patients"][0]["id"]
+    # 6.1 Valid call round-trip (create a dedicated patient so this never depends
+    # on leftover data from other test runs).
+    r_new_patient = S.post(f"{BASE}/api/patients", json={
+        "first_name": f"QART{rstr(4)}",
+        "last_name": "Roundtrip",
+        "dob": "1985-05-05",
+    })
+    if r_new_patient.status_code == 201:
+        pid = r_new_patient.json()["id"]
+        created.setdefault("patients", []).append(pid)
         r_call = S.post(f"{BASE}/api/calls", json={
             "patient_id": pid,
             "dispatcher_name": "QATester",
@@ -417,18 +423,18 @@ def test_data_integrity():
         })
         if r_call.status_code == 201:
             call_id = r_call.json()["id"]
+            created.setdefault("calls", []).append(call_id)
             ok(f"POST /api/calls → 201 (call #{call_id})")
-            # Update status
-            r_upd = S.patch(f"{BASE}/api/dispatch/calls/{call_id}/status",
-                           json={"status": "completed"})
+            # Update status via the real call update endpoint (admin/supervisor only)
+            r_upd = S.put(f"{BASE}/api/calls/{call_id}", json={"status": "completed"})
             if r_upd.status_code == 200:
-                ok("PATCH /api/dispatch/calls/:id/status → 200")
+                ok("PUT /api/calls/:id status update → 200")
             else:
-                warn("PATCH call status", f"{r_upd.status_code}: {r_upd.text[:80]}")
+                warn("PUT /api/calls/:id status update", f"{r_upd.status_code}: {r_upd.text[:80]}")
         else:
             warn("POST /api/calls", f"{r_call.status_code}")
     else:
-        warn("No patients for call round-trip test")
+        warn("Could not create patient for call round-trip test", f"{r_new_patient.status_code}")
 
     # 6.2 Verify crew unit DB state after rollback test
     # Send invalid payload → should get error, not partial record
@@ -612,12 +618,249 @@ def test_edge_cases():
     else:
         fail("POST /crew-units — SQL injection probe", f"got {r.status_code}: {r.text[:80]}")
 
+    # 8.7 Invalid crew employee id → 400, not 500
+    p = {
+        "shiftDate": TODAY,
+        "truckNumber": f"ED{rstr(3)}",
+        "startTime": "09:00",
+        "crew": {"driver": "abc"},
+        "patientOrder": [{"name": "test", "time": "", "callId": None}],
+    }
+    r = S.post(f"{BASE}/api/crew-units", json=p)
+    if r.status_code == 400:
+        ok("POST /crew-units — invalid crew employee id → 400 (not 500)")
+    else:
+        fail("POST /crew-units — invalid crew employee id", f"got {r.status_code}")
+
+    # 8.8 Invalid shiftDate / startTime → 400, not silently accepted
+    p = {
+        "shiftDate": "bad-date",
+        "truckNumber": f"ED{rstr(3)}",
+        "startTime": "99:99",
+        "patientOrder": [{"name": "test", "time": "", "callId": None}],
+    }
+    r = S.post(f"{BASE}/api/crew-units", json=p)
+    if r.status_code == 400:
+        ok("POST /crew-units — invalid shiftDate/startTime → 400")
+    else:
+        fail("POST /crew-units — invalid shiftDate/startTime", f"got {r.status_code}")
+
+    # 8.9 Invalid audit page/per_page → not 500
+    r = S.get(f"{BASE}/api/audit?page=abc")
+    if r.status_code != 500:
+        ok(f"GET /api/audit?page=abc → {r.status_code} (not 500)")
+    else:
+        fail("GET /api/audit?page=abc", "got 500")
+
+    r = S.get(f"{BASE}/api/audit?per_page=abc")
+    if r.status_code != 500:
+        ok(f"GET /api/audit?per_page=abc → {r.status_code} (not 500)")
+    else:
+        fail("GET /api/audit?per_page=abc", "got 500")
+
+    # 8.10 Invalid quality_score → 400
+    r = S.post(f"{BASE}/api/calls", json={"trip_date": TODAY, "quality_score": "notnum"})
+    if r.status_code == 400:
+        ok("POST /calls — invalid quality_score → 400")
+    else:
+        fail("POST /calls — invalid quality_score", f"got {r.status_code}")
+
+    r = S.post(f"{BASE}/api/calls", json={"trip_date": TODAY, "quality_score": 150})
+    if r.status_code == 400:
+        ok("POST /calls — quality_score out of range (150) → 400")
+    else:
+        fail("POST /calls — quality_score out of range", f"got {r.status_code}")
+
+    # 8.11 Invalid vehicle unitType → 400
+    r = S.post(f"{BASE}/api/vehicles", json={
+        "unitName": f"EdgeVeh{rstr(3)}", "unitNumber": f"E{rstr(4)}", "unitType": "whatever",
+    })
+    if r.status_code == 400:
+        ok("POST /vehicles — invalid unitType → 400")
+    else:
+        fail("POST /vehicles — invalid unitType", f"got {r.status_code}")
+        if r.status_code == 201:
+            created["vehicles"].append(r.json()["id"])
+
     # 8.6 Wrong HTTP method on alerts → 405
     r = S.put(f"{BASE}/api/crew-units/alerts")
     if r.status_code == 405:
         ok("PUT /crew-units/alerts → 405 Method Not Allowed")
     else:
         warn("PUT /crew-units/alerts", f"got {r.status_code}")
+
+
+# ─── SECTION 9: PATIENT MODULE ────────────────────────────────────────────────
+def test_patients():
+    section("PATIENT MODULE — duplicate prevention, archive, alerts, contacts")
+
+    # 9.1 Create + exact duplicate → 409
+    dup_name = f"QADup{rstr(4)}"
+    p1 = {"first_name": dup_name, "last_name": "Patient", "dob": "1990-01-01"}
+    r1 = S.post(f"{BASE}/api/patients", json=p1)
+    if r1.status_code == 201:
+        pid = r1.json()["id"]
+        created["patients"].append(pid)
+        ok(f"POST /patients → 201 (patient #{pid})")
+
+        r2 = S.post(f"{BASE}/api/patients", json=p1)
+        if r2.status_code == 409:
+            ok("POST /patients — exact duplicate (name+dob) → 409")
+        else:
+            fail("POST /patients — duplicate prevention", f"got {r2.status_code}")
+    else:
+        fail("POST /patients", f"got {r1.status_code}: {r1.text[:120]}")
+        return
+
+    # 9.2 Archive replaces hard delete; existing calls keep a valid patient reference
+    r_call = S.post(f"{BASE}/api/calls", json={
+        "patient_id": pid, "trip_date": TODAY,
+        "pickup_address": "1 QA St", "dropoff_address": "2 QA Ave",
+    })
+    call_id = r_call.json().get("id") if r_call.status_code == 201 else None
+    if call_id:
+        created["calls"].append(call_id)
+
+    r_arch = S.delete(f"{BASE}/api/patient/{pid}", json={"reason": "QA archive test"})
+    if r_arch.status_code == 200 and r_arch.json().get("patient", {}).get("is_archived"):
+        ok("DELETE /patient/:id → archives instead of hard delete")
+    else:
+        fail("DELETE /patient/:id — archive", f"got {r_arch.status_code}: {r_arch.text[:120]}")
+
+    r_list = S.get(f"{BASE}/api/patients?per_page=200")
+    archived_still_listed = any(p["id"] == pid for p in r_list.json().get("items", []))
+    if not archived_still_listed:
+        ok("GET /patients (default) — archived patient hidden from active search")
+    else:
+        fail("GET /patients — archived patient leaked into default list")
+
+    r_list_all = S.get(f"{BASE}/api/patients?show_archived=1&per_page=200")
+    if any(p["id"] == pid for p in r_list_all.json().get("items", [])):
+        ok("GET /patients?show_archived=1 — archived patient visible")
+    else:
+        fail("GET /patients?show_archived=1 — archived patient missing")
+
+    if call_id:
+        r_calls = S.get(f"{BASE}/api/calls?per_page=200")
+        match = next((c for c in r_calls.json().get("items", []) if c["id"] == call_id), None)
+        if match and match.get("patient_name"):
+            ok(f"GET /calls — call for archived patient still resolves patient_name ('{match['patient_name']}')")
+        else:
+            fail("GET /calls — archived patient's call lost patient_name", str(match))
+
+    # 9.3 Restore
+    r_restore = S.post(f"{BASE}/api/patient/{pid}/restore")
+    if r_restore.status_code == 200 and not r_restore.json().get("patient", {}).get("is_archived"):
+        ok("POST /patient/:id/restore — patient active again")
+    else:
+        fail("POST /patient/:id/restore", f"got {r_restore.status_code}")
+
+    r_restore_again = S.post(f"{BASE}/api/patient/{pid}/restore")
+    if r_restore_again.status_code == 409:
+        ok("POST /patient/:id/restore (already active) → 409")
+    else:
+        fail("POST /patient/:id/restore twice", f"got {r_restore_again.status_code}")
+
+    # 9.4 dispatch_comment
+    comment = "Call daughter before pickup. Use side entrance."
+    r_dc = S.put(f"{BASE}/api/patient/{pid}", json={"dispatch_comment": comment})
+    if r_dc.status_code == 200 and r_dc.json().get("dispatch_comment") == comment:
+        ok("PUT /patient/:id — dispatch_comment saved and returned")
+    else:
+        fail("PUT /patient/:id — dispatch_comment", f"got {r_dc.status_code}")
+
+    # 9.5 Alerts: create, invalid category/severity, list, resolve
+    r_bad_cat = S.post(f"{BASE}/api/patient/{pid}/alerts", json={
+        "category": "bogus", "severity": "info", "title": "x"})
+    if r_bad_cat.status_code == 400:
+        ok("POST /patient/:id/alerts — invalid category → 400")
+    else:
+        fail("POST alerts — invalid category", f"got {r_bad_cat.status_code}")
+
+    r_bad_sev = S.post(f"{BASE}/api/patient/{pid}/alerts", json={
+        "category": "safety", "severity": "bogus", "title": "x"})
+    if r_bad_sev.status_code == 400:
+        ok("POST /patient/:id/alerts — invalid severity → 400")
+    else:
+        fail("POST alerts — invalid severity", f"got {r_bad_sev.status_code}")
+
+    r_alert = S.post(f"{BASE}/api/patient/{pid}/alerts", json={
+        "category": "transport", "severity": "warning", "title": "Requires stretcher"})
+    if r_alert.status_code == 201:
+        alert_id = r_alert.json()["id"]
+        ok(f"POST /patient/:id/alerts → 201 (alert #{alert_id})")
+    else:
+        fail("POST /patient/:id/alerts", f"got {r_alert.status_code}")
+        alert_id = None
+
+    if alert_id:
+        r_active = S.get(f"{BASE}/api/patient/{pid}/alerts")
+        if r_active.status_code == 200 and any(a["id"] == alert_id for a in r_active.json()):
+            ok("GET /patient/:id/alerts — active alert listed")
+        else:
+            fail("GET /patient/:id/alerts — active alert missing")
+
+        r_resolve = S.post(f"{BASE}/api/patient/{pid}/alerts/{alert_id}/resolve", json={"reason": "handled"})
+        if r_resolve.status_code == 200 and r_resolve.json().get("status") == "resolved":
+            ok("POST /patient/:id/alerts/:id/resolve — alert resolved")
+        else:
+            fail("POST alerts resolve", f"got {r_resolve.status_code}")
+
+        r_after = S.get(f"{BASE}/api/patient/{pid}/alerts")
+        if r_after.status_code == 200 and not any(a["id"] == alert_id for a in r_after.json()):
+            ok("GET /patient/:id/alerts (active only) — resolved alert excluded")
+        else:
+            fail("GET /patient/:id/alerts — resolved alert still showing as active")
+
+        r_resolve_again = S.post(f"{BASE}/api/patient/{pid}/alerts/{alert_id}/resolve")
+        if r_resolve_again.status_code == 409:
+            ok("POST alerts resolve (already resolved) → 409")
+        else:
+            fail("POST alerts resolve twice", f"got {r_resolve_again.status_code}")
+
+    # 9.6 Contacts: create, update, delete
+    r_contact = S.post(f"{BASE}/api/patient/{pid}/contacts", json={
+        "name": "Jane Doe", "relationship": "Daughter", "phone": "555-1234",
+        "can_authorize_transport": True,
+    })
+    if r_contact.status_code == 201:
+        contact_id = r_contact.json()["id"]
+        ok(f"POST /patient/:id/contacts → 201 (contact #{contact_id})")
+
+        r_upd_contact = S.put(f"{BASE}/api/patient/{pid}/contacts/{contact_id}", json={"phone": "555-9999"})
+        if r_upd_contact.status_code == 200 and r_upd_contact.json().get("phone") == "555-9999":
+            ok("PUT /patient/:id/contacts/:id — updated")
+        else:
+            fail("PUT contact update", f"got {r_upd_contact.status_code}")
+
+        r_del_contact = S.delete(f"{BASE}/api/patient/{pid}/contacts/{contact_id}")
+        if r_del_contact.status_code == 200:
+            ok("DELETE /patient/:id/contacts/:id → 200")
+        else:
+            fail("DELETE contact", f"got {r_del_contact.status_code}")
+    else:
+        fail("POST /patient/:id/contacts", f"got {r_contact.status_code}")
+
+    # 9.7 last-trip-template excludes stale scheduling fields
+    if call_id:
+        r_template = S.get(f"{BASE}/api/patient/{pid}/last-trip-template")
+        tpl = r_template.json().get("template") if r_template.status_code == 200 else None
+        if tpl and tpl.get("pickup_address") == "1 QA St" and "status" not in tpl and "trip_date" not in tpl:
+            ok("GET /patient/:id/last-trip-template — returns reusable fields only")
+        else:
+            fail("GET /patient/:id/last-trip-template", str(tpl))
+
+    # 9.8 Field length limit
+    r_long = S.post(f"{BASE}/api/patients", json={
+        "first_name": f"QALong{rstr(4)}", "last_name": "Patient",
+        "dob": "1991-01-01", "notes": "x" * 6000,
+    })
+    if r_long.status_code == 400:
+        ok("POST /patients — notes over length limit → 400")
+    else:
+        fail("POST /patients — notes length limit", f"got {r_long.status_code}")
+        if r_long.status_code == 201:
+            created["patients"].append(r_long.json()["id"])
 
 
 # ─── CLEANUP ──────────────────────────────────────────────────────────────────
@@ -627,7 +870,10 @@ def cleanup():
         S.delete(f"{BASE}/api/crew-units/{uid}")
     for vid in created["vehicles"]:
         S.delete(f"{BASE}/api/vehicles/{vid}")
-    print(f"  Removed {len(created['crew_units'])} crew units, {len(created['vehicles'])} vehicles")
+    for pid in created["patients"]:
+        S.delete(f"{BASE}/api/patient/{pid}")  # archives — patients are never hard-deleted
+    print(f"  Removed {len(created['crew_units'])} crew units, {len(created['vehicles'])} vehicles, "
+          f"archived {len(created['patients'])} patients")
 
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
@@ -653,6 +899,7 @@ if __name__ == "__main__":
     test_notifications()
     test_data_integrity()
     test_edge_cases()
+    test_patients()
     test_load()
     cleanup()
 

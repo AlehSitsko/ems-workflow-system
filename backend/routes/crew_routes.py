@@ -5,10 +5,24 @@ from flask import Blueprint, jsonify, request
 
 from models import db, DailyCrewUnit
 from utils.employee_utils import parse_optional_employee_id
+from utils.validation_utils import is_valid_date, is_valid_time, check_length
 from notification_utils import create_notification
 
 
 crew_bp = Blueprint("crew", __name__, url_prefix="/api/crew-units")
+
+
+def _validate_shift_datetimes(shift_date, start_time, end_time, end_date):
+    """Return an error message string if any date/time field is malformed, else None."""
+    if not is_valid_date(shift_date):
+        return "Invalid shiftDate. Expected YYYY-MM-DD."
+    if not is_valid_time(start_time):
+        return "Invalid startTime. Expected HH:MM."
+    if end_time and not is_valid_time(end_time):
+        return "Invalid endTime. Expected HH:MM."
+    if end_date and not is_valid_date(end_date):
+        return "Invalid endDate. Expected YYYY-MM-DD."
+    return None
 
 
 def _parse_duration(value):
@@ -74,24 +88,45 @@ def create_daily_crew_unit():
     if not start_time:
         return jsonify({"error": "Start Time is required"}), 400
 
+    end_time = (data.get("endTime") or "").strip() or None
+    end_date = (data.get("endDate") or "").strip() or None
+    dt_error = _validate_shift_datetimes(shift_date, start_time, end_time, end_date)
+    if dt_error:
+        return jsonify({"error": dt_error}), 400
+
+    try:
+        check_length(truck_number, 50, "truckNumber")
+        check_length(data.get("notes"), 5000, "notes")
+        check_length(data.get("delayReason"), 1000, "delayReason")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     crew = data.get("crew") or {}
+
+    try:
+        driver_id = parse_optional_employee_id(crew.get("driver"))
+        medical_id = parse_optional_employee_id(crew.get("medical"))
+        assist1_id = parse_optional_employee_id(crew.get("assist1"))
+        assist2_id = parse_optional_employee_id(crew.get("assist2"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     unit = DailyCrewUnit(
         shift_date=shift_date,
         unit_type=data.get("unitType", "BLS"),
         truck_number=truck_number,
         start_time=start_time,
-        end_time=(data.get("endTime") or "").strip() or None,
-        end_date=(data.get("endDate") or "").strip() or None,
+        end_time=end_time,
+        end_date=end_date,
         shift_type=data.get("shiftType", "day"),
         shift_duration_hours=_parse_duration(data.get("shiftDurationHours")),
         shift_status=data.get("shiftStatus", "scheduled"),
         actual_end_time=(data.get("actualEndTime") or "").strip() or None,
         delay_reason=(data.get("delayReason") or "").strip() or None,
-        driver_id=parse_optional_employee_id(crew.get("driver")),
-        medical_id=parse_optional_employee_id(crew.get("medical")),
-        assist1_id=parse_optional_employee_id(crew.get("assist1")),
-        assist2_id=parse_optional_employee_id(crew.get("assist2")),
+        driver_id=driver_id,
+        medical_id=medical_id,
+        assist1_id=assist1_id,
+        assist2_id=assist2_id,
         notes=data.get("notes", "").strip(),
         created_at=data.get("createdAt"),
         updated_at=data.get("updatedAt"),
@@ -137,14 +172,35 @@ def update_daily_crew_unit(id):
     if not start_time:
         return jsonify({"error": "Start Time is required"}), 400
 
+    end_time = (data.get("endTime") or "").strip() or None
+    end_date = (data.get("endDate") or "").strip() or None
+    dt_error = _validate_shift_datetimes(shift_date, start_time, end_time, end_date)
+    if dt_error:
+        return jsonify({"error": dt_error}), 400
+
+    try:
+        check_length(truck_number, 50, "truckNumber")
+        check_length(data.get("notes"), 5000, "notes")
+        check_length(data.get("delayReason"), 1000, "delayReason")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     crew = data.get("crew") or {}
+
+    try:
+        driver_id = parse_optional_employee_id(crew.get("driver"))
+        medical_id = parse_optional_employee_id(crew.get("medical"))
+        assist1_id = parse_optional_employee_id(crew.get("assist1"))
+        assist2_id = parse_optional_employee_id(crew.get("assist2"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     unit.shift_date = shift_date
     unit.unit_type = data.get("unitType", "BLS")
     unit.truck_number = truck_number
     unit.start_time = start_time
-    unit.end_time = (data.get("endTime") or "").strip() or None
-    unit.end_date = (data.get("endDate") or "").strip() or None
+    unit.end_time = end_time
+    unit.end_date = end_date
     unit.shift_type = data.get("shiftType", unit.shift_type or "day")
     if "shiftDurationHours" in data:
         unit.shift_duration_hours = _parse_duration(data.get("shiftDurationHours"))
@@ -154,10 +210,10 @@ def update_daily_crew_unit(id):
         unit.actual_end_time = (data.get("actualEndTime") or "").strip() or None
     if "delayReason" in data:
         unit.delay_reason = (data.get("delayReason") or "").strip() or None
-    unit.driver_id = parse_optional_employee_id(crew.get("driver"))
-    unit.medical_id = parse_optional_employee_id(crew.get("medical"))
-    unit.assist1_id = parse_optional_employee_id(crew.get("assist1"))
-    unit.assist2_id = parse_optional_employee_id(crew.get("assist2"))
+    unit.driver_id = driver_id
+    unit.medical_id = medical_id
+    unit.assist1_id = assist1_id
+    unit.assist2_id = assist2_id
     unit.notes = data.get("notes", "").strip()
     unit.updated_at = data.get("updatedAt")
     _apply_patient_order(unit, data)

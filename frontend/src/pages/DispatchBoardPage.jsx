@@ -15,6 +15,8 @@ import {
   FaPlus,
   FaEdit,
   FaTrash,
+  FaExclamationTriangle,
+  FaUserSecret,
 } from "react-icons/fa";
 import {
   fetchBoard,
@@ -26,6 +28,7 @@ import {
   updateCallOrder,
 } from "../api/dispatchApi";
 import { cancelCall, uncancelCall, getCalls, updateCall } from "../api/callsApi";
+import { getPatient, getPatientAlerts } from "../api/patientsApi";
 import { getCurrentUser } from "../api/authApi";
 import { getEmployees } from "../api/employeesApi";
 import { createCrewUnit, updateCrewUnit, deleteCrewUnit, makeNightCrew } from "../api/crewApi";
@@ -274,6 +277,22 @@ function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
           {isCancelled && <span style={{ fontSize: 9, color: "#6b7280", background: "rgba(107,114,128,0.15)", border: "1px solid rgba(107,114,128,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>CNCL</span>}
           {isCompleted && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>DONE</span>}
           {emergency && !isCancelled && <span style={{ fontSize: 9, color: "#f87171", background: "rgba(220,53,69,0.15)", border: "1px solid rgba(220,53,69,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>EMRG</span>}
+          {call.patient_alert_severity && (
+            <span
+              title={`${call.patient_alert_count} active patient alert(s)`}
+              style={{ fontSize: 9, color: ALERT_SEVERITY_COLOR[call.patient_alert_severity], background: `${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}20`, border: `1px solid ${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}55`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}
+            >
+              <FaExclamationTriangle style={{ fontSize: 8 }} />
+            </span>
+          )}
+          {call.patient_dispatch_comment && (
+            <span
+              title="Patient has a dispatch note"
+              style={{ fontSize: 9, color: "#6ea8fe", background: "rgba(110,168,254,0.15)", border: "1px solid rgba(110,168,254,0.35)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}
+            >
+              note
+            </span>
+          )}
           <span style={{ fontSize: 9, color: als ? "#1d4ed8" : "#166534", background: als ? "rgba(29,78,216,0.12)" : "rgba(22,101,52,0.12)", border: `1px solid ${als ? "rgba(29,78,216,0.4)" : "rgba(22,101,52,0.4)"}`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
             {als ? "ALS" : "BLS"}
           </span>
@@ -371,6 +390,24 @@ function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete,
               )}
               {als && <span className="badge badge-als" style={{ fontSize: 10 }}>ALS</span>}
               {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
+              {call.patient_alert_severity && (
+                <span
+                  title={`${call.patient_alert_count} active patient alert(s)`}
+                  className="badge"
+                  style={{ fontSize: 10, color: ALERT_SEVERITY_COLOR[call.patient_alert_severity], background: `${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}20`, border: `1px solid ${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}55` }}
+                >
+                  <FaExclamationTriangle style={{ fontSize: 9 }} />
+                </span>
+              )}
+              {call.patient_dispatch_comment && (
+                <span
+                  title="Patient has a dispatch note"
+                  className="badge"
+                  style={{ fontSize: 10, color: "#6ea8fe", background: "rgba(110,168,254,0.15)", border: "1px solid rgba(110,168,254,0.35)" }}
+                >
+                  note
+                </span>
+              )}
               {isCurrent && unitStatus && <StatusPill status={unitStatus} size="sm" />}
               {!isCurrent && (
                 <span style={{ fontSize: 10, color: "var(--ems-board-text-muted)", background: "var(--ems-board-bg-input)", padding: "1px 6px", borderRadius: 4 }}>
@@ -510,6 +547,8 @@ const TS_FIELDS = [
   { key: "completed_at",     label: "Completed",    color: "#adb5bd" },
 ];
 
+const ALERT_SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
+
 function isoToLocalTime(iso) {
   if (!iso) return "";
   try {
@@ -548,6 +587,16 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
   const [tsValues, setTsValues] = useState({});
   const [tsSaving, setTsSaving] = useState(false);
   const [tsError, setTsError] = useState("");
+
+  // Patient safety context — active alerts, dispatch note, sensitive flag.
+  const [patientAlerts, setPatientAlerts] = useState([]);
+  const [patientExtra, setPatientExtra] = useState(null);
+
+  useEffect(() => {
+    if (!call.patient_id) { setPatientAlerts([]); setPatientExtra(null); return; }
+    getPatientAlerts(call.patient_id).then(setPatientAlerts).catch(() => setPatientAlerts([]));
+    getPatient(call.patient_id).then(setPatientExtra).catch(() => setPatientExtra(null));
+  }, [call.patient_id]);
 
   useEffect(() => {
     const init = {};
@@ -742,6 +791,36 @@ function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, o
                 </div>
               )}
             </Section>
+
+            {/* Patient alerts + dispatch note */}
+            {(patientAlerts.length > 0 || patientExtra?.dispatch_comment) && (
+              <Section icon={FaExclamationTriangle} title="Patient Alerts">
+                {patientExtra?.is_sensitive && (
+                  <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 8 }}>
+                    <FaUserSecret style={{ marginRight: 4 }} /> Sensitive patient
+                  </div>
+                )}
+                {patientAlerts.length > 0 && (
+                  <div className="d-flex flex-wrap gap-2 mb-2">
+                    {patientAlerts.map((a) => (
+                      <span
+                        key={a.id}
+                        className="badge"
+                        style={{ background: `${ALERT_SEVERITY_COLOR[a.severity]}20`, color: ALERT_SEVERITY_COLOR[a.severity], border: `1px solid ${ALERT_SEVERITY_COLOR[a.severity]}50`, fontSize: 11 }}
+                        title={a.description || ""}
+                      >
+                        {a.title}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {patientExtra?.dispatch_comment && (
+                  <div style={{ background: "rgba(13,110,253,0.08)", border: "1px solid rgba(110,168,254,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--ems-board-text)" }}>
+                    {patientExtra.dispatch_comment}
+                  </div>
+                )}
+              </Section>
+            )}
 
             {/* Patient / contact */}
             {(dob || phone || dispatcher) && (

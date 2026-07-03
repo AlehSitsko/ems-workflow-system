@@ -26,7 +26,7 @@ def split_missing_fields(value):
 # Return dispatcher performance and call quality analytics.
 @analytics_bp.route("/dispatchers", methods=["GET"])
 def get_dispatcher_analytics():
-    limit = min(int(request.args.get("limit", 2000)), 5000)
+    limit = min(request.args.get("limit", 2000, type=int) or 2000, 5000)
     calls = Call.query.order_by(Call.id.desc()).limit(limit).all()
 
     analytics = {}

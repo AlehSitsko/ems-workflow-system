@@ -7,12 +7,26 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, Patient
 from notification_utils import create_notification
 from audit_utils import log_action
+from utils.validation_utils import check_length
 
 
 def _user_name_from_request():
     return request.headers.get("X-User-Name") or None
 
 ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
+
+
+def _validate_quality_score(value):
+    """Return an int 0-100, or None if value is absent. Raises ValueError otherwise."""
+    if value is None or value == "":
+        return None
+    try:
+        score = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("quality_score must be an integer between 0 and 100")
+    if not (0 <= score <= 100):
+        raise ValueError("quality_score must be an integer between 0 and 100")
+    return score
 
 
 def _role_from_request():
@@ -100,6 +114,19 @@ def create_call():
     if not data:
         return jsonify({"error": "Request body must be JSON"}), 400
 
+    if data.get("patient_id") is not None and not Patient.query.get(data["patient_id"]):
+        return jsonify({"error": "Patient not found"}), 400
+
+    try:
+        quality_score = _validate_quality_score(data.get("quality_score"))
+        check_length(data.get("pickup_address"), 500, "pickup_address")
+        check_length(data.get("dropoff_address"), 500, "dropoff_address")
+        check_length(data.get("caller_phone"), 30, "caller_phone")
+        check_length(data.get("caller_note"), 2000, "caller_note")
+        check_length(data.get("notes"), 5000, "notes")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     new_call = Call(
         patient_id=data.get("patient_id"),
         dispatcher_name=data.get("dispatcher_name"),
@@ -126,7 +153,7 @@ def create_call():
         caller_phone=data.get("caller_phone"),
         caller_note=data.get("caller_note"),
 
-        quality_score=data.get("quality_score"),
+        quality_score=quality_score,
         missing_critical_fields=data.get("missing_critical_fields"),
         missing_optional_fields=data.get("missing_optional_fields"),
         missing_info_explanation=data.get("missing_info_explanation"),
@@ -152,7 +179,6 @@ def create_call():
     today = datetime.now().strftime("%Y-%m-%d")
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     if new_call.trip_date in (today, tomorrow):
-        from models import Patient
         patient_name = ""
         if new_call.patient_id:
             p = Patient.query.get(new_call.patient_id)
@@ -195,6 +221,17 @@ def update_call(call_id):
             "dispatched_at", "arrived_pickup_at",
             "patient_loaded_at", "arrived_dest_at", "completed_at",
         ]
+
+    try:
+        if "quality_score" in data:
+            data["quality_score"] = _validate_quality_score(data.get("quality_score"))
+        check_length(data.get("pickup_address"), 500, "pickup_address")
+        check_length(data.get("dropoff_address"), 500, "dropoff_address")
+        check_length(data.get("caller_phone"), 30, "caller_phone")
+        check_length(data.get("caller_note"), 2000, "caller_note")
+        check_length(data.get("notes"), 5000, "notes")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     changed = {}
     for field in EDITABLE:

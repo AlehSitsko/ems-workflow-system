@@ -317,6 +317,15 @@ function DispatchSection() {
           "Cancelled calls appear in the Cancelled tab of the left panel.",
         ]} />
       </Sub>
+
+      <Sub title="Patient Alert Badges">
+        <List items={[
+          "A call card shows a small severity badge (critical / warning) when its patient has an active alert, plus a note icon when a dispatch comment is set.",
+          "Only the highest-severity active alert and its count are shown on the card — this keeps the board scannable.",
+          "Open the call detail modal to see full alert details (category, title, description) and the patient's dispatch comment in the Patient Alerts section.",
+        ]} />
+        <Note>Quality score is intentionally not shown on the Dispatch Board — it belongs to post-trip review, not live dispatch decisions.</Note>
+      </Sub>
     </>
   );
 }
@@ -365,9 +374,18 @@ function CallFormSection() {
           "Search by last name, date of birth, or phone number.",
           "If a match is found, select it — the form pre-fills patient data.",
           "If no match, create a new patient directly from the form.",
-          "The system checks for duplicates before creating (same name + DOB).",
+          "The system checks for duplicates before creating (same name + DOB), including archived patients — restore instead of creating a new record when offered.",
         ]} />
         <Warning>Never create a duplicate patient. Always search first. Duplicates cause reporting errors and complicate the call history.</Warning>
+      </Sub>
+
+      <Sub title="Patient Risk Card">
+        <List items={[
+          "Appears once a patient is selected — shows the patient's name, DOB, default service level, any active alert badges, and their dispatch note.",
+          "Click Use last trip as template to prefill pickup address, dropoff address, and service level from the patient's most recent completed call.",
+          "The template does not copy date, time, status, or unit assignment — only route and service level.",
+        ]} />
+        <Tip>Check the Risk Card before confirming trip details — a critical alert (e.g. fall risk, aggressive pet, oxygen required) can change what the crew needs to bring.</Tip>
       </Sub>
 
       <Sub title="Return Ride">
@@ -403,19 +421,44 @@ function PatientsSection() {
           "Search by last name, date of birth, or phone number.",
           "Results update as you type.",
           "Click Show All to display all patients (paginated).",
+          "Show archived toggle — includes archived patients in search results, marked with an Archived badge and muted styling.",
         ]} />
       </Sub>
       <Sub title="Patient Record">
         <List items={[
           "Click a patient card to open the detail drawer.",
-          "Overview tab: contact info, address, default service level.",
-          "Edit tab: update any patient field.",
+          "Overview tab: contact info, address, transport defaults, and — if present — the active alert badges and dispatch note at the top.",
+          "Alerts tab: add and resolve patient alerts (category, severity, title, description, optional expiry).",
+          "Contacts tab: add, edit, and remove emergency/authorized contacts (relationship, phone, email, primary flag, can-authorize-transport flag).",
+          "Edit tab: update any patient field, including dispatch comment and transport defaults.",
           "Call History tab: all calls associated with this patient.",
           "Default Service Level: set per patient — pre-fills the Call Form.",
         ]} />
       </Sub>
-      <Sub title="Deleting Patients">
-        <Warning>Deleting a patient is permanent and removes the patient from all historical call records. Only delete duplicate or test records. Requires Admin role.</Warning>
+      <Sub title="Dispatch Comment">
+        <List items={[
+          "A short, practical note for dispatchers — e.g. 'Call daughter before pickup' or 'Use side entrance'.",
+          "Distinct from general/medical notes — kept short and operational.",
+          "Shows on the patient's Overview tab, the Call Form Risk Card when the patient is selected, and the Dispatch Board call detail modal.",
+        ]} />
+      </Sub>
+      <Sub title="Patient Alerts">
+        <List items={[
+          "Categories: transport, safety, contact, facility, billing, equipment, behavior, language, other.",
+          "Severity: info, warning, critical.",
+          "Active alerts (not resolved, not expired) show as colored badges on the Dispatch Board call card, in the call detail modal, and on the Call Form Risk Card.",
+          "Resolve an alert from the Alerts tab once it no longer applies — resolved alerts are hidden by default (toggle Show resolved to see them).",
+        ]} />
+        <Tip>Use Alerts for anything a crew needs to know before or during the trip — fall risk, aggressive pet on scene, gate code, oxygen requirement, etc.</Tip>
+      </Sub>
+      <Sub title="Archiving Patients">
+        <List items={[
+          "Click Archive on a patient card (with a confirmation prompt) instead of a permanent delete.",
+          "Archived patients are hidden from default search but their call history stays intact — calls keep showing the patient's name.",
+          "Click Restore on an archived patient (visible with Show archived enabled) to bring them back into active search.",
+          "Creating a new patient that matches an existing archived patient's first name + last name + DOB offers to restore the existing record instead of creating a duplicate.",
+        ]} />
+        <Warning>Archiving is the standard way to remove a patient from active use. There is no hard-delete option in the UI — this protects call history integrity.</Warning>
       </Sub>
     </>
   );

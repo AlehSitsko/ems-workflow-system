@@ -150,7 +150,7 @@ ems-workflow-system/
 
 ## Authentication System
 
-The application currently uses an MVP authentication system with local user records and role-aware frontend access.
+The application currently uses an MVP authentication system with local user records and role-aware frontend access. Production authorization hardening (JWT/session auth, refresh tokens) is planned as a final phase — see [Tier 3 — Before Production](#tier-3--before-production).
 
 ### Current Roles
 
@@ -541,7 +541,29 @@ Current features:
 
 * id, user_id, action, entity_type, entity_id, old_value, new_value, timestamp
 
-### Call / Patient / CallAssignment / NotificationEvent / UserNotification / UserNotificationPrefs / Organization
+### Patient
+
+* id, first_name, last_name, dob, gender, phone, secondary_phone, address, insurance, member_id, policy_number, requires_auth, copay_required, default_service_level
+* `dispatch_comment` — short, practical dispatch note (e.g. "Call daughter before pickup"), distinct from medical/general notes; surfaced on the Dispatch Board and Call Form
+* Transport profile defaults: `default_mobility_level`, `transport_instructions`, `access_instructions`, `preferred_language`, `requires_interpreter`
+* `is_sensitive` — flags a patient record for extra discretion in dispatcher-facing views
+* Soft archive: `is_archived`, `archived_at`, `archived_by`, `archived_reason` — `DELETE /api/patient/<id>` archives instead of hard-deleting, so existing calls keep a valid patient reference; `POST /api/patient/<id>/restore` reverses it
+
+### PatientAlert
+
+* id, patient_id (FK → Patient)
+* category (transport / safety / contact / facility / billing / equipment / behavior / language / other)
+* severity (info / warning / critical), title, description
+* is_active, expires_at, resolved_at, resolved_by, resolved_reason
+* Active alerts (not expired, not resolved) surface as severity badges on Dispatch Board call cards, in the call detail modal, and on the Call Form Patient Risk Card
+
+### PatientContact
+
+* id, patient_id (FK → Patient)
+* name, relationship_label, phone, email
+* is_primary, can_authorize_transport, preferred_contact_method, notes
+
+### Call / CallAssignment / NotificationEvent / UserNotification / UserNotificationPrefs / Organization
 
 See prior sections.
 
@@ -633,12 +655,32 @@ DELETE  /api/crew-presets/<preset_id>
 ### Patients
 
 ```text
-GET     /api/patients           (?page=&per_page= supported)
-POST    /api/patients
+GET     /api/patients                                  (?page=&per_page=&name=&dob=&show_archived= supported)
+POST    /api/patients                                   (409 + existing_patient on duplicate first/last/dob match)
 GET     /api/patient/<patient_id>
 PUT     /api/patient/<patient_id>
-DELETE  /api/patient/<patient_id>
+DELETE  /api/patient/<patient_id>                       (soft archive, not a hard delete — body: {reason})
+POST    /api/patient/<patient_id>/restore
 GET     /api/patient/<patient_id>/calls
+GET     /api/patient/<patient_id>/last-trip-template     (pickup/dropoff/service_level from most recent completed call)
+```
+
+### Patient Alerts
+
+```text
+GET     /api/patient/<patient_id>/alerts                (?show_all=1 to include resolved/expired)
+POST    /api/patient/<patient_id>/alerts
+PUT     /api/patient/<patient_id>/alerts/<alert_id>
+POST    /api/patient/<patient_id>/alerts/<alert_id>/resolve
+```
+
+### Patient Contacts
+
+```text
+GET     /api/patient/<patient_id>/contacts
+POST    /api/patient/<patient_id>/contacts
+PUT     /api/patient/<patient_id>/contacts/<contact_id>
+DELETE  /api/patient/<patient_id>/contacts/<contact_id>
 ```
 
 ### Calls
@@ -752,6 +794,34 @@ Delete `backend/instance/database.db`, restart the backend, then stamp the basel
 ```powershell
 flask db stamp head
 ```
+
+### Backing up the database
+
+Run before applying migrations against data you care about:
+
+```powershell
+cd backend
+python scripts/backup_db.py
+```
+
+Copies `instance/database.db` to `backups/database_YYYY-MM-DD_HH-MM-SS.db`.
+
+### Data protection notes
+
+* SQLite foreign key enforcement is turned on at the connection level (`PRAGMA foreign_keys=ON`) — orphaned rows from bad deletes/updates are rejected instead of silently created
+* A generic JSON error handler catches unhandled exceptions and returns `{"error": "Internal server error"}` (500) instead of an HTML stack trace, without changing existing 400/404 responses
+* Debug mode is controlled by the `FLASK_DEBUG` environment variable, not hardcoded
+
+### Running the QA test suite
+
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+python app.py           # in one terminal
+python qa_test.py        # in another, against the running backend
+```
+
+`qa_test.py` exercises data integrity, validation, and edge-case scenarios end-to-end (duplicate patients, archive/restore, alerts, contacts, last-trip template, invalid input handling) and cleans up any records it creates.
 
 ## Development Workflow
 
@@ -999,6 +1069,17 @@ Recommended workflow:
 * ⊞ Reset layout button in board header — visible only when sizes differ from defaults
 * User menu dropdown in Topbar (avatar click): Settings link, Dark/Light mode toggle, Log out
 
+### Data Integrity, Soft Archive & Patient Module Expansion (complete)
+
+* Invalid crew employee IDs and out-of-range/malformed audit `page`/`per_page` query params now return `400` instead of crashing with a `500`
+* Backend duplicate patient prevention: normalized first name + last name + DOB match returns `409` with `existing_patient` (including archived patients, so a matching archived record can be restored instead of creating a duplicate)
+* Patient soft archive replaces hard delete — see `Patient` in [Backend Data Model](#patient) and the Patients API above; calls keep showing the patient's name even when the patient is archived
+* Validation added: crew unit `shiftDate`/`startTime`/`endTime` format, `Call.quality_score` (integer 0–100), `Vehicle.unitType` restricted to an allowed list matching the frontend, `Document.doc_type` validated on PATCH (previously only on upload), field length limits across patient/call/vehicle/document text fields
+* `Patient.dispatch_comment`, `PatientAlert`, and `PatientContact` — see [Backend Data Model](#patientalert)
+* Patient Risk Card on the Call Form: shows active alert badges, dispatch note, and transport defaults when a patient is selected; "Use last trip as template" prefills pickup/dropoff/service level from the patient's most recent completed call (does not copy date, time, status, or assignment)
+* Dispatch Board: minimal alert-severity and dispatch-note badges on call cards; full alert detail and dispatch note in the call detail modal's Patient Alerts section
+* Patient Drawer: Alerts and Contacts tabs, archived-patient banner with Restore action, "Show archived" toggle on the Patients page
+
 ## Roadmap
 
 ### Performance Optimization (complete)
@@ -1184,7 +1265,9 @@ priority queue + operational alerts), Per-User Settings System complete (notific
 UI panel sizes, unified settings blob, UserSettingsContext, user menu dropdown in Topbar),
 Interactive User Manual complete (sticky sidebar, search, role filter, 13 accordion sections, callout blocks),
 Performance optimization complete (17 DB indexes, N+1 eliminated in calls list + dispatch board,
-+32% throughput, P95 −53% under 20 concurrent workers)
++32% throughput, P95 −53% under 20 concurrent workers),
+Data integrity + Patient Module expansion complete (soft archive, duplicate prevention, validation hardening,
+patient alerts/contacts/dispatch comment, Risk Card + last-trip-template on Call Form, Dispatch Board alert badges)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 

@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from sqlalchemy.orm import joinedload
 
-from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, UserNotificationPrefs
+from models import db, Call, DailyCrewUnit, CallAssignment, Patient, PatientAlert, Employee, UserNotificationPrefs
 from notification_utils import create_notification
 from audit_utils import log_action
 
@@ -31,14 +31,25 @@ VALID_UNIT_STATUSES = [
 ]
 
 
-def _call_with_patient(call):
+_ALERT_SEVERITY_RANK = {"critical": 3, "warning": 2, "info": 1}
+
+
+def _call_with_patient(call, alerts_by_patient=None):
     d = call.to_dict()
     if call.patient_id:
-        patient = Patient.query.get(call.patient_id)
+        # Reuse the batch-loaded patient if the caller already cached one (see get_board),
+        # falling back to a single lookup for callers that don't pre-cache.
+        patient = getattr(call, "_patient_cache", None) or Patient.query.get(call.patient_id)
         if patient:
             d["patient_name"] = f"{patient.first_name} {patient.last_name}"
             d["patient_dob"] = patient.dob or ""
             d["patient_phone"] = patient.phone or ""
+            d["patient_dispatch_comment"] = patient.dispatch_comment or ""
+            d["patient_is_sensitive"] = bool(patient.is_sensitive)
+        alerts = (alerts_by_patient or {}).get(call.patient_id, [])
+        if alerts:
+            d["patient_alert_severity"] = max(alerts, key=lambda a: _ALERT_SEVERITY_RANK.get(a, 0))
+            d["patient_alert_count"] = len(alerts)
     return d
 
 
@@ -111,6 +122,24 @@ def get_board():
     else:
         calls_bulk = {}
 
+    # Batch-load active alert severities for every patient referenced on the board —
+    # one query instead of one per call, so cards can show a "Critical"/"Warning" badge.
+    all_patient_ids = list({c.patient_id for c in list(all_day_calls) + list(calls_bulk.values()) if c.patient_id})
+    alerts_by_patient = {}
+    if all_patient_ids:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        active_alerts = (
+            PatientAlert.query
+            .filter(
+                PatientAlert.patient_id.in_(all_patient_ids),
+                PatientAlert.is_active == True,
+                db.or_(PatientAlert.expires_at.is_(None), PatientAlert.expires_at >= today_str),
+            )
+            .all()
+        )
+        for a in active_alerts:
+            alerts_by_patient.setdefault(a.patient_id, []).append(a.severity)
+
     # Batch-load all employees referenced by crew slots
     crew_ids = set()
     for unit in units:
@@ -125,7 +154,7 @@ def get_board():
     for a in active_assignments:
         call = calls_bulk.get(a.call_id)
         if call:
-            cd = _call_with_patient(call)
+            cd = _call_with_patient(call, alerts_by_patient)
             cd["assignment_id"] = a.id
             calls_by_unit.setdefault(a.unit_id, []).append(cd)
 
@@ -133,7 +162,7 @@ def get_board():
     for a in completed_assignments:
         call = calls_bulk.get(a.call_id)
         if call and call.status == "completed":
-            cd = _call_with_patient(call)
+            cd = _call_with_patient(call, alerts_by_patient)
             cd["assignment_id"] = a.id
             completed_by_unit.setdefault(a.unit_id, []).append(cd)
 
@@ -182,15 +211,15 @@ def get_board():
                 c._patient_cache = patients_map.get(c.patient_id)
 
     def _completed_call_dict(call):
-        d = _call_with_patient(call)
+        d = _call_with_patient(call, alerts_by_patient)
         d["assignment_id"] = last_assignment_by_call.get(call.id)
         return d
 
     return jsonify({
         "date": date,
-        "openCalls":      [_call_with_patient(c) for c in open_only],
+        "openCalls":      [_call_with_patient(c, alerts_by_patient) for c in open_only],
         "completedCalls": [_completed_call_dict(c) for c in completed_day],
-        "cancelledCalls": [_call_with_patient(c) for c in cancelled_day],
+        "cancelledCalls": [_call_with_patient(c, alerts_by_patient) for c in cancelled_day],
         "units": unit_dicts,
     })
 

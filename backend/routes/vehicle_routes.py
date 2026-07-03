@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models import db, Vehicle
+from utils.validation_utils import check_length
 
 
 vehicle_bp = Blueprint(
@@ -10,6 +11,9 @@ vehicle_bp = Blueprint(
     __name__,
     url_prefix="/api/vehicles"
 )
+
+# Must stay in sync with VEHICLE_TYPES in frontend/src/components/crew/VehicleRegistrySection.jsx
+UNIT_TYPES = {"BLS", "ALS", "BARI", "CCT"}
 
 
 # Return all vehicles. ?active=1 filters to active vehicles only.
@@ -43,6 +47,15 @@ def create_vehicle():
         return jsonify({"error": "Unit number is required"}), 400
     if not unit_type:
         return jsonify({"error": "Unit type is required"}), 400
+    if unit_type not in UNIT_TYPES:
+        return jsonify({"error": f"Invalid unit type. Must be one of: {sorted(UNIT_TYPES)}"}), 400
+
+    try:
+        check_length(unit_name, 50, "unitName")
+        check_length(unit_number, 50, "unitNumber")
+        check_length(data.get("notes"), 2000, "notes")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     if Vehicle.query.filter_by(unit_number=unit_number).first():
         return jsonify({"error": f"Vehicle with unit number '{unit_number}' already exists"}), 409
@@ -92,6 +105,15 @@ def update_vehicle(id):
         return jsonify({"error": "Unit number is required"}), 400
     if not unit_type:
         return jsonify({"error": "Unit type is required"}), 400
+    if unit_type not in UNIT_TYPES:
+        return jsonify({"error": f"Invalid unit type. Must be one of: {sorted(UNIT_TYPES)}"}), 400
+
+    try:
+        check_length(unit_name, 50, "unitName")
+        check_length(unit_number, 50, "unitNumber")
+        check_length(data.get("notes"), 2000, "notes")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     existing = Vehicle.query.filter_by(unit_number=unit_number).first()
     if existing and existing.id != id:
