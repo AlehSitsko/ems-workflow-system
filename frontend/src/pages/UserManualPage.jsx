@@ -4,7 +4,8 @@ import {
   FaClipboardList, FaCalendarAlt, FaBell, FaCog, FaAmbulance,
   FaUserMd, FaFileAlt, FaMoneyBillWave, FaShieldAlt, FaHistory,
   FaLightbulb, FaExclamationTriangle, FaInfoCircle, FaStar,
-  FaKeyboard, FaUserCog,
+  FaKeyboard, FaUserCog, FaRoute, FaClipboardCheck, FaTruck,
+  FaChartBar, FaTasks, FaLifeRing, FaRocket,
 } from "react-icons/fa";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -16,6 +17,20 @@ const SECTIONS = [
     title: "Getting Started",
     roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <GettingStarted />,
+  },
+  {
+    id: "daily-workflow",
+    icon: <FaRoute />,
+    title: "Basic Daily Workflow",
+    roles: ["admin", "supervisor", "dispatcher"],
+    content: <DailyWorkflowSection />,
+  },
+  {
+    id: "preferences",
+    icon: <FaCog />,
+    title: "User Preferences & Personal Settings",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <PreferencesSection />,
   },
   {
     id: "dashboard",
@@ -48,16 +63,9 @@ const SECTIONS = [
   {
     id: "calls",
     icon: <FaClipboardList />,
-    title: "Calls",
+    title: "Calls History",
     roles: ["admin", "supervisor", "dispatcher"],
     content: <CallsSection />,
-  },
-  {
-    id: "employees",
-    icon: <FaUsers />,
-    title: "Employees & HR",
-    roles: ["admin", "supervisor", "hr"],
-    content: <EmployeesSection />,
   },
   {
     id: "crew",
@@ -65,6 +73,27 @@ const SECTIONS = [
     title: "Crew Planner",
     roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <CrewSection />,
+  },
+  {
+    id: "crew-presets",
+    icon: <FaClipboardCheck />,
+    title: "Crew Presets",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <CrewPresetsSection />,
+  },
+  {
+    id: "vehicles",
+    icon: <FaTruck />,
+    title: "Vehicles",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <VehiclesSection />,
+  },
+  {
+    id: "employees",
+    icon: <FaUsers />,
+    title: "Employees & HR",
+    roles: ["admin", "supervisor", "hr"],
+    content: <EmployeesSection />,
   },
   {
     id: "payroll",
@@ -75,17 +104,31 @@ const SECTIONS = [
   },
   {
     id: "compliance",
-    icon: <FaShieldAlt />,
-    title: "Compliance Dashboard",
+    icon: <FaFileAlt />,
+    title: "Compliance / Documents",
     roles: ["admin", "supervisor", "hr"],
     content: <ComplianceSection />,
   },
   {
     id: "notifications",
     icon: <FaBell />,
-    title: "Notifications & Settings",
+    title: "Notifications & Alerts",
     roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <NotificationsSection />,
+  },
+  {
+    id: "supervisor",
+    icon: <FaChartBar />,
+    title: "Supervisor Dashboard",
+    roles: ["admin", "supervisor"],
+    content: <SupervisorSection />,
+  },
+  {
+    id: "users",
+    icon: <FaUserCog />,
+    title: "User Management",
+    roles: ["admin"],
+    content: <UserManagementSection />,
   },
   {
     id: "audit",
@@ -93,6 +136,34 @@ const SECTIONS = [
     title: "Audit Log",
     roles: ["admin", "supervisor"],
     content: <AuditSection />,
+  },
+  {
+    id: "data-safety",
+    icon: <FaShieldAlt />,
+    title: "Data Safety Notes",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <DataSafetySection />,
+  },
+  {
+    id: "workflows",
+    icon: <FaTasks />,
+    title: "Common Workflows",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <CommonWorkflowsSection />,
+  },
+  {
+    id: "troubleshooting",
+    icon: <FaLifeRing />,
+    title: "Troubleshooting",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <TroubleshootingSection />,
+  },
+  {
+    id: "planned",
+    icon: <FaRocket />,
+    title: "Planned / Future Features",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <PlannedFeaturesSection />,
   },
   {
     id: "shortcuts",
@@ -132,6 +203,15 @@ function Note({ children }) {
   );
 }
 
+function Planned({ children }) {
+  return (
+    <div style={{ display: "flex", gap: 10, background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 10 }}>
+      <FaRocket style={{ color: "#a78bfa", marginTop: 2, flexShrink: 0 }} />
+      <span style={{ fontSize: 13, color: "var(--ems-text-secondary)", lineHeight: 1.55 }}>{children}</span>
+    </div>
+  );
+}
+
 function Step({ n, children }) {
   return (
     <div style={{ display: "flex", gap: 12, marginBottom: 10, alignItems: "flex-start" }}>
@@ -164,14 +244,40 @@ function KBD({ children }) {
   );
 }
 
+// Compact workflow card used in the Common Workflows section.
+function WorkflowCard({ title, steps }) {
+  return (
+    <div style={{ border: "1px solid var(--ems-border)", borderRadius: 10, padding: "14px 16px", marginBottom: 14, background: "var(--ems-bg-surface-2, rgba(255,255,255,0.03))" }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ems-text-primary)", marginBottom: 10 }}>{title}</div>
+      {steps.map((s, i) => <Step key={i} n={i + 1}>{s}</Step>)}
+    </div>
+  );
+}
+
 // ── Section content components ────────────────────────────────────────────────
 
 function GettingStarted() {
   return (
     <>
-      <p style={{ fontSize: 14, color: "var(--ems-text-secondary)", marginBottom: 16 }}>
-        EMS Workflow System is an operational support platform for EMS and medical transport organizations. It is not a replacement for CAD systems, EMR, or billing software — it covers dispatch workflows, staff management, and operational continuity.
+      <p style={{ fontSize: 14, color: "var(--ems-text-secondary)", marginBottom: 12 }}>
+        EMS Workflow System is an operational management platform for ambulance / EMS medical transport organizations. It helps dispatchers, supervisors, HR/admin staff, and managers organize calls, patients, crew units, vehicles, employee records, and dispatch workflow in one place.
       </p>
+      <p style={{ fontSize: 14, color: "var(--ems-text-secondary)", marginBottom: 16 }}>
+        It is not a replacement for CAD systems, EMR/clinical documentation systems, or billing software — it covers dispatch workflows, staff management, and operational continuity.
+      </p>
+
+      <Sub title="Typical Workflow">
+        <Step n={1}>Start Taking Call.</Step>
+        <Step n={2}>Search for the patient, or create a new one if none is found.</Step>
+        <Step n={3}>Enter trip details — pickup, destination, service level, time.</Step>
+        <Step n={4}>Save the call.</Step>
+        <Step n={5}>Assign the call to a unit on the Dispatch Board.</Step>
+        <Step n={6}>Track unit and call status as the trip progresses.</Step>
+        <Step n={7}>Complete the call once transport is finished.</Step>
+        <Step n={8}>Review call history and reports afterward.</Step>
+        <Tip>See <strong>Basic Daily Workflow</strong> for a more detailed walk-through, and <strong>Common Workflows</strong> for short step-by-step cards for specific tasks.</Tip>
+      </Sub>
+
       <Sub title="Login & Roles">
         <List items={[
           "Navigate to the app URL and enter your username and password.",
@@ -182,6 +288,7 @@ function GettingStarted() {
         ]} />
         <Note>Login is rate-limited: 10 attempts per minute per IP address. After multiple failures, wait 60 seconds before trying again.</Note>
       </Sub>
+
       <Sub title="Navigation">
         <List items={[
           "Sidebar on the left — click any module to open it.",
@@ -189,11 +296,83 @@ function GettingStarted() {
           "Click your avatar (top right) to access Settings, Dark/Light mode, and Log out.",
           "Bell icon shows unread notifications.",
         ]} />
+        <Tip>Appearance (theme), time format, and notification preferences are all covered in <strong>User Preferences & Personal Settings</strong>.</Tip>
       </Sub>
-      <Sub title="Theme">
+    </>
+  );
+}
+
+function DailyWorkflowSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>
+        A practical run-through of what a dispatcher typically does during a shift, start to finish.
+      </p>
+      <Sub title="Daily Dispatcher Workflow">
+        <Step n={1}>Open Dashboard or Dispatch Board to see today's active calls and units.</Step>
+        <Step n={2}>Check today's active calls and units — open, assigned, and completed.</Step>
+        <Step n={3}>Use Start Taking Call or + New Call to enter a new trip.</Step>
+        <Step n={4}>Search for an existing patient before creating a new one.</Step>
+        <Step n={5}>Review patient alerts, the dispatch comment, and transport instructions/contacts if the patient has any on file.</Step>
+        <Step n={6}>Save the call.</Step>
+        <Step n={7}>Assign or drag the call to a crew unit, depending on the current board mode.</Step>
+        <Step n={8}>Update unit status as the trip progresses (En Route → On Scene → Transporting → At Destination).</Step>
+        <Step n={9}>Watch for visual alerts — overdue calls, stuck units, delayed shifts — which flash red on the board.</Step>
+        <Step n={10}>Complete the call once transport is finished.</Step>
+        <Note>The exact interaction (drag-and-drop vs. clicking Assign) depends on where you are on the board — both accomplish the same thing: linking an open call to a unit.</Note>
+      </Sub>
+    </>
+  );
+}
+
+function PreferencesSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>
+        The system can be configured to your liking. Preferences are saved to your user account (not just this browser) and apply the next time you log in, from any device.
+      </p>
+
+      <Sub title="Theme / Appearance">
         <List items={[
-          "Click your avatar → Dark mode / Light mode to toggle.",
+          "Click your avatar (top right) → Dark mode / Light mode to toggle.",
           "Preference is saved to your account and restored on next login.",
+        ]} />
+      </Sub>
+
+      <Sub title="Time Format">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>
+          Time Format controls how time inputs and time displays appear across the system — it does not change how time is stored.
+        </p>
+        <List items={[
+          "12-hour format — example: 2:30 PM.",
+          "24-hour format — example: 14:30.",
+          "Default is 12-hour.",
+          "Change it from Settings (your avatar → Settings → Preferences).",
+        ]} />
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>Applies to every module that shows or asks for a time:</p>
+        <List items={[
+          "Call Form (pickup time, appointment time, return time)",
+          "Dispatch Board (call cards, unit shift times, the New Call drawer, shift alerts)",
+          "Crew Planner (unit start/end time)",
+          "Calls History and call detail",
+          "Payroll (where time-of-day values appear)",
+        ]} />
+        <Note>Changing this setting does not change stored call data — it only changes how time is displayed and entered in the interface. There is no separate 12h/24h switch inside individual forms; every time field follows this one setting.</Note>
+      </Sub>
+
+      <Sub title="Notifications & Dispatch Alerts">
+        <List items={[
+          "Browser Notifications — desktop alerts for important dispatch events, controlled by your browser's notification permission.",
+          "Dispatch Visual Alerts — the red flashing/highlighting on overdue calls and stuck units on the Dispatch Board.",
+        ]} />
+        <Tip>Both are configured on the same Settings page. See <strong>Notifications & Alerts</strong> for the full breakdown of statuses and thresholds.</Tip>
+      </Sub>
+
+      <Sub title="Dispatch Board Panel Sizes">
+        <List items={[
+          "The left column width and bottom panel height on the Dispatch Board are also saved per user.",
+          "Drag either divider to resize. Sizes save automatically when you release.",
+          "Click ⊞ Reset layout in the board header to restore defaults.",
         ]} />
       </Sub>
     </>
@@ -231,12 +410,13 @@ function DashboardSection() {
 function DispatchSection() {
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Dispatch Board is the live operational interface — crew planning and call dispatch are unified on one page.</p>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Dispatch Board is the main operational screen for assigning calls to units and tracking real-time transport progress. Crew planning and call dispatch are unified on one page.</p>
 
       <Sub title="Layout">
         <List items={[
-          "Left panel — open calls list (Calls tab) and unassigned staff (Staff tab).",
+          "Left panel — open calls list (Calls tab) and unassigned staff (Staff tab), plus a date selector and the + New Call / + Day Unit / + Night Unit buttons.",
           "Right panel — unit table (top) and selected unit detail (bottom).",
+          "Active / Done / Cancelled / All filter tabs above the calls list.",
           "Drag the vertical divider to resize the left panel. Size is saved to your settings.",
           "Drag the horizontal divider between the unit table and unit detail to resize. Saved to your settings.",
           "Click ⊞ Reset layout in the header to restore default panel sizes.",
@@ -262,12 +442,13 @@ function DispatchSection() {
         <Note>The patient queue sub-row under each unit shows assigned calls sorted by pickup time. This is derived live from actual assignments — not manual entry.</Note>
       </Sub>
 
-      <Sub title="Unit Status Tracking">
+      <Sub title="Unit & Call Statuses">
         <List items={[
+          "Unit status sequence: available → en_route → on_scene → transporting → at_destination, shown as Available / En Route / On Scene / Transporting / At Destination.",
+          "out_of_service is a separate state a unit can be placed into at any time, and always returns to Available.",
+          "Call status: new → assigned once linked to a unit → completed when the trip is done, or cancelled with a mandatory reason.",
           "Single-click a unit row to open the unit detail panel below.",
           "Double-click a unit row to advance to the next status in the sequence.",
-          "Status sequence: Available → En Route → On Scene → Transporting → At Destination.",
-          "Out of Service button always returns the unit to Available.",
           "Status buttons in the detail panel can also be clicked directly.",
         ]} />
         <Tip>Each status change automatically timestamps the active call (e.g. En Route sets dispatched_at). Timestamps are write-once — repeated clicks do not overwrite.</Tip>
@@ -294,10 +475,10 @@ function DispatchSection() {
         <List items={[
           "A call flashes red when its pickup time has passed and the unit is not yet On Scene or beyond.",
           "A unit status cell flashes red when the unit has not changed status for longer than your configured threshold.",
-          "Go to Settings (your avatar → Settings) to configure the thresholds.",
+          "Go to Settings (your avatar → Settings) to configure the thresholds — see Dispatch Visual Alerts in User Preferences.",
           "Default: call overdue after 0 extra minutes; unit stuck after 30 minutes.",
         ]} />
-        <Warning>These are visual alerts only — no sound or push notification is sent by default. Enable browser push notifications in Settings for background alerts.</Warning>
+        <Warning>These are visual alerts only — no sound is played automatically. Enable Browser Notifications in Settings for background alerts when the tab isn't open.</Warning>
       </Sub>
 
       <Sub title="Creating & Editing Calls from the Board">
@@ -334,6 +515,18 @@ function CallFormSection() {
   return (
     <>
       <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Call Taking Form supports two intake workflows: Guided (default) and Classic. Both produce the same call record.</p>
+
+      <Sub title="Intake Workflow">
+        <Step n={1}>Search for the patient first.</Step>
+        <Step n={2}>If the patient exists, select them — the form pre-fills their data.</Step>
+        <Step n={3}>Review the patient's alerts and dispatch comment (Risk Card).</Step>
+        <Step n={4}>Fill in trip details — pickup, appointment time, service level.</Step>
+        <Step n={5}>Enter the pickup and dropoff address.</Step>
+        <Step n={6}>Select the service level (Stretcher / BLS / ALS / Emergency).</Step>
+        <Step n={7}>Add caller info — name, callback number, caller type.</Step>
+        <Step n={8}>Save the call.</Step>
+        <Note>Required fields are marked with an asterisk (*).</Note>
+      </Sub>
 
       <Sub title="Standard Operating Procedure — Call Order">
         <div style={{ background: "var(--ems-bg-surface-2, rgba(255,255,255,0.04))", borderRadius: 8, padding: "10px 16px", marginBottom: 12, fontWeight: 700, fontSize: 14, color: "#6ea8fe", letterSpacing: 0.3 }}>
@@ -398,6 +591,14 @@ function CallFormSection() {
         ]} />
       </Sub>
 
+      <Sub title="Call Quality Score">
+        <List items={[
+          "A quality score reviews how complete the intake was — missing critical/optional fields are flagged.",
+          "It helps supervisors review call intake completeness after the fact.",
+        ]} />
+        <Note>The quality score is not shown on the Dispatch Board because Dispatch Board focuses on live operations, not post-call review. See Supervisor Dashboard for quality reporting.</Note>
+      </Sub>
+
       <Sub title="Common Mistakes to Avoid">
         <List items={[
           "Missing callback number — always get it even if the caller says they won't be available.",
@@ -415,7 +616,7 @@ function CallFormSection() {
 function PatientsSection() {
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Patients page is the central patient database. Search and manage patient records here.</p>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Patients store recurring operational information used during call intake and dispatch. This page is the central patient database.</p>
       <Sub title="Searching">
         <List items={[
           "Search by last name, date of birth, or phone number.",
@@ -430,28 +631,33 @@ function PatientsSection() {
           "Overview tab: contact info, address, transport defaults, and — if present — the active alert badges and dispatch note at the top.",
           "Alerts tab: add and resolve patient alerts (category, severity, title, description, optional expiry).",
           "Contacts tab: add, edit, and remove emergency/authorized contacts (relationship, phone, email, primary flag, can-authorize-transport flag).",
-          "Edit tab: update any patient field, including dispatch comment and transport defaults.",
+          "Edit tab: update any patient field, including dispatch comment and transport defaults (mobility level, transport/access instructions, preferred language, interpreter needed).",
           "Call History tab: all calls associated with this patient.",
           "Default Service Level: set per patient — pre-fills the Call Form.",
         ]} />
       </Sub>
       <Sub title="Dispatch Comment">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>Dispatch Comment is a short operational note for dispatchers — distinct from general/medical notes, kept short and practical. Examples:</p>
         <List items={[
-          "A short, practical note for dispatchers — e.g. 'Call daughter before pickup' or 'Use side entrance'.",
-          "Distinct from general/medical notes — kept short and operational.",
-          "Shows on the patient's Overview tab, the Call Form Risk Card when the patient is selected, and the Dispatch Board call detail modal.",
+          "Call daughter before pickup.",
+          "Use side entrance.",
+          "Patient needs extra time to get ready.",
+          "Do not send wheelchair van.",
         ]} />
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)" }}>Shows on the patient's Overview tab, the Call Form Risk Card when the patient is selected, and the Dispatch Board call detail modal.</p>
       </Sub>
       <Sub title="Patient Alerts">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>Patient Alerts highlight important transport, safety, contact, facility, billing, or language information.</p>
         <List items={[
-          "Categories: transport, safety, contact, facility, billing, equipment, behavior, language, other.",
-          "Severity: info, warning, critical.",
+          "Severity: Info, Warning, Critical.",
+          "Categories: Transport, Safety, Contact, Facility, Billing, Equipment, Behavior, Language, Other.",
           "Active alerts (not resolved, not expired) show as colored badges on the Dispatch Board call card, in the call detail modal, and on the Call Form Risk Card.",
           "Resolve an alert from the Alerts tab once it no longer applies — resolved alerts are hidden by default (toggle Show resolved to see them).",
         ]} />
         <Tip>Use Alerts for anything a crew needs to know before or during the trip — fall risk, aggressive pet on scene, gate code, oxygen requirement, etc.</Tip>
       </Sub>
-      <Sub title="Archiving Patients">
+      <Sub title="Archive / Restore">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>Patients are archived instead of permanently deleted, to protect call history and prevent orphan records.</p>
         <List items={[
           "Click Archive on a patient card (with a confirmation prompt) instead of a permanent delete.",
           "Archived patients are hidden from default search but their call history stays intact — calls keep showing the patient's name.",
@@ -499,10 +705,75 @@ function CallsSection() {
   );
 }
 
+function CrewSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Crew Planner is used to create daily crew units, assign employees, select vehicle/unit type, set shift times, and manage day and night units. Planning can be done from the Crew Planner page or directly on the Dispatch Board — both use the same data.</p>
+      <Sub title="Creating a Crew Unit">
+        <List items={[
+          "Select a shift date.",
+          "Click + Day Unit or + Night Unit.",
+          "Set truck/vehicle, unit type (BLS / ALS / etc.), and start time.",
+          "Select a shift duration (8 / 10 / 12 hours or custom) — the planned end time is computed automatically.",
+          "Assign Driver (required), Medical, Assist 1, Assist 2.",
+          "Certifications are validated: ALS units require a Paramedic in the Medical slot.",
+        ]} />
+        <Note>The system may warn about overlapping shifts on the same vehicle, or missing qualified staff for a slot — these are warnings you can review, not silent blocks (except minimum crew size, which is enforced).</Note>
+      </Sub>
+      <Sub title="Night Units">
+        <List items={[
+          "Night units have a start time, end time, and end date (for overnight).",
+          "Use Make Night from an existing day unit to carry the same crew to a night shift.",
+          "Choose to replace or keep an existing night crew when converting.",
+        ]} />
+      </Sub>
+      <Sub title="Shift & Delay Alerts">
+        <List items={[
+          "Units approaching or past their planned end time are flagged with a near-end or overdue alert on the Crew Planner and Dispatch Board.",
+          "These alerts also appear as bell notifications for admin, supervisor, and dispatcher roles.",
+        ]} />
+      </Sub>
+      <Tip>Crew planning on the Dispatch Board is fully integrated — changes made there are immediately visible in the Crew Planner and vice versa. Crew Presets and the Vehicle Registry are covered in their own sections.</Tip>
+    </>
+  );
+}
+
+function CrewPresetsSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Crew Presets speed up daily planning by saving a full crew configuration you can reapply later. Found inside Crew Planner.</p>
+      <Sub title="Using Presets">
+        <List items={[
+          "Apply Existing Preset — select a saved preset from the dropdown to pre-fill all crew slots for the date.",
+          "Save current crew as a new preset once a unit's crew configuration is set up the way you want to reuse it.",
+          "Presets are shared across the team, not private to one user.",
+        ]} />
+        <Tip>Use presets for recurring shift patterns (e.g. the same weekday crew) instead of re-entering the same assignments every day.</Tip>
+      </Sub>
+    </>
+  );
+}
+
+function VehiclesSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Vehicle Registry stores the units/trucks used by Crew Planner and the Dispatch Board. Found inside Crew Planner as an expandable "Vehicle Registry" panel.</p>
+      <Sub title="Managing Vehicles">
+        <List items={[
+          "Fields: unit name, unit number, unit type (BLS / ALS / BARI / CCT), and notes.",
+          "Toggle a vehicle active/inactive instead of deleting it, to keep historical assignments intact.",
+          "Delete removes a vehicle from the registry entirely.",
+        ]} />
+        <Note>Selecting a vehicle in the crew unit form auto-fills its unit type — this replaces free-text truck numbers with a consistent dropdown list.</Note>
+      </Sub>
+    </>
+  );
+}
+
 function EmployeesSection() {
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Employees module manages all staff records, certifications, time entries, and HR documents.</p>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Employees module manages all staff records, certifications, time entries, and HR documents used for scheduling, crew assignment, and compliance.</p>
       <Sub title="Employee Cards">
         <List items={[
           "Each card shows name, employee number, role, status, certifications, and positions.",
@@ -534,38 +805,6 @@ function EmployeesSection() {
           "If no PIN is set, the employee is shown by name only — no PIN confirmation step.",
         ]} />
       </Sub>
-    </>
-  );
-}
-
-function CrewSection() {
-  return (
-    <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Crew planning can be done from the Crew Planner page or directly on the Dispatch Board. Both use the same data.</p>
-      <Sub title="Creating a Crew Unit">
-        <List items={[
-          "Select a shift date.",
-          "Click + Day Unit or + Night Unit.",
-          "Set truck number, unit type, start time.",
-          "Assign Driver (required), Medical, Assist 1, Assist 2.",
-          "Certifications are validated: ALS units require a Paramedic in the Medical slot.",
-        ]} />
-      </Sub>
-      <Sub title="Night Units">
-        <List items={[
-          "Night units have a start time, end time, and end date (for overnight).",
-          "Use Make Night from an existing day unit to carry the same crew to a night shift.",
-          "Choose to replace or keep an existing night crew when converting.",
-        ]} />
-      </Sub>
-      <Sub title="Crew Presets">
-        <List items={[
-          "Save a crew configuration as a preset for fast daily planning.",
-          "Apply a preset to pre-fill all crew slots for a date.",
-          "Edit presets from the Crew Presets section.",
-        ]} />
-      </Sub>
-      <Tip>Crew planning on the Dispatch Board is fully integrated — changes made there are immediately visible in the Crew Planner and vice versa.</Tip>
     </>
   );
 }
@@ -632,13 +871,6 @@ function NotificationsSection() {
   return (
     <>
       <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Notifications alert you to operational events in real time. All settings on this page are saved per user account and apply across sessions.</p>
-      <Sub title="Time Format">
-        <List items={[
-          "Set once in Settings — 12-hour (2:30 PM) or 24-hour (14:30). Default is 12-hour.",
-          "Applies everywhere a time is entered or shown: Call Form, Dispatch Board (including the New Call drawer), Crew Planner, Calls history, and call detail.",
-          "There is no separate 12h/24h switch inside any individual form — the format always follows your Settings preference.",
-        ]} />
-      </Sub>
       <Sub title="Notification Bell">
         <List items={[
           "Bell icon in the topbar shows unread count (capped at 99+).",
@@ -661,28 +893,57 @@ function NotificationsSection() {
         ]} />
         <Note>Only notification types relevant to your role are shown. Dispatchers do not receive cert or HR notifications.</Note>
       </Sub>
-      <Sub title="Push Notifications">
+      <Sub title="Browser Notifications">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>Browser notifications are desktop alerts for important dispatch events, delivered through your browser even when the tab isn't open. The status shown reflects your actual browser permission, not just a saved preference:</p>
         <List items={[
-          "Background dispatch alerts delivered through your browser, even when the tab isn't open.",
-          "Status reflects your actual browser permission, not just a saved preference: Unsupported, Requires HTTPS, not enabled yet, Blocked, or Enabled.",
-          "Click Enable notifications to grant permission for the first time.",
-          "If Blocked, the panel explains how to re-allow notifications from your browser's site settings (lock icon near the address bar).",
-          "Once enabled, click Send test notification to confirm delivery end-to-end.",
+          "Not enabled — permission hasn't been requested yet. Click Enable notifications.",
+          "Enabled — permission granted. Use Send test notification to confirm it works end-to-end.",
+          "Blocked by browser — permission was denied. See the instruction below to re-allow it.",
+          "Unsupported — this browser does not support notifications.",
+          "Requires HTTPS / localhost — notifications need a secure context to work.",
         ]} />
+        <Tip>If notifications are blocked: click the lock icon near the browser address bar → Site settings → Notifications → Allow, then reload the page.</Tip>
       </Sub>
       <Sub title="Dispatch Visual Alerts">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 8 }}>Dispatch Visual Alerts control when calls and units flash or highlight red on the Dispatch Board — this is separate from Browser Notifications.</p>
         <List items={[
-          "Separate from Push Notifications — controls the red flashing/highlighting on the Dispatch Board itself, not a browser alert.",
-          "Call overdue alert — minutes after pickup time before a call flashes red on the board.",
-          "Unit stuck alert — minutes in the same status before the unit status flashes red.",
+          "Call overdue alert — minutes after pickup time before a call flashes red on the board. A value of 0 means it can highlight immediately once pickup time is exceeded.",
+          "Unit stuck alert — minutes in the same status before the unit status flashes red. A value of 30 means a unit can be highlighted if its status hasn't changed for 30 minutes.",
         ]} />
       </Sub>
-      <Sub title="Panel Sizes">
+    </>
+  );
+}
+
+function SupervisorSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Supervisor Dashboard reviews dispatcher performance and call intake quality across the team. Admin and Supervisor roles only.</p>
+      <Sub title="Dispatcher Analytics Table">
         <List items={[
-          "Dispatch Board panel sizes (left column width, bottom panel height) are also saved per user.",
-          "Drag either divider to resize. Sizes save automatically when you release.",
-          "Click ⊞ Reset layout in the board header to restore defaults.",
+          "One row per dispatcher, with total calls taken.",
+          "Average call quality score.",
+          "Count of calls with missing critical fields, and missing optional fields.",
+          "Count of calls that had missing information explained (an explanation was provided when a required field was skipped).",
         ]} />
+        <Tip>Use this to spot dispatchers who may need a refresher on intake procedure, or fields that are frequently skipped.</Tip>
+      </Sub>
+    </>
+  );
+}
+
+function UserManagementSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>User Management creates and manages system user accounts. Admin role only.</p>
+      <Sub title="Managing Users">
+        <List items={[
+          "Create, edit, activate, and deactivate user accounts.",
+          "Assign a role: admin, supervisor, dispatcher, or hr.",
+          "Link a user account to an employee record — this enables the Clock In/Out widget on that user's Dashboard.",
+          "The users table shows the linked employee name, if any.",
+        ]} />
+        <Warning>Deactivating a user immediately blocks their login. Their historical records (calls, audit entries, etc.) are not affected.</Warning>
       </Sub>
     </>
   );
@@ -696,7 +957,7 @@ function AuditSection() {
         <List items={[
           "Call status changes (assigned, completed, cancelled, reopened).",
           "Unit assignment and removal.",
-          "Patient record edits.",
+          "Patient record edits, archive/restore, alert and contact changes.",
           "Manual time entry creation and deletion.",
           "HR document uploads and deletions.",
           "Timestamp edits on call records.",
@@ -710,6 +971,108 @@ function AuditSection() {
         ]} />
       </Sub>
       <Note>The Audit Log is append-only — entries cannot be deleted or modified. It is the authoritative record of all operational actions in the system.</Note>
+    </>
+  );
+}
+
+function DataSafetySection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>
+        EMS Workflow System is designed to preserve operational history. Records that other data depends on — patients with existing calls, for example — are archived instead of permanently deleted, so nothing important becomes an orphan record.
+      </p>
+      <Sub title="Good Practices">
+        <List items={[
+          "Use Archive instead of Delete when it's offered (Patients, for example) — it hides the record from active use without breaking call history.",
+          "Avoid entering real patient data in a demo or training environment.",
+          "Take a database backup before running migrations or major updates.",
+          "Browser notifications are controlled entirely by your browser's own permission system — the app cannot force them on.",
+          "Only Admin and Supervisor roles can view the Audit Log and edit lifecycle timestamps — treat those permissions carefully.",
+        ]} />
+      </Sub>
+      <Note>Production authorization hardening (stronger session/token-based login, full permission review) is planned as a final phase.</Note>
+    </>
+  );
+}
+
+function CommonWorkflowsSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 16 }}>Short step-by-step cards for the most common tasks. See individual module sections above for full detail.</p>
+
+      <WorkflowCard title="Create a new transport call" steps={[
+        <>Click <strong>Start Taking Call</strong> or <strong>+ New Call</strong>.</>,
+        "Search for the patient and select them, or continue as a new patient.",
+        "Review the patient's alerts and dispatch comment, if any.",
+        "Fill in trip details — pickup, destination, service level, time.",
+        "Save the call.",
+      ]} />
+
+      <WorkflowCard title="Assign a call to a unit" steps={[
+        "Open the Dispatch Board.",
+        "Select the correct date.",
+        "Find the unassigned call in the Open Calls list.",
+        "Drag or assign the call to a unit.",
+        "Update the unit's status as the trip progresses.",
+      ]} />
+
+      <WorkflowCard title="Create a day unit" steps={[
+        "Open Crew Planner or the Dispatch Board.",
+        <>Click <strong>+ Day Unit</strong>.</>,
+        "Select the vehicle, unit type, crew, and shift start time.",
+        "Save the unit.",
+      ]} />
+
+      <WorkflowCard title="Change your personal time format" steps={[
+        "Open Settings (your avatar → Settings).",
+        "Find Time Format under Preferences.",
+        "Select 12-hour or 24-hour.",
+        "Click Save.",
+      ]} />
+
+      <WorkflowCard title="Enable browser notifications" steps={[
+        "Open Settings (your avatar → Settings).",
+        "Click Enable notifications under Browser Notifications.",
+        "Allow the permission prompt in your browser.",
+        "Click Send test notification to confirm it worked.",
+      ]} />
+    </>
+  );
+}
+
+function TroubleshootingSection() {
+  const items = [
+    { problem: "Notifications are blocked", fix: "Click the lock icon near the browser's address bar → Site settings → Notifications → Allow, then reload the page." },
+    { problem: "Times look different than expected", fix: "Go to Settings → Preferences → Time Format and choose 12-hour or 24-hour format." },
+    { problem: "I cannot find an archived patient", fix: "Enable the Show archived toggle on the Patients page search bar." },
+    { problem: "Dispatch Board does not show today's calls", fix: "Check the selected date at the top of the board, the status filter tabs (Open/Done/Cancelled/All), and confirm the call actually saved (check Calls history)." },
+    { problem: "A unit or call is highlighted red", fix: "This is a Dispatch Visual Alert — check whether the call's pickup time has passed, or the unit's status hasn't changed recently. Thresholds are adjustable in Settings." },
+  ];
+  return (
+    <>
+      {items.map((it, i) => (
+        <Sub key={i} title={it.problem}>
+          <p style={{ fontSize: 13, color: "var(--ems-text-secondary)" }}>{it.fix}</p>
+        </Sub>
+      ))}
+    </>
+  );
+}
+
+function PlannedFeaturesSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>These features are planned but not yet available. They are listed here so expectations stay accurate — nothing below is active in the current system.</p>
+      <Sub title="Planned">
+        <Planned>Assignment conflict validation — warn when a unit's shift overlaps another assignment.</Planned>
+        <Planned>Call Timeline / Daily Operations view — a full per-call event history (who did what, when).</Planned>
+        <Planned>Call export to CSV directly from the Calls page.</Planned>
+        <Planned>Repeat Call — duplicate a past call into a new intake for review before saving.</Planned>
+        <Planned>Call Notes — an append-only communication log attached to each call.</Planned>
+        <Planned>Reports — response time, transport time, and unit utilization analytics built on call event history.</Planned>
+        <Planned>Patient Locations — multiple saved addresses per patient (beyond the single home address).</Planned>
+        <Planned>Production authorization hardening — session/token-based login and a full role-permission review, planned as a final phase.</Planned>
+      </Sub>
     </>
   );
 }
@@ -778,10 +1141,11 @@ function ShortcutsSection() {
                 ["Call Form", "✓", "✓", "✓", "—"],
                 ["Patients / Calls", "✓", "✓", "✓", "—"],
                 ["Employees", "✓", "✓", "—", "✓"],
-                ["Crew Planner", "✓", "✓", "✓", "✓"],
+                ["Crew Planner / Vehicles / Presets", "✓", "✓", "✓", "✓"],
                 ["Payroll", "✓", "✓", "—", "✓"],
                 ["Compliance", "✓", "✓", "—", "✓"],
-                ["Audit Log", "✓", "✓", "—", "—"],
+                ["Supervisor Dashboard", "✓", "✓", "—", "—"],
+                ["Audit Log", "✓", "✓", "—", "✓"],
                 ["User Management", "✓", "—", "—", "—"],
                 ["Kiosk / Clock", "✓", "✓", "✓", "✓"],
               ].map(([mod, ...vals]) => (
@@ -915,7 +1279,7 @@ export default function UserManualPage({ currentUser }) {
 
           <div style={{ marginBottom: 28 }}>
             <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--ems-text-primary)", marginBottom: 4 }}>User Manual</h2>
-            <p style={{ fontSize: 13, color: "var(--ems-text-muted)" }}>EMS Workflow System — operational guide for all roles. Click any section to expand.</p>
+            <p style={{ fontSize: 13, color: "var(--ems-text-muted)" }}>Your guide to using EMS Workflow System. New here? Start with Getting Started below. Click any section to expand.</p>
           </div>
 
           {filtered.map((s) => {
