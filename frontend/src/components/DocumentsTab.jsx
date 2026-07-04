@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useConfirm } from "./ui/useConfirm";
 import { useToast } from "./ui/useToast";
 import {
@@ -97,18 +97,7 @@ export default function DocumentsTab({ employeeId, currentUser }) {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, [employeeId]);
-
-  // Revoke blob URL on unmount to prevent memory leak
-  const previewRef = useRef(null);
-  previewRef.current = preview;
-  useEffect(() => {
-    return () => { if (previewRef.current?.blobUrl) URL.revokeObjectURL(previewRef.current.blobUrl); };
-  }, []);
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -119,7 +108,18 @@ export default function DocumentsTab({ employeeId, currentUser }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [employeeId, currentUser]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Revoke blob URL on unmount to prevent memory leak
+  const previewRef = useRef(null);
+  previewRef.current = preview;
+  useEffect(() => {
+    return () => { if (previewRef.current?.blobUrl) URL.revokeObjectURL(previewRef.current.blobUrl); };
+  }, []);
 
   function openNew() {
     setForm(EMPTY_FORM);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FaPlus } from "react-icons/fa";
 
 import {
@@ -34,7 +34,7 @@ function UserManagementPage() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getUsers();
@@ -44,12 +44,12 @@ function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadUsers();
     kioskEmployees().then(setEmployees).catch(() => {});
-  }, []);
+  }, [loadUsers]);
 
   const openCreate = () => {
     setEditingUser(null);

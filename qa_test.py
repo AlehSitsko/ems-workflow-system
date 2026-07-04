@@ -395,6 +395,64 @@ def test_notifications():
     else:
         warn("POST /notifications/999999/read", f"got {r.status_code}: {r.text[:80]}")
 
+    # 5.4 GET /notifications/prefs — regression test for NOTIFICATION_LABELS NameError (500)
+    r = S.get(f"{BASE}/api/notifications/prefs?user_id=1")
+    if r.status_code == 200:
+        data = r.json()
+        if isinstance(data, dict) and len(data) > 0:
+            ok(f"GET /notifications/prefs?user_id=1 → 200 ({len(data)} notification types)")
+        else:
+            fail("GET /notifications/prefs?user_id=1", "200 but empty/non-dict body")
+        # Every entry must carry a real label (not just the raw type echoed back),
+        # and an enabled flag — this is the exact shape the Settings page depends on.
+        bad = [t for t, v in data.items() if not isinstance(v, dict) or "enabled" not in v or not v.get("label")]
+        if not bad:
+            ok("GET /notifications/prefs — every type has enabled + non-empty label")
+        else:
+            fail("GET /notifications/prefs — malformed entries", f"{bad}")
+    else:
+        fail("GET /notifications/prefs?user_id=1", f"{r.status_code}: {r.text[:120]}")
+
+    # 5.5 Missing user_id → 400
+    r = S.get(f"{BASE}/api/notifications/prefs")
+    if r.status_code == 400:
+        ok("GET /notifications/prefs — no user_id → 400")
+    else:
+        fail("GET /notifications/prefs — no user_id", f"got {r.status_code}")
+
+    # 5.6 Nonexistent user_id → 404 (not 500, not a silent 400 mislabel)
+    r = S.get(f"{BASE}/api/notifications/prefs?user_id=999999")
+    if r.status_code == 404:
+        ok("GET /notifications/prefs?user_id=999999 → 404")
+    else:
+        fail("GET /notifications/prefs?user_id=999999", f"got {r.status_code}")
+
+    # 5.7 Cross-role check — response structure must hold for every seeded user,
+    # without hardcoding a specific type list per role (types are role-dependent).
+    r = S.get(f"{BASE}/api/auth/users")
+    if r.status_code == 200:
+        users = r.json()
+        role_results = []
+        for u in users:
+            ru = S.get(f"{BASE}/api/notifications/prefs?user_id={u['id']}")
+            valid = (
+                ru.status_code == 200
+                and isinstance(ru.json(), dict)
+                and all(
+                    isinstance(v, dict) and isinstance(v.get("enabled"), bool) and v.get("label")
+                    for v in ru.json().values()
+                )
+            )
+            role_results.append((u["role"], valid))
+        if all(valid for _, valid in role_results):
+            roles_checked = ", ".join(sorted({r for r, _ in role_results}))
+            ok(f"GET /notifications/prefs — valid structure across roles: {roles_checked}")
+        else:
+            bad_roles = [r for r, valid in role_results if not valid]
+            fail("GET /notifications/prefs — role structure check", f"failed for: {bad_roles}")
+    else:
+        warn("GET /auth/users unavailable — skipped cross-role prefs check")
+
 
 # ─── SECTION 6: DATA INTEGRITY ────────────────────────────────────────────────
 def test_data_integrity():

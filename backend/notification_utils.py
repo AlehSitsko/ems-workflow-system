@@ -1,8 +1,17 @@
 import json
+import time as _time
 from datetime import datetime, timedelta
 
 from models import db, User, NotificationEvent, UserNotification, UserNotificationPrefs
 from push_utils import send_push
+
+# Throttle for run_temporal_checks(): every GET /api/notifications poll calls it,
+# and under concurrent polling (multiple users/tabs) that means many simultaneous
+# requests each re-scanning all calls/employees/documents for the same instant in
+# time. Skipping re-checks within this window avoids redundant duplicate work
+# without meaningfully delaying alert freshness (client polls every 10s anyway).
+_TEMPORAL_CHECK_MIN_INTERVAL_S = 5
+_last_temporal_check_at = 0.0
 
 # Which event types each role can receive.
 ROLE_EVENT_TYPES = {
@@ -16,6 +25,21 @@ ROLE_EVENT_TYPES = {
     "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status",
                    "unit_shift_near_end", "unit_shift_overdue"},
     "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan"},
+}
+
+# Human-readable label for each notification type, shown in Notification Settings.
+NOTIFICATION_LABELS = {
+    "call_new_today":        "New calls today",
+    "call_unassigned_soon":  "Unassigned call soon",
+    "call_als_on_bls":       "ALS call assigned to BLS unit",
+    "unit_stuck_status":     "Unit status stuck",
+    "unit_understaffed":     "Understaffed unit",
+    "cert_expiring":         "Certification expiring",
+    "employee_added":        "Employee added",
+    "doc_expiring":          "Document expiring",
+    "cert_no_scan":          "Certification scan missing",
+    "unit_shift_near_end":   "Unit shift near end",
+    "unit_shift_overdue":    "Unit shift overdue",
 }
 
 # Roles that receive each event type.
@@ -115,7 +139,18 @@ def create_notification(event_type, severity, title, body, entity_type=None, ent
 
 
 def run_temporal_checks():
-    """Generate time-based notifications. Called on each polling request."""
+    """Generate time-based notifications. Called on each polling request.
+
+    Throttled: skips re-scanning calls/employees/documents if it already ran
+    within the last _TEMPORAL_CHECK_MIN_INTERVAL_S seconds, since concurrent
+    pollers would otherwise all trigger the same expensive scan at once.
+    """
+    global _last_temporal_check_at
+    now_monotonic = _time.monotonic()
+    if now_monotonic - _last_temporal_check_at < _TEMPORAL_CHECK_MIN_INTERVAL_S:
+        return
+    _last_temporal_check_at = now_monotonic
+
     today = datetime.now().strftime("%Y-%m-%d")
     now_dt = datetime.now()
 

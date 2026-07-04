@@ -4,7 +4,7 @@ import os
 from flask import Blueprint, jsonify, request
 
 from models import db, User, UserNotification, NotificationEvent, UserNotificationPrefs
-from notification_utils import ROLE_EVENT_TYPES, run_temporal_checks
+from notification_utils import ROLE_EVENT_TYPES, NOTIFICATION_LABELS, run_temporal_checks
 
 notif_bp = Blueprint("notifications", __name__, url_prefix="/api/notifications")
 
@@ -29,9 +29,11 @@ def get_notifications():
     user_id = request.args.get("user_id")
     since = request.args.get("since")
 
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
     user = _get_user(user_id)
     if not user:
-        return jsonify({"error": "user_id required"}), 400
+        return jsonify({"error": "User not found"}), 404
 
     # Run temporal checks on every poll.
     try:
@@ -117,9 +119,11 @@ def mark_all_read():
 @notif_bp.route("/prefs", methods=["GET"])
 def get_prefs():
     user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
     user = _get_user(user_id)
     if not user:
-        return jsonify({"error": "user_id required"}), 400
+        return jsonify({"error": "User not found"}), 404
 
     allowed_types = ROLE_EVENT_TYPES.get(user.role, set())
     prefs = _get_prefs_dict(user.id)
@@ -139,9 +143,11 @@ def update_prefs():
     user_id = data.get("user_id")
     new_prefs = data.get("prefs", {})
 
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
     user = _get_user(user_id)
     if not user:
-        return jsonify({"error": "user_id required"}), 400
+        return jsonify({"error": "User not found"}), 404
 
     allowed_types = ROLE_EVENT_TYPES.get(user.role, set())
     filtered = {k: bool(v) for k, v in new_prefs.items() if k in allowed_types}
