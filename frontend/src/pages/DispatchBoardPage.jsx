@@ -1402,7 +1402,7 @@ export default function DispatchBoardPage() {
     } finally {
       setEmployeesLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadEmployees(); }, [loadEmployees]);
 

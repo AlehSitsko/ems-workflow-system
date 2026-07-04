@@ -44,6 +44,10 @@ export function usePushNotifications(user) {
   const [bannerDismissed, setBannerDismissed] = useState(
     () => localStorage.getItem("push_banner_dismissed") === "1"
   );
+  // Whether the server has a VAPID key configured — null while still loading.
+  // Browser permission and server push capability are independent; both must
+  // be true for push to actually work end-to-end.
+  const [vapidConfigured, setVapidConfigured] = useState(null);
 
   // Keep pushState in sync if permission changes externally.
   useEffect(() => {
@@ -56,6 +60,15 @@ export function usePushNotifications(user) {
   useEffect(() => {
     if (!supported) return;
     navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  }, []);
+
+  // Check server-side push configuration once, independent of browser permission.
+  useEffect(() => {
+    if (!supported) { setVapidConfigured(false); return; }
+    fetch(`${API_BASE}/api/notifications/vapid-public-key`)
+      .then((r) => r.json())
+      .then((data) => setVapidConfigured(!!data.publicKey))
+      .catch(() => setVapidConfigured(false));
   }, []);
 
   const subscribe = useCallback(async () => {
@@ -123,5 +136,5 @@ export function usePushNotifications(user) {
     pushState !== "granted" &&
     pushState !== "denied";
 
-  return { pushState, status, showBanner, subscribe, dismiss, sendTestPush };
+  return { pushState, status, vapidConfigured, showBanner, subscribe, dismiss, sendTestPush };
 }

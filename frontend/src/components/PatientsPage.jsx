@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useConfirm } from "./ui/useConfirm";
 import { useToast } from "./ui/useToast";
 import EntityDrawer from "./ui/EntityDrawer";
@@ -122,6 +122,9 @@ const PatientsPage = () => {
   const [searchDob, setSearchDob] = useState("");
 
   const [newPatient, setNewPatient] = useState(emptyPatient);
+  // Snapshot of the form's values when the drawer was opened, used to detect real edits
+  // (comparing against emptyPatient would falsely flag an untouched existing patient as dirty).
+  const formBaselineRef = useRef(emptyPatient);
   const [patients, setPatients] = useState([]);
   const [patientCalls, setPatientCalls] = useState([]);
   const [paginationMeta, setPaginationMeta] = useState({ page: 1, total: 0, pages: 0 });
@@ -190,6 +193,7 @@ const PatientsPage = () => {
   // Open the drawer in add mode.
   const handleShowAddForm = () => {
     setNewPatient(emptyPatient);
+    formBaselineRef.current = emptyPatient;
     setEditingPatientId(null);
     setSelectedPatient(null);
     setError("");
@@ -207,10 +211,12 @@ const PatientsPage = () => {
     }));
   };
 
-  // Check whether the add/edit patient form has unsaved changes.
+  // Check whether the add/edit patient form has unsaved changes, relative to the
+  // values it was opened with (an untouched existing patient's form is never dirty).
   const isPatientFormDirty = () => {
+    const baseline = formBaselineRef.current;
     return Object.keys(emptyPatient).some((key) => {
-      return newPatient[key] !== emptyPatient[key];
+      return newPatient[key] !== baseline[key];
     });
   };
 
@@ -395,7 +401,7 @@ const PatientsPage = () => {
   // Open drawer in edit mode for a patient.
   const handleEditPatient = async (patient) => {
     setEditingPatientId(patient.id);
-    setNewPatient({
+    const loadedPatient = {
       first_name: patient.first_name || "",
       last_name: patient.last_name || "",
       dob: patient.dob || "",
@@ -429,7 +435,9 @@ const PatientsPage = () => {
       preferred_language: patient.preferred_language || "",
       requires_interpreter: patient.requires_interpreter || false,
       is_sensitive: patient.is_sensitive || false,
-    });
+    };
+    setNewPatient(loadedPatient);
+    formBaselineRef.current = loadedPatient;
     setSelectedPatient(patient);
     setDrawerTab("edit");
     setDrawerOpen(true);
@@ -1265,6 +1273,7 @@ const PatientsPage = () => {
 
         {drawerTab === "edit" && (
           <form id="patient-drawer-form" onSubmit={handleCreatePatient}>
+                {error && <div className="alert alert-danger">{error}</div>}
                 <PatientFormSection title="Basic Information" icon={FaIdCard}>
                   <div className="row g-3">
                     <div className="col-md-6">

@@ -901,6 +901,7 @@ function NotificationsSection() {
           "Blocked by browser — permission was denied. See the instruction below to re-allow it.",
           "Unsupported — this browser does not support notifications.",
           "Requires HTTPS / localhost — notifications need a secure context to work.",
+          "Browser enabled / Push not configured — your browser granted permission, but the server has no push service configured yet. This is a server-side setup issue, not something fixable from this page.",
         ]} />
         <Tip>If notifications are blocked: click the lock icon near the browser address bar → Site settings → Notifications → Allow, then reload the page.</Tip>
       </Sub>

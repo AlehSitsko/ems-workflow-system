@@ -366,16 +366,16 @@ Personal settings saved to the user's account (`Settings` in the avatar menu / T
 * There is no per-form 12h/24h switch — every `TimeInput` reads the format from the user's settings
 * Internally, times are always sent to and stored by the backend as 24-hour `HH:MM` regardless of the display format; the backend rejects malformed time values (e.g. `25:99`) with `400`
 
-### Push Notifications
+### Browser Notifications
 
 * Background dispatch alerts delivered through the browser via the Push API (VAPID keys, service worker, server-side delivery) — arrive even when the tab isn't open
-* Status is read live from the browser's own `Notification` permission plus secure-context and browser-support checks, not just a saved preference: Unsupported, Requires HTTPS, not enabled yet, Blocked, or Enabled
+* Status is read live from the browser's own `Notification` permission plus secure-context, browser-support, and server-side VAPID configuration checks — not just a saved preference: Unsupported, Requires HTTPS, Not enabled, Blocked, Enabled, or (if the browser grants permission but the server has no VAPID key configured) a distinct "Browser enabled / Push not configured" state
 * When blocked, the panel explains how to re-allow notifications from the browser's site settings (lock icon near the address bar)
 * "Send test notification" is available once enabled, and sends a real push through the backend to confirm end-to-end delivery
 
 ### Dispatch Visual Alerts
 
-* Separate from Push Notifications — controls the red flashing/highlighting on the Dispatch Board itself (overdue calls, stuck units), not a browser notification
+* Separate from Browser Notifications — controls the red flashing/highlighting on the Dispatch Board itself (overdue calls, stuck units), not a browser notification
 * Call overdue alert and Unit stuck alert thresholds (minutes), saved per user
 
 ## Employees
@@ -1129,6 +1129,17 @@ Recommended workflow:
   * Kept the "Push Notifications" name (rather than renaming to "Browser Notifications") because this project already has full push infrastructure — VAPID keys, service worker `push`/`notificationclick` handlers, backend subscription storage, and server-side delivery via `pywebpush` — not just the plain `Notification` API
 * Sidebar nav item for `/notifications` renamed from "Notifications" to "Settings" (gear icon) to match the page's expanded scope — same route, Topbar title, and user-menu link as before
 
+### Notification Prefs Bug Fix, Browser Notification UX, and Settings Refactor (complete)
+
+* Fixed a `NameError: name 'NOTIFICATION_LABELS' is not defined` crash — `GET /api/notifications/prefs` returned a `500` unconditionally, meaning the Settings page could never load its notification toggles. `NOTIFICATION_LABELS` now lives in `notification_utils.py` next to `ROLE_EVENT_TYPES`; `qa_test.py` covers the endpoint (200 response, every entry has a label, missing/nonexistent `user_id` return `400`/`404`, structure holds across every seeded role) so this can't regress silently again
+* `GET /api/notifications`, `GET /api/notifications/prefs`, and `PUT /api/notifications/prefs` now distinguish a missing `user_id` (`400`) from a `user_id` that doesn't resolve to a real user (`404`) — previously both cases returned the same "user_id required" message
+* Renamed the "Push Notifications" section to **Browser Notifications** — the name in [User Preferences](#user-preferences) above now matches what's shown in the app
+* Browser permission and server push configuration are now checked independently: `usePushNotifications()` fetches `/api/notifications/vapid-public-key` on mount and exposes `vapidConfigured`. If the browser reports `granted` but the server has no VAPID key, the UI shows a distinct **"Browser enabled / Push not configured"** state instead of a false "Enabled" — this can no longer silently fail with a vague "No active browser notification subscription" error and nothing else
+* `NotificationSettingsPage.jsx` split into `frontend/src/components/settings/`: `TimeFormatSettings.jsx`, `BrowserNotificationSettings.jsx`, `NotificationTypeSettings.jsx`, `DispatchVisualAlertsSettings.jsx`, and `notificationStatus.js` (status copy + the `getEffectiveStatus()` combinator) — the page itself is now a coordinator that holds state and wires the four sections together
+* Fixed a pre-existing light-theme bug found while refactoring: enabled notification-type labels and the "enabled" browser-notification message were hardcoded to white text (`#fff`), invisible against the light theme's white background — both now use `var(--ems-text-primary)`
+* Reduced React Hook `exhaustive-deps` warnings from 9 to 4 by wrapping previously-unmemoized `loadEmployees`/`loadUnits` (Crew Planner), `loadUsers` (User Management), and adding the already-stable `toast` reference to two `useCallback`s (Dispatch Board) — confirmed `toast` from `ToastProvider` is referentially stable (itself a `useCallback` with a `[]`-dependency `remove`), so this doesn't introduce extra re-fetches. The remaining 4 warnings (a return-ride address sync effect, a board reload effect, and two `useMemo` warning-computation hooks) are intentional — including the flagged dependencies would either double-run intentionally-separated effects or refetch the whole Dispatch Board on every unit selection; left as-is and documented rather than silenced
+* `DispatchBoardPage`, `PatientsPage`, `UserManualPage`, `CrewPlannerPage`, and `EmployeesPage` are now lazy-loaded (`React.lazy` + a single `Suspense` boundary around the router) — the main bundle dropped from ~705 kB to ~448 kB with each page split into its own 34–85 kB chunk, and the "chunk larger than 500 kB" build warning is gone
+
 ## Roadmap
 
 ### Performance Optimization (complete)
@@ -1318,8 +1329,10 @@ Performance optimization complete (17 DB indexes, N+1 eliminated in calls list +
 Data integrity + Patient Module expansion complete (soft archive, duplicate prevention, validation hardening,
 patient alerts/contacts/dispatch comment, Risk Card + last-trip-template on Call Form, Dispatch Board alert badges),
 Time Format preference + Notification Settings overhaul complete (global 12h/24h user setting replaces per-form
-toggles, tolerant time utils, backend time validation, Push Notifications status handling with real
-enable/blocked/test-notification flows, Dispatch Visual Alerts separated out)
+toggles, tolerant time utils, backend time validation, Browser Notifications status handling with real
+enable/blocked/push-not-configured/test-notification flows, Dispatch Visual Alerts separated out),
+Notification prefs 500 bug fixed, Settings page refactored into composable components, 5 heaviest
+pages lazy-loaded (~705 kB → ~448 kB main bundle, no more chunk-size build warning)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 

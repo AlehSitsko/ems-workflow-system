@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import "./App.css";
@@ -11,20 +11,28 @@ import AppLayout from "./components/layout/AppLayout";
 
 import HomePage from "./pages/HomePage";
 import CallFormPage from "./pages/CallFormPage";
-import PatientsPage from "./pages/PatientsPage";
 import CallsPage from "./pages/CallsPage";
-import UserManualPage from "./pages/UserManualPage";
-import EmployeesPage from "./pages/EmployeesPage";
-import CrewPlannerPage from "./pages/CrewPlannerPage";
 import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import LoginPage from "./pages/LoginPage";
 import UserManagementPage from "./pages/UserManagementPage";
-import DispatchBoardPage from "./pages/DispatchBoardPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
 import PayrollPage from "./pages/PayrollPage";
 import ComplianceDashboardPage from "./pages/ComplianceDashboardPage";
 import AuditLogPage from "./pages/AuditLogPage";
+
+// Lazy-loaded: the heaviest pages, split into their own chunks so the initial
+// bundle stays smaller. AppLayout/sidebar render immediately either way —
+// only the page content area shows the fallback while the chunk loads.
+const PatientsPage = lazy(() => import("./pages/PatientsPage"));
+const UserManualPage = lazy(() => import("./pages/UserManualPage"));
+const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
+const CrewPlannerPage = lazy(() => import("./pages/CrewPlannerPage"));
+const DispatchBoardPage = lazy(() => import("./pages/DispatchBoardPage"));
+
+function PageFallback() {
+  return <div className="page-stack"><p className="text-muted">Loading...</p></div>;
+}
 
 import {
   getCurrentUser,
@@ -181,6 +189,7 @@ function App() {
     <ConfirmProvider>
     <UserSettingsProvider currentUser={currentUser}>
     <HashRouter>
+      <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
 
@@ -324,6 +333,7 @@ function App() {
 
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
+      </Suspense>
     </HashRouter>
     </UserSettingsProvider>
     </ConfirmProvider>

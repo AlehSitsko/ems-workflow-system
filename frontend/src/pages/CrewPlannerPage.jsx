@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 import {
@@ -137,6 +137,13 @@ function CrewPlannerPage() {
   const [showUnitDrawer, setShowUnitDrawer] = useState(false);
 
   /*
+    Whether the user has tried to save the unit form yet. Validation errors are
+    only surfaced after this, so a freshly opened blank form doesn't greet the
+    user with a wall of "required" errors before they've typed anything.
+  */
+  const [hasAttemptedUnitSave, setHasAttemptedUnitSave] = useState(false);
+
+  /*
     Stores the ID of the unit currently being edited.
     Null means the form is in create mode.
   */
@@ -155,9 +162,8 @@ function CrewPlannerPage() {
   /*
     Loads employees from the backend.
   */
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     setEmployeesLoading(true);
-    
 
     try {
       const data = await getEmployees();
@@ -169,12 +175,12 @@ function CrewPlannerPage() {
     } finally {
       setEmployeesLoading(false);
     }
-  };
+  }, [toast]);
 
   /*
     Loads planned crew units for the selected date.
   */
-  const loadUnits = async () => {
+  const loadUnits = useCallback(async () => {
     setUnitsLoading(true);
 
     try {
@@ -191,7 +197,7 @@ function CrewPlannerPage() {
     } finally {
       setUnitsLoading(false);
     }
-  };
+  }, [selectedDate, toast]);
 
   /*
     Loads saved crew presets from the backend.
@@ -298,7 +304,7 @@ function CrewPlannerPage() {
     loadShiftAlerts();
     const alertInterval = setInterval(() => loadShiftAlerts(), 60_000);
     return () => clearInterval(alertInterval);
-  }, []);
+  }, [loadEmployees]);
 
   /*
     Reload units whenever the selected date changes.
@@ -315,7 +321,7 @@ function CrewPlannerPage() {
 
     setEditingUnitId(null);
     setShowUnitDrawer(false);
-  }, [selectedDate]);
+  }, [selectedDate, loadUnits]);
 
   /*
     Normalizes license objects so older or incomplete records do not break UI logic.
@@ -669,6 +675,7 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setPresetName("");
     setShowUnitDrawer(false);
+    setHasAttemptedUnitSave(false);
   };
 
   /*
@@ -714,6 +721,7 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setPresetName("");
     setShowUnitDrawer(true);
+    setHasAttemptedUnitSave(false);
   };
 
   /*
@@ -746,6 +754,7 @@ function CrewPlannerPage() {
 
     setSelectedPresetId("");
     setShowUnitDrawer(true);
+    setHasAttemptedUnitSave(false);
   };
 
   /*
@@ -911,6 +920,7 @@ function CrewPlannerPage() {
     event.preventDefault();
 
     if (unitValidationErrors.length > 0) {
+      setHasAttemptedUnitSave(true);
       return;
     }
 
@@ -992,6 +1002,7 @@ function CrewPlannerPage() {
     setSelectedPresetId("");
     setPresetName("");
     setShowUnitDrawer(true);
+    setHasAttemptedUnitSave(false);
   };
 
   /*
@@ -1251,7 +1262,7 @@ function CrewPlannerPage() {
                   </div>
                 ) : (
                   <>
-                    {unitValidationErrors.length > 0 && (
+                    {hasAttemptedUnitSave && unitValidationErrors.length > 0 && (
                       <div className="alert alert-danger">
                         <h5 className="mb-2">Unit Validation Errors</h5>
 
