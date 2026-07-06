@@ -837,7 +837,7 @@ cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-flask db upgrade
+flask --app app db upgrade
 python app.py
 ```
 
@@ -847,12 +847,25 @@ Backend runs on:
 http://127.0.0.1:5050
 ```
 
+`db.create_all()` is intentionally disabled — the schema is managed entirely through Flask-Migrate. Running `python app.py` against a fresh/empty database **without** first running `flask --app app db upgrade` fails with errors like `no such table: user`, `no such table: patient`, `no such table: call`. Always migrate before the first run (and after pulling changes that add a migration).
+
+Demo users seeded automatically on first successful startup (skipped if a username already exists):
+
+| Username | Password | Role |
+|---|---|---|
+| admin | admin | admin |
+| supervisor | supervisor | supervisor |
+| dispatcher | dispatcher | dispatcher |
+| hr | hr | hr |
+
 ### Frontend
 
 ```powershell
 cd frontend
 npm install
-npm run dev
+npm run dev      # dev server
+npm run lint      # ESLint
+npm run build     # production build
 ```
 
 Frontend runs on:
@@ -870,14 +883,14 @@ The project uses SQLite for local development and Flask-Migrate (Alembic) for sc
 ```powershell
 cd backend
 .\venv\Scripts\Activate.ps1
-flask db upgrade
+flask --app app db upgrade
 ```
 
 ### Creating a new migration after model changes
 
 ```powershell
-flask db migrate -m "describe what changed"
-flask db upgrade
+flask --app app db migrate -m "describe what changed"
+flask --app app db upgrade
 ```
 
 ### Starting fresh
@@ -885,7 +898,7 @@ flask db upgrade
 Delete `backend/instance/database.db`, restart the backend, then stamp the baseline:
 
 ```powershell
-flask db stamp head
+flask --app app db stamp head
 ```
 
 ### Backing up the database
@@ -910,11 +923,16 @@ Copies `instance/database.db` to `backups/database_YYYY-MM-DD_HH-MM-SS.db`.
 ```powershell
 cd backend
 .\venv\Scripts\Activate.ps1
-python app.py           # in one terminal
-python qa_test.py        # in another, against the running backend
+python app.py                  # in one terminal, from backend/
 ```
 
-`qa_test.py` exercises data integrity, validation, and edge-case scenarios end-to-end (duplicate patients, archive/restore, alerts, contacts, last-trip template, invalid input handling) and cleans up any records it creates.
+```powershell
+cd ..                          # back to the repo root — qa_test.py and stress_test.py live there, not in backend/
+python qa_test.py               # functional QA — against the running backend
+python stress_test.py           # concurrent load test — against the running backend
+```
+
+`qa_test.py` exercises data integrity, validation, permission, and edge-case scenarios end-to-end across every module (duplicate patients, archive/restore, alerts, contacts, last-trip template, Task Management CRUD/permissions/comments/activity, invalid input handling) and cleans up any records it creates. `stress_test.py` seeds a larger dataset and runs concurrent read/write load against the API to catch N+1 queries and race conditions.
 
 ## Development Workflow
 

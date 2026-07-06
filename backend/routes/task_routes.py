@@ -48,6 +48,17 @@ def _user_id_from_request():
         return None
 
 
+def _verified_user_id(uid):
+    """Only use a header-supplied user id for a FK column (created_by,
+    assigned_by, activity log, comment author) if that user actually exists.
+    Headers are trusted for role/identity elsewhere in this file, but an
+    invalid or stale X-User-Id must never be written into a FK column —
+    that raises sqlite3.IntegrityError instead of failing cleanly."""
+    if not uid:
+        return None
+    return uid if User.query.get(uid) else None
+
+
 def _user_name_from_request():
     return request.headers.get("X-User-Name") or None
 
@@ -339,7 +350,8 @@ def create_task():
             assigned_to_employee_id = int(assigned_to_employee_id)
         except (TypeError, ValueError):
             return jsonify({"error": "assigned_to_employee_id must be an integer"}), 400
-        Employee.query.get_or_404(assigned_to_employee_id)
+        if not Employee.query.get(assigned_to_employee_id):
+            return jsonify({"error": "Employee not found"}), 404
     else:
         assigned_to_employee_id = None
 
@@ -348,7 +360,8 @@ def create_task():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    uid, uname = _user_id_from_request(), _user_name_from_request()
+    uid = _verified_user_id(_user_id_from_request())
+    uname = _user_name_from_request()
     now = _now()
     task = Task(
         title=title,
@@ -413,7 +426,8 @@ def update_task(id):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    uid, uname = _user_id_from_request(), _user_name_from_request()
+    uid = _verified_user_id(_user_id_from_request())
+    uname = _user_name_from_request()
 
     if task.priority != priority:
         _record_activity(task, "priority_changed", task.priority, priority, uid, uname)
@@ -464,7 +478,7 @@ def update_task_status(id):
     elif old_status == "Completed":
         task.completed_at = None
 
-    _record_activity(task, "status_changed", old_status, new_status, uid, uname)
+    _record_activity(task, "status_changed", old_status, new_status, _verified_user_id(uid), uname)
     db.session.commit()
     return jsonify(task.to_dict())
 
@@ -486,11 +500,13 @@ def assign_task(id):
             assigned_to_employee_id = int(assigned_to_employee_id)
         except (TypeError, ValueError):
             return jsonify({"error": "assigned_to_employee_id must be an integer"}), 400
-        Employee.query.get_or_404(assigned_to_employee_id)
+        if not Employee.query.get(assigned_to_employee_id):
+            return jsonify({"error": "Employee not found"}), 404
     else:
         assigned_to_employee_id = None
 
-    uid, uname = _user_id_from_request(), _user_name_from_request()
+    uid = _verified_user_id(_user_id_from_request())
+    uname = _user_name_from_request()
     old_assignee = task.assigned_to_employee_id
     task.assigned_to_employee_id = assigned_to_employee_id
     task.assigned_by_user_id = uid
@@ -513,7 +529,8 @@ def archive_task(id):
         return jsonify({"error": "Insufficient permissions"}), 403
 
     task = Task.query.get_or_404(id)
-    uid, uname = _user_id_from_request(), _user_name_from_request()
+    uid = _verified_user_id(_user_id_from_request())
+    uname = _user_name_from_request()
     task.is_archived = True
     task.updated_at = _now()
 
@@ -563,10 +580,11 @@ def create_task_comment(id):
         return jsonify({"error": str(e)}), 400
 
     uname = _user_name_from_request()
+    verified_uid = _verified_user_id(uid)
     now = _now()
     comment = TaskComment(
         task_id=id,
-        author_user_id=uid,
+        author_user_id=verified_uid,
         author_name=uname or "System",
         comment_text=comment_text,
         created_at=now,
@@ -575,7 +593,7 @@ def create_task_comment(id):
     db.session.add(comment)
     db.session.flush()
 
-    _record_activity(task, "commented", None, comment_text[:200], uid, uname)
+    _record_activity(task, "commented", None, comment_text[:200], verified_uid, uname)
     db.session.commit()
 
     return jsonify(comment.to_dict()), 201

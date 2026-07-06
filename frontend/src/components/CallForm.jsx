@@ -322,13 +322,17 @@ const CallForm = forwardRef((props, ref) => {
   }, [formData.returnRideOption]);
 
   // Re-sync return addresses when pickup/dropoff change while return ride is active.
+  // Reads returnRideOption from the functional updater's `prev` (not the outer
+  // closure) so this effect only needs to depend on the address fields.
   useEffect(() => {
-    if (formData.returnRideOption === "none") return;
-    setFormData((prev) => ({
-      ...prev,
-      returnPickup: prev.dropoffAddress,
-      returnDestination: prev.pickupAddress,
-    }));
+    setFormData((prev) => {
+      if (prev.returnRideOption === "none") return prev;
+      return {
+        ...prev,
+        returnPickup: prev.dropoffAddress,
+        returnDestination: prev.pickupAddress,
+      };
+    });
   }, [formData.pickupAddress, formData.dropoffAddress]);
 
   const { criticalMissing, nonCriticalMissing, score } = analyzeCallQuality();
