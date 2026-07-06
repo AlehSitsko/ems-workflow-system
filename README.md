@@ -35,6 +35,7 @@ The system is designed as an operational support platform. It is not intended to
 * In-app notification system with real-time polling
 * Dark / light theme toggle in user menu
 * Per-user settings system — notifications, dispatch thresholds, and UI panel sizes saved server-side per user account
+* Staff task assignment and tracking (Staff Tasks module) with comments, activity history, and creator/assigner-only closing
 
 The platform is intended to remain useful during normal operations, temporary software outages, communication disruptions, workflow failures, high-volume operational periods, and dispatcher training workflows.
 
@@ -177,19 +178,19 @@ The application currently uses an MVP authentication system with local user reco
 
 Full system access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Users, Kiosk, Settings, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Tasks, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Users, Kiosk, Settings, User Manual
 
 ### Supervisor
 
 Operational and management access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Kiosk, Settings, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Tasks, Employees, Crew Planner, Payroll, Compliance Dashboard, Audit Log, Supervisor Dashboard, Kiosk, Settings, User Manual
 
 ### Dispatcher
 
 Operational workflow access.
 
-Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Crew Planner, Kiosk, Settings, User Manual
+Can access: Dashboard, Dispatch Board, Call Taking Form, Patients, Calls, Tasks (view/comment/status-update only — cannot create or close), Crew Planner, Kiosk, Settings, User Manual
 
 Cannot access: Employees, Users, Payroll, HR-only features
 
@@ -197,7 +198,7 @@ Cannot access: Employees, Users, Payroll, HR-only features
 
 Staff and crew planning access.
 
-Can access: Dashboard, Employees, Crew Planner, Payroll, Compliance Dashboard, Kiosk, Settings (cert_expiring, employee_added only), User Manual
+Can access: Dashboard, Tasks (HR-related task types only), Employees, Crew Planner, Payroll, Compliance Dashboard, Kiosk, Settings (cert_expiring, employee_added only), User Manual
 
 Cannot access: Dispatch Board, Call Taking Form, Patients, Calls, Supervisor analytics
 
@@ -354,6 +355,7 @@ Current features:
 | cert_expiring | Employee certification expiring | admin, supervisor, hr |
 | doc_expiring | HR document expiring (90/60/30/14/7 day thresholds) | admin, supervisor, hr |
 | employee_added | New employee added | admin, hr |
+| task_assigned | A task was assigned to you | admin, supervisor, dispatcher, hr (sent only to the specific assignee, not broadcast by role) |
 
 ## User Preferences
 
@@ -378,12 +380,31 @@ Personal settings saved to the user's account (`Settings` in the avatar menu / T
 * Separate from Browser Notifications — controls the red flashing/highlighting on the Dispatch Board itself (overdue calls, stuck units), not a browser notification
 * Call overdue alert and Unit stuck alert thresholds (minutes), saved per user
 
+## Tasks
+
+Staff Tasks / Task Management module — lets admins, supervisors, and HR assign follow-up work to any employee (chase missing documents, review a delayed unit, prep a billing report, etc.) and track it to completion.
+
+Current features:
+
+* Task fields: title, description, task type (13 types: General, Dispatcher, HR, Patient Follow-up, Call Review, Billing/Insurance, Crew/Unit Issue, Employee Documentation, Training, Compliance, Internal Project, Maintenance, Other), status, priority (Low/Normal/High/Urgent), due date, assignee
+* Optional polymorphic link to another module's record (`related_module` + `related_entity_id`)
+* Compact filterable list: assignee, status, priority, task type, due date range, created by, show archived
+* Detail drawer with Overview / Comments / Activity tabs (Edit tab only for roles that can create tasks)
+* Comments thread and a full activity log (created, assigned, status changes, priority/due-date changes, comments, archived) — mirrored into the global Audit Log
+* Overdue is computed (`due_date` in the past and status not terminal), not a stored status, so nothing needs a scheduled job to flip it back
+* Creation restricted to admin / supervisor / HR — dispatchers (and other assignee-only roles) can only view, comment on, and update the status of tasks assigned to them
+* Closing a task (marking it Completed or Cancelled) is restricted to the task's creator, its assigner, or an admin — everyone else can only move a task up to **Done** and hand it back for review (e.g. supervisor assigns a documentation task to HR + a dispatcher, they upload files and mark it Done, the supervisor reviews and closes it)
+* HR is scoped to HR-related task types (HR Task, Employee Documentation, Training, Compliance) plus anything they created or are assigned
+* Bell notification sent to the specific user account linked to the assigned employee whenever a task is created with an assignee or reassigned
+* Dashboard widget: My Open Tasks / My Overdue Tasks / Tasks Due Today for everyone with Tasks access, plus Unassigned Tasks / Total Overdue for admin and supervisor
+* Soft archive — archived tasks are hidden from the default list but remain viewable via "Show archived"
+
 ## Employees
 
 Current features:
 
 * Create, edit, delete employees
-* Employee status and role tracking (EMT, Paramedic, Assist, Dispatcher, Driver, Supervisor, Manager)
+* Employee status and role tracking (EMT, Paramedic, Assist, Dispatcher, Driver, Supervisor, Manager, HR)
 * Employee number, hire date, contact info, notes
 * Certification tracking (CPR, EVOC, EMT, Paramedic) with expiration dates
 * Active/inactive status
@@ -595,6 +616,25 @@ Current features:
 * name, relationship_label, phone, email
 * is_primary, can_authorize_transport, preferred_contact_method, notes
 
+### Task
+
+* id, title, description, task_type, status (New / Assigned / In Progress / Waiting / Done / Completed / Cancelled), priority (Low / Normal / High / Urgent)
+* created_by_user_id (FK → User), assigned_to_employee_id (FK → Employee), assigned_by_user_id (FK → User)
+* related_module, related_entity_id — optional polymorphic link, no FK constraint
+* due_date (date-only), completed_at, created_at, updated_at, is_archived
+* `is_overdue()` is computed (due_date in the past and status not Completed/Cancelled), not stored
+* Only the creator, the assigner, or an admin can set status to Completed/Cancelled — enforced server-side, not just in the UI
+
+### TaskComment
+
+* id, task_id (FK → Task), author_user_id (FK → User), author_name (denormalized), comment_text, created_at, updated_at
+
+### TaskActivityLog
+
+* id, task_id (FK → Task), user_id (FK → User), user_name (denormalized)
+* action_type (created / assigned / status_changed / priority_changed / due_date_changed / commented / archived), old_value, new_value, created_at
+* Every action except `commented` is also mirrored into the global AuditLog as `task.<action_type>`
+
 ### Call / CallAssignment / NotificationEvent / UserNotification / UserNotificationPrefs / Organization
 
 See prior sections.
@@ -769,6 +809,23 @@ POST  /api/notifications/test-push           (body: {user_id} — sends a real p
 
 ```text
 GET   /api/audit?entity_type=&user_id=&date_from=&date_to=
+```
+
+### Tasks
+
+```text
+GET     /api/tasks                       (?assigned_to_employee_id=&status=&priority=&task_type=&due_before=&due_after=&created_by_user_id=&related_module=&related_entity_id=&overdue=1&is_archived=1 — role-scoped)
+GET     /api/tasks/my                    (current user's assigned/created tasks)
+GET     /api/tasks/summary               (my_open/my_overdue/due_today; + total_open/total_overdue/unassigned_count for admin/supervisor)
+GET     /api/tasks/<task_id>
+POST    /api/tasks                       (admin/supervisor/hr only; hr restricted to HR-related task types)
+PUT     /api/tasks/<task_id>             (same role gate as create)
+PATCH   /api/tasks/<task_id>/status      (assignee limited to In Progress/Waiting/Done; Completed/Cancelled require creator, assigner, or admin)
+PATCH   /api/tasks/<task_id>/assign      (admin/supervisor/hr only)
+DELETE  /api/tasks/<task_id>             (soft archive — admin/supervisor only)
+GET     /api/tasks/<task_id>/comments
+POST    /api/tasks/<task_id>/comments
+GET     /api/tasks/<task_id>/activity
 ```
 
 ## Installation
@@ -1140,6 +1197,17 @@ Recommended workflow:
 * Reduced React Hook `exhaustive-deps` warnings from 9 to 4 by wrapping previously-unmemoized `loadEmployees`/`loadUnits` (Crew Planner), `loadUsers` (User Management), and adding the already-stable `toast` reference to two `useCallback`s (Dispatch Board) — confirmed `toast` from `ToastProvider` is referentially stable (itself a `useCallback` with a `[]`-dependency `remove`), so this doesn't introduce extra re-fetches. The remaining 4 warnings (a return-ride address sync effect, a board reload effect, and two `useMemo` warning-computation hooks) are intentional — including the flagged dependencies would either double-run intentionally-separated effects or refetch the whole Dispatch Board on every unit selection; left as-is and documented rather than silenced
 * `DispatchBoardPage`, `PatientsPage`, `UserManualPage`, `CrewPlannerPage`, and `EmployeesPage` are now lazy-loaded (`React.lazy` + a single `Suspense` boundary around the router) — the main bundle dropped from ~705 kB to ~448 kB with each page split into its own 34–85 kB chunk, and the "chunk larger than 500 kB" build warning is gone
 
+### Staff Tasks / Task Management Module (complete)
+
+* New `Task` / `TaskComment` / `TaskActivityLog` models (`backend/models.py`), Alembic migration `d4f8a1c2e3b9`, and a full CRUD blueprint (`backend/routes/task_routes.py`) — see [Tasks](#tasks), [Backend Data Model](#backend-data-model), and [Backend API](#backend-api) above for the full field/endpoint list
+* Creation restricted to admin/supervisor/hr; hr further restricted to HR-related task types; dispatchers can only view, comment on, and progress the status of tasks assigned to them
+* Closing workflow: only the task's creator, its assigner, or an admin can set status to Completed/Cancelled — everyone else can only move a task up to a new **Done** status and hand it back for review. Enforced in both `task_routes.py` (`PATCH /api/tasks/<id>/status`) and the frontend (`TasksPage.jsx` filters which Quick Status Change buttons render, and hides the Edit tab for roles that can't edit)
+* `Task.to_dict()` resolves `created_by_user_name` via a `creator` relationship to `User`, so the Overview tab shows who created a task without any manual entry
+* New `task_assigned` bell notification: `notification_utils.notify_user()` targets the single user account linked to the newly assigned employee (unlike the existing role-broadcast `create_notification()`), fired on task creation-with-assignee and on reassignment
+* Frontend: `frontend/src/api/tasksApi.js`, `frontend/src/pages/TasksPage.jsx` (list/filter/create/edit/comments/activity/archive in one page, matching the existing single-file-per-module convention), a Dashboard widget + Quick Tile, and Tasks nav entry under Staff
+* Added the missing "HR" option to the Employee role dropdown (`EmployeesPage.jsx`) — the label/badge-color utilities already supported it, it just wasn't selectable
+* `qa_test.py` extended with a dedicated Task Management section (create/list/filter/status transitions/assign/comment/activity/archive, the close-permission enforcement scenario, and negative-permission cases for every role)
+
 ## Roadmap
 
 ### Performance Optimization (complete)
@@ -1332,7 +1400,10 @@ Time Format preference + Notification Settings overhaul complete (global 12h/24h
 toggles, tolerant time utils, backend time validation, Browser Notifications status handling with real
 enable/blocked/push-not-configured/test-notification flows, Dispatch Visual Alerts separated out),
 Notification prefs 500 bug fixed, Settings page refactored into composable components, 5 heaviest
-pages lazy-loaded (~705 kB → ~448 kB main bundle, no more chunk-size build warning)
+pages lazy-loaded (~705 kB → ~448 kB main bundle, no more chunk-size build warning),
+Staff Tasks / Task Management module complete (Task/TaskComment/TaskActivityLog models, role-scoped
+CRUD, creator/assigner-only closing with a Done-status handoff for assignees, task_assigned bell
+notification, Dashboard widget)
 Next: Block 5.2 — Assignment Conflict Validation
 ```
 
@@ -1390,6 +1461,8 @@ Payroll CSV Export (generic / Gusto / ADP)
 Multi-Tenant Foundation (Organization model, org_id on all tables)
 ↓
 Dark / Light Theme (CSS tokens, Bootstrap 5.3 dark mode, localStorage)
+↓
+Staff Task Assignment & Tracking (comments, activity log, creator/assigner-only closing, bell notification)
 ```
 
 ## This System Is

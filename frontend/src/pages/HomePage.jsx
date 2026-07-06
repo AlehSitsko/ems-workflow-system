@@ -14,6 +14,7 @@ import {
   FaMoneyBillWave,
   FaShieldAlt,
   FaHistory,
+  FaTasks,
 } from "react-icons/fa";
 
 import {
@@ -25,6 +26,55 @@ import {
   hasSupervisorAccess,
 } from "../api/authApi";
 import { kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
+import { getTaskSummary } from "../api/tasksApi";
+
+const hasTaskAccess = (user) =>
+  user && ["admin", "supervisor", "hr", "dispatcher"].includes(user.role);
+
+function TaskSummaryWidget({ currentUser }) {
+  const [summary, setSummary] = useState(null);
+  const isManager = ["admin", "supervisor"].includes(currentUser?.role);
+
+  useEffect(() => {
+    if (!hasTaskAccess(currentUser)) return;
+    getTaskSummary(currentUser).then(setSummary).catch(() => setSummary(null));
+  }, [currentUser]);
+
+  if (!hasTaskAccess(currentUser) || !summary) return null;
+
+  const cards = [
+    { label: "My Open Tasks", value: summary.my_open, color: "#0d6efd", filter: "" },
+    { label: "My Overdue Tasks", value: summary.my_overdue, color: "#dc3545", filter: "overdue=1" },
+    { label: "Tasks Due Today", value: summary.due_today, color: "#f59e0b", filter: "" },
+  ];
+  if (isManager) {
+    cards.push(
+      { label: "Unassigned Tasks", value: summary.unassigned_count, color: "#6f42c1", filter: "" },
+      { label: "Total Overdue", value: summary.total_overdue, color: "#dc3545", filter: "overdue=1" },
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.65rem" }}>
+      {cards.map((c) => (
+        <Link
+          key={c.label}
+          to="/tasks"
+          style={{
+            textDecoration: "none",
+            padding: "0.75rem 1rem",
+            borderRadius: 12,
+            border: `1px solid ${c.color}30`,
+            background: `${c.color}10`,
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 800, color: c.color }}>{c.value}</div>
+          <div style={{ fontSize: 12, color: "var(--ems-text-muted)", fontWeight: 600 }}>{c.label}</div>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function formatElapsed(clockInIso) {
   const diff = Math.max(0, Math.floor((Date.now() - new Date(clockInIso).getTime()) / 1000));
@@ -172,6 +222,7 @@ function HomePage({ currentUser }) {
   const canAccessCrewPlanner = hasCrewPlannerAccess(currentUser);
   const canAccessSupervisor = hasSupervisorAccess(currentUser);
   const canAccessAdmin = hasAdminAccess(currentUser);
+  const canAccessTasks = hasTaskAccess(currentUser);
 
   return (
     <div className="dashboard-page">
@@ -195,6 +246,8 @@ function HomePage({ currentUser }) {
           </Link>
         )}
       </div>
+
+      <TaskSummaryWidget currentUser={currentUser} />
 
       {/* Quick access tiles */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.85rem" }}>
@@ -235,6 +288,16 @@ function HomePage({ currentUser }) {
             path="/calls"
             icon={FaClipboardList}
             accent="#0d6efd"
+          />
+        )}
+
+        {canAccessTasks && (
+          <QuickTile
+            title="Tasks"
+            description="Assign and track staff follow-up work"
+            path="/tasks"
+            icon={FaTasks}
+            accent="#198754"
           />
         )}
 

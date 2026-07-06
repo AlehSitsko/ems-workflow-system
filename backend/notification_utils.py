@@ -18,13 +18,13 @@ ROLE_EVENT_TYPES = {
     "admin":      {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "employee_added",
                    "doc_expiring", "cert_no_scan",
-                   "unit_shift_near_end", "unit_shift_overdue"},
+                   "unit_shift_near_end", "unit_shift_overdue", "task_assigned"},
     "supervisor": {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "doc_expiring",
-                   "cert_no_scan", "unit_shift_near_end", "unit_shift_overdue"},
+                   "cert_no_scan", "unit_shift_near_end", "unit_shift_overdue", "task_assigned"},
     "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status",
-                   "unit_shift_near_end", "unit_shift_overdue"},
-    "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan"},
+                   "unit_shift_near_end", "unit_shift_overdue", "task_assigned"},
+    "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan", "task_assigned"},
 }
 
 # Human-readable label for each notification type, shown in Notification Settings.
@@ -40,6 +40,7 @@ NOTIFICATION_LABELS = {
     "cert_no_scan":          "Certification scan missing",
     "unit_shift_near_end":   "Unit shift near end",
     "unit_shift_overdue":    "Unit shift overdue",
+    "task_assigned":         "Task assigned to you",
 }
 
 # Roles that receive each event type.
@@ -134,6 +135,49 @@ def create_notification(event_type, severity, title, body, entity_type=None, ent
                 if row:
                     row.push_sub_json = None
                     db.session.commit()
+        except Exception:
+            pass
+
+
+def notify_user(user_id, event_type, severity, title, body, entity_type=None, entity_id=None, dedup_minutes=1):
+    """Create a NotificationEvent + a single UserNotification row for exactly
+    one user (e.g. a task assignee), bypassing the role-based broadcast that
+    create_notification() does. dedup_minutes defaults low since each call
+    here represents a distinct action (e.g. a specific assignment), not a
+    recurring background scan."""
+    if entity_id is not None and _event_exists_recently(event_type, entity_id, dedup_minutes):
+        return
+
+    user = User.query.get(user_id)
+    if not user or not user.is_active:
+        return
+    prefs_data = _get_user_prefs(user.id)
+    if not prefs_data.get(event_type, True):
+        return
+
+    event = NotificationEvent(
+        type=event_type,
+        severity=severity,
+        title=title,
+        body=body,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        created_at=_now_iso(),
+    )
+    db.session.add(event)
+    db.session.flush()
+    db.session.add(UserNotification(
+        event_id=event.id,
+        user_id=user.id,
+        is_read=False,
+        created_at=_now_iso(),
+    ))
+    db.session.commit()
+
+    prefs_row = UserNotificationPrefs.query.get(user.id)
+    if prefs_row and prefs_row.push_sub_json:
+        try:
+            send_push(prefs_row.push_sub_json, title, body or "")
         except Exception:
             pass
 
