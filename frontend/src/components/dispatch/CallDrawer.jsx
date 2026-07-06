@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaSearch, FaUser, FaUserPlus, FaTimes, FaPhoneAlt } from "react-icons/fa";
 import EntityDrawer from "../ui/EntityDrawer";
 import TimeInput from "../ui/TimeInput";
+import { useConfirm } from "../ui/useConfirm";
 import { createCall, updateCall } from "../../api/callsApi";
 import { createPatient, findDuplicatePatient, getPatients } from "../../api/patientsApi";
 import { getTodayDate, getLoggedDispatcherName, localIsoNow } from "../../utils/callUtils";
@@ -37,6 +38,7 @@ const emptyNewPatient = () => ({
 });
 
 export default function CallDrawer({ open, onClose, onSaved, callToEdit, defaultTripDate }) {
+  const confirm = useConfirm();
   const [form, setForm] = useState(emptyForm(defaultTripDate));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState([]);
@@ -98,8 +100,16 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
   const setFormDirty = (updater) => { setForm(updater); setIsDirty(true); };
   const field = (key) => (e) => setFormDirty(p => ({ ...p, [key]: e.target.value }));
 
-  const handleCloseRequest = () => {
-    if (isDirty && !window.confirm("You have unsaved changes. Close without saving?")) return;
+  const handleCloseRequest = async () => {
+    if (isDirty) {
+      const ok = await confirm({
+        title: "Unsaved changes",
+        message: "You have unsaved changes. Close without saving?",
+        variant: "warning",
+        confirmLabel: "Close without saving",
+      });
+      if (!ok) return;
+    }
     onClose();
   };
 

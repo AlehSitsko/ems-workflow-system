@@ -49,7 +49,7 @@ def section(title):
 def rstr(n=5):
     return "".join(random.choices(string.ascii_uppercase, k=n))
 
-created = {"vehicles": [], "crew_units": [], "patients": [], "calls": [], "tasks": []}
+created = {"vehicles": [], "crew_units": [], "patients": [], "calls": [], "tasks": [], "employees": []}
 
 SUPERVISOR_HEADERS = {"X-User-Id": "2", "X-User-Role": "supervisor", "X-User-Name": "Supervisor User"}
 DISPATCHER_HEADERS = {"X-User-Id": "3", "X-User-Role": "dispatcher", "X-User-Name": "Dispatcher User"}
@@ -934,6 +934,19 @@ def test_patients():
 def test_tasks():
     section("TASK MANAGEMENT — CRUD, permissions, comments, activity")
 
+    # Self-contained fixture: don't assume any employee already exists in the
+    # DB (a prior version of this section hardcoded employee id=1, which only
+    # ever worked because earlier manual testing happened to leave one there —
+    # broke immediately on a genuinely fresh database).
+    r_emp = S.post(f"{BASE}/api/employees", json={
+        "firstName": f"QATask{rstr(4)}", "lastName": "Employee", "role": "EMT",
+    })
+    if r_emp.status_code != 201:
+        fail("POST /employees — task-module test fixture", f"got {r_emp.status_code}: {r_emp.text[:120]}")
+        return
+    emp_id = r_emp.json()["id"]
+    created["employees"].append(emp_id)
+
     # 10.1 Create — happy path (admin)
     r = S.post(f"{BASE}/api/tasks", json={
         "title": f"QA Task {rstr(4)}", "task_type": "General Task", "priority": "High",
@@ -968,9 +981,9 @@ def test_tasks():
         fail("POST /tasks — invalid priority", f"got {r_badpri.status_code}")
 
     # 10.3 Assign → auto-bumps New → Assigned
-    r_assign = S.patch(f"{BASE}/api/tasks/{task_id}/assign", json={"assigned_to_employee_id": 1})
+    r_assign = S.patch(f"{BASE}/api/tasks/{task_id}/assign", json={"assigned_to_employee_id": emp_id})
     if r_assign.status_code == 200 and r_assign.json().get("status") == "Assigned":
-        ok("PATCH /tasks/:id/assign — assigns employee #1, status auto-bumps to 'Assigned'")
+        ok(f"PATCH /tasks/:id/assign — assigns employee #{emp_id}, status auto-bumps to 'Assigned'")
     else:
         fail("PATCH /tasks/:id/assign", f"got {r_assign.status_code}: {r_assign.text[:120]}")
 
@@ -1008,13 +1021,13 @@ def test_tasks():
     close_task_id = r_close_task.json()["id"] if r_close_task.status_code == 201 else None
     if close_task_id:
         created["tasks"].append(close_task_id)
-        S.patch(f"{BASE}/api/tasks/{close_task_id}/assign", json={"assigned_to_employee_id": 1})
+        S.patch(f"{BASE}/api/tasks/{close_task_id}/assign", json={"assigned_to_employee_id": emp_id})
 
-        # Temporarily link the dispatcher test user to employee #1 so they are
-        # the task's assignee, then restore the link afterward.
+        # Temporarily link the dispatcher test user to the fixture employee so
+        # they are the task's assignee, then restore the link afterward.
         dispatcher_user = next(u for u in S.get(f"{BASE}/api/auth/users").json() if u["id"] == 3)
-        r_link = S.put(f"{BASE}/api/auth/users/3", json={**dispatcher_user, "employee_id": 1})
-        if r_link.status_code == 200 and r_link.json().get("employee_id") == 1:
+        r_link = S.put(f"{BASE}/api/auth/users/3", json={**dispatcher_user, "employee_id": emp_id})
+        if r_link.status_code == 200 and r_link.json().get("employee_id") == emp_id:
             r_worker_progress = S.patch(f"{BASE}/api/tasks/{close_task_id}/status",
                                          json={"status": "In Progress"}, headers=DISPATCHER_HEADERS)
             if r_worker_progress.status_code == 200:
@@ -1103,7 +1116,7 @@ def test_tasks():
     else:
         fail("POST /tasks (dispatcher)", f"got {r_disp_create.status_code}")
 
-    r_disp_assign = S.patch(f"{BASE}/api/tasks/{task_id}/assign", json={"assigned_to_employee_id": 1},
+    r_disp_assign = S.patch(f"{BASE}/api/tasks/{task_id}/assign", json={"assigned_to_employee_id": emp_id},
                              headers=DISPATCHER_HEADERS)
     if r_disp_assign.status_code == 403:
         ok("PATCH /tasks/:id/assign (dispatcher) → 403")
@@ -1178,8 +1191,22 @@ def cleanup():
         S.delete(f"{BASE}/api/patient/{pid}")  # archives — patients are never hard-deleted
     for tid in created["tasks"]:
         S.delete(f"{BASE}/api/tasks/{tid}")  # archives — tasks are never hard-deleted
+    for eid in created["employees"]:
+        # Deactivate rather than hard-delete: the (now-archived) test tasks above
+        # still reference this employee via assigned_to_employee_id, and Employee
+        # DELETE has no FK cascade handling — a hard delete here would raise an
+        # IntegrityError, the same class of bug this module fixes elsewhere.
+        # PUT requires firstName/lastName, so fetch the current record first
+        # rather than overwriting them with empty strings.
+        r_emp_current = S.get(f"{BASE}/api/employees")
+        emp_record = next((e for e in r_emp_current.json() if e["id"] == eid), None) if r_emp_current.status_code == 200 else None
+        if emp_record:
+            S.put(f"{BASE}/api/employees/{eid}", json={
+                "firstName": emp_record["firstName"], "lastName": emp_record["lastName"], "isActive": False,
+            })
     print(f"  Removed {len(created['crew_units'])} crew units, {len(created['vehicles'])} vehicles, "
-          f"archived {len(created['patients'])} patients, archived {len(created['tasks'])} tasks")
+          f"archived {len(created['patients'])} patients, archived {len(created['tasks'])} tasks, "
+          f"deactivated {len(created['employees'])} employees")
 
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
