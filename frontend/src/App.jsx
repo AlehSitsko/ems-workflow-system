@@ -29,6 +29,7 @@ const UserManualPage = lazy(() => import("./pages/UserManualPage"));
 const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
 const CrewPlannerPage = lazy(() => import("./pages/CrewPlannerPage"));
 const DispatchBoardPage = lazy(() => import("./pages/DispatchBoardPage"));
+const TasksPage = lazy(() => import("./pages/TasksPage"));
 
 function PageFallback() {
   return <div className="page-stack"><p className="text-muted">Loading...</p></div>;
@@ -156,6 +157,24 @@ function App() {
     }
 
     if (!hasSupervisorAccess(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
+  };
+
+  // Protect the Tasks module — visible to admin/supervisor/hr/dispatcher,
+  // each scoped to their own visible tasks server-side.
+  const TasksRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!["admin", "supervisor", "hr", "dispatcher"].includes(currentUser.role)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -328,6 +347,15 @@ function App() {
             <EmployeeRoute>
               <AuditLogPage currentUser={currentUser} />
             </EmployeeRoute>
+          }
+        />
+
+        <Route
+          path="/tasks"
+          element={
+            <TasksRoute>
+              <TasksPage currentUser={currentUser} />
+            </TasksRoute>
           }
         />
 

@@ -49,7 +49,11 @@ def section(title):
 def rstr(n=5):
     return "".join(random.choices(string.ascii_uppercase, k=n))
 
-created = {"vehicles": [], "crew_units": [], "patients": [], "calls": []}
+created = {"vehicles": [], "crew_units": [], "patients": [], "calls": [], "tasks": []}
+
+SUPERVISOR_HEADERS = {"X-User-Id": "2", "X-User-Role": "supervisor", "X-User-Name": "Supervisor User"}
+DISPATCHER_HEADERS = {"X-User-Id": "3", "X-User-Role": "dispatcher", "X-User-Name": "Dispatcher User"}
+HR_HEADERS = {"X-User-Id": "4", "X-User-Role": "hr", "X-User-Name": "HR Test User"}
 
 
 # ─── SECTION 1: VEHICLES ──────────────────────────────────────────────────────
@@ -921,6 +925,243 @@ def test_patients():
             created["patients"].append(r_long.json()["id"])
 
 
+# ─── SECTION 10: TASK MANAGEMENT MODULE ───────────────────────────────────────
+def test_tasks():
+    section("TASK MANAGEMENT — CRUD, permissions, comments, activity")
+
+    # 10.1 Create — happy path (admin)
+    r = S.post(f"{BASE}/api/tasks", json={
+        "title": f"QA Task {rstr(4)}", "task_type": "General Task", "priority": "High",
+    })
+    if r.status_code == 201:
+        task_id = r.json()["id"]
+        created["tasks"].append(task_id)
+        ok(f"POST /tasks → 201 (task #{task_id}), status defaults to 'New'")
+        if r.json().get("status") != "New":
+            fail("POST /tasks — default status", f"expected New, got {r.json().get('status')}")
+    else:
+        fail("POST /tasks", f"got {r.status_code}: {r.text[:120]}")
+        return
+
+    # 10.2 Validation — missing title, bad task_type, bad priority
+    r_notitle = S.post(f"{BASE}/api/tasks", json={"task_type": "General Task"})
+    if r_notitle.status_code == 400:
+        ok("POST /tasks — missing title → 400")
+    else:
+        fail("POST /tasks — missing title", f"got {r_notitle.status_code}")
+
+    r_badtype = S.post(f"{BASE}/api/tasks", json={"title": "x", "task_type": "Not A Real Type"})
+    if r_badtype.status_code == 400:
+        ok("POST /tasks — invalid task_type → 400")
+    else:
+        fail("POST /tasks — invalid task_type", f"got {r_badtype.status_code}")
+
+    r_badpri = S.post(f"{BASE}/api/tasks", json={"title": "x", "priority": "Meh"})
+    if r_badpri.status_code == 400:
+        ok("POST /tasks — invalid priority → 400")
+    else:
+        fail("POST /tasks — invalid priority", f"got {r_badpri.status_code}")
+
+    # 10.3 Assign → auto-bumps New → Assigned
+    r_assign = S.patch(f"{BASE}/api/tasks/{task_id}/assign", json={"assigned_to_employee_id": 1})
+    if r_assign.status_code == 200 and r_assign.json().get("status") == "Assigned":
+        ok("PATCH /tasks/:id/assign — assigns employee #1, status auto-bumps to 'Assigned'")
+    else:
+        fail("PATCH /tasks/:id/assign", f"got {r_assign.status_code}: {r_assign.text[:120]}")
+
+    # 10.4 Edit
+    r_edit = S.put(f"{BASE}/api/tasks/{task_id}", json={
+        "title": "QA Task (edited)", "priority": "Urgent",
+    })
+    if r_edit.status_code == 200 and r_edit.json().get("priority") == "Urgent":
+        ok("PUT /tasks/:id — edit persists")
+    else:
+        fail("PUT /tasks/:id", f"got {r_edit.status_code}: {r_edit.text[:120]}")
+
+    # 10.5 Status change → Completed sets completed_at; leaving Completed clears it
+    r_complete = S.patch(f"{BASE}/api/tasks/{task_id}/status", json={"status": "Completed"})
+    if r_complete.status_code == 200 and r_complete.json().get("completed_at"):
+        ok("PATCH /tasks/:id/status → Completed sets completed_at")
+    else:
+        fail("PATCH /tasks/:id/status — Completed", f"got {r_complete.status_code}")
+
+    r_reopen = S.patch(f"{BASE}/api/tasks/{task_id}/status", json={"status": "In Progress"})
+    if r_reopen.status_code == 200 and r_reopen.json().get("completed_at") is None:
+        ok("PATCH /tasks/:id/status — leaving Completed clears completed_at")
+    else:
+        fail("PATCH /tasks/:id/status — reopen", f"got {r_reopen.status_code}")
+
+    r_badstatus = S.patch(f"{BASE}/api/tasks/{task_id}/status", json={"status": "Bogus"})
+    if r_badstatus.status_code == 400:
+        ok("PATCH /tasks/:id/status — invalid status → 400")
+    else:
+        fail("PATCH /tasks/:id/status — invalid status", f"got {r_badstatus.status_code}")
+
+    # 10.5b Close permission — only the creator/assigner may mark Completed/Cancelled;
+    # the assignee (a worker/dispatcher) can only move it up to 'Done'.
+    r_close_task = S.post(f"{BASE}/api/tasks", json={"title": "QA Close-Perm Task"})
+    close_task_id = r_close_task.json()["id"] if r_close_task.status_code == 201 else None
+    if close_task_id:
+        created["tasks"].append(close_task_id)
+        S.patch(f"{BASE}/api/tasks/{close_task_id}/assign", json={"assigned_to_employee_id": 1})
+
+        # Temporarily link the dispatcher test user to employee #1 so they are
+        # the task's assignee, then restore the link afterward.
+        dispatcher_user = next(u for u in S.get(f"{BASE}/api/auth/users").json() if u["id"] == 3)
+        r_link = S.put(f"{BASE}/api/auth/users/3", json={**dispatcher_user, "employee_id": 1})
+        if r_link.status_code == 200 and r_link.json().get("employee_id") == 1:
+            r_worker_progress = S.patch(f"{BASE}/api/tasks/{close_task_id}/status",
+                                         json={"status": "In Progress"}, headers=DISPATCHER_HEADERS)
+            if r_worker_progress.status_code == 200:
+                ok("PATCH /tasks/:id/status (assignee) → In Progress allowed")
+            else:
+                fail("PATCH /tasks/:id/status (assignee, In Progress)", f"got {r_worker_progress.status_code}")
+
+            r_worker_done = S.patch(f"{BASE}/api/tasks/{close_task_id}/status",
+                                     json={"status": "Done"}, headers=DISPATCHER_HEADERS)
+            if r_worker_done.status_code == 200:
+                ok("PATCH /tasks/:id/status (assignee) → Done allowed")
+            else:
+                fail("PATCH /tasks/:id/status (assignee, Done)", f"got {r_worker_done.status_code}")
+
+            r_worker_close = S.patch(f"{BASE}/api/tasks/{close_task_id}/status",
+                                      json={"status": "Completed"}, headers=DISPATCHER_HEADERS)
+            if r_worker_close.status_code == 403:
+                ok("PATCH /tasks/:id/status (assignee) → Completed → 403 (only creator/assigner can close)")
+            else:
+                fail("PATCH /tasks/:id/status (assignee, Completed)", f"got {r_worker_close.status_code}")
+
+            r_creator_close = S.patch(f"{BASE}/api/tasks/{close_task_id}/status", json={"status": "Completed"})
+            if r_creator_close.status_code == 200 and r_creator_close.json().get("status") == "Completed":
+                ok("PATCH /tasks/:id/status (creator/assigner, admin) → Completed allowed")
+            else:
+                fail("PATCH /tasks/:id/status (creator/assigner, Completed)", f"got {r_creator_close.status_code}")
+        else:
+            fail("PUT /auth/users/3 — temp employee link for close-permission test",
+                 f"got {r_link.status_code}: {r_link.text[:120]}")
+
+        # Always restore the dispatcher test user's employee link, even if a step above failed.
+        S.put(f"{BASE}/api/auth/users/3", json={**dispatcher_user, "employee_id": None})
+    else:
+        fail("POST /tasks — close-permission test setup", f"got {r_close_task.status_code}")
+
+    # 10.6 Comments + activity log
+    r_comment = S.post(f"{BASE}/api/tasks/{task_id}/comments", json={"comment_text": "QA test comment"})
+    if r_comment.status_code == 201:
+        ok("POST /tasks/:id/comments → 201")
+    else:
+        fail("POST /tasks/:id/comments", f"got {r_comment.status_code}: {r_comment.text[:120]}")
+
+    r_nocomment = S.post(f"{BASE}/api/tasks/{task_id}/comments", json={"comment_text": ""})
+    if r_nocomment.status_code == 400:
+        ok("POST /tasks/:id/comments — empty comment_text → 400")
+    else:
+        fail("POST /tasks/:id/comments — empty text", f"got {r_nocomment.status_code}")
+
+    r_comments = S.get(f"{BASE}/api/tasks/{task_id}/comments")
+    if r_comments.status_code == 200 and len(r_comments.json()) == 1:
+        ok("GET /tasks/:id/comments — returns the one comment")
+    else:
+        fail("GET /tasks/:id/comments", f"got {r_comments.status_code}: {r_comments.text[:120]}")
+
+    r_activity = S.get(f"{BASE}/api/tasks/{task_id}/activity")
+    activity_types = {a["action_type"] for a in r_activity.json()} if r_activity.status_code == 200 else set()
+    expected_types = {"created", "assigned", "status_changed", "commented"}
+    if r_activity.status_code == 200 and expected_types.issubset(activity_types):
+        ok(f"GET /tasks/:id/activity — contains {sorted(expected_types)}")
+    else:
+        fail("GET /tasks/:id/activity", f"got {r_activity.status_code}, types={activity_types}")
+
+    # 10.7 List + filters + summary + my
+    r_list = S.get(f"{BASE}/api/tasks?priority=Urgent")
+    if r_list.status_code == 200 and any(t["id"] == task_id for t in r_list.json()["items"]):
+        ok("GET /tasks?priority=Urgent — filter matches created task")
+    else:
+        fail("GET /tasks?priority=Urgent", f"got {r_list.status_code}")
+
+    r_summary = S.get(f"{BASE}/api/tasks/summary")
+    if r_summary.status_code == 200 and "total_open" in r_summary.json():
+        ok("GET /tasks/summary — admin sees total_open/total_overdue/unassigned_count")
+    else:
+        fail("GET /tasks/summary", f"got {r_summary.status_code}: {r_summary.text[:120]}")
+
+    r_my = S.get(f"{BASE}/api/tasks/my")
+    if r_my.status_code == 200 and any(t["id"] == task_id for t in r_my.json()["items"]):
+        ok("GET /tasks/my — admin sees own created task")
+    else:
+        fail("GET /tasks/my", f"got {r_my.status_code}")
+
+    # 10.8 Permission matrix — dispatcher cannot create/assign/archive
+    r_disp_create = S.post(f"{BASE}/api/tasks", json={"title": "x"}, headers=DISPATCHER_HEADERS)
+    if r_disp_create.status_code == 403:
+        ok("POST /tasks (dispatcher) → 403 — dispatchers cannot create tasks")
+    else:
+        fail("POST /tasks (dispatcher)", f"got {r_disp_create.status_code}")
+
+    r_disp_assign = S.patch(f"{BASE}/api/tasks/{task_id}/assign", json={"assigned_to_employee_id": 1},
+                             headers=DISPATCHER_HEADERS)
+    if r_disp_assign.status_code == 403:
+        ok("PATCH /tasks/:id/assign (dispatcher) → 403")
+    else:
+        fail("PATCH /tasks/:id/assign (dispatcher)", f"got {r_disp_assign.status_code}")
+
+    r_disp_archive = S.delete(f"{BASE}/api/tasks/{task_id}", headers=DISPATCHER_HEADERS)
+    if r_disp_archive.status_code == 403:
+        ok("DELETE /tasks/:id (dispatcher) → 403")
+    else:
+        fail("DELETE /tasks/:id (dispatcher)", f"got {r_disp_archive.status_code}")
+
+    r_disp_view = S.get(f"{BASE}/api/tasks/{task_id}", headers=DISPATCHER_HEADERS)
+    if r_disp_view.status_code == 403:
+        ok("GET /tasks/:id (dispatcher, not their task) → 403")
+    else:
+        fail("GET /tasks/:id (dispatcher, not their task)", f"got {r_disp_view.status_code}")
+
+    # 10.9 HR — restricted to HR task types
+    r_hr_bad = S.post(f"{BASE}/api/tasks", json={"title": "x", "task_type": "General Task"},
+                       headers=HR_HEADERS)
+    if r_hr_bad.status_code == 403:
+        ok("POST /tasks (hr, non-HR task_type) → 403")
+    else:
+        fail("POST /tasks (hr, non-HR task_type)", f"got {r_hr_bad.status_code}")
+
+    r_hr_ok = S.post(f"{BASE}/api/tasks", json={"title": "QA HR Task", "task_type": "HR Task"},
+                      headers=HR_HEADERS)
+    if r_hr_ok.status_code == 201:
+        hr_task_id = r_hr_ok.json()["id"]
+        created["tasks"].append(hr_task_id)
+        ok(f"POST /tasks (hr, HR task_type) → 201 (task #{hr_task_id})")
+    else:
+        fail("POST /tasks (hr, HR task_type)", f"got {r_hr_ok.status_code}: {r_hr_ok.text[:120]}")
+        hr_task_id = None
+
+    if hr_task_id:
+        r_hr_archive = S.delete(f"{BASE}/api/tasks/{hr_task_id}", headers=HR_HEADERS)
+        if r_hr_archive.status_code == 403:
+            ok("DELETE /tasks/:id (hr) → 403 — archive is admin/supervisor only")
+        else:
+            fail("DELETE /tasks/:id (hr)", f"got {r_hr_archive.status_code}")
+
+    # 10.10 Supervisor — full access, can archive
+    r_sup_archive = S.delete(f"{BASE}/api/tasks/{task_id}", headers=SUPERVISOR_HEADERS)
+    if r_sup_archive.status_code == 200 and r_sup_archive.json().get("task", {}).get("is_archived"):
+        ok("DELETE /tasks/:id (supervisor) → 200, task archived")
+    else:
+        fail("DELETE /tasks/:id (supervisor)", f"got {r_sup_archive.status_code}: {r_sup_archive.text[:120]}")
+
+    r_list_default = S.get(f"{BASE}/api/tasks")
+    if not any(t["id"] == task_id for t in r_list_default.json()["items"]):
+        ok("GET /tasks (default) — archived task excluded")
+    else:
+        fail("GET /tasks — archived task leaked into default list")
+
+    r_list_archived = S.get(f"{BASE}/api/tasks?is_archived=1")
+    if any(t["id"] == task_id for t in r_list_archived.json()["items"]):
+        ok("GET /tasks?is_archived=1 — archived task visible")
+    else:
+        fail("GET /tasks?is_archived=1 — archived task missing")
+
+
 # ─── CLEANUP ──────────────────────────────────────────────────────────────────
 def cleanup():
     section("CLEANUP — removing QA test data")
@@ -930,8 +1171,10 @@ def cleanup():
         S.delete(f"{BASE}/api/vehicles/{vid}")
     for pid in created["patients"]:
         S.delete(f"{BASE}/api/patient/{pid}")  # archives — patients are never hard-deleted
+    for tid in created["tasks"]:
+        S.delete(f"{BASE}/api/tasks/{tid}")  # archives — tasks are never hard-deleted
     print(f"  Removed {len(created['crew_units'])} crew units, {len(created['vehicles'])} vehicles, "
-          f"archived {len(created['patients'])} patients")
+          f"archived {len(created['patients'])} patients, archived {len(created['tasks'])} tasks")
 
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
@@ -958,6 +1201,7 @@ if __name__ == "__main__":
     test_data_integrity()
     test_edge_cases()
     test_patients()
+    test_tasks()
     test_load()
     cleanup()
 

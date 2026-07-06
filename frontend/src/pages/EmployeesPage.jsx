@@ -1006,6 +1006,7 @@ function EmployeesPage() {
                         <option value="Driver">Driver</option>
                         <option value="Supervisor">Supervisor</option>
                         <option value="Manager">Manager</option>
+                        <option value="HR">HR</option>
                       </select>
                     </div>
 

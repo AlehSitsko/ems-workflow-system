@@ -38,6 +38,7 @@ from routes.payroll_routes import payroll_bp
 from routes.document_routes import doc_bp
 from routes.audit_routes import audit_bp
 from routes.settings_routes import settings_bp
+from routes.task_routes import task_bp
 
 
 app = Flask(__name__)
@@ -116,6 +117,9 @@ app.register_blueprint(audit_bp)
 
 # Register per-user settings routes.
 app.register_blueprint(settings_bp)
+
+# Register staff task management routes.
+app.register_blueprint(task_bp)
 
 
 @app.route("/")

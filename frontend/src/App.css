@@ -776,6 +776,7 @@ textarea.form-control {
 .employee-form-section,
 .crew-form-section,
 .call-form-section,
+.task-form-section,
 .price-calculator-modern {
   padding: 0.75rem;
   margin-bottom: 0.75rem;
@@ -901,6 +902,62 @@ textarea.form-control {
 .patient-list-card.selected {
   border-color: #198754;
   box-shadow: 0 4px 12px rgba(25, 135, 84, 0.10);
+}
+
+/* =========================
+   Tasks page
+   ========================= */
+
+.task-list-card {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.6fr) minmax(140px, 1fr) 100px 100px 130px 140px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--ems-border);
+  border-radius: 10px;
+  background: var(--ems-bg-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.task-list-card:hover {
+  border-color: #0d6efd55;
+}
+
+.task-list-title {
+  font-weight: 700;
+  color: var(--ems-text-primary);
+}
+
+.task-list-meta {
+  font-size: 11px;
+  color: var(--ems-text-muted);
+}
+
+.task-overdue-tag {
+  color: #dc3545;
+  font-weight: 700;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.task-comment-item {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--ems-border);
+  border-radius: 10px;
+  background: var(--ems-bg-surface);
+  margin-bottom: 0.5rem;
+}
+
+.task-activity-item {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--ems-border);
+  font-size: 12px;
+}
+
+.task-activity-item:last-child {
+  border-bottom: none;
 }
 
 .patient-list-main {

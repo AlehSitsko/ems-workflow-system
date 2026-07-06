@@ -14,6 +14,7 @@ import {
   FaMoneyBillWave,
   FaShieldAlt,
   FaHistory,
+  FaTasks,
 } from "react-icons/fa";
 
 import {
@@ -27,6 +28,9 @@ import {
 
 const hasPayrollAccess = (user) =>
   user && ["admin", "supervisor", "hr"].includes(user.role);
+
+const hasTaskAccess = (user) =>
+  user && ["admin", "supervisor", "hr", "dispatcher"].includes(user.role);
 
 export const navigationGroups = [
   {
@@ -72,6 +76,12 @@ export const navigationGroups = [
   {
     title: "Staff",
     items: [
+      {
+        label: "Tasks",
+        path: "/tasks",
+        icon: FaTasks,
+        canAccess: hasTaskAccess,
+      },
       {
         label: "Employees",
         path: "/employees",
