@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import db, User
 from limiter import limiter
+from audit_utils import log_action
 
 
 # Blueprint for authentication and user management routes.
@@ -11,6 +12,14 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # Allowed system roles.
 ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr"]
+
+
+def _audit_user():
+    try:
+        uid = int(request.headers.get("X-User-Id", 0)) or None
+    except (ValueError, TypeError):
+        uid = None
+    return uid, request.headers.get("X-User-Name") or None
 
 
 # Handle user login and return authenticated user data.
@@ -92,6 +101,12 @@ def create_user():
     )
 
     db.session.add(user)
+    db.session.flush()
+
+    uid, uname = _audit_user()
+    log_action("user.created", "user", user.id, user.username,
+               {"role": role, "is_active": is_active},
+               user_id=uid, user_name=uname)
     db.session.commit()
 
     return jsonify(user.to_dict()), 201
@@ -133,6 +148,16 @@ def update_user(id):
     if existing_user:
         return jsonify({"error": "Username already exists"}), 409
 
+    changes = {}
+    if user.username != username:
+        changes["username"] = {"from": user.username, "to": username}
+    if user.role != role:
+        changes["role"] = {"from": user.role, "to": role}
+    if user.is_active != is_active:
+        changes["is_active"] = {"from": user.is_active, "to": is_active}
+    if password:
+        changes["password"] = "changed"
+
     user.username = username
     user.display_name = display_name
     user.role = role
@@ -145,6 +170,11 @@ def update_user(id):
     # Update password only when a new password is provided.
     if password:
         user.password_hash = generate_password_hash(password)
+
+    if changes:
+        uid, uname = _audit_user()
+        log_action("user.updated", "user", user.id, user.username, changes,
+                   user_id=uid, user_name=uname)
 
     db.session.commit()
 
@@ -166,6 +196,9 @@ def toggle_user_active(id):
     else:
         user.is_active = not user.is_active
 
+    uid, uname = _audit_user()
+    log_action("user.activated" if user.is_active else "user.deactivated",
+               "user", user.id, user.username, user_id=uid, user_name=uname)
     db.session.commit()
 
     return jsonify(user.to_dict())

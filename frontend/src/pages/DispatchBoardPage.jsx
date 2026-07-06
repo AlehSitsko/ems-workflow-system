@@ -1073,6 +1073,10 @@ export default function DispatchBoardPage() {
   const [unitForm, setUnitForm] = useState({ ...initialUnitForm });
   const [editingUnitId, setEditingUnitId] = useState(null);
   const [showUnitDrawer, setShowUnitDrawer] = useState(false);
+  // Whether the user has tried to save the unit form yet. Validation errors are
+  // only surfaced after this, so a freshly opened blank form doesn't greet the
+  // user with a wall of "required" errors before they've typed anything.
+  const [hasAttemptedUnitSave, setHasAttemptedUnitSave] = useState(false);
   const [nightDialog, setNightDialog] = useState(null);
   const [nightForm, setNightForm] = useState({ startTime: "", endTime: "", endDate: "" });
   const [crewSaving, setCrewSaving] = useState(false);
@@ -1527,12 +1531,14 @@ export default function DispatchBoardPage() {
     setUnitForm({ ...initialUnitForm, shiftDate: date });
     setEditingUnitId(null);
     setShowUnitDrawer(false);
+    setHasAttemptedUnitSave(false);
   };
 
   const handleShowCreateUnit = () => {
     setUnitForm({ ...initialUnitForm, shiftDate: date });
     setEditingUnitId(null);
     setShowUnitDrawer(true);
+    setHasAttemptedUnitSave(false);
   };
 
   const handleShowCreateNightUnit = () => {
@@ -1541,6 +1547,7 @@ export default function DispatchBoardPage() {
     setUnitForm({ ...initialUnitForm, shiftDate: date, shiftType: "night", endDate: nextDay.toISOString().slice(0, 10) });
     setEditingUnitId(null);
     setShowUnitDrawer(true);
+    setHasAttemptedUnitSave(false);
   };
 
   const handleEditUnit = (unit) => {
@@ -1558,11 +1565,15 @@ export default function DispatchBoardPage() {
       noPatient: !(unit.patientOrder && unit.patientOrder.length > 0),
     });
     setShowUnitDrawer(true);
+    setHasAttemptedUnitSave(false);
   };
 
   const handleSaveUnit = async (e) => {
     e.preventDefault();
-    if (unitValidationErrors.length > 0) return;
+    if (unitValidationErrors.length > 0) {
+      setHasAttemptedUnitSave(true);
+      return;
+    }
     setCrewSaving(true);
     try {
       const payload = buildUnitPayload();
@@ -2318,7 +2329,7 @@ export default function DispatchBoardPage() {
         }
       >
         <form id="board-crew-form" onSubmit={handleSaveUnit}>
-          {unitValidationErrors.length > 0 && (
+          {hasAttemptedUnitSave && unitValidationErrors.length > 0 && (
             <div className="alert alert-danger mb-3">
               <ul className="mb-0">{unitValidationErrors.map((m, i) => <li key={i}>{m}</li>)}</ul>
             </div>
