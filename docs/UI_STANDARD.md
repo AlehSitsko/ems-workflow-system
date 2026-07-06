@@ -157,3 +157,12 @@ Common tokens:
 ```
 
 Dispatch Board uses its own `--ems-board-*` namespace for the dark operational theme.
+
+---
+
+## Known Inconsistencies (tracked, not yet fixed)
+
+Found during the stabilization/documentation audit — listed here so they're not lost, tracked with full detail in [ROADMAP.md](ROADMAP.md) Priority 2:
+
+- **`CallDrawer.jsx:102`** still uses `window.confirm()` for its unsaved-changes check. Every other module was migrated to `ConfirmDialog`/`useConfirm` during "UI Standardization — Phase 1," but this one call site was missed or regressed since. Should use `useConfirm()` like every other drawer.
+- **Hardcoded hex colors** still appear in several components (`CallForm.jsx`, `PatientOrderSection.jsx`, `PlannedUnitsList.jsx`, `CallDrawer.jsx`, `DocumentsTab.jsx`, `NotificationBell.jsx`, `PushNotificationBanner.jsx`, `Topbar.jsx`, `PatientsPage.jsx`, `BrowserNotificationSettings.jsx`) despite the design-token rule above. Needs a file-by-file review — some hits may be legitimate (SVG data URIs, one-off non-UI colors), not a blind find-and-replace.
