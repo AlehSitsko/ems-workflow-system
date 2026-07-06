@@ -326,7 +326,7 @@ function CrewPlannerPage() {
   /*
     Normalizes license objects so older or incomplete records do not break UI logic.
   */
-  const normalizeLicense = (license) => {
+  const normalizeLicense = useCallback((license) => {
     if (!license) {
       return {
         hasLicense: false,
@@ -340,12 +340,12 @@ function CrewPlannerPage() {
       licenseName: license.licenseName || "",
       expirationDate: license.expirationDate || "",
     };
-  };
+  }, []);
 
   /*
     Calculates the current status of a license based on expiration date.
   */
-  const getLicenseStatus = (license) => {
+  const getLicenseStatus = useCallback((license) => {
     const normalizedLicense = normalizeLicense(license);
 
     if (!normalizedLicense.hasLicense) {
@@ -373,12 +373,12 @@ function CrewPlannerPage() {
     }
 
     return "Active";
-  };
+  }, [normalizeLicense]);
 
   /*
     Returns a CPR warning message when CPR is missing, expired, or expiring soon.
   */
-  const getCprWarning = (employee) => {
+  const getCprWarning = useCallback((employee) => {
     const cpr = normalizeLicense(employee.cpr);
     const cprStatus = getLicenseStatus(cpr);
 
@@ -395,7 +395,7 @@ function CrewPlannerPage() {
     }
 
     return "";
-  };
+  }, [normalizeLicense, getLicenseStatus]);
 
   /*
     Returns the medical slot label based on unit type.
@@ -438,11 +438,11 @@ function CrewPlannerPage() {
   /*
     Finds a full employee object by employee ID.
   */
-  const getEmployeeById = (employeeId) => {
+  const getEmployeeById = useCallback((employeeId) => {
     return employees.find(
       (employee) => String(employee.id) === String(employeeId)
     );
-  };
+  }, [employees]);
 
   /*
     Returns a display name for an assigned employee.
@@ -518,7 +518,7 @@ function CrewPlannerPage() {
     Checks whether an employee is already assigned to another unit on the same date.
     This creates warnings instead of hard-blocking the assignment.
   */
-  const getEmployeeAssignmentsInOtherUnits = (employeeId) => {
+  const getEmployeeAssignmentsInOtherUnits = useCallback((employeeId) => {
     const normalizedEmployeeId = String(employeeId);
     const assignments = [];
 
@@ -545,7 +545,7 @@ function CrewPlannerPage() {
     });
 
     return assignments;
-  };
+  }, [units, editingUnitId, unitForm.shiftDate]);
 
   /*
     Returns employees available for a specific role in the current form.
@@ -843,7 +843,7 @@ function CrewPlannerPage() {
     });
 
     return warnings;
-  }, [unitForm, employees, units, editingUnitId, timeFormat]);
+  }, [unitForm, timeFormat, getEmployeeById, getCprWarning, getEmployeeAssignmentsInOtherUnits]);
 
   /*
     Collects employee IDs already assigned to existing units on the selected date.

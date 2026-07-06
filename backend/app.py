@@ -161,6 +161,12 @@ def create_default_users():
             "display_name": "Dispatcher User",
             "role": "dispatcher",
         },
+        {
+            "username": "hr",
+            "password": "hr",
+            "display_name": "HR User",
+            "role": "hr",
+        },
     ]
 
     for user_data in default_users:

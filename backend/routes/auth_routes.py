@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import db, User
+from models import db, User, Employee
 from limiter import limiter
 from audit_utils import log_action
 
@@ -158,14 +158,25 @@ def update_user(id):
     if password:
         changes["password"] = "changed"
 
+    # Link to employee record (nullable — send null/None to unlink). Validated
+    # before any field is written so a bad employee_id doesn't raise
+    # sqlite3.IntegrityError (FK constraint) on commit.
+    employee_id = data.get("employee_id")
+    if employee_id:
+        try:
+            employee_id = int(employee_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "employee_id must be an integer"}), 400
+        if not Employee.query.get(employee_id):
+            return jsonify({"error": "Employee not found"}), 404
+    else:
+        employee_id = None
+
     user.username = username
     user.display_name = display_name
     user.role = role
     user.is_active = is_active
-
-    # Link to employee record (nullable — send null/None to unlink)
-    employee_id = data.get("employee_id")
-    user.employee_id = int(employee_id) if employee_id else None
+    user.employee_id = employee_id
 
     # Update password only when a new password is provided.
     if password:

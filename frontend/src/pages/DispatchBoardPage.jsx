@@ -1165,23 +1165,24 @@ export default function DispatchBoardPage() {
 
   const currentUser = getCurrentUser();
 
+  // Reads selectedUnit via the functional setSelectedUnit updater (not the
+  // outer closure) so this callback has no reactive dependencies and stays
+  // referentially stable — safe to list in any effect's dependency array
+  // without triggering extra reloads whenever a unit is selected.
   const loadBoard = useCallback(async (d, silent = false) => {
     if (!silent) { setLoading(true); setError(null); }
     try {
       const data = await fetchBoard(d);
       setBoard(data);
-      if (selectedUnit) {
-        const fresh = data.units.find((u) => u.id === selectedUnit.id);
-        setSelectedUnit(fresh || null);
-      }
+      setSelectedUnit((prev) => (prev ? data.units.find((u) => u.id === prev.id) || null : prev));
     } catch (e) {
       if (!silent) setError(e.message);
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [selectedUnit]);
+  }, []);
 
-  useEffect(() => { loadBoard(date); }, [date]);
+  useEffect(() => { loadBoard(date); }, [date, loadBoard]);
 
   // Auto-refresh every 30 s when viewing today's board.
   useEffect(() => {
@@ -1417,23 +1418,23 @@ export default function DispatchBoardPage() {
       .catch(() => {});
   }, [date]);
 
-  const getEmployeeById = (id) => employees.find(e => String(e.id) === String(id));
+  const getEmployeeById = useCallback((id) => employees.find(e => String(e.id) === String(id)), [employees]);
 
-  const normalizeLicense = (l) => l ? { hasLicense: Boolean(l.hasLicense), licenseName: l.licenseName || "", expirationDate: l.expirationDate || "" } : { hasLicense: false, licenseName: "", expirationDate: "" };
-  const getLicenseStatus = (l) => {
+  const normalizeLicense = useCallback((l) => l ? { hasLicense: Boolean(l.hasLicense), licenseName: l.licenseName || "", expirationDate: l.expirationDate || "" } : { hasLicense: false, licenseName: "", expirationDate: "" }, []);
+  const getLicenseStatus = useCallback((l) => {
     const nl = normalizeLicense(l);
     if (!nl.hasLicense) return "No License";
     if (!nl.expirationDate) return "Active";
     const diff = Math.ceil((new Date(`${nl.expirationDate}T23:59:59`) - new Date()) / 86400000);
     return diff < 0 ? "Expired" : diff <= 30 ? "Expiring Soon" : "Active";
-  };
-  const getCprWarning = (emp) => {
+  }, [normalizeLicense]);
+  const getCprWarning = useCallback((emp) => {
     const s = getLicenseStatus(normalizeLicense(emp.cpr));
     if (!normalizeLicense(emp.cpr).hasLicense) return "Missing CPR";
     if (s === "Expired") return "CPR Expired";
     if (s === "Expiring Soon") return "CPR Expiring Soon";
     return "";
-  };
+  }, [normalizeLicense, getLicenseStatus]);
 
   const isEmployeeEligibleForRole = (emp, role, unitType) => {
     if (!emp.isActive || emp.status !== "active") return false;
@@ -1456,7 +1457,7 @@ export default function DispatchBoardPage() {
     return employees.filter(emp => !selected.includes(String(emp.id)) && isEmployeeEligibleForRole(emp, role, unitForm.unitType));
   };
 
-  const getEmployeeAssignmentsInOtherUnits = (empId) => {
+  const getEmployeeAssignmentsInOtherUnits = useCallback((empId) => {
     const nid = String(empId);
     const result = [];
     board.units.forEach(unit => {
@@ -1467,7 +1468,7 @@ export default function DispatchBoardPage() {
       });
     });
     return result;
-  };
+  }, [board.units, editingUnitId, unitForm.shiftDate]);
 
   const assignedEmployeeIds = useMemo(() => {
     const ids = [];
@@ -1505,7 +1506,7 @@ export default function DispatchBoardPage() {
       });
     });
     return warnings;
-  }, [unitForm, employees, board.units, editingUnitId]);
+  }, [unitForm, getEmployeeById, getCprWarning, getEmployeeAssignmentsInOtherUnits]);
 
   const buildUnitPayload = () => {
     const dur = parseFloat(unitForm.shiftDurationHours);

@@ -789,14 +789,19 @@ def test_patients():
     else:
         fail("DELETE /patient/:id — archive", f"got {r_arch.status_code}: {r_arch.text[:120]}")
 
-    r_list = S.get(f"{BASE}/api/patients?per_page=200")
+    # Filter by the unique dup_name marker rather than scanning a page of
+    # results — after stress_test.py seeds 500+ patients, this specific QA
+    # patient can sort past page 1 (or past a large per_page) alphabetically,
+    # causing a false "missing" failure unrelated to the archive/search logic
+    # actually under test.
+    r_list = S.get(f"{BASE}/api/patients?name={dup_name}")
     archived_still_listed = any(p["id"] == pid for p in r_list.json().get("items", []))
     if not archived_still_listed:
         ok("GET /patients (default) — archived patient hidden from active search")
     else:
         fail("GET /patients — archived patient leaked into default list")
 
-    r_list_all = S.get(f"{BASE}/api/patients?show_archived=1&per_page=200")
+    r_list_all = S.get(f"{BASE}/api/patients?show_archived=1&name={dup_name}")
     if any(p["id"] == pid for p in r_list_all.json().get("items", [])):
         ok("GET /patients?show_archived=1 — archived patient visible")
     else:
