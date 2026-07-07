@@ -165,8 +165,8 @@ Near-term actionable items: [TODO.md](TODO.md).
 
 ## Known Limitations
 
-* Current authentication is simplified for development and demo use.
-* Tenant schema/foundation exists (`Organization` model, `org_id` columns), but full tenant activation and isolation hardening is deferred.
+* Current authentication is intentionally simplified for development and demo use, not an oversight — see Security Note below.
+* Multi-tenancy exists as a schema foundation only (`Organization` model, nullable `org_id` columns) — the organization table isn't seeded, no row has an `org_id`, and runtime tenant isolation is not active. Full activation is deferred to the production hardening phase.
 * SQLite is used for local development and is not intended for concurrent production dispatch usage.
 * The system does not include full clinical ePCR, NEMSIS export, insurance claims processing, or live GPS routing.
 * Some large frontend modules (`DispatchBoardPage.jsx` in particular) are scheduled for refactoring — see [docs/ROADMAP.md](docs/ROADMAP.md) Priority 1.

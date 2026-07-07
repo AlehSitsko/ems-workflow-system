@@ -21,7 +21,7 @@ The previous README described some already-shipped work as "planned" and had dup
 - **Vehicle Registry, shift duration/status, delay & near-end alerts, and Dispatch Board shift-timing sync were already fully implemented** (`Vehicle` model, `DailyCrewUnit.shift_duration_hours`/`shift_status`, `_compute_shift_alerts()`, `ShiftAlertsBlock.jsx`, `VehicleRegistrySection.jsx`, `unit_shift_near_end`/`unit_shift_overdue` notifications) but were listed under "Block 5.8 — Planned." Only two pieces of that block were actually unbuilt: **soft overlap warning** and **auto-fill crew** — both moved to Priority 4 below, correctly labeled as not yet built.
 - The old Block 5.8 also described a "12h/24h toggle stored in localStorage, one shared `ems-time-format` CustomEvent" UI — that mechanism was replaced by the server-side per-user `settings.ui.time_format` setting during a later, separate piece of work. The localStorage/CustomEvent approach no longer exists in the codebase.
 - **"PostgreSQL Migration" was documented twice** (once under a "Production Readiness Tasks" section, once under "Tier 3 — Before Production") with near-duplicate content. Consolidated into one entry — see Priority 6.
-- The claim that `window.alert`/`window.confirm` were "removed across all modules" was true when written but has since regressed: `CallDrawer.jsx:102` uses `window.confirm` for its unsaved-changes check. Tracked in Priority 2.
+- The claim that `window.alert`/`window.confirm` were "removed across all modules" was true when written but had since regressed: `CallDrawer.jsx:102` used `window.confirm` for its unsaved-changes check. **This has since been fixed** — `CallDrawer.jsx` now uses `useConfirm()` like every other drawer, and `grep -Rni "window.confirm|window.alert" frontend/src backend` returns nothing.
 
 ---
 
@@ -105,15 +105,6 @@ The previous README described some already-shipped work as "planned" and had dup
 ---
 
 ## Priority 2 — UI Consistency
-
-- [ ] Replace the remaining `window.confirm` in `CallDrawer.jsx`
-  Priority: P2
-  Area: frontend
-  Why: `docs/UI_STANDARD.md` states "Never use `window.alert()` or `window.confirm()`" and every other module was migrated to `ConfirmDialog`/`useConfirm` in "UI Standardization — Phase 1." This one call site was missed or regressed.
-  Acceptance criteria:
-  - `CallDrawer.jsx:102`'s unsaved-changes check uses `useConfirm()` like every other drawer
-  - Behavior (prompt before closing with unsaved changes) is unchanged
-  - `grep -rn "window\.\(confirm\|alert\)" frontend/src` returns nothing
 
 - [ ] Audit and remove hardcoded hex colors in favor of `--ems-*` design tokens
   Priority: P3
