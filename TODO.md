@@ -37,15 +37,20 @@ Format:
 - [x] Refactor DispatchBoardPage.jsx — Phase 1: extract already-self-contained pieces
   Priority: P1 | Area: frontend
   Done: moved pure helpers/constants to `frontend/src/utils/dispatchBoardUtils.js` and 7 presentational components (`StatusPill`, `UnitTypeBadge`, `CallCard`, `AssignedCallCard`, `CompletedCallCard`, `CallDetailModal`, `WarningModal`) to `frontend/src/components/dispatch/`. File went from 2,439 → ~1,480 lines. No behavior changed — verified via `npm run lint` (clean), `npm run build` (clean), `qa_test.py` (104/104), and a manual browser pass (unit selection, status advance, call detail modal incl. timestamp editor and cancel form, all with zero console errors).
-- [ ] Refactor DispatchBoardPage.jsx — Phase 2: extract hooks (closure-sensitive, not yet done)
+- [x] Refactor DispatchBoardPage.jsx — Phase 2a: extract two fully-isolated hooks
+  Priority: P1 | Area: frontend
+  Done: extracted `usePanelResize` (`frontend/src/hooks/usePanelResize.js` — left/bottom panel resize state, drag handlers, persistence to `ui.panels.dispatch`, plus a new `resetLayout()` helper replacing the old inline "Reset layout" button logic) and `useOverdueDetection` (`frontend/src/hooks/useOverdueDetection.js` — the `now` clock tick + `getCallOverdueMinutes`/`getUnitStuckMinutes`/`isCallOverdue`/`isUnitStuck`). File went from 1,474 → 1,363 lines. Verified via `npm run lint` (clean), `npm run build` (clean, 132 modules), `qa_test.py` (104/104), and a manual browser pass: resized both panels, confirmed the size persists across a reload, clicked "Reset layout" and confirmed it returns to defaults, and confirmed the stuck-unit indicator renders correctly (tested both the real not-yet-stuck case and, by temporarily lowering `dispatch.stuck_after` to 1 minute, the positive stuck case — then restored the threshold) — zero console errors throughout.
+- [x] Refactor DispatchBoardPage.jsx — Phase 2b: extract the two remaining moderate-coupling hooks
+  Priority: P1 | Area: frontend
+  Done: extracted `useCallPriority` (`frontend/src/hooks/useCallPriority.js` — `sortCallsByPriority`, `handleSetHighPriority`, `handleMoveCall`, `handleResetPriority`; takes `loadBoard`/`date`/`toast` as params) and `useUnitFormValidation` (`frontend/src/hooks/useUnitFormValidation.js` — the `unitValidationErrors`/`unitWarningMessages` memos; takes `unitForm`/`getEmployeeById`/`getEmployeeAssignmentsInOtherUnits` as params). File went from 1,363 → 1,297 lines. Verified via `npm run lint` (clean), `npm run build` (clean, 134 modules), `qa_test.py` (104/104), and a manual browser pass: assigned 2 real calls to a unit, confirmed default time-order sort, `handleSetHighPriority` (⚡), `handleMoveCall` (▼), and `handleResetPriority` ("Reset to time order") all reorder correctly with the "Manual priority active" banner toggling appropriately; opened the Create Unit drawer and confirmed all 5 validation error messages appear on an empty-form save attempt — zero console errors throughout.
+- [ ] Refactor DispatchBoardPage.jsx — Phase 2c: split remaining JSX into components (not yet done)
   Priority: P1
   Area: frontend
-  Why: The remaining ~1,480 lines still hold all state, polling effects, drag/drop handlers, the embedded crew/unit-form logic, and the full JSX layout. Phase 1 only relocated code with no closure over page state; this phase touches real component internals and is higher risk.
+  Why: The remaining ~1,297 lines hold drag/drop handlers, the embedded crew/unit-form CRUD logic, and the full JSX layout — the biggest and most drag-and-drop-adjacent remaining slice.
   Acceptance criteria:
   - Board behavior unchanged: open calls, drag/drop assignment, unit status changes, call detail modal, unit detail drawer, priority queue, overdue/stuck alerts
-  - Board-specific state moved into hooks (useDispatchBoardData, useDispatchAssignments, useBoardFilters, useBoardAlerts / useOverdueDetection / useCallPriority / usePanelResize / useUnitFormValidation)
-  - Presentational pieces split into components for the remaining JSX (OpenCallsPanel, UnitTable/UnitCard, BoardToolbar, BoardFilters, BoardAlerts)
-  Notes: Do this in small steps, one hook/component at a time — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline". Re-test drag/drop and status transitions after every step — these are the highest-risk regressions. No large feature additions should land before this phase completes.
+  - Presentational pieces split into components for the remaining JSX (`OpenCallsPanel`, `UnitTable`/`UnitCard`, `UnitDetailDrawer`, `BoardToolbar`, `BoardFilters`, `BoardAlerts`)
+  Notes: Do this in small steps, one component at a time — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline". Re-test drag/drop and status transitions after every step — these are the highest-risk regressions. No large feature additions should land before this phase completes.
 
 - [ ] Add a backend unit test framework (pytest)
   Priority: P1

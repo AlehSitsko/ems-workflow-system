@@ -31,16 +31,23 @@ The previous README described some already-shipped work as "planned" and had dup
   Priority: P1
   Area: frontend
   Done: Extracted the code that was already self-contained (no closure over page state) — pure helpers/constants to `frontend/src/utils/dispatchBoardUtils.js` (`todayStr`, `minCrewForType`, `isAlsUnit`, `isAlsCall`, `isEmergencyCall`, `isWillCall`, `hasReturnRide`, `parseReturnInfo`, `timeToMinutes`, `expandAndSort`, `getShiftAlertSeverity`, `isoToLocalTime`, `isoToLocalDate`, `setIsoTime`, plus the `STATUS_*`/`SHIFT_SEVERITY_STYLE`/`ALERT_SEVERITY_COLOR`/`TS_FIELDS` constants), and 7 presentational components to `frontend/src/components/dispatch/`: `StatusPill`, `UnitTypeBadge`, `CallCard`, `AssignedCallCard`, `CompletedCallCard`, `CallDetailModal` (kept this name — matches the modal pattern already documented in `docs/UI_STANDARD.md`, not the `CallDetailDrawer` name below), `WarningModal`. File went from 2,439 → ~1,480 lines. Verified: `npm run lint`/`npm run build` clean, `qa_test.py` 104/104, manual browser pass (unit selection, status advance, call detail modal incl. timestamp editor and cancel form) with zero console errors.
-- [ ] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2 (not started)
+- [x] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2a (complete)
   Priority: P1
   Area: frontend
-  Why: The remaining ~1,480 lines are the real complexity — all state, polling effects, drag-and-drop handlers, the embedded crew/unit-form logic, and the JSX layout. Closure-sensitive; higher risk than Phase 1's pure relocation.
+  Done: Extracted the two hooks with zero coupling to calls/units/employees data — `usePanelResize` (`frontend/src/hooks/usePanelResize.js`: left/bottom panel resize state, drag handlers, persistence to `ui.panels.dispatch`, and a new `resetLayout()` helper that replaced the old inline "Reset layout" button logic) and `useOverdueDetection` (`frontend/src/hooks/useOverdueDetection.js`: the `now` clock tick plus `getCallOverdueMinutes`/`getUnitStuckMinutes`/`isCallOverdue`/`isUnitStuck`). File went from 1,474 → 1,363 lines. Verified: `npm run lint`/`npm run build` clean (132 modules), `qa_test.py` 104/104, manual browser pass — resized both panels, confirmed persistence across a reload, confirmed "Reset layout" returns to defaults, and confirmed the stuck-unit indicator computes correctly (verified both the not-yet-stuck case and, by temporarily lowering `dispatch.stuck_after` to 1 minute, the positive stuck case) — zero console errors throughout.
+- [x] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2b (complete)
+  Priority: P1
+  Area: frontend
+  Done: Extracted the two remaining moderate-coupling hooks — `useCallPriority` (`frontend/src/hooks/useCallPriority.js`: `sortCallsByPriority`/`handleSetHighPriority`/`handleMoveCall`/`handleResetPriority`, taking `loadBoard`/`date`/`toast` as params) and `useUnitFormValidation` (`frontend/src/hooks/useUnitFormValidation.js`: the `unitValidationErrors`/`unitWarningMessages` memos, taking `unitForm`/`getEmployeeById`/`getEmployeeAssignmentsInOtherUnits` as params). File went from 1,363 → 1,297 lines. Verified: `npm run lint`/`npm run build` clean (134 modules), `qa_test.py` 104/104, manual browser pass — assigned 2 real calls to a unit and confirmed default time-order sort, `handleSetHighPriority`, `handleMoveCall`, and `handleResetPriority` all reorder correctly with the "Manual priority active" banner toggling appropriately, and confirmed all 5 unit-form validation error messages appear on an empty-form save attempt — zero console errors throughout.
+- [ ] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2c (not started)
+  Priority: P1
+  Area: frontend
+  Why: The remaining ~1,297 lines are the biggest and most drag-and-drop-adjacent slice — drag-and-drop handlers, the embedded crew/unit-form CRUD logic, and the full JSX layout.
   Acceptance criteria:
   - Board behavior is unchanged: open calls list, drag-and-drop assignment, unit status advance, call detail modal, unit detail drawer, priority queue, overdue/stuck alerts all still work
-  - Board-specific data fetching and polling logic moves into hooks (`useDispatchBoardData`, `useDispatchAssignments`, `useBoardFilters`, `useBoardAlerts`, plus `useOverdueDetection`/`useCallPriority`/`usePanelResize`/`useUnitFormValidation` for the logic already identified as safely extractable)
   - Presentational pieces split into components for the remaining JSX (`OpenCallsPanel`, `UnitTable`/`UnitCard`, `UnitDetailDrawer`, `BoardToolbar`, `BoardFilters`, `BoardAlerts`)
   - `npm run build` and `npm run lint` pass after each extraction step
-  Notes: Do this in small steps (one hook/component extraction at a time), not one giant rewrite. Re-test drag/drop and status transitions after every step — these are the highest-risk regressions.
+  Notes: Do this in small steps (one component extraction at a time), not one giant rewrite. Re-test drag/drop and status transitions after every step — these are the highest-risk regressions.
 
 - [ ] Collapse the `pages/PatientsPage.jsx` wrapper into `components/PatientsPage.jsx`
   Priority: P2
