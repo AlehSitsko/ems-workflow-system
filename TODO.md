@@ -46,14 +46,9 @@ Format:
 - [x] Refactor DispatchBoardPage.jsx — Phase 2c: extract the two safest presentational components
   Priority: P1 | Area: frontend
   Done: extracted `BoardToolbar` (`frontend/src/components/dispatch/BoardToolbar.jsx` — date picker, refresh, Day/Night Unit buttons, stats/reset-layout line; zero drag/drop involvement) and `OpenCallsPanel` (`frontend/src/components/dispatch/OpenCallsPanel.jsx` — Calls/Staff toggle, call filter tabs, staff list, call list; only touches drag as a source via passthrough to `CallCard`, never a drop target). File went from 1,297 → 1,103 lines. Verified via `npm run lint` (clean), `npm run build` (clean, 136 modules), `qa_test.py` (104/104), and a manual browser pass: date change triggers board reload, refresh/Day Unit/Night Unit buttons work, Calls/Staff tab toggle and all 4 call filter tabs (Open/Done/Cancelled/All) render correctly with real data — zero console errors throughout.
-- [ ] Refactor DispatchBoardPage.jsx — Phase 2d: split UnitTable + UnitDetailPanel into components (not yet done)
-  Priority: P1
-  Area: frontend
-  Why: The remaining ~1,103 lines hold the last and highest-risk piece — the unit table with every drag-and-drop drop-target handler (`onDragOver`/`onDragLeave`/`onDrop`), the double-click status-advance, shift-severity styling, patient-queue sub-rows, and the selected-unit bottom panel (status buttons, priority queue, assigned/completed call lists). Also still holds the Unit Create/Edit `EntityDrawer` form and all unit-CRUD handlers.
-  Acceptance criteria:
-  - Board behavior unchanged: drag/drop assignment, unit status changes, priority queue, overdue/stuck alerts all still work
-  - Presentational pieces split into components (`UnitTable`/`UnitCard`, `UnitDetailPanel` — renamed from the ROADMAP's aspirational `UnitDetailDrawer` since it's an inline panel, not an overlay)
-  Notes: Do this in small steps — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline". Re-test drag/drop and status transitions after every step — these are the highest-risk regressions in the whole DispatchBoardPage refactor. This is the last remaining piece.
+- [x] Refactor DispatchBoardPage.jsx — Phase 2d (final): split UnitTable + UnitDetailPanel into components
+  Priority: P1 | Area: frontend
+  Done: extracted `UnitTable` (`frontend/src/components/dispatch/UnitTable.jsx` — every drag-and-drop drop-target handler wiring, double-click status-advance, shift-severity styling, patient-queue sub-rows) and `UnitDetailPanel` (`frontend/src/components/dispatch/UnitDetailPanel.jsx` — renamed from the ROADMAP's aspirational `UnitDetailDrawer` since it's an inline panel, not an overlay; row-resize divider, status buttons, priority-queue banner/reset, assigned/completed call lists). All drag-and-drop and status handler *functions* stayed in the page — only the JSX invoking them moved. File went from 1,103 → 768 lines (2,439 → 768 across the whole refactor). Verified via `npm run lint` (clean), `npm run build` (clean, 138 modules), `qa_test.py` (104/104), and an exhaustive manual browser pass: unit select/deselect, double-click status advance, inline "→ Next Status" button, Edit Unit drawer, Make Night dialog, Out-of-Service toggle, drag-and-drop assign (including the insufficient-crew warning modal), priority queue (Move Down, Reset to time order), Unassign, Mark Completed, and bottom-panel resize — zero console errors throughout. This was the last remaining phase — the DispatchBoardPage.jsx refactor is now complete.
 
 - [ ] Add a backend unit test framework (pytest)
   Priority: P1
