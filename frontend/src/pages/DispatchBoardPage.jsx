@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import API_BASE from "../api/config.js";
 import { useToast } from "../components/ui/useToast";
 import { useConfirm } from "../components/ui/useConfirm";
@@ -16,7 +16,6 @@ import {
   completeAssignment,
   reopenAssignment,
   updateUnitStatus,
-  updateCallOrder,
 } from "../api/dispatchApi";
 import { cancelCall, uncancelCall, getCalls } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
@@ -36,10 +35,7 @@ import CallDetailModal from "../components/dispatch/CallDetailModal";
 import WarningModal from "../components/dispatch/WarningModal";
 import { useUserSettings } from "../context/useUserSettings";
 import { formatTimeForDisplay } from "../utils/timeUtils";
-import {
-  getCprWarning,
-  isEmployeeEligibleForRole,
-} from "../utils/licenseUtils";
+import { isEmployeeEligibleForRole } from "../utils/licenseUtils";
 import {
   STATUS_NEXT,
   STATUS_LABELS,
@@ -56,6 +52,10 @@ import {
   getShiftAlertSeverity,
   minCrewForType,
 } from "../utils/dispatchBoardUtils";
+import { usePanelResize, DEFAULT_LEFT_WIDTH, DEFAULT_BOTTOM_HEIGHT } from "../hooks/usePanelResize";
+import { useOverdueDetection } from "../hooks/useOverdueDetection";
+import { useCallPriority } from "../hooks/useCallPriority";
+import { useUnitFormValidation } from "../hooks/useUnitFormValidation";
 
 // ── Crew Planner constants ─────────────────────────────────────────────────
 
@@ -99,8 +99,7 @@ export default function DispatchBoardPage() {
   const { settings: userSettings, updateSettings, settingsLoaded } = useUserSettings();
   const dispatchThresholds = userSettings.dispatch;
   const timeFormat = userSettings.ui?.time_format || "12h";
-  // Current clock — updates every 30s for overdue detection
-  const [now, setNow] = useState(() => new Date());
+  const { getUnitStuckMinutes, isCallOverdue, isUnitStuck } = useOverdueDetection(dispatchThresholds);
 
   // Left panel tab: "calls" | "staff"
   const [leftPanelTab, setLeftPanelTab] = useState("calls");
@@ -123,84 +122,8 @@ export default function DispatchBoardPage() {
   // Call drawer state
   const [callDrawer, setCallDrawer] = useState({ open: false, call: null }); // call=null → create mode
 
-  // Resizable left panel (horizontal)
-  const [leftWidth, setLeftWidth] = useState(280);
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartW = useRef(280);
-  const leftWidthRef = useRef(280);
-
-  // Resizable bottom panel (vertical)
-  const [bottomHeight, setBottomHeight] = useState(300);
-  const isRowDragging = useRef(false);
-  const rowDragStartY = useRef(0);
-  const rowDragStartH = useRef(300);
-  const bottomHeightRef = useRef(300);
-
-  // Ref so the drag mouseup handler can call updateSettings without stale closure
-  const updateSettingsRef = useRef(updateSettings);
-  updateSettingsRef.current = updateSettings;
-
-  // Initialize panel sizes from saved user settings (runs once when settings load)
-  useEffect(() => {
-    if (!settingsLoaded) return;
-    const saved = userSettings.ui?.panels?.dispatch;
-    if (saved?.leftWidth) {
-      setLeftWidth(saved.leftWidth);
-      leftWidthRef.current = saved.leftWidth;
-      dragStartW.current = saved.leftWidth;
-    }
-    if (saved?.bottomHeight) {
-      setBottomHeight(saved.bottomHeight);
-      bottomHeightRef.current = saved.bottomHeight;
-      rowDragStartH.current = saved.bottomHeight;
-    }
-  }, [settingsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    function onMove(e) {
-      if (isDragging.current) {
-        const delta = e.clientX - dragStartX.current;
-        const next = Math.max(180, Math.min(520, dragStartW.current + delta));
-        leftWidthRef.current = next;
-        setLeftWidth(next);
-      }
-      if (isRowDragging.current) {
-        // Drag up = bigger bottom panel
-        const delta = rowDragStartY.current - e.clientY;
-        const next = Math.max(120, Math.min(600, rowDragStartH.current + delta));
-        bottomHeightRef.current = next;
-        setBottomHeight(next);
-      }
-    }
-    function onUp() {
-      if (isDragging.current || isRowDragging.current) {
-        updateSettingsRef.current?.({ ui: { panels: { dispatch: {
-          leftWidth:    leftWidthRef.current,
-          bottomHeight: bottomHeightRef.current,
-        }}}});
-      }
-      isDragging.current = false;
-      isRowDragging.current = false;
-    }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, []);
-
-  function handleDividerMouseDown(e) {
-    e.preventDefault();
-    isDragging.current = true;
-    dragStartX.current = e.clientX;
-    dragStartW.current = leftWidthRef.current;
-  }
-
-  function handleRowDividerMouseDown(e) {
-    e.preventDefault();
-    isRowDragging.current = true;
-    rowDragStartY.current = e.clientY;
-    rowDragStartH.current = bottomHeightRef.current;
-  }
+  const { leftWidth, bottomHeight, handleDividerMouseDown, handleRowDividerMouseDown, resetLayout } =
+    usePanelResize({ settingsLoaded, userSettings, updateSettings });
 
   const currentUser = getCurrentUser();
 
@@ -229,12 +152,6 @@ export default function DispatchBoardPage() {
     const interval = setInterval(() => loadBoard(date, true), 30_000);
     return () => clearInterval(interval);
   }, [date, loadBoard]);
-
-  // Clock tick every 30 s for overdue detection.
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(t);
-  }, []);
 
   // ── Drag & drop ────────────────────────────────────────────────────────
 
@@ -363,76 +280,8 @@ export default function DispatchBoardPage() {
     setCallModal({ call, isCompleted });
   }
 
-  // ── Call priority helpers ───────────────────────────────────────────────
-
-  function sortCallsByPriority(calls, callPriority) {
-    if (!callPriority || callPriority.length === 0) {
-      return [...calls].sort((a, b) => timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time));
-    }
-    const rank = {};
-    callPriority.forEach((id, i) => { rank[id] = i; });
-    return [...calls].sort((a, b) => {
-      const ra = rank[a.id] !== undefined ? rank[a.id] : 9999;
-      const rb = rank[b.id] !== undefined ? rank[b.id] : 9999;
-      if (ra !== rb) return ra - rb;
-      return timeToMinutes(a.pickup_time) - timeToMinutes(b.pickup_time);
-    });
-  }
-
-  async function handleSetHighPriority(unit, callId) {
-    const ids = sortCallsByPriority(unit.assignedCalls || [], unit.callPriority || []).map(c => c.id);
-    const newOrder = [callId, ...ids.filter(id => id !== callId)];
-    try {
-      await updateCallOrder(unit.id, newOrder);
-      await loadBoard(date, true);
-    } catch (e) { toast.error("Priority update failed", e.message); }
-  }
-
-  async function handleMoveCall(unit, callId, direction) {
-    const sorted = sortCallsByPriority(unit.assignedCalls || [], unit.callPriority || []);
-    const ids = sorted.map(c => c.id);
-    const idx = ids.indexOf(callId);
-    if (idx < 0) return;
-    const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= ids.length) return;
-    [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
-    try {
-      await updateCallOrder(unit.id, ids);
-      await loadBoard(date, true);
-    } catch (e) { toast.error("Reorder failed", e.message); }
-  }
-
-  async function handleResetPriority(unit) {
-    try {
-      await updateCallOrder(unit.id, []);
-      await loadBoard(date, true);
-    } catch (e) { toast.error("Reset failed", e.message); }
-  }
-
-  // ── Overdue / stuck detection ───────────────────────────────────────────
-
-  function getCallOverdueMinutes(call, unitStatus) {
-    if (['on_scene', 'transporting', 'at_destination'].includes(unitStatus)) return 0;
-    if (!call.pickup_time || call.pickup_time === "will_call") return 0;
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const pickupMin = timeToMinutes(call.pickup_time);
-    if (pickupMin >= 9999) return 0; // will_call
-    return Math.max(0, nowMin - pickupMin);
-  }
-
-  function getUnitStuckMinutes(unit) {
-    if (!unit.statusChangedAt || unit.dispatchStatus === 'available' || unit.dispatchStatus === 'out_of_service') return 0;
-    const changed = new Date(unit.statusChangedAt);
-    return Math.max(0, (now - changed) / 60000);
-  }
-
-  function isCallOverdue(call, unitStatus) {
-    return getCallOverdueMinutes(call, unitStatus) > (dispatchThresholds.pickup_late_after ?? 0);
-  }
-
-  function isUnitStuck(unit) {
-    return getUnitStuckMinutes(unit) > (dispatchThresholds.stuck_after ?? 30);
-  }
+  const { sortCallsByPriority, handleSetHighPriority, handleMoveCall, handleResetPriority } =
+    useCallPriority({ loadBoard, date, toast });
 
   // ── Crew Planner logic ─────────────────────────────────────────────────
 
@@ -496,29 +345,8 @@ export default function DispatchBoardPage() {
     [employees, assignedEmployeeIds]
   );
 
-  const unitValidationErrors = useMemo(() => {
-    const errors = [];
-    if (!unitForm.shiftDate.trim()) errors.push("Shift Date is required.");
-    if (!unitForm.truckNumber.trim()) errors.push("Truck Number is required.");
-    if (!unitForm.startTime.trim()) errors.push("Start Time is required.");
-    if (!unitForm.noPatient && unitForm.patientOrder.length === 0) errors.push("Add at least one patient, or check \"No patient assigned\".");
-    if (!unitForm.crew.driver) errors.push("Driver is required.");
-    if (unitForm.unitType === "BLS" && !unitForm.crew.medical) errors.push("BLS unit requires an EMT or Paramedic.");
-    if (unitForm.unitType === "ALS" && !unitForm.crew.medical) errors.push("ALS unit requires a Paramedic.");
-    return errors;
-  }, [unitForm]);
-
-  const unitWarningMessages = useMemo(() => {
-    const warnings = [];
-    Object.values(unitForm.crew).filter(Boolean).map(id => getEmployeeById(id)).filter(Boolean).forEach(emp => {
-      const w = getCprWarning(emp);
-      if (w) warnings.push(`${emp.firstName} ${emp.lastName}: ${w}.`);
-      getEmployeeAssignmentsInOtherUnits(emp.id).forEach(a => {
-        warnings.push(`${emp.firstName} ${emp.lastName} is already assigned to Truck ${a.truckNumber} (${a.unitType}, ${a.startTime}) as ${a.role}.`);
-      });
-    });
-    return warnings;
-  }, [unitForm, getEmployeeById, getEmployeeAssignmentsInOtherUnits]);
+  const { errors: unitValidationErrors, warnings: unitWarningMessages } =
+    useUnitFormValidation({ unitForm, getEmployeeById, getEmployeeAssignmentsInOtherUnits });
 
   const buildUnitPayload = () => {
     const dur = parseFloat(unitForm.shiftDurationHours);
@@ -738,14 +566,10 @@ export default function DispatchBoardPage() {
         <span className="ms-auto text-muted small d-none d-lg-inline d-flex align-items-center gap-2">
           {expandedCalls.length} open · {board.units.length} units ·{" "}
           <span style={{ color: "#6ea8fe" }}>click → inspect · dbl-click → status</span>
-          {(leftWidth !== 280 || bottomHeight !== 300) && (
+          {(leftWidth !== DEFAULT_LEFT_WIDTH || bottomHeight !== DEFAULT_BOTTOM_HEIGHT) && (
             <button
               type="button"
-              onClick={() => {
-                setLeftWidth(280); leftWidthRef.current = 280;
-                setBottomHeight(300); bottomHeightRef.current = 300;
-                updateSettingsRef.current?.({ ui: { panels: { dispatch: { leftWidth: 280, bottomHeight: 300 } } } });
-              }}
+              onClick={resetLayout}
               style={{ fontSize: 10, padding: "1px 7px", background: "transparent", border: "1px solid #475569", borderRadius: 5, color: "#94a3b8", cursor: "pointer", lineHeight: 1.6 }}
               title="Reset panel sizes to default"
             >
