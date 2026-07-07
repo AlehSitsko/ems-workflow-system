@@ -35,30 +35,12 @@ export async function getTasks(filters, currentUser) {
   return data;
 }
 
-export async function getMyTasks(currentUser) {
-  const res = await fetch(`${API_BASE}/api/tasks/my`, {
-    headers: authHeaders(currentUser),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to load my tasks");
-  return data;
-}
-
 export async function getTaskSummary(currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/summary`, {
     headers: authHeaders(currentUser),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to load task summary");
-  return data;
-}
-
-export async function getTask(taskId, currentUser) {
-  const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
-    headers: authHeaders(currentUser),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to load task");
   return data;
 }
 

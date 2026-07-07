@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from models import db, AuditLog
+from models import AuditLog
 
 audit_bp = Blueprint("audit", __name__, url_prefix="/api/audit")
 

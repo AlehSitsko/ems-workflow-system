@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from models import db, User
+from models import User
 from settings_utils import load_user_settings, save_user_settings, DEFAULT_SETTINGS
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/api/settings")

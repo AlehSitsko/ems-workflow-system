@@ -39,6 +39,10 @@ import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import CallDrawer from "../components/dispatch/CallDrawer";
 import { useUserSettings } from "../context/useUserSettings";
 import { formatTimeForDisplay } from "../utils/timeUtils";
+import {
+  getCprWarning,
+  isEmployeeEligibleForRole,
+} from "../utils/licenseUtils";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -1420,33 +1424,6 @@ export default function DispatchBoardPage() {
 
   const getEmployeeById = useCallback((id) => employees.find(e => String(e.id) === String(id)), [employees]);
 
-  const normalizeLicense = useCallback((l) => l ? { hasLicense: Boolean(l.hasLicense), licenseName: l.licenseName || "", expirationDate: l.expirationDate || "" } : { hasLicense: false, licenseName: "", expirationDate: "" }, []);
-  const getLicenseStatus = useCallback((l) => {
-    const nl = normalizeLicense(l);
-    if (!nl.hasLicense) return "No License";
-    if (!nl.expirationDate) return "Active";
-    const diff = Math.ceil((new Date(`${nl.expirationDate}T23:59:59`) - new Date()) / 86400000);
-    return diff < 0 ? "Expired" : diff <= 30 ? "Expiring Soon" : "Active";
-  }, [normalizeLicense]);
-  const getCprWarning = useCallback((emp) => {
-    const s = getLicenseStatus(normalizeLicense(emp.cpr));
-    if (!normalizeLicense(emp.cpr).hasLicense) return "Missing CPR";
-    if (s === "Expired") return "CPR Expired";
-    if (s === "Expiring Soon") return "CPR Expiring Soon";
-    return "";
-  }, [normalizeLicense, getLicenseStatus]);
-
-  const isEmployeeEligibleForRole = (emp, role, unitType) => {
-    if (!emp.isActive || emp.status !== "active") return false;
-    if (role === "driver") return Boolean(emp.evoc?.hasLicense) || String(emp.role || "").toLowerCase() === "driver";
-    if (role === "medical") {
-      if (unitType === "BLS") return Boolean(emp.emt?.hasLicense || emp.paramedic?.hasLicense);
-      if (unitType === "ALS") return Boolean(emp.paramedic?.hasLicense);
-      return false;
-    }
-    return true;
-  };
-
   const isMedicalSlotVisible = (t) => t === "ALS" || t === "BLS";
 
   const getSelectedEmployeeIds = (currentRole) =>
@@ -1506,7 +1483,7 @@ export default function DispatchBoardPage() {
       });
     });
     return warnings;
-  }, [unitForm, getEmployeeById, getCprWarning, getEmployeeAssignmentsInOtherUnits]);
+  }, [unitForm, getEmployeeById, getEmployeeAssignmentsInOtherUnits]);
 
   const buildUnitPayload = () => {
     const dur = parseFloat(unitForm.shiftDurationHours);

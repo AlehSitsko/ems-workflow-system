@@ -32,39 +32,3 @@ export async function createCrewPreset(presetData) {
   return data;
 }
 
-// Update an existing crew preset.
-export async function updateCrewPreset(presetId, presetData) {
-  const response = await fetch(
-    `${API_BASE_URL}/api/crew-presets/${presetId}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(presetData),
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to update crew preset");
-  }
-
-  return data;
-}
-
-// Delete an existing crew preset.
-export async function deleteCrewPreset(presetId) {
-  const response = await fetch(`${API_BASE_URL}/api/crew-presets/${presetId}`, {
-    method: "DELETE",
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to delete crew preset");
-  }
-
-  return data;
-}

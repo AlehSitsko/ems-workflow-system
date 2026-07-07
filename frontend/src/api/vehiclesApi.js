@@ -34,22 +34,6 @@ export async function createVehicle(vehicleData) {
   return data;
 }
 
-// Update an existing vehicle.
-export async function updateVehicle(vehicleId, vehicleData) {
-  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(vehicleData),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to update vehicle");
-  }
-
-  return data;
-}
 
 // Toggle a vehicle's active status.
 export async function toggleVehicleActive(vehicleId) {

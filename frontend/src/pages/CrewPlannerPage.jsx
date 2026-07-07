@@ -42,6 +42,10 @@ import {
 
 import { getEmployeeRoleLabel } from "../utils/employeeRoleUtils";
 import { getTodayDate } from "../utils/callUtils";
+import {
+  getCprWarning,
+  isEmployeeEligibleForRole,
+} from "../utils/licenseUtils";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
 import { useUserSettings } from "../context/useUserSettings";
@@ -324,80 +328,6 @@ function CrewPlannerPage() {
   }, [selectedDate, loadUnits]);
 
   /*
-    Normalizes license objects so older or incomplete records do not break UI logic.
-  */
-  const normalizeLicense = useCallback((license) => {
-    if (!license) {
-      return {
-        hasLicense: false,
-        licenseName: "",
-        expirationDate: "",
-      };
-    }
-
-    return {
-      hasLicense: Boolean(license.hasLicense),
-      licenseName: license.licenseName || "",
-      expirationDate: license.expirationDate || "",
-    };
-  }, []);
-
-  /*
-    Calculates the current status of a license based on expiration date.
-  */
-  const getLicenseStatus = useCallback((license) => {
-    const normalizedLicense = normalizeLicense(license);
-
-    if (!normalizedLicense.hasLicense) {
-      return "No License";
-    }
-
-    if (!normalizedLicense.expirationDate) {
-      return "Active";
-    }
-
-    const today = new Date();
-    const expirationDate = new Date(
-      `${normalizedLicense.expirationDate}T23:59:59`
-    );
-
-    const diffInMs = expirationDate - today;
-    const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
-
-    if (diffInDays < 0) {
-      return "Expired";
-    }
-
-    if (diffInDays <= 30) {
-      return "Expiring Soon";
-    }
-
-    return "Active";
-  }, [normalizeLicense]);
-
-  /*
-    Returns a CPR warning message when CPR is missing, expired, or expiring soon.
-  */
-  const getCprWarning = useCallback((employee) => {
-    const cpr = normalizeLicense(employee.cpr);
-    const cprStatus = getLicenseStatus(cpr);
-
-    if (!cpr.hasLicense) {
-      return "Missing CPR";
-    }
-
-    if (cprStatus === "Expired") {
-      return "CPR Expired";
-    }
-
-    if (cprStatus === "Expiring Soon") {
-      return "CPR Expiring Soon";
-    }
-
-    return "";
-  }, [normalizeLicense, getLicenseStatus]);
-
-  /*
     Returns the medical slot label based on unit type.
   */
   const getMedicalSlotLabel = (unitType) => {
@@ -455,53 +385,6 @@ function CrewPlannerPage() {
     }
 
     return `${employee.firstName} ${employee.lastName}`;
-  };
-
-  /*
-    Determines whether an employee can be assigned to a specific role.
-
-    Rules:
-    - Employee must be technically active.
-    - Employee operational status must be active.
-    - Driver requires EVOC.
-    - BLS medical slot requires EMT or Paramedic.
-    - ALS medical slot requires Paramedic.
-    - Assist slots allow any technically and operationally active employee.
-  */
-  const isEmployeeEligibleForRole = (employee, role, unitType) => {
-    if (!employee.isActive) {
-      return false;
-    }
-
-    if (employee.status !== "active") {
-      return false;
-    }
-
-    if (role === "driver") {
-      const hasEvoc = Boolean(employee.evoc?.hasLicense);
-      const isDriverRole = String(employee.role || "").toLowerCase() === "driver";
-      return hasEvoc || isDriverRole;
-    }
-
-    if (role === "medical") {
-      if (unitType === "BLS") {
-        return Boolean(
-          employee.emt?.hasLicense || employee.paramedic?.hasLicense
-        );
-      }
-
-      if (unitType === "ALS") {
-        return Boolean(employee.paramedic?.hasLicense);
-      }
-
-      return false;
-    }
-
-    if (role === "assist1" || role === "assist2") {
-      return true;
-    }
-
-    return false;
   };
 
   /*
@@ -843,7 +726,7 @@ function CrewPlannerPage() {
     });
 
     return warnings;
-  }, [unitForm, timeFormat, getEmployeeById, getCprWarning, getEmployeeAssignmentsInOtherUnits]);
+  }, [unitForm, timeFormat, getEmployeeById, getEmployeeAssignmentsInOtherUnits]);
 
   /*
     Collects employee IDs already assigned to existing units on the selected date.
