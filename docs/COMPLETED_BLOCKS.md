@@ -85,12 +85,12 @@ Historical record of shipped work, in the order it landed. For what's planned ne
 * Log: call status changes, unit assignment/removal, patient edits, manual time entries, document uploads/deletes
 * Audit log viewer with filter by entity type, user, date range
 
-### Multi-Tenancy Foundation (complete)
+### Multi-Tenancy Foundation (schema only — complete)
 
 * Organization model: id, name, slug (subdomain identifier), is_active, settings_json
 * org_id (nullable FK) added to all tenant-scoped tables
-* Default organization seeded (id=1, slug="default") — all existing rows assigned
-* No application logic changes — foundation only, activation deferred (see [ROADMAP.md](ROADMAP.md), Priority 6)
+* No default organization is seeded and no rows are backfilled with an org_id — the `organization` table is empty by default; there is no seed logic for it in `app.py` (only demo users are seeded)
+* No application logic changes — schema foundation only. Runtime tenant isolation is not active. Full organization seeding, tenant resolution, org_id backfill, and tenant-safe query enforcement are deferred to the Production Hardening / Priority 6 phase (see [ROADMAP.md](ROADMAP.md))
 
 ### Call Cancellation (complete)
 

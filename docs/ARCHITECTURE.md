@@ -129,9 +129,9 @@ This is a deliberate choice for local development and demo/portfolio use, not ac
 
 ## Multi-tenancy foundation
 
-An `Organization` model (id, name, slug, is_active, settings_json) exists, and a nullable `org_id` foreign key has been added to every tenant-scoped table (`User`, `Employee`, `Patient`, `Call`, `DailyCrewUnit`, `PayPeriod`, `EmployeeDocument`, `TimeEntry`, and others). A default organization (id=1, slug="default") is seeded and all existing rows are assigned to it.
+An `Organization` model (id, name, slug, is_active, settings_json) exists, and a nullable `org_id` foreign key has been added to every tenant-scoped table (`User`, `Employee`, `Patient`, `Call`, `DailyCrewUnit`, `PayPeriod`, `EmployeeDocument`, `TimeEntry`, and others). The `organization` table is not seeded — there is no default-organization creation logic anywhere in `app.py` (only demo users are seeded on first startup), and no row's `org_id` is backfilled.
 
-**This is foundation only — no query in the codebase currently filters by `org_id`.** Activating real multi-tenancy (subdomain routing, `g.current_org`, tenant-scoped query enforcement, a superadmin UI) is deferred to the production hardening phase — see [ROADMAP.md](ROADMAP.md) Priority 6 and [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Enabling tenant-scoped queries without first adding the isolation tests described in [ROADMAP.md](ROADMAP.md) Priority 3 would risk shipping a cross-tenant data leak.
+**This is a schema foundation only — runtime tenant isolation is not active.** No query in the codebase currently filters by `org_id`. Full organization seeding, tenant resolution (subdomain routing → `g.current_org`), `org_id` backfill, tenant-safe query enforcement, and a superadmin UI are all deferred to the production hardening phase — see [ROADMAP.md](ROADMAP.md) Priority 6 and [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Enabling tenant-scoped queries without first adding the isolation tests described in [ROADMAP.md](ROADMAP.md) Priority 3 would risk shipping a cross-tenant data leak.
 
 ## UI architecture
 

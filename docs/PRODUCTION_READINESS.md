@@ -44,7 +44,7 @@ None of the items below are urgent today. They become urgent the moment there's 
 
 ## Multi-tenancy
 
-**Current state:** foundation only. `Organization` model and nullable `org_id` columns exist on every tenant-scoped table, but no query currently filters by it — see [ARCHITECTURE.md](ARCHITECTURE.md#multi-tenancy-foundation).
+**Current state:** schema foundation only. `Organization` model and nullable `org_id` columns exist on every tenant-scoped table, but the `organization` table is not seeded, no row has an `org_id` assigned, and no query currently filters by it — see [ARCHITECTURE.md](ARCHITECTURE.md#multi-tenancy-foundation). Runtime tenant isolation is not active yet.
 
 **Production plan:**
 - Flask middleware reads subdomain from the Host header → looks up `Organization` by slug → sets `g.current_org`
