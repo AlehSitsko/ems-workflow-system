@@ -34,15 +34,18 @@ Format:
 
 ## Next up — Priority 1: Codebase maintainability
 
-- [ ] Refactor DispatchBoardPage.jsx into components/hooks
+- [x] Refactor DispatchBoardPage.jsx — Phase 1: extract already-self-contained pieces
+  Priority: P1 | Area: frontend
+  Done: moved pure helpers/constants to `frontend/src/utils/dispatchBoardUtils.js` and 7 presentational components (`StatusPill`, `UnitTypeBadge`, `CallCard`, `AssignedCallCard`, `CompletedCallCard`, `CallDetailModal`, `WarningModal`) to `frontend/src/components/dispatch/`. File went from 2,439 → ~1,480 lines. No behavior changed — verified via `npm run lint` (clean), `npm run build` (clean), `qa_test.py` (104/104), and a manual browser pass (unit selection, status advance, call detail modal incl. timestamp editor and cancel form, all with zero console errors).
+- [ ] Refactor DispatchBoardPage.jsx — Phase 2: extract hooks (closure-sensitive, not yet done)
   Priority: P1
   Area: frontend
-  Why: At 2,461 lines it's the largest file in the project by a wide margin and the core operational workflow.
+  Why: The remaining ~1,480 lines still hold all state, polling effects, drag/drop handlers, the embedded crew/unit-form logic, and the full JSX layout. Phase 1 only relocated code with no closure over page state; this phase touches real component internals and is higher risk.
   Acceptance criteria:
   - Board behavior unchanged: open calls, drag/drop assignment, unit status changes, call detail modal, unit detail drawer, priority queue, overdue/stuck alerts
-  - Board-specific state moved into hooks (useDispatchBoardData, useDispatchAssignments, useBoardFilters, useBoardAlerts)
-  - Presentational pieces split into components (OpenCallsPanel, UnitTable/UnitCard, CallCard, CallDetailDrawer, UnitDetailDrawer, BoardToolbar, BoardFilters, BoardAlerts)
-  Notes: Do this in small steps — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline" and the full breakdown in docs/ROADMAP.md Priority 1. Behavior must stay unchanged; no large feature additions should land before this refactor begins, to avoid growing the file further while it's being split.
+  - Board-specific state moved into hooks (useDispatchBoardData, useDispatchAssignments, useBoardFilters, useBoardAlerts / useOverdueDetection / useCallPriority / usePanelResize / useUnitFormValidation)
+  - Presentational pieces split into components for the remaining JSX (OpenCallsPanel, UnitTable/UnitCard, BoardToolbar, BoardFilters, BoardAlerts)
+  Notes: Do this in small steps, one hook/component at a time — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline". Re-test drag/drop and status transitions after every step — these are the highest-risk regressions. No large feature additions should land before this phase completes.
 
 - [ ] Add a backend unit test framework (pytest)
   Priority: P1
