@@ -39,15 +39,19 @@ The previous README described some already-shipped work as "planned" and had dup
   Priority: P1
   Area: frontend
   Done: Extracted the two remaining moderate-coupling hooks — `useCallPriority` (`frontend/src/hooks/useCallPriority.js`: `sortCallsByPriority`/`handleSetHighPriority`/`handleMoveCall`/`handleResetPriority`, taking `loadBoard`/`date`/`toast` as params) and `useUnitFormValidation` (`frontend/src/hooks/useUnitFormValidation.js`: the `unitValidationErrors`/`unitWarningMessages` memos, taking `unitForm`/`getEmployeeById`/`getEmployeeAssignmentsInOtherUnits` as params). File went from 1,363 → 1,297 lines. Verified: `npm run lint`/`npm run build` clean (134 modules), `qa_test.py` 104/104, manual browser pass — assigned 2 real calls to a unit and confirmed default time-order sort, `handleSetHighPriority`, `handleMoveCall`, and `handleResetPriority` all reorder correctly with the "Manual priority active" banner toggling appropriately, and confirmed all 5 unit-form validation error messages appear on an empty-form save attempt — zero console errors throughout.
-- [ ] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2c (not started)
+- [x] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2c (complete)
   Priority: P1
   Area: frontend
-  Why: The remaining ~1,297 lines are the biggest and most drag-and-drop-adjacent slice — drag-and-drop handlers, the embedded crew/unit-form CRUD logic, and the full JSX layout.
+  Done: Extracted the two components with the least risk — `BoardToolbar` (`frontend/src/components/dispatch/BoardToolbar.jsx`: date picker, refresh, Day/Night Unit buttons, stats/reset-layout line; zero drag/drop involvement) and `OpenCallsPanel` (`frontend/src/components/dispatch/OpenCallsPanel.jsx`: Calls/Staff toggle, call filter tabs, staff list, call list; only touches drag as a source via passthrough to the already-extracted `CallCard`, never a drop target). File went from 1,297 → 1,103 lines. Verified: `npm run lint`/`npm run build` clean (136 modules), `qa_test.py` 104/104, manual browser pass — date change triggers board reload, refresh/Day Unit/Night Unit buttons work, Calls/Staff tab toggle and all 4 call filter tabs render correctly with real data — zero console errors throughout.
+- [ ] Refactor `DispatchBoardPage.jsx` into components/hooks — Phase 2d (not started)
+  Priority: P1
+  Area: frontend
+  Why: The remaining ~1,103 lines are the last and highest-risk slice — the unit table (every `onDragOver`/`onDragLeave`/`onDrop` drop-target handler, double-click status-advance, shift-severity styling, patient-queue sub-rows) and the selected-unit bottom panel (status buttons, priority queue, assigned/completed call lists), plus the Unit Create/Edit `EntityDrawer` form and unit-CRUD handlers which stay in the page.
   Acceptance criteria:
-  - Board behavior is unchanged: open calls list, drag-and-drop assignment, unit status advance, call detail modal, unit detail drawer, priority queue, overdue/stuck alerts all still work
-  - Presentational pieces split into components for the remaining JSX (`OpenCallsPanel`, `UnitTable`/`UnitCard`, `UnitDetailDrawer`, `BoardToolbar`, `BoardFilters`, `BoardAlerts`)
+  - Board behavior is unchanged: drag-and-drop assignment, unit status advance, priority queue, overdue/stuck alerts all still work
+  - Presentational pieces split into components: `UnitTable`/`UnitCard` and `UnitDetailPanel` (renamed from the earlier aspirational `UnitDetailDrawer` — it's an inline panel, not an overlay, same kind of accurate-naming correction already made for `CallDetailModal` in Phase 1)
   - `npm run build` and `npm run lint` pass after each extraction step
-  Notes: Do this in small steps (one component extraction at a time), not one giant rewrite. Re-test drag/drop and status transitions after every step — these are the highest-risk regressions.
+  Notes: This is the last piece of the DispatchBoardPage refactor and the highest-risk one in the whole series. Do this in small steps. Re-test drag/drop and status transitions after every step.
 
 - [ ] Collapse the `pages/PatientsPage.jsx` wrapper into `components/PatientsPage.jsx`
   Priority: P2
