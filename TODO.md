@@ -43,14 +43,17 @@ Format:
 - [x] Refactor DispatchBoardPage.jsx — Phase 2b: extract the two remaining moderate-coupling hooks
   Priority: P1 | Area: frontend
   Done: extracted `useCallPriority` (`frontend/src/hooks/useCallPriority.js` — `sortCallsByPriority`, `handleSetHighPriority`, `handleMoveCall`, `handleResetPriority`; takes `loadBoard`/`date`/`toast` as params) and `useUnitFormValidation` (`frontend/src/hooks/useUnitFormValidation.js` — the `unitValidationErrors`/`unitWarningMessages` memos; takes `unitForm`/`getEmployeeById`/`getEmployeeAssignmentsInOtherUnits` as params). File went from 1,363 → 1,297 lines. Verified via `npm run lint` (clean), `npm run build` (clean, 134 modules), `qa_test.py` (104/104), and a manual browser pass: assigned 2 real calls to a unit, confirmed default time-order sort, `handleSetHighPriority` (⚡), `handleMoveCall` (▼), and `handleResetPriority` ("Reset to time order") all reorder correctly with the "Manual priority active" banner toggling appropriately; opened the Create Unit drawer and confirmed all 5 validation error messages appear on an empty-form save attempt — zero console errors throughout.
-- [ ] Refactor DispatchBoardPage.jsx — Phase 2c: split remaining JSX into components (not yet done)
+- [x] Refactor DispatchBoardPage.jsx — Phase 2c: extract the two safest presentational components
+  Priority: P1 | Area: frontend
+  Done: extracted `BoardToolbar` (`frontend/src/components/dispatch/BoardToolbar.jsx` — date picker, refresh, Day/Night Unit buttons, stats/reset-layout line; zero drag/drop involvement) and `OpenCallsPanel` (`frontend/src/components/dispatch/OpenCallsPanel.jsx` — Calls/Staff toggle, call filter tabs, staff list, call list; only touches drag as a source via passthrough to `CallCard`, never a drop target). File went from 1,297 → 1,103 lines. Verified via `npm run lint` (clean), `npm run build` (clean, 136 modules), `qa_test.py` (104/104), and a manual browser pass: date change triggers board reload, refresh/Day Unit/Night Unit buttons work, Calls/Staff tab toggle and all 4 call filter tabs (Open/Done/Cancelled/All) render correctly with real data — zero console errors throughout.
+- [ ] Refactor DispatchBoardPage.jsx — Phase 2d: split UnitTable + UnitDetailPanel into components (not yet done)
   Priority: P1
   Area: frontend
-  Why: The remaining ~1,297 lines hold drag/drop handlers, the embedded crew/unit-form CRUD logic, and the full JSX layout — the biggest and most drag-and-drop-adjacent remaining slice.
+  Why: The remaining ~1,103 lines hold the last and highest-risk piece — the unit table with every drag-and-drop drop-target handler (`onDragOver`/`onDragLeave`/`onDrop`), the double-click status-advance, shift-severity styling, patient-queue sub-rows, and the selected-unit bottom panel (status buttons, priority queue, assigned/completed call lists). Also still holds the Unit Create/Edit `EntityDrawer` form and all unit-CRUD handlers.
   Acceptance criteria:
-  - Board behavior unchanged: open calls, drag/drop assignment, unit status changes, call detail modal, unit detail drawer, priority queue, overdue/stuck alerts
-  - Presentational pieces split into components for the remaining JSX (`OpenCallsPanel`, `UnitTable`/`UnitCard`, `UnitDetailDrawer`, `BoardToolbar`, `BoardFilters`, `BoardAlerts`)
-  Notes: Do this in small steps, one component at a time — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline". Re-test drag/drop and status transitions after every step — these are the highest-risk regressions. No large feature additions should land before this phase completes.
+  - Board behavior unchanged: drag/drop assignment, unit status changes, priority queue, overdue/stuck alerts all still work
+  - Presentational pieces split into components (`UnitTable`/`UnitCard`, `UnitDetailPanel` — renamed from the ROADMAP's aspirational `UnitDetailDrawer` since it's an inline panel, not an overlay)
+  Notes: Do this in small steps — see docs/DEVELOPMENT_WORKFLOW.md "Refactor discipline". Re-test drag/drop and status transitions after every step — these are the highest-risk regressions in the whole DispatchBoardPage refactor. This is the last remaining piece.
 
 - [ ] Add a backend unit test framework (pytest)
   Priority: P1
