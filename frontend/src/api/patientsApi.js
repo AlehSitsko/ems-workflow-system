@@ -181,22 +181,6 @@ export async function createPatientAlert(id, alertData) {
   return data;
 }
 
-export async function updatePatientAlert(id, alertId, alertData) {
-  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/alerts/${alertId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(alertData),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to update alert");
-  }
-
-  return data;
-}
-
 export async function resolvePatientAlert(id, alertId, reason = "") {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/alerts/${alertId}/resolve`, {
     method: "POST",

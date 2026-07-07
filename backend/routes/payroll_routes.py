@@ -152,12 +152,6 @@ def delete_period(period_id):
     return jsonify({"ok": True})
 
 
-@payroll_bp.route("/periods/<int:period_id>", methods=["GET"])
-def get_period(period_id):
-    period = PayPeriod.query.get_or_404(period_id)
-    return jsonify(period.to_dict())
-
-
 @payroll_bp.route("/periods/<int:period_id>", methods=["PATCH"])
 def update_period(period_id):
     period = PayPeriod.query.get_or_404(period_id)
