@@ -58,11 +58,9 @@ Format:
   Priority: P1 | Area: tests, backend
   Done: added `backend/tests/test_tasks.py` — 31 isolated pytest tests porting qa_test.py's Task Management section: create/edit/status-transition happy paths and validation; the close-permission workflow (assignee can set In Progress/Done but gets 403 on Completed, creator/assigner can close); comments + activity log; list/filter/summary/my; and the full dispatcher (cannot create/assign/archive/view-others'-tasks, can view their own) and HR (blocked from non-HR task types, blocked from archiving) permission matrices; plus the admin/supervisor archive workflow and archived-task list visibility. Reuses the `app`/`client` fixtures from `backend/conftest.py` with a `roles` fixture (one `User` per role, dispatcher linked to a test `Employee`) — no live server, no dev database. Verified: `pytest -v` → 37/37 passed (6 auth + 31 task) in ~15s, `qa_test.py` still 104/104 against the live backend, `python -m compileall backend` clean. Also quieted pytest's pre-existing SQLAlchemy `Query.get()` `LegacyAPIWarning` noise via `backend/pytest.ini` (unrelated existing deprecation, not fixed here — just silenced in test output).
 
-- [ ] Collapse the pages/PatientsPage.jsx wrapper into components/PatientsPage.jsx
-  Priority: P2
-  Area: frontend
-  Why: The only page whose real component lives outside pages/ — a 10-line wrapper re-exports the 1,747-line real component from components/.
-  Acceptance criteria: real component moved into pages/, wrapper and old location removed, App.jsx import updated, no behavior change
+- [x] Collapse the pages/PatientsPage.jsx wrapper into components/PatientsPage.jsx
+  Priority: P2 | Area: frontend
+  Done: moved the 1,747-line real component from `components/PatientsPage.jsx` directly into `pages/PatientsPage.jsx`, replacing the 10-line re-export wrapper; fixed the 3 relative imports that referenced `./ui/...` (component-local) to `../components/ui/...` (all other imports — `../api/...`, `../context/...`, `../utils/...` — were already correct since `components/` and `pages/` are sibling directories under `src/`). Deleted the old `components/PatientsPage.jsx`. `App.jsx` already imported from `./pages/PatientsPage`, so no route wiring changed. Verified: `npm run lint` (clean), `npm run build` (clean, 137 modules — one fewer than before since the wrapper file is gone, `PatientsPage` chunk size unchanged), `qa_test.py` (104/104), and a manual browser pass logged in as admin — Patients page loads, Show All + Show Archived toggle both fetch real data from the live backend, opening a patient's drawer shows all 5 tabs (Overview/Alerts/Contacts/Edit/Call History) with correct data, and the Edit tab's full form renders — zero console errors throughout.
 
 ## Priority 2 — Security / dependency review
 
