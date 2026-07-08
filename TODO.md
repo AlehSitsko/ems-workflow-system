@@ -50,14 +50,9 @@ Format:
   Priority: P1 | Area: frontend
   Done: extracted `UnitTable` (`frontend/src/components/dispatch/UnitTable.jsx` — every drag-and-drop drop-target handler wiring, double-click status-advance, shift-severity styling, patient-queue sub-rows) and `UnitDetailPanel` (`frontend/src/components/dispatch/UnitDetailPanel.jsx` — renamed from the ROADMAP's aspirational `UnitDetailDrawer` since it's an inline panel, not an overlay; row-resize divider, status buttons, priority-queue banner/reset, assigned/completed call lists). All drag-and-drop and status handler *functions* stayed in the page — only the JSX invoking them moved. File went from 1,103 → 768 lines (2,439 → 768 across the whole refactor). Verified via `npm run lint` (clean), `npm run build` (clean, 138 modules), `qa_test.py` (104/104), and an exhaustive manual browser pass: unit select/deselect, double-click status advance, inline "→ Next Status" button, Edit Unit drawer, Make Night dialog, Out-of-Service toggle, drag-and-drop assign (including the insufficient-crew warning modal), priority queue (Move Down, Reset to time order), Unassign, Mark Completed, and bottom-panel resize — zero console errors throughout. This was the last remaining phase — the DispatchBoardPage.jsx refactor is now complete.
 
-- [ ] Add a backend unit test framework (pytest)
-  Priority: P1
-  Area: tests, backend
-  Why: There are currently zero isolated unit tests — every check requires a running server and the live dev SQLite database via qa_test.py.
-  Acceptance criteria:
-  - pytest added to backend/requirements.txt
-  - At least one real test module using an in-memory/test-only DB
-  - Documented in docs/TESTING.md
+- [x] Add a backend unit test framework (pytest)
+  Priority: P1 | Area: tests, backend
+  Done: added `pytest==8.3.4` to `backend/requirements.txt`; made `SQLALCHEMY_DATABASE_URI` read from a `DATABASE_URL` env var (defaulting to the unchanged `sqlite:///database.db`) so tests can point it at `sqlite:///:memory:` without touching prod/dev behavior; added `backend/conftest.py` (`app`/`client`/`db_session` fixtures — fresh schema created/dropped per test, rate limiting disabled) and `backend/tests/test_auth.py` (6 tests: login success, wrong password, unknown user, missing fields, no JSON body, inactive user) — all isolated from any live server or the dev database. Verified: `pytest -v` → 6/6 passed in <1s, `qa_test.py` still 104/104 against the live backend (confirming the `DATABASE_URL` env-var change is a no-op for the real app), `npm run lint`/`npm run build` unaffected (frontend-only checks, included for completeness). Documented in docs/TESTING.md.
 
 - [ ] Role permission tests for Task Management (backend)
   Priority: P1
