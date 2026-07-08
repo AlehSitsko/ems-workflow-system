@@ -2,12 +2,26 @@
 
 ## Honest current state
 
-**There is no unit test framework in this project yet.** No pytest, no vitest/jest — `frontend/package.json` has no `test` script at all. What exists instead are two standalone Python scripts that exercise the API against a **live running backend**:
+**Backend unit tests exist now, but only cover authentication so far.** `backend/tests/test_auth.py` runs under `pytest` against an in-memory SQLite database — no live server, no dev database touched. Everything else is still only covered by two standalone Python scripts that exercise the API against a **live running backend**:
 
 - `qa_test.py` — functional/integration test script
 - `stress_test.py` — load/performance test script
 
-Both need the backend already running (`python app.py` from `backend/`) and hit `http://127.0.0.1:5050` directly over HTTP. They are not isolated unit tests: they create real rows in the dev SQLite database (and clean most of them up afterward), and a failure in one section can occasionally cascade into an unrelated one if cleanup didn't run. Treat them as smoke/regression scripts, not a substitute for real test coverage — see Priority 3 in [ROADMAP.md](ROADMAP.md) for the plan to add one.
+There is still no frontend test framework — no vitest/jest, `frontend/package.json` has no `test` script at all.
+
+`qa_test.py`/`stress_test.py` need the backend already running (`python app.py` from `backend/`) and hit `http://127.0.0.1:5050` directly over HTTP. They are not isolated unit tests: they create real rows in the dev SQLite database (and clean most of them up afterward), and a failure in one section can occasionally cascade into an unrelated one if cleanup didn't run. Treat them as smoke/regression scripts — the pytest suite is where isolated, DB-free-of-side-effects coverage belongs going forward. See Priority 3 in [ROADMAP.md](ROADMAP.md) for the rest of the plan.
+
+## Running the pytest suite
+
+```powershell
+cd backend
+.\venv\Scripts\Activate.ps1
+pytest -v
+```
+
+No running server or dev database needed — `backend/conftest.py` points `SQLALCHEMY_DATABASE_URI` at `sqlite:///:memory:` via the `DATABASE_URL` env var (the app itself defaults to the real `sqlite:///database.db` when that env var isn't set, so this has zero effect on `python app.py`) and creates/drops the schema fresh around each test. Rate limiting is disabled per-test (`RATELIMIT_ENABLED=False`) so repeated login attempts across tests don't trip Flask-Limiter.
+
+Add new test modules under `backend/tests/`; the `app`, `client`, and `db_session` fixtures in `backend/conftest.py` are available to all of them without extra imports.
 
 ## Running the current test scripts
 
@@ -64,7 +78,7 @@ Expected result: no errors under concurrent load, no 500 responses, dispatch boa
 
 ## What's missing
 
-- **No backend unit tests.** Nothing runs in isolation from a live server + real SQLite file. A change to, say, the payroll overtime calculation can only be verified today by running the full server and either clicking through the UI or waiting for `qa_test.py`'s (currently thin) payroll coverage.
+- **Only auth is covered by pytest so far.** Everything else (payroll overtime, crew units, dispatch, patients, tasks) still only runs in isolation from a live server + real SQLite file via `qa_test.py`. A change to, say, the payroll overtime calculation can only be verified today by running the full server and either clicking through the UI or waiting for `qa_test.py`'s (currently thin) payroll coverage.
 - **No frontend tests at all** — no component tests, no smoke tests, nothing. Every frontend change is verified manually.
 - **No isolated permission/authorization tests.** The Task Management role matrix (admin/supervisor/hr/dispatcher × create/close/assign/view) — the most complex authorization logic in the app — is only covered by `qa_test.py`'s live assertions.
 - **No tenant isolation tests**, which matters because `org_id` exists on every tenant-scoped table but nothing filters by it yet (see [ARCHITECTURE.md](ARCHITECTURE.md#multi-tenancy-foundation)). Before that filtering is turned on, a test proving cross-tenant leakage is impossible should exist first.
@@ -73,7 +87,7 @@ Expected result: no errors under concurrent load, no 500 responses, dispatch boa
 
 In rough order:
 
-1. Add `pytest` + an in-memory/test-only SQLite DB (not the dev database) as the actual unit test foundation
+1. ~~Add `pytest` + an in-memory/test-only SQLite DB (not the dev database) as the actual unit test foundation~~ — done: `backend/conftest.py` + `backend/tests/test_auth.py`
 2. Role permission tests for Task Management, ported from `qa_test.py`'s live assertions
 3. Payroll/overtime edge-case tests (week boundaries, ISO week math)
 4. Patient duplicate-prevention tests (exact match, near-match should-not-dedupe, archived-match)

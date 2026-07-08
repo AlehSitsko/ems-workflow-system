@@ -44,8 +44,9 @@ from routes.task_routes import task_bp
 app = Flask(__name__)
 CORS(app)
 
-# Local SQLite database configuration.
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+# Local SQLite database configuration. DATABASE_URL lets tests point this at
+# an in-memory database without touching the dev/prod default.
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///database.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Connect SQLAlchemy to the Flask app.
