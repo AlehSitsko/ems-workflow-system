@@ -2,7 +2,7 @@
 
 ## Honest current state
 
-**Backend unit tests exist now, but only cover authentication so far.** `backend/tests/test_auth.py` runs under `pytest` against an in-memory SQLite database — no live server, no dev database touched. Everything else is still only covered by two standalone Python scripts that exercise the API against a **live running backend**:
+**Backend unit tests exist now, covering authentication and Task Management.** `backend/tests/test_auth.py` and `backend/tests/test_tasks.py` run under `pytest` against an in-memory SQLite database — no live server, no dev database touched. Everything else is still only covered by two standalone Python scripts that exercise the API against a **live running backend**:
 
 - `qa_test.py` — functional/integration test script
 - `stress_test.py` — load/performance test script
@@ -78,9 +78,8 @@ Expected result: no errors under concurrent load, no 500 responses, dispatch boa
 
 ## What's missing
 
-- **Only auth is covered by pytest so far.** Everything else (payroll overtime, crew units, dispatch, patients, tasks) still only runs in isolation from a live server + real SQLite file via `qa_test.py`. A change to, say, the payroll overtime calculation can only be verified today by running the full server and either clicking through the UI or waiting for `qa_test.py`'s (currently thin) payroll coverage.
+- **Auth and Task Management are covered by pytest; everything else isn't.** Payroll overtime, crew units, dispatch, and patients still only run in isolation from a live server + real SQLite file via `qa_test.py`. A change to, say, the payroll overtime calculation can only be verified today by running the full server and either clicking through the UI or waiting for `qa_test.py`'s (currently thin) payroll coverage.
 - **No frontend tests at all** — no component tests, no smoke tests, nothing. Every frontend change is verified manually.
-- **No isolated permission/authorization tests.** The Task Management role matrix (admin/supervisor/hr/dispatcher × create/close/assign/view) — the most complex authorization logic in the app — is only covered by `qa_test.py`'s live assertions.
 - **No tenant isolation tests**, which matters because `org_id` exists on every tenant-scoped table but nothing filters by it yet (see [ARCHITECTURE.md](ARCHITECTURE.md#multi-tenancy-foundation)). Before that filtering is turned on, a test proving cross-tenant leakage is impossible should exist first.
 
 ## Test roadmap (see [ROADMAP.md](ROADMAP.md) Priority 3 for full detail)
@@ -88,7 +87,7 @@ Expected result: no errors under concurrent load, no 500 responses, dispatch boa
 In rough order:
 
 1. ~~Add `pytest` + an in-memory/test-only SQLite DB (not the dev database) as the actual unit test foundation~~ — done: `backend/conftest.py` + `backend/tests/test_auth.py`
-2. Role permission tests for Task Management, ported from `qa_test.py`'s live assertions
+2. ~~Role permission tests for Task Management, ported from `qa_test.py`'s live assertions~~ — done: `backend/tests/test_tasks.py` (31 tests: CRUD, close-permission workflow, comments/activity, list/filter, dispatcher + HR permission matrices, archive workflow)
 3. Payroll/overtime edge-case tests (week boundaries, ISO week math)
 4. Patient duplicate-prevention tests (exact match, near-match should-not-dedupe, archived-match)
 5. Tenant isolation tests, written before tenant-scoped query filtering is turned on

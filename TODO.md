@@ -54,11 +54,9 @@ Format:
   Priority: P1 | Area: tests, backend
   Done: added `pytest==8.3.4` to `backend/requirements.txt`; made `SQLALCHEMY_DATABASE_URI` read from a `DATABASE_URL` env var (defaulting to the unchanged `sqlite:///database.db`) so tests can point it at `sqlite:///:memory:` without touching prod/dev behavior; added `backend/conftest.py` (`app`/`client`/`db_session` fixtures — fresh schema created/dropped per test, rate limiting disabled) and `backend/tests/test_auth.py` (6 tests: login success, wrong password, unknown user, missing fields, no JSON body, inactive user) — all isolated from any live server or the dev database. Verified: `pytest -v` → 6/6 passed in <1s, `qa_test.py` still 104/104 against the live backend (confirming the `DATABASE_URL` env-var change is a no-op for the real app), `npm run lint`/`npm run build` unaffected (frontend-only checks, included for completeness). Documented in docs/TESTING.md.
 
-- [ ] Role permission tests for Task Management (backend)
-  Priority: P1
-  Area: tests, backend
-  Why: The admin/supervisor/hr/dispatcher × create/close/assign/view permission matrix is the most complex authorization logic in the app and is only covered by qa_test.py's live-server assertions today.
-  Acceptance criteria: pytest coverage for every role × action combination already exercised in qa_test.py's Task Management section, runnable without a live server
+- [x] Role permission tests for Task Management (backend)
+  Priority: P1 | Area: tests, backend
+  Done: added `backend/tests/test_tasks.py` — 31 isolated pytest tests porting qa_test.py's Task Management section: create/edit/status-transition happy paths and validation; the close-permission workflow (assignee can set In Progress/Done but gets 403 on Completed, creator/assigner can close); comments + activity log; list/filter/summary/my; and the full dispatcher (cannot create/assign/archive/view-others'-tasks, can view their own) and HR (blocked from non-HR task types, blocked from archiving) permission matrices; plus the admin/supervisor archive workflow and archived-task list visibility. Reuses the `app`/`client` fixtures from `backend/conftest.py` with a `roles` fixture (one `User` per role, dispatcher linked to a test `Employee`) — no live server, no dev database. Verified: `pytest -v` → 37/37 passed (6 auth + 31 task) in ~15s, `qa_test.py` still 104/104 against the live backend, `python -m compileall backend` clean. Also quieted pytest's pre-existing SQLAlchemy `Query.get()` `LegacyAPIWarning` noise via `backend/pytest.ini` (unrelated existing deprecation, not fixed here — just silenced in test output).
 
 - [ ] Collapse the pages/PatientsPage.jsx wrapper into components/PatientsPage.jsx
   Priority: P2
