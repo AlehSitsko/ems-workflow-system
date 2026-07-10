@@ -70,14 +70,11 @@ Format:
   Why: `npm ci` / `npm install` reported `11 vulnerabilities: 2 low, 4 moderate, 5 high`.
   Done: Traced every flagged package via `npm ls` — all 11 (`@babel/core`, `@eslint/plugin-kit`, `ajv`, `brace-expansion`, `flatted`, `js-yaml`, `minimatch`, `picomatch`, `postcss`, `rollup`, `vite`) are transitive under dev tooling only (`vite`, `eslint`, `@vitejs/plugin-react`, `gh-pages`); none descend from the 4 runtime deps (`react`, `react-dom`, `react-icons`, `react-router-dom`), so nothing shipped in the production bundle. Verified `npm audit fix --dry-run` produced only minor/patch bumps within existing semver ranges (vite 7.0.4→7.3.6, rollup 4.45.1→4.62.2, @babel/* 7.28→7.29, react-router-dom 7.14→7.18) — no major jumps, so no `--force` needed. Ran plain `npm audit fix` → `found 0 vulnerabilities`, only `package-lock.json` changed (`package.json` untouched). Confirmed `npm run lint` (clean) and `npm run build` (clean, built in 1.4s). No `--force` used, per the project's no-unreviewed-force-fixes rule.
 
-- [ ] Standardize backend `get_or_404()` calls to return JSON, not HTML error pages
+- [x] Standardize backend `get_or_404()` calls to return JSON, not HTML error pages
   Priority: P2
   Area: backend
-  Why: Already fixed for Task/Employee lookups in task_routes.py/auth_routes.py during the post-QA fix-pass; the same pattern (Werkzeug's HTML 404) still exists in call_routes.py, crew_routes.py, document_routes.py, patient_routes.py, payroll_routes.py, time_routes.py.
-  Acceptance criteria:
-  - Every 404 from a user-facing API call returns JSON
-  - No behavior change for valid ids
-  Notes: Wide but mechanical and low-risk — do one route file at a time, run qa_test.py after each.
+  Why: `get_or_404()` across call_routes.py, crew_routes.py, document_routes.py, patient_routes.py, payroll_routes.py, time_routes.py, task_routes.py raised Werkzeug's `NotFound`, which the catch-all `errorhandler(Exception)` passed through unchanged → the client got Werkzeug's default HTML 404 page instead of JSON.
+  Done: Instead of editing all 38 `get_or_404()` call sites, registered a single global `@app.errorhandler(404)` (plus a matching `405`) in app.py that returns `{"error": "Resource not found"}` / `{"error": "Method not allowed"}` as JSON. This covers `get_or_404()` lookups AND requests to unmatched routes/methods in one place — appropriate since the backend is a JSON API (frontend is a separate Vite app), so an HTML 404 is never desired. No behavior change for valid ids (handler only fires on 404/405). Verified via test client: unmatched route, `get_or_404` on a missing id, and a wrong-method request all return `application/json` with the correct status; full pytest suite still 37/37.
 
 - [ ] Backend permission hardening (role-check decorator)
   Priority: P2
