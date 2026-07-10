@@ -1,19 +1,21 @@
-import os
-
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
 import pytest
 
-from app import app as flask_app
+from app import create_app
 from models import db as _db
 
 
 @pytest.fixture()
 def app():
-    flask_app.config.update(TESTING=True, RATELIMIT_ENABLED=False)
-    with flask_app.app_context():
+    # Isolated app per test: in-memory SQLite, rate limiting off. Passed via the
+    # factory's config override so nothing touches the dev/prod database.
+    app = create_app({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "RATELIMIT_ENABLED": False,
+    })
+    with app.app_context():
         _db.create_all()
-        yield flask_app
+        yield app
         _db.session.remove()
         _db.drop_all()
 

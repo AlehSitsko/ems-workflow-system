@@ -15,8 +15,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app import app
+from app import create_app
 from models import db, Call
+
+app = create_app()
 
 
 # Lines that were embedded as "Key: value" in notes for old records

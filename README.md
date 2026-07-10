@@ -99,13 +99,17 @@ cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-flask --app app db upgrade
-python app.py
+flask --app app db upgrade    # build the schema (Flask auto-detects the create_app factory)
+flask --app app seed-demo     # create demo users (idempotent; local/demo only)
+python app.py                 # dev server on http://127.0.0.1:5050
 ```
 
-Backend runs on `http://127.0.0.1:5050`.
-
-`db.create_all()` is intentionally disabled — the schema is managed entirely through Flask-Migrate. Running against a fresh/empty database **without** first running `flask --app app db upgrade` fails with errors like `no such table: user`. Always migrate before the first run.
+The backend uses a Flask **application factory** (`create_app` in `app.py`).
+Importing it has no side effects — it does not open the database or seed data.
+The schema is managed entirely through Flask-Migrate; a fresh database **must**
+be migrated (`flask --app app db upgrade`) before first run, or you'll see
+errors like `no such table: user`. Demo users are created **only** by the
+explicit `seed-demo` command, never on normal startup.
 
 ### Frontend
 
@@ -120,15 +124,27 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-python qa_test.py       # functional/integration checks (needs the backend running)
-python stress_test.py   # load test (needs the backend running)
+# Backend — 89 isolated pytest tests (in-memory SQLite, no server needed)
+cd backend; pytest -v
+
+# Frontend — 32 Vitest tests (utilities + a component smoke test)
+cd frontend; npm test
+
+# Live QA (optional) — needs the backend running; use a DISPOSABLE database
+python qa_test.py       # functional/integration checks
+python stress_test.py   # local load smoke (not a production benchmark)
 ```
 
-See [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for the full pre-commit checklist and [docs/TESTING.md](docs/TESTING.md) for what these scripts do and don't cover.
+CI (`.github/workflows/ci.yml`) runs the backend and frontend checks on every PR
+and push to `dev`/`main`. See [docs/TESTING.md](docs/TESTING.md) for coverage
+detail and the disposable-database rule for the live scripts, and
+[docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for the pre-commit
+checklist.
 
 ## Demo Users / Demo Mode
 
-Seeded automatically on first successful backend startup (skipped if a username already exists):
+Created by `flask --app app seed-demo` (idempotent — existing usernames are
+skipped). **Not** seeded on normal startup. For local/demo use only:
 
 | Username | Password | Role |
 |---|---|---|
@@ -153,15 +169,29 @@ Full breakdown: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-Stable. All core modules (Call Intake, Dispatch Board, Patients, Crew Planner, Vehicle Registry, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented and passing the current QA suite (`qa_test.py`: 104/104, 0 failures). The project is currently in a documentation/stabilization pass — see [docs/ROADMAP.md](docs/ROADMAP.md) Priority 0 for what that covers.
+Stable. All core modules (Call Intake, Dispatch Board, Patients, Crew Planner, Vehicle Registry, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **89 backend pytest tests + 32 frontend Vitest tests**, plus the live `qa_test.py` smoke suite (104/104). The project is in a stabilization pass — see Current Development Direction below.
 
 Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 
-## Roadmap
+## Current Development Direction
 
-Organized by priority (documentation & stabilization → codebase maintainability → UI consistency → testing → operations features → portfolio polish → production hardening), not chronological "block" numbers. Full detail, including corrections made to previously-inaccurate planned-vs-shipped claims: [docs/ROADMAP.md](docs/ROADMAP.md).
+Sequential phases — each starts only after the previous one lands. Full detail in
+[docs/ROADMAP.md](docs/ROADMAP.md); near-term items in [TODO.md](TODO.md).
 
-Near-term actionable items: [TODO.md](TODO.md).
+**Current — stabilization** (mostly done): application factory, explicit demo
+seeding, CI, Patients & Payroll tests, frontend test foundation, and the
+in-progress PatientsPage decomposition.
+
+**Next — infrastructure (planned):** a Docker development environment — backend
+and frontend Dockerfiles, Docker Compose, a named SQLite volume, health checks,
+and a reproducible setup. *Docker is planned, not yet implemented, and a Docker
+development environment does not make the project production-ready.*
+
+**Then — major feature (planned):** a role-aware operational **Calendar** —
+aggregating employee/patient birthdays, certification expirations, task
+deadlines, crew shifts, scheduled calls, and vehicle dates into month/week/agenda
+views with backend role-based filtering. *The Calendar is planned, not yet
+implemented.*
 
 ## Known Limitations
 
@@ -169,8 +199,9 @@ Near-term actionable items: [TODO.md](TODO.md).
 * Multi-tenancy exists as a schema foundation only (`Organization` model, nullable `org_id` columns) — the organization table isn't seeded, no row has an `org_id`, and runtime tenant isolation is not active. Full activation is deferred to the production hardening phase.
 * SQLite is used for local development and is not intended for concurrent production dispatch usage.
 * The system does not include full clinical ePCR, NEMSIS export, insurance claims processing, or live GPS routing.
-* Some large frontend modules (`DispatchBoardPage.jsx` in particular) are scheduled for refactoring — see [docs/ROADMAP.md](docs/ROADMAP.md) Priority 1.
-* There is no unit test framework yet — current test coverage is two integration/load scripts run against a live server. See [docs/TESTING.md](docs/TESTING.md).
+* Docker and the operational Calendar are **planned, not implemented** — see Current Development Direction above.
+* `PatientsPage.jsx` is still large; its decomposition is in progress (see [TODO.md](TODO.md) P0).
+* Test coverage is 89 backend pytest + 32 frontend Vitest tests plus live QA scripts; several domains (dispatch, crew, notifications) still have isolated coverage only through the live `qa_test.py` script. See [docs/TESTING.md](docs/TESTING.md).
 * Some production-readiness tasks are intentionally deferred until the feature set stabilizes — see [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## Security Note

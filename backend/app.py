@@ -1,27 +1,30 @@
+"""Application factory for the EMS Workflow System backend.
+
+`create_app()` builds a fully configured Flask app with no import-time side
+effects — importing this module does not open the database or seed data. Demo
+users are created explicitly via the `seed-demo` CLI command (see cli.py).
+
+Run the dev server:
+    python app.py
+    # or: flask --app app run --port 5050
+
+CLI (migrations, seeding) — Flask auto-detects the create_app factory:
+    flask --app app db upgrade
+    flask --app app seed-demo
+"""
+
 import os
+
 from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify
-from flask_cors import CORS
-from flask_migrate import Migrate
 from werkzeug.exceptions import HTTPException
-from werkzeug.security import generate_password_hash
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
 
-from limiter import limiter
-
-from models import db, User
-
-
-# SQLite does not enforce foreign key constraints unless told to per-connection.
-@event.listens_for(Engine, "connect")
-def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
-    if dbapi_connection.__class__.__module__.startswith("sqlite3"):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+from config import Config
+from extensions import init_extensions
+from models import db
+from cli import register_cli_commands
 
 from routes.auth_routes import auth_bp
 from routes.employee_routes import employee_bp
@@ -41,178 +44,77 @@ from routes.settings_routes import settings_bp
 from routes.task_routes import task_bp
 
 
-app = Flask(__name__)
-CORS(app)
-
-# Local SQLite database configuration. DATABASE_URL lets tests point this at
-# an in-memory database without touching the dev/prod default.
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///database.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Connect SQLAlchemy to the Flask app.
-db.init_app(app)
-
-# Alembic migrations via Flask-Migrate.
-migrate = Migrate(app, db)
-
-# Rate limiter — in-memory storage, keyed by client IP.
-limiter.init_app(app)
-
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    return jsonify({"error": "Too many login attempts. Please wait a minute and try again."}), 429
+# All API blueprints, registered in order by the factory.
+BLUEPRINTS = [
+    auth_bp, employee_bp, crew_bp, crew_preset_bp, vehicle_bp, patient_bp,
+    call_bp, analytics_bp, dispatch_bp, notif_bp, time_bp, payroll_bp,
+    doc_bp, audit_bp, settings_bp, task_bp,
+]
 
 
-# This is a JSON API (the frontend is a separate Vite app), so 404/405 must come
-# back as JSON rather than Werkzeug's default HTML page. This covers both
-# `get_or_404()` lookups and requests to unmatched routes/methods in one place.
-@app.errorhandler(404)
-def not_found_handler(e):
-    return jsonify({"error": "Resource not found"}), 404
+def register_blueprints(app):
+    for blueprint in BLUEPRINTS:
+        app.register_blueprint(blueprint)
 
 
-@app.errorhandler(405)
-def method_not_allowed_handler(e):
-    return jsonify({"error": "Method not allowed"}), 405
+def register_error_handlers(app):
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        return jsonify({"error": "Too many login attempts. Please wait a minute and try again."}), 429
+
+    # This is a JSON API (the frontend is a separate Vite app), so 404/405 must
+    # come back as JSON rather than Werkzeug's default HTML page. This covers both
+    # get_or_404() lookups and requests to unmatched routes/methods in one place.
+    @app.errorhandler(404)
+    def not_found_handler(e):
+        return jsonify({"error": "Resource not found"}), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed_handler(e):
+        return jsonify({"error": "Method not allowed"}), 405
+
+    # Catch-all for unhandled exceptions — returns clean JSON instead of an
+    # HTML/stack-trace page. HTTPExceptions (400/403/404/409/429/...) already
+    # carry a meaningful status/body from the route itself, so they pass through.
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        if isinstance(error, HTTPException):
+            return error
+        db.session.rollback()
+        app.logger.exception(error)
+        return jsonify({"error": "Internal server error"}), 500
 
 
-# Catch-all for unhandled exceptions — returns clean JSON instead of an HTML/stack-trace
-# page. HTTPExceptions (400/403/404/409/429/...) already carry a meaningful status/body
-# from the route itself, so they pass through unchanged.
-@app.errorhandler(Exception)
-def handle_unexpected_error(error):
-    if isinstance(error, HTTPException):
-        return error
-    db.session.rollback()
-    app.logger.exception(error)
-    return jsonify({"error": "Internal server error"}), 500
+def register_core_routes(app):
+    @app.route("/")
+    def home():
+        return jsonify({"message": "EMS Workflow System backend is running"})
 
-# Register authentication and user management routes.
-app.register_blueprint(auth_bp)
-
-# Register employee management routes.
-app.register_blueprint(employee_bp)
-
-# Register daily crew unit routes.
-app.register_blueprint(crew_bp)
-
-# Register reusable crew preset routes.
-app.register_blueprint(crew_preset_bp)
-
-# Register vehicle registry routes.
-app.register_blueprint(vehicle_bp)
-
-# Register patient management routes.
-app.register_blueprint(patient_bp)
-
-# Register call history and call intake routes.
-app.register_blueprint(call_bp)
-
-# Register supervisor analytics routes.
-app.register_blueprint(analytics_bp)
-
-# Register dispatch board routes.
-app.register_blueprint(dispatch_bp)
-
-# Register notification routes.
-app.register_blueprint(notif_bp)
-
-# Register time tracking routes.
-app.register_blueprint(time_bp)
-
-# Register payroll period and export routes.
-app.register_blueprint(payroll_bp)
-
-# Register HR document routes.
-app.register_blueprint(doc_bp)
-
-# Register audit log routes.
-app.register_blueprint(audit_bp)
-
-# Register per-user settings routes.
-app.register_blueprint(settings_bp)
-
-# Register staff task management routes.
-app.register_blueprint(task_bp)
+    @app.route("/api/health")
+    def health_check():
+        return jsonify({"status": "ok", "service": "ems-workflow-system-backend"})
 
 
-@app.route("/")
-def home():
-    return jsonify({
-        "message": "EMS Workflow System backend is running"
-    })
+def create_app(config_overrides=None):
+    """Build and return a configured Flask app.
 
+    `config_overrides` (a dict) is applied after the base Config — tests use it
+    to point at an in-memory database and disable rate limiting.
+    """
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    if config_overrides:
+        app.config.update(config_overrides)
 
-@app.route("/api/health")
-def health_check():
-    return jsonify({
-        "status": "ok",
-        "service": "ems-workflow-system-backend"
-    })
+    init_extensions(app)
+    register_blueprints(app)
+    register_error_handlers(app)
+    register_core_routes(app)
+    register_cli_commands(app)
 
-
-# =========================
-# HELPER FUNCTIONS
-# =========================
-
-def create_default_users():
-    default_users = [
-        {
-            "username": "admin",
-            "password": "admin",
-            "display_name": "Admin User",
-            "role": "admin",
-        },
-        {
-            "username": "supervisor",
-            "password": "supervisor",
-            "display_name": "Supervisor User",
-            "role": "supervisor",
-        },
-        {
-            "username": "dispatcher",
-            "password": "dispatcher",
-            "display_name": "Dispatcher User",
-            "role": "dispatcher",
-        },
-        {
-            "username": "hr",
-            "password": "hr",
-            "display_name": "HR User",
-            "role": "hr",
-        },
-    ]
-
-    for user_data in default_users:
-        existing_user = User.query.filter_by(
-            username=user_data["username"]
-        ).first()
-
-        if not existing_user:
-            user = User(
-                username=user_data["username"],
-                password_hash=generate_password_hash(user_data["password"]),
-                display_name=user_data["display_name"],
-                role=user_data["role"],
-                is_active=True,
-            )
-
-            db.session.add(user)
-
-    db.session.commit()
-
-
-# =========================
-# INIT DB
-# =========================
-
-with app.app_context():
-    # db.create_all() — disabled; use `flask db upgrade` for schema changes
-    try:
-        create_default_users()
-    except Exception:
-        pass  # schema not yet migrated; run flask db upgrade first
+    return app
 
 
 if __name__ == "__main__":
+    app = create_app()
     app.run(host="127.0.0.1", port=5050, debug=os.environ.get("FLASK_DEBUG") == "1")

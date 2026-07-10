@@ -283,3 +283,26 @@ Historical record of shipped work, in the order it landed. For what's planned ne
 * Task assignment and `PUT /api/auth/users/<id>` now return clean JSON `400`/`404` for invalid/nonexistent employee ids instead of an HTML 404 or a `500`
 * Fixed a pagination-dependent QA assertion (archived patient visibility) that could false-fail after stress-seeding 500+ patients
 * Cleared the last 4 `react-hooks/exhaustive-deps` warnings (CallForm return-ride sync, CrewPlanner/DispatchBoard CPR/assignment warnings, Dispatch Board polling) without changing behavior
+
+### DispatchBoardPage refactor (complete)
+
+* `pages/DispatchBoardPage.jsx` reduced from 2,439 → 768 lines across five phases. Extracted 11 presentational components to `components/dispatch/` (`StatusPill`, `UnitTypeBadge`, `CallCard`, `AssignedCallCard`, `CompletedCallCard`, `CallDetailModal`, `WarningModal`, `BoardToolbar`, `OpenCallsPanel`, `UnitTable`, `UnitDetailPanel`), 4 hooks to `hooks/` (`usePanelResize`, `useOverdueDetection`, `useCallPriority`, `useUnitFormValidation`), and pure helpers/constants to `utils/dispatchBoardUtils.js`. Behavior unchanged — verified each phase with lint/build, `qa_test.py`, and manual browser passes
+
+### Shift management, Vehicle Registry, auto-fill, overlap warning (complete)
+
+* Vehicle Registry (`Vehicle` model + `vehicle_routes.py` + `VehicleRegistrySection.jsx`) with a route-layer unique constraint on `unit_number`
+* Shift timing on `DailyCrewUnit` (`shift_duration_hours`, `shift_status`, computed `plannedEndTime`/`delayMinutes`), near-end/overdue alerts (`GET /api/crew-units/alerts`, `ShiftAlertsBlock.jsx`), and `unit_shift_near_end`/`unit_shift_overdue` bell notifications. Midnight-crossover handled in both backend and frontend
+* Dispatch Board shows shift timing per unit row and colors the row by severity (green/orange/red)
+* **Auto-fill Crew** button — fills empty crew slots from active, not-assigned-elsewhere staff with role eligibility and paramedic conservation (a BLS medical slot prefers an EMT so paramedics stay available for ALS units)
+* **Soft same-vehicle overlap warning** — a unit whose time range overlaps another active unit on the same truck for that date shows a non-blocking warning (half-open intervals, so adjacent shifts don't false-positive)
+
+### Stabilization sprint (complete)
+
+* **Security / dependency review** — `npm audit` resolved to 0 vulnerabilities via a non-`--force` update (all 11 advisories were dev-tooling transitives, none in the runtime bundle). Standardized 404/405 to JSON via global error handlers (the API is JSON-only). Centralized the per-route role gate behind a `require_role` decorator (`backend/utils/auth_utils.py`), applied to the clean top-of-view gates in `audit_routes`, `call_routes`, and `document_routes`
+* **Migration drift repair** — a dev database stamped mid-chain (partially-applied `da67a9d4edeb`) was brought to head non-destructively; `daily_crew_unit.first_patient` corrected to nullable to match the model. The migration files themselves were already correct on a fresh database
+* **Flask application factory** — `create_app(config_overrides)` with `config.py`, `extensions.py`, `cli.py`. No import-time side effects: importing `app.py` no longer opens the DB or seeds
+* **Removed import-time demo seeding** and the `except Exception: pass` that hid schema errors. Demo users now come from an explicit, idempotent `flask --app app seed-demo` CLI command (local/demo only)
+* **GitHub Actions CI** (`.github/workflows/ci.yml`) — backend (compileall + pytest) and frontend (npm ci, lint, test, build) on PRs and pushes to `dev`/`main`. Live QA excluded from CI
+* **Backend test coverage** grew from 37 → 89 isolated pytest tests: added `test_patients.py` (30) and `test_payroll.py` (22). `conftest.py` now builds an isolated app per test via the factory
+* **Frontend Vitest foundation** — Vitest + React Testing Library + jsdom; 32 tests (utilities + a `StatusPill` component smoke test); `npm test` / `npm run test:watch` scripts wired into CI
+* **PatientsPage decomposition phase 1** — established `components/patients/` and moved the self-contained module-level pieces (`patientConstants.js`, `DetailItem.jsx`, `PatientFormSection.jsx`) out of the page. Remaining hook/tab phases tracked in TODO.md P0
