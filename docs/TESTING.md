@@ -1,17 +1,40 @@
 # Testing
 
-## Honest current state
+## Current state
 
-**Backend unit tests exist now, covering authentication and Task Management.** `backend/tests/test_auth.py` and `backend/tests/test_tasks.py` run under `pytest` against an in-memory SQLite database — no live server, no dev database touched. Everything else is still only covered by two standalone Python scripts that exercise the API against a **live running backend**:
+Three layers of tests, in order of reliability:
 
-- `qa_test.py` — functional/integration test script
-- `stress_test.py` — load/performance test script
+1. **Backend pytest (isolated) — 89 tests.** Run under `pytest` against an
+   in-memory SQLite database built by the application factory; no live server,
+   no dev database touched. Domains covered:
+   - `test_auth.py` (6) — login success/failure, unknown/inactive user, bad body
+   - `test_tasks.py` (31) — Task Management CRUD, close-permission workflow,
+     comments/activity, list/filter, dispatcher + HR permission matrices, archive
+   - `test_patients.py` (30) — CRUD, duplicate detection (case/whitespace
+     insensitive, incl. archived), archive/restore, alerts, contacts, JSON 404,
+     audit log
+   - `test_payroll.py` (22) — FLSA per-ISO-week overtime, week boundaries,
+     overnight/zero/negative durations, config/rate edge cases, CSV export
+2. **Frontend Vitest (isolated) — 32 tests.** Vitest + React Testing Library +
+   jsdom. Utility coverage (`timeUtils`, `dispatchBoardUtils` incl.
+   `getShiftAlertSeverity` with a faked clock, `licenseUtils`) plus a `StatusPill`
+   component smoke test proving the RTL setup.
+3. **Live QA scripts (`qa_test.py`, `stress_test.py`).** Standalone Python scripts
+   that hit a **running** backend over HTTP. They create real rows and clean most
+   up afterward, so they are smoke/regression tools, **not** isolated unit tests.
 
-There is still no frontend test framework — no vitest/jest, `frontend/package.json` has no `test` script at all.
+### Not yet covered
 
-`qa_test.py`/`stress_test.py` need the backend already running (`python app.py` from `backend/`) and hit `http://127.0.0.1:5050` directly over HTTP. They are not isolated unit tests: they create real rows in the dev SQLite database (and clean most of them up afterward), and a failure in one section can occasionally cascade into an unrelated one if cleanup didn't run. Treat them as smoke/regression scripts — the pytest suite is where isolated, DB-free-of-side-effects coverage belongs going forward. See Priority 3 in [ROADMAP.md](ROADMAP.md) for the rest of the plan.
+- Dispatch, crew units, notifications, and analytics have isolated coverage only
+  through the live `qa_test.py` script, not pytest.
+- Frontend component/integration coverage is minimal (one smoke test) — most UI
+  changes are still verified manually. Broader component tests follow the
+  PatientsPage decomposition.
+- No tenant-isolation tests (`org_id` exists on tenant-scoped tables but nothing
+  filters by it yet; a cross-tenant-leakage test should exist before filtering is
+  turned on).
 
-## Running the pytest suite
+## Running backend pytest
 
 ```powershell
 cd backend
@@ -19,77 +42,76 @@ cd backend
 pytest -v
 ```
 
-No running server or dev database needed — `backend/conftest.py` points `SQLALCHEMY_DATABASE_URI` at `sqlite:///:memory:` via the `DATABASE_URL` env var (the app itself defaults to the real `sqlite:///database.db` when that env var isn't set, so this has zero effect on `python app.py`) and creates/drops the schema fresh around each test. Rate limiting is disabled per-test (`RATELIMIT_ENABLED=False`) so repeated login attempts across tests don't trip Flask-Limiter.
+No server or dev database needed. `backend/conftest.py` builds a fresh app per
+test via the factory (`create_app({...})`) with `SQLALCHEMY_DATABASE_URI` set to
+`sqlite:///:memory:` and `RATELIMIT_ENABLED=False`, creating/dropping the schema
+around each test. This is a config override — it has zero effect on `python app.py`.
 
-Add new test modules under `backend/tests/`; the `app`, `client`, and `db_session` fixtures in `backend/conftest.py` are available to all of them without extra imports.
+Add new modules under `backend/tests/`; the `app`, `client`, and `db_session`
+fixtures are available without extra imports.
 
-## Running the current test scripts
+## Running frontend Vitest
+
+```powershell
+cd frontend
+npm test          # vitest run (one-shot, used by CI)
+npm run test:watch
+```
+
+Tests live next to their targets as `*.test.js` / `*.test.jsx`; jsdom + jest-dom
+matchers are wired up in `src/test/setup.js`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pull requests and pushes to `dev`/`main`:
+
+- **Backend job:** `pip install -r backend/requirements.txt`,
+  `python -m compileall backend`, `pytest`
+- **Frontend job:** `npm ci`, `npm run lint`, `npm test`, `npm run build`
+
+The live QA scripts are **intentionally excluded** from CI — they need a running
+server and write to a database, which does not belong in CI.
+
+## Running the live QA scripts (disposable database only)
+
+`qa_test.py` / `stress_test.py` need the backend already running and hit
+`http://127.0.0.1:5050` directly. **Run them against a throwaway database, never
+your primary dev database** — they create and (mostly) delete rows:
 
 ```powershell
 cd backend
+$env:DATABASE_URL = "sqlite:///qa_disposable.db"   # a scratch file, not database.db
 .\venv\Scripts\Activate.ps1
-python app.py                  # in one terminal, from backend/
+flask --app app db upgrade                          # build the schema
+flask --app app seed-demo                           # demo users for the run
+python app.py                                       # leave running in this terminal
 ```
 
 ```powershell
-cd ..                          # back to the repo root
-python qa_test.py               # functional QA
-python stress_test.py           # concurrent load test
+cd ..
+python qa_test.py       # functional QA
+python stress_test.py   # concurrent load smoke
 ```
 
-Also useful before either of the above:
+Syntax-check without a server:
 
 ```powershell
-python -m compileall backend qa_test.py stress_test.py   # syntax check, no server needed
+python -m compileall backend qa_test.py stress_test.py
 ```
 
-## What `qa_test.py` covers
+### What `qa_test.py` covers
 
-10 sections, run in order against the live backend, with cleanup at the end:
+10 sections against the live backend, cleaned up at the end: Vehicles, Crew Units
+(shift timing, midnight crossover), Shift Alerts, Dispatch Board, Notifications,
+Data Integrity (rollback), a light concurrent Load Test, Edge Cases (SQL-injection
+safety, malformed params), Patient Module, and Task Management.
 
-1. **Vehicles** — CRUD + edge cases
-2. **Crew Units** — shift timing, midnight crossover, validation
-3. **Shift Alerts** — near-end/overdue alert logic
-4. **Dispatch Board** — board data propagation, concurrent request handling
-5. **Notifications** — bell system, prefs, role-based visibility
-6. **Data Integrity** — rollback behavior, no partial writes on invalid input
-7. **Load Test** — baseline concurrent read/write benchmark (lighter than `stress_test.py`)
-8. **Edge Cases** — boundary inputs, SQL injection safety, malformed query params
-9. **Patient Module** — duplicate prevention, archive/restore, alerts, contacts
-10. **Task Management** — full CRUD, role permission matrix, close-permission enforcement, comments, activity log
+### What `stress_test.py` covers
 
-Expected result: **0 failed, 0 warnings**. If you see failures, read the printed reason for each — the script labels every assertion, so a failure points at exactly what broke.
+Seeds a larger dataset and runs read/write benchmarks, N+1 detection, pagination,
+concurrent load (20 workers), dispatch-board polling, notification polling, and DB
+index/fragmentation checks.
 
-## What `stress_test.py` covers
-
-Seeds a larger dataset (500 patients, 300 calls, 100 employees by default) and then runs:
-
-- Single-threaded read benchmarks (patients/calls/dispatch board list endpoints)
-- Write benchmarks (create patient/call, update patient)
-- N+1 query detection (via response-time scaling across dataset sizes)
-- Pagination benchmarks
-- Concurrent load (20 workers × 10 requests)
-- Dispatch board polling load (10 concurrent dispatchers × 15 polls)
-- Notification polling stress (15 users polling for 10s)
-- DB index recommendation check
-- DB file fragmentation stats
-
-Expected result: no errors under concurrent load, no 500 responses, dispatch board polling completes cleanly.
-
-## What's missing
-
-- **Auth and Task Management are covered by pytest; everything else isn't.** Payroll overtime, crew units, dispatch, and patients still only run in isolation from a live server + real SQLite file via `qa_test.py`. A change to, say, the payroll overtime calculation can only be verified today by running the full server and either clicking through the UI or waiting for `qa_test.py`'s (currently thin) payroll coverage.
-- **No frontend tests at all** — no component tests, no smoke tests, nothing. Every frontend change is verified manually.
-- **No tenant isolation tests**, which matters because `org_id` exists on every tenant-scoped table but nothing filters by it yet (see [ARCHITECTURE.md](ARCHITECTURE.md#multi-tenancy-foundation)). Before that filtering is turned on, a test proving cross-tenant leakage is impossible should exist first.
-
-## Test roadmap (see [ROADMAP.md](ROADMAP.md) Priority 3 for full detail)
-
-In rough order:
-
-1. ~~Add `pytest` + an in-memory/test-only SQLite DB (not the dev database) as the actual unit test foundation~~ — done: `backend/conftest.py` + `backend/tests/test_auth.py`
-2. ~~Role permission tests for Task Management, ported from `qa_test.py`'s live assertions~~ — done: `backend/tests/test_tasks.py` (31 tests: CRUD, close-permission workflow, comments/activity, list/filter, dispatcher + HR permission matrices, archive workflow)
-3. Payroll/overtime edge-case tests (week boundaries, ISO week math)
-4. Patient duplicate-prevention tests (exact match, near-match should-not-dedupe, archived-match)
-5. Tenant isolation tests, written before tenant-scoped query filtering is turned on
-6. Dispatch assignment conflict tests, once that feature (Priority 4) is built
-7. A frontend test runner (vitest is the natural fit for this Vite project) with smoke tests for: login, create call, assign to unit, complete call
+**This is a local smoke test, not a production load benchmark.** It runs against
+the Flask development server and SQLite on a single machine; the throughput and
+latency numbers are useful for catching regressions, not for capacity planning.
