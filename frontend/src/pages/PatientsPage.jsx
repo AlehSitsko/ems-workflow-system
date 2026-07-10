@@ -41,76 +41,16 @@ import { getPatientCalls } from "../api/callsApi";
 import { useUserSettings } from "../context/useUserSettings";
 import { formatTimeForDisplay } from "../utils/timeUtils";
 
-// Empty patient template used for create, reset, and cancel edit.
-const emptyPatient = {
-  first_name: "",
-  last_name: "",
-  dob: "",
-  gender: "",
-
-  phone: "",
-  secondary_phone: "",
-  address: "",
-  city: "",
-  state: "",
-  zip_code: "",
-
-  insurance: "",
-  member_id: "",
-  policy_number: "",
-  requires_auth: false,
-  copay_required: false,
-  insurance_notes: "",
-
-  default_service_level: "",
-  weight: "",
-  oxygen_required: false,
-  stairs: false,
-  special_equipment_notes: "",
-
-  facility_name: "",
-  room_number: "",
-  emergency_contact_name: "",
-  emergency_contact_phone: "",
-
-  notes: "",
-
-  dispatch_comment: "",
-  default_mobility_level: "",
-  transport_instructions: "",
-  access_instructions: "",
-  preferred_language: "",
-  requires_interpreter: false,
-  is_sensitive: false,
-};
-
-const ALERT_CATEGORIES = ["transport", "safety", "contact", "facility", "billing", "equipment", "behavior", "language", "other"];
-const ALERT_SEVERITIES = ["info", "warning", "critical"];
-const SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
-
-const emptyAlert = { category: "transport", severity: "warning", title: "", description: "", expires_at: "" };
-const emptyContact = { name: "", relationship: "", phone: "", email: "", is_primary: false, can_authorize_transport: false, notes: "" };
-
-const DetailItem = ({ label, value }) => (
-  <div className="patient-detail-item">
-    <div className="patient-detail-label">{label}</div>
-    <div className="patient-detail-value">{value || "—"}</div>
-  </div>
-);
-
-const PatientFormSection = ({ title, icon: Icon, children }) => (
-  <div className="patient-form-section">
-    <div className="patient-form-section-header">
-      <span className="patient-form-section-icon">
-        <Icon />
-      </span>
-
-      <h5>{title}</h5>
-    </div>
-
-    {children}
-  </div>
-);
+import DetailItem from "../components/patients/DetailItem";
+import PatientFormSection from "../components/patients/PatientFormSection";
+import {
+  emptyPatient,
+  emptyAlert,
+  emptyContact,
+  ALERT_CATEGORIES,
+  ALERT_SEVERITIES,
+  SEVERITY_COLOR,
+} from "../components/patients/patientConstants";
 
 // Main patient management component.
 const PatientsPage = () => {
