@@ -64,17 +64,11 @@ Format:
 
 ## Priority 2 — Security / dependency review
 
-- [ ] Review npm audit vulnerabilities
+- [x] Review npm audit vulnerabilities
   Priority: P2
   Area: frontend/security
-  Why: `npm ci` / `npm install` reports `11 vulnerabilities: 2 low, 4 moderate, 5 high`. All flagged packages observed so far (`@babel/core`, `@eslint/plugin-kit`, `ajv`, `brace-expansion`, `flatted`, `js-yaml`, `minimatch`, `picomatch`, `postcss`) sit under dev-tooling (`eslint`, `vite`) rather than runtime dependencies (`react`, `react-dom`, `react-icons`, `react-router-dom`), but this needs a deliberate review, not an assumption.
-  Acceptance criteria:
-  - Run `npm audit`
-  - Identify whether each issue is dev-only or runtime-impacting
-  - Apply safe dependency updates only
-  - Confirm `npm run build` and `npm run lint` still pass
-  - Do not use `npm audit fix --force` unless the breaking changes are reviewed intentionally
-  Notes: Not run as part of this pass — flagged for deliberate review per the project's "no unreviewed force-fixes" rule.
+  Why: `npm ci` / `npm install` reported `11 vulnerabilities: 2 low, 4 moderate, 5 high`.
+  Done: Traced every flagged package via `npm ls` — all 11 (`@babel/core`, `@eslint/plugin-kit`, `ajv`, `brace-expansion`, `flatted`, `js-yaml`, `minimatch`, `picomatch`, `postcss`, `rollup`, `vite`) are transitive under dev tooling only (`vite`, `eslint`, `@vitejs/plugin-react`, `gh-pages`); none descend from the 4 runtime deps (`react`, `react-dom`, `react-icons`, `react-router-dom`), so nothing shipped in the production bundle. Verified `npm audit fix --dry-run` produced only minor/patch bumps within existing semver ranges (vite 7.0.4→7.3.6, rollup 4.45.1→4.62.2, @babel/* 7.28→7.29, react-router-dom 7.14→7.18) — no major jumps, so no `--force` needed. Ran plain `npm audit fix` → `found 0 vulnerabilities`, only `package-lock.json` changed (`package.json` untouched). Confirmed `npm run lint` (clean) and `npm run build` (clean, built in 1.4s). No `--force` used, per the project's no-unreviewed-force-fixes rule.
 
 - [ ] Standardize backend `get_or_404()` calls to return JSON, not HTML error pages
   Priority: P2
