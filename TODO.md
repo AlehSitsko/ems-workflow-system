@@ -64,32 +64,24 @@ Format:
 
 ## Priority 2 — Security / dependency review
 
-- [ ] Review npm audit vulnerabilities
+- [x] Review npm audit vulnerabilities
   Priority: P2
   Area: frontend/security
-  Why: `npm ci` / `npm install` reports `11 vulnerabilities: 2 low, 4 moderate, 5 high`. All flagged packages observed so far (`@babel/core`, `@eslint/plugin-kit`, `ajv`, `brace-expansion`, `flatted`, `js-yaml`, `minimatch`, `picomatch`, `postcss`) sit under dev-tooling (`eslint`, `vite`) rather than runtime dependencies (`react`, `react-dom`, `react-icons`, `react-router-dom`), but this needs a deliberate review, not an assumption.
-  Acceptance criteria:
-  - Run `npm audit`
-  - Identify whether each issue is dev-only or runtime-impacting
-  - Apply safe dependency updates only
-  - Confirm `npm run build` and `npm run lint` still pass
-  - Do not use `npm audit fix --force` unless the breaking changes are reviewed intentionally
-  Notes: Not run as part of this pass — flagged for deliberate review per the project's "no unreviewed force-fixes" rule.
+  Why: `npm ci` / `npm install` reported `11 vulnerabilities: 2 low, 4 moderate, 5 high`.
+  Done: Traced every flagged package via `npm ls` — all 11 (`@babel/core`, `@eslint/plugin-kit`, `ajv`, `brace-expansion`, `flatted`, `js-yaml`, `minimatch`, `picomatch`, `postcss`, `rollup`, `vite`) are transitive under dev tooling only (`vite`, `eslint`, `@vitejs/plugin-react`, `gh-pages`); none descend from the 4 runtime deps (`react`, `react-dom`, `react-icons`, `react-router-dom`), so nothing shipped in the production bundle. Verified `npm audit fix --dry-run` produced only minor/patch bumps within existing semver ranges (vite 7.0.4→7.3.6, rollup 4.45.1→4.62.2, @babel/* 7.28→7.29, react-router-dom 7.14→7.18) — no major jumps, so no `--force` needed. Ran plain `npm audit fix` → `found 0 vulnerabilities`, only `package-lock.json` changed (`package.json` untouched). Confirmed `npm run lint` (clean) and `npm run build` (clean, built in 1.4s). No `--force` used, per the project's no-unreviewed-force-fixes rule.
 
-- [ ] Standardize backend `get_or_404()` calls to return JSON, not HTML error pages
+- [x] Standardize backend `get_or_404()` calls to return JSON, not HTML error pages
   Priority: P2
   Area: backend
-  Why: Already fixed for Task/Employee lookups in task_routes.py/auth_routes.py during the post-QA fix-pass; the same pattern (Werkzeug's HTML 404) still exists in call_routes.py, crew_routes.py, document_routes.py, patient_routes.py, payroll_routes.py, time_routes.py.
-  Acceptance criteria:
-  - Every 404 from a user-facing API call returns JSON
-  - No behavior change for valid ids
-  Notes: Wide but mechanical and low-risk — do one route file at a time, run qa_test.py after each.
+  Why: `get_or_404()` across call_routes.py, crew_routes.py, document_routes.py, patient_routes.py, payroll_routes.py, time_routes.py, task_routes.py raised Werkzeug's `NotFound`, which the catch-all `errorhandler(Exception)` passed through unchanged → the client got Werkzeug's default HTML 404 page instead of JSON.
+  Done: Instead of editing all 38 `get_or_404()` call sites, registered a single global `@app.errorhandler(404)` (plus a matching `405`) in app.py that returns `{"error": "Resource not found"}` / `{"error": "Method not allowed"}` as JSON. This covers `get_or_404()` lookups AND requests to unmatched routes/methods in one place — appropriate since the backend is a JSON API (frontend is a separate Vite app), so an HTML 404 is never desired. No behavior change for valid ids (handler only fires on 404/405). Verified via test client: unmatched route, `get_or_404` on a missing id, and a wrong-method request all return `application/json` with the correct status; full pytest suite still 37/37.
 
-- [ ] Backend permission hardening (role-check decorator)
+- [x] Backend permission hardening (role-check decorator)
   Priority: P2
   Area: backend, security
-  Why: Role checks are currently duplicated inline per route rather than centralized behind a decorator. Not urgent — current inline checks are correct and tested — but worth consolidating before the codebase grows further.
-  Notes: Production auth itself (JWT/session replacement) remains the final Priority 6 hardening phase, deliberately deferred — see docs/PRODUCTION_READINESS.md. This item is about centralizing the existing role-check pattern, not replacing the auth model.
+  Why: The pure "is my role allowed" gate (`if _role_from_request() not in ALLOWED_ROLES: return 403`) was copy-pasted at the top of many views, with a `_role_from_request()` / `_user_id_from_request()` helper re-declared per blueprint.
+  Done: Added `backend/utils/auth_utils.py` with `require_role(*roles)` decorator (returns JSON 403 when the X-User-Role header isn't in the allowed set) plus shared `get_request_role/user_id/user_name` accessors and an `ALL_ROLES` constant. Applied the decorator to the 10 clean top-of-view gates across audit_routes.py (1), call_routes.py (update/cancel/uncancel — 3), and document_routes.py (upload/get/update/delete/download/compliance — 6), removing the inline 403 boilerplate and document_routes' now-unused local `_role_from_request`. Left in place: contextual checks that depend on the loaded object (task ownership, HR task-type limits, the close-permission workflow in task_routes.py, and call_routes' supervisor-only editable-field widening) — those aren't a simple role-set gate and stay inline. Verified via test client (no-role→403, valid role→200, disallowed role→403, allowed role + missing id→404 JSON) and full pytest suite 37/37.
+  Notes: Production auth itself (JWT/session replacement) remains the final Priority 6 hardening phase, deliberately deferred — see docs/PRODUCTION_READINESS.md. This item centralized the existing role-check pattern, not the auth model.
 
 ## Priority 3 — Portfolio polish
 

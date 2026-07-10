@@ -6,6 +6,7 @@ from models import db, EmployeeDocument, Employee, DOC_TYPES
 from storage import save_file, delete_file, get_file_response
 from notification_utils import create_notification
 from utils.validation_utils import check_length
+from utils.auth_utils import require_role
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
 
@@ -17,10 +18,6 @@ ALLOWED_MIME = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
-
-
-def _role_from_request():
-    return request.headers.get("X-User-Role", "")
 
 
 def _user_id_from_request():
@@ -43,10 +40,8 @@ def list_documents(employee_id):
 
 
 @doc_bp.route("/employees/<int:employee_id>/documents", methods=["POST"])
+@require_role(*ALLOWED_ROLES)
 def upload_document(employee_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     Employee.query.get_or_404(employee_id)
 
     doc_type = request.form.get("doc_type", "other")
@@ -131,18 +126,15 @@ def _notify_if_expiring(doc):
 # ── Single document ──────────────────────────────────────────────────────────
 
 @doc_bp.route("/documents/<int:doc_id>", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
 def get_document(doc_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
     doc = EmployeeDocument.query.get_or_404(doc_id)
     return jsonify(doc.to_dict())
 
 
 @doc_bp.route("/documents/<int:doc_id>", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
 def update_document(doc_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     doc = EmployeeDocument.query.get_or_404(doc_id)
     data = request.get_json() or {}
 
@@ -171,10 +163,8 @@ def update_document(doc_id):
 
 
 @doc_bp.route("/documents/<int:doc_id>", methods=["DELETE"])
+@require_role(*ALLOWED_ROLES)
 def delete_document(doc_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     doc = EmployeeDocument.query.get_or_404(doc_id)
     if doc.file_path:
         delete_file(doc.file_path)
@@ -186,11 +176,8 @@ def delete_document(doc_id):
 # ── File download ─────────────────────────────────────────────────────────────
 
 @doc_bp.route("/documents/<int:doc_id>/file", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
 def download_document_file(doc_id):
-    # Role check: must have at least one of the allowed roles
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     doc = EmployeeDocument.query.get_or_404(doc_id)
     if not doc.file_path:
         return jsonify({"error": "No file attached to this document"}), 404
@@ -222,10 +209,8 @@ def _cert_status_from_date(expiry_date_str: str | None, has_license: bool) -> st
 
 
 @doc_bp.route("/documents/compliance", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
 def compliance_summary():
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.last_name).all()
     all_docs = EmployeeDocument.query.all()
 

@@ -241,22 +241,18 @@ These are the genuinely-not-yet-built operational features (the old README's "Bl
   - Visible in Call Detail Modal
   - Accessible to all roles with call access
 
-- [ ] Soft overlap warning for crew unit scheduling
+- [x] Soft overlap warning for crew unit scheduling
   Priority: P3
-  Area: backend, frontend
+  Area: frontend
   Why: The only unbuilt piece of what the old README called "Block 5.8" related to scheduling conflicts (Vehicle Registry, shift timing, and delay alerts are already shipped — see [COMPLETED_BLOCKS.md](COMPLETED_BLOCKS.md)).
-  Acceptance criteria:
-  - Creating/editing a unit with a time range overlapping another active unit on the same vehicle returns a warning, not a hard block
-  - Consistent with the existing ALS-on-BLS override pattern
+  Done: Added a module-level `getUnitTimeRange()` helper (handles night shifts crossing midnight via `endDate`/earlier-than-start detection) and an `overlapWarnings` memo in CrewPlannerPage.jsx that flags when the current form's time range overlaps another active unit on the same truck/vehicle for that date. Cancelled/completed units and the unit being edited are excluded. Rendered as a non-blocking entry in the existing "Unit Warnings" box (merged via `allUnitWarnings`) — consistent with the CPR/double-assignment soft-warning pattern; saving is never blocked. Frontend-only (operates on the already-loaded units/form). Verified: `npm run lint`/`npm run build` clean.
 
-- [ ] Auto-fill crew
+- [x] Auto-fill crew
   Priority: P4
-  Area: backend, frontend
+  Area: frontend
   Why: The other unbuilt piece of the old "Block 5.8."
-  Acceptance criteria:
-  - Button in the unit form proposes Driver/Medical/Assist assignments from available employees for the date
-  - Two-pass algorithm: fill Medical on ALS units first (Paramedic required), then distribute remaining staff to BLS/Bariatric units
-  - Bariatric units prioritize filling Assist1/Assist2 before Driver/Medical
+  Done: Added an "Auto-fill" button in the Crew Assignment section header (`handleAutoFillCrew`) that fills only empty slots from the pool of active, not-assigned-elsewhere-today, not-already-in-this-form employees, respecting `isEmployeeEligibleForRole`. Paramedic conservation captures the two-pass intent at the single-unit level: a BLS medical slot prefers an EMT-only candidate before spending a paramedic, so paramedics stay available for ALS units; driver/assist take eligible remaining staff. Toast summarizes filled slots and flags any required slot with no eligible candidate. Verified live in the running app: on a BLS unit it filled Driver=dedicated driver, medical=EMT (an EMT was chosen over two available paramedics — conservation confirmed), and both assist slots (a paramedic went to assist, not wasted on medical); success toast + warnings-count integration confirmed.
+  Note: The unit types in the shipped app are BLS/ALS/ASSIST (the roadmap's "Bariatric" corresponds to the vehicle registry's BARI type; ASSIST units have no medical slot). The button is per-unit rather than a global cross-unit two-pass — matching the "Button in the unit form" acceptance criterion — with paramedic conservation standing in for the global "ALS medical first" pass.
   - Driver slot prefers EVOC + medical-capable staff when paired with a Paramedic medical assignment
   - If no qualified candidate exists for a slot, it's left empty (not filled with an unqualified person) and visually flagged
 

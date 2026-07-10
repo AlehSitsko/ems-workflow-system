@@ -54,6 +54,26 @@ import { formatTimeForDisplay } from "../utils/timeUtils";
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
 
 /*
+  Computes a unit's absolute time range as epoch-ms { start, end }, or null when
+  the end can't be determined (no end time). Handles night shifts that cross
+  midnight: an explicit endDate wins; otherwise an end earlier than the start is
+  treated as the next day. Used for the same-vehicle overlap warning.
+*/
+function getUnitTimeRange(shiftDate, startTime, endTime, endDate) {
+  if (!shiftDate || !startTime || !endTime) return null;
+  const start = new Date(`${shiftDate}T${startTime}:00`);
+  let endDay = endDate || shiftDate;
+  if (!endDate && endTime < startTime) {
+    const d = new Date(`${shiftDate}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    endDay = d.toISOString().slice(0, 10);
+  }
+  const end = new Date(`${endDay}T${endTime}:00`);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return null;
+  return { start: start.getTime(), end: end.getTime() };
+}
+
+/*
   Default empty crew object.
   Each property stores an employee ID as a string.
 */
@@ -480,6 +500,99 @@ function CrewPlannerPage() {
   };
 
   /*
+    Auto-fills empty crew slots from the pool of employees who are active and
+    not already assigned to another unit on this date. Manually chosen slots are
+    left untouched.
+
+    Priority logic: paramedics are conserved for ALS units, so a BLS medical
+    slot prefers an EMT-only candidate before spending a paramedic. Driver
+    prefers dedicated drivers; assist slots take anyone remaining. This mirrors
+    the two-pass "fill ALS medical from the paramedic pool first" intent at the
+    single-unit level.
+  */
+  const handleAutoFillCrew = () => {
+    const alreadyChosen = new Set(
+      Object.values(unitForm.crew).filter(Boolean).map(String)
+    );
+
+    // Available = active, not assigned elsewhere today, not already in this form.
+    const pool = employees.filter((emp) => {
+      if (!emp.isActive || emp.status !== "active") return false;
+      const id = String(emp.id);
+      if (alreadyChosen.has(id)) return false;
+      if (assignedEmployeeIds.includes(id)) return false;
+      return true;
+    });
+
+    const nextCrew = { ...unitForm.crew };
+    const filled = [];
+    const takeFrom = (id) => {
+      const idx = pool.findIndex((e) => String(e.id) === String(id));
+      if (idx >= 0) pool.splice(idx, 1);
+    };
+
+    const pickFor = (role, preferNonParamedic = false) => {
+      let candidates = pool.filter((emp) =>
+        isEmployeeEligibleForRole(emp, role, unitForm.unitType)
+      );
+      if (candidates.length === 0) return null;
+      if (preferNonParamedic) {
+        // Conserve paramedics for ALS: EMT-only candidates first.
+        candidates = [...candidates].sort((a, b) => {
+          const aPara = a.paramedic?.hasLicense ? 1 : 0;
+          const bPara = b.paramedic?.hasLicense ? 1 : 0;
+          return aPara - bPara;
+        });
+      }
+      return candidates[0];
+    };
+
+    const slots = [
+      { role: "driver" },
+      ...(isMedicalSlotVisible(unitForm.unitType)
+        ? [{ role: "medical", preferNonParamedic: unitForm.unitType === "BLS" }]
+        : []),
+      { role: "assist1" },
+      { role: "assist2" },
+    ];
+
+    slots.forEach(({ role, preferNonParamedic }) => {
+      if (nextCrew[role]) return; // keep manual picks
+      const emp = pickFor(role, preferNonParamedic);
+      if (emp) {
+        nextCrew[role] = String(emp.id);
+        takeFrom(emp.id);
+        filled.push(`${role}: ${emp.firstName} ${emp.lastName}`);
+      }
+    });
+
+    if (filled.length === 0) {
+      toast.warning(
+        "Nothing to auto-fill",
+        "No eligible unassigned staff for the empty slots."
+      );
+      return;
+    }
+
+    setUnitForm((prev) => ({ ...prev, crew: nextCrew }));
+
+    // Flag required slots that still couldn't be filled.
+    const missing = [];
+    if (!nextCrew.driver) missing.push("Driver");
+    if (isMedicalSlotVisible(unitForm.unitType) && !nextCrew.medical) {
+      missing.push(getMedicalSlotLabel(unitForm.unitType));
+    }
+    if (missing.length > 0) {
+      toast.warning(
+        `Auto-filled ${filled.length} slot(s)`,
+        `No eligible candidate for: ${missing.join(", ")}.`
+      );
+    } else {
+      toast.success(`Auto-filled ${filled.length} slot(s)`);
+    }
+  };
+
+  /*
     Applies a saved crew preset to the current unit form.
   */
   const handleApplyPreset = (presetId) => {
@@ -729,6 +842,46 @@ function CrewPlannerPage() {
   }, [unitForm, timeFormat, getEmployeeById, getEmployeeAssignmentsInOtherUnits]);
 
   /*
+    Soft warnings for the current form's time range overlapping another active
+    unit on the SAME vehicle/truck. Non-blocking — the dispatcher can still save
+    (consistent with the other crew warnings). Cancelled/completed units and the
+    unit being edited are excluded.
+  */
+  const overlapWarnings = useMemo(() => {
+    const truck = unitForm.truckNumber.trim().toLowerCase();
+    if (!truck) return [];
+    const formRange = getUnitTimeRange(
+      unitForm.shiftDate, unitForm.startTime, unitForm.endTime, unitForm.endDate
+    );
+    if (!formRange) return [];
+
+    const warnings = [];
+    units.forEach((unit) => {
+      if (editingUnitId && String(unit.id) === String(editingUnitId)) return;
+      if (["cancelled", "completed"].includes(unit.shiftStatus)) return;
+      if ((unit.truckNumber || "").trim().toLowerCase() !== truck) return;
+
+      const otherRange = getUnitTimeRange(
+        unit.shiftDate, unit.startTime, unit.endTime, unit.endDate
+      );
+      if (!otherRange) return;
+      // Half-open overlap: start < otherEnd && otherStart < end.
+      if (formRange.start < otherRange.end && otherRange.start < formRange.end) {
+        warnings.push(
+          `Time overlaps Truck ${unit.truckNumber} (${unit.unitType}, ${formatTimeForDisplay(unit.startTime, timeFormat)}–${formatTimeForDisplay(unit.endTime, timeFormat)}) on the same vehicle.`
+        );
+      }
+    });
+    return warnings;
+  }, [unitForm, units, editingUnitId, timeFormat]);
+
+  // All non-blocking warnings shown in the form's "Unit Warnings" box.
+  const allUnitWarnings = useMemo(
+    () => [...unitWarningMessages, ...overlapWarnings],
+    [unitWarningMessages, overlapWarnings]
+  );
+
+  /*
     Collects employee IDs already assigned to existing units on the selected date.
   */
   const assignedEmployeeIds = useMemo(() => {
@@ -976,7 +1129,7 @@ function CrewPlannerPage() {
                 {[
                   { label: "Planned Units", value: units.length, color: "#0d6efd" },
                   { label: "Unassigned", value: unassignedEmployees.length, color: unassignedEmployees.length > 0 ? "#f59e0b" : "#6c757d" },
-                  { label: "Warnings", value: unitWarningMessages.length, color: unitWarningMessages.length > 0 ? "#dc3545" : "#6c757d" },
+                  { label: "Warnings", value: allUnitWarnings.length, color: allUnitWarnings.length > 0 ? "#dc3545" : "#6c757d" },
                 ].map(s => (
                   <span key={s.label} style={{
                     fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
@@ -1157,12 +1310,12 @@ function CrewPlannerPage() {
                       </div>
                     )}
 
-                    {unitWarningMessages.length > 0 && (
+                    {allUnitWarnings.length > 0 && (
                       <div className="alert alert-warning">
                         <h5 className="mb-2">Unit Warnings</h5>
 
                         <ul className="mb-0">
-                          {unitWarningMessages.map((message, index) => (
+                          {allUnitWarnings.map((message, index) => (
                             <li key={`unit-warning-${index}`}>{message}</li>
                           ))}
                         </ul>
@@ -1351,11 +1504,22 @@ function CrewPlannerPage() {
                     </div>
 
                     <div className="crew-form-section">
-                      <div className="crew-form-section-header">
-                        <span className="crew-form-section-icon">
-                          <FaUsers />
-                        </span>
-                        <h5>Crew Assignment</h5>
+                      <div className="crew-form-section-header d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center">
+                          <span className="crew-form-section-icon">
+                            <FaUsers />
+                          </span>
+                          <h5 className="mb-0">Crew Assignment</h5>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={handleAutoFillCrew}
+                          disabled={unitsLoading}
+                          title="Fill empty crew slots from available staff"
+                        >
+                          <FaUsers className="me-1" /> Auto-fill
+                        </button>
                       </div>
 
                       {/* Available staff reference */}

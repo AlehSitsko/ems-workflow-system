@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from models import AuditLog
+from utils.auth_utils import require_role
 
 audit_bp = Blueprint("audit", __name__, url_prefix="/api/audit")
 
@@ -8,11 +9,8 @@ ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 
 
 @audit_bp.route("", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
 def get_audit_log():
-    role = request.headers.get("X-User-Role", "")
-    if role not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     entity_type = request.args.get("entity_type", "").strip() or None
     entity_id   = request.args.get("entity_id", "").strip() or None
     action      = request.args.get("action", "").strip() or None

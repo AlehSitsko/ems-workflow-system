@@ -63,6 +63,19 @@ def ratelimit_handler(e):
     return jsonify({"error": "Too many login attempts. Please wait a minute and try again."}), 429
 
 
+# This is a JSON API (the frontend is a separate Vite app), so 404/405 must come
+# back as JSON rather than Werkzeug's default HTML page. This covers both
+# `get_or_404()` lookups and requests to unmatched routes/methods in one place.
+@app.errorhandler(404)
+def not_found_handler(e):
+    return jsonify({"error": "Resource not found"}), 404
+
+
+@app.errorhandler(405)
+def method_not_allowed_handler(e):
+    return jsonify({"error": "Method not allowed"}), 405
+
+
 # Catch-all for unhandled exceptions — returns clean JSON instead of an HTML/stack-trace
 # page. HTTPExceptions (400/403/404/409/429/...) already carry a meaningful status/body
 # from the route itself, so they pass through unchanged.
