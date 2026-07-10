@@ -8,6 +8,7 @@ from models import db, Call, Patient
 from notification_utils import create_notification
 from audit_utils import log_action
 from utils.validation_utils import check_length, is_valid_time
+from utils.auth_utils import require_role
 
 
 def _user_name_from_request():
@@ -207,10 +208,8 @@ def create_call():
 
 
 @call_bp.route("/<int:call_id>", methods=["PUT"])
+@require_role(*ALLOWED_ROLES)
 def update_call(call_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     call = Call.query.get_or_404(call_id)
     data = request.get_json() or {}
 
@@ -269,10 +268,8 @@ def update_call(call_id):
 
 
 @call_bp.route("/<int:call_id>/cancel", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
 def cancel_call(call_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
-
     call = Call.query.get_or_404(call_id)
 
     if call.status == "cancelled":
@@ -295,9 +292,8 @@ def cancel_call(call_id):
 
 
 @call_bp.route("/<int:call_id>/uncancel", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
 def uncancel_call(call_id):
-    if _role_from_request() not in ALLOWED_ROLES:
-        return jsonify({"error": "Insufficient permissions"}), 403
     call = Call.query.get_or_404(call_id)
     if call.status != "cancelled":
         return jsonify({"error": "Call is not cancelled"}), 409
