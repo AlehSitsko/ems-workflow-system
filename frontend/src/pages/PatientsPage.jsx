@@ -28,13 +28,6 @@ import {
   updatePatient,
   archivePatient,
   restorePatient,
-  getPatientAlerts,
-  createPatientAlert,
-  resolvePatientAlert,
-  getPatientContacts,
-  createPatientContact,
-  updatePatientContact,
-  deletePatientContact,
 } from "../api/patientsApi";
 
 import { getPatientCalls } from "../api/callsApi";
@@ -45,12 +38,13 @@ import DetailItem from "../components/patients/DetailItem";
 import PatientFormSection from "../components/patients/PatientFormSection";
 import {
   emptyPatient,
-  emptyAlert,
   emptyContact,
   ALERT_CATEGORIES,
   ALERT_SEVERITIES,
   SEVERITY_COLOR,
 } from "../components/patients/patientConstants";
+import { usePatientAlerts } from "../hooks/usePatientAlerts";
+import { usePatientContacts } from "../hooks/usePatientContacts";
 
 // Main patient management component.
 const PatientsPage = () => {
@@ -77,13 +71,30 @@ const PatientsPage = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
-  const [patientAlerts, setPatientAlerts] = useState([]);
-  const [showResolvedAlerts, setShowResolvedAlerts] = useState(false);
-  const [newAlert, setNewAlert] = useState(emptyAlert);
+  const {
+    patientAlerts,
+    showResolvedAlerts,
+    setShowResolvedAlerts,
+    newAlert,
+    setNewAlert,
+    loadPatientAlerts,
+    handleAddAlert,
+    handleResolveAlert,
+    resetAlerts,
+  } = usePatientAlerts({ selectedPatient, toast });
 
-  const [patientContacts, setPatientContacts] = useState([]);
-  const [newContact, setNewContact] = useState(emptyContact);
-  const [editingContactId, setEditingContactId] = useState(null);
+  const {
+    patientContacts,
+    newContact,
+    setNewContact,
+    editingContactId,
+    setEditingContactId,
+    loadPatientContacts,
+    handleAddContact,
+    handleEditContact,
+    handleDeleteContact,
+    resetContacts,
+  } = usePatientContacts({ selectedPatient, toast, confirm });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -116,8 +127,8 @@ const PatientsPage = () => {
     setDrawerOpen(false);
     setSelectedPatient(null);
     setPatientCalls([]);
-    setPatientAlerts([]);
-    setPatientContacts([]);
+    resetAlerts();
+    resetContacts();
     setDrawerTab("overview");
   };
 
@@ -384,102 +395,6 @@ const PatientsPage = () => {
     await loadPatientCalls(patient.id);
     await loadPatientAlerts(patient.id);
     await loadPatientContacts(patient.id);
-  };
-
-  // ── Alerts ───────────────────────────────────────────────────────────────
-  const loadPatientAlerts = async (patientId) => {
-    try {
-      const alerts = await getPatientAlerts(patientId, { showAll: true });
-      setPatientAlerts(alerts);
-    } catch {
-      setPatientAlerts([]);
-    }
-  };
-
-  const handleAddAlert = async (e) => {
-    e.preventDefault();
-    if (!selectedPatient) return;
-    try {
-      await createPatientAlert(selectedPatient.id, {
-        ...newAlert,
-        expires_at: newAlert.expires_at || null,
-      });
-      setNewAlert(emptyAlert);
-      await loadPatientAlerts(selectedPatient.id);
-      toast.success("Alert added");
-    } catch (err) {
-      toast.error(err.message || "Failed to add alert");
-    }
-  };
-
-  const handleResolveAlert = async (alertId) => {
-    if (!selectedPatient) return;
-    try {
-      await resolvePatientAlert(selectedPatient.id, alertId);
-      await loadPatientAlerts(selectedPatient.id);
-      toast.success("Alert resolved");
-    } catch (err) {
-      toast.error(err.message || "Failed to resolve alert");
-    }
-  };
-
-  // ── Contacts ─────────────────────────────────────────────────────────────
-  const loadPatientContacts = async (patientId) => {
-    try {
-      const contacts = await getPatientContacts(patientId);
-      setPatientContacts(contacts);
-    } catch {
-      setPatientContacts([]);
-    }
-  };
-
-  const handleAddContact = async (e) => {
-    e.preventDefault();
-    if (!selectedPatient) return;
-    try {
-      if (editingContactId) {
-        await updatePatientContact(selectedPatient.id, editingContactId, newContact);
-      } else {
-        await createPatientContact(selectedPatient.id, newContact);
-      }
-      setNewContact(emptyContact);
-      setEditingContactId(null);
-      await loadPatientContacts(selectedPatient.id);
-      toast.success(editingContactId ? "Contact updated" : "Contact added");
-    } catch (err) {
-      toast.error(err.message || "Failed to save contact");
-    }
-  };
-
-  const handleEditContact = (contact) => {
-    setEditingContactId(contact.id);
-    setNewContact({
-      name: contact.name || "",
-      relationship: contact.relationship || "",
-      phone: contact.phone || "",
-      email: contact.email || "",
-      is_primary: contact.is_primary || false,
-      can_authorize_transport: contact.can_authorize_transport || false,
-      notes: contact.notes || "",
-    });
-  };
-
-  const handleDeleteContact = async (contactId) => {
-    if (!selectedPatient) return;
-    const ok = await confirm({
-      title: "Delete contact?",
-      message: "This contact will be permanently removed.",
-      variant: "danger",
-      confirmLabel: "Delete",
-    });
-    if (!ok) return;
-    try {
-      await deletePatientContact(selectedPatient.id, contactId);
-      await loadPatientContacts(selectedPatient.id);
-      toast.success("Contact deleted");
-    } catch (err) {
-      toast.error(err.message || "Failed to delete contact");
-    }
   };
 
   // Clear search, results, selected patient, call history, and editing mode.
