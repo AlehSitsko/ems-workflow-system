@@ -23,7 +23,6 @@ import {
 } from "react-icons/fa";
 
 import {
-  getPatients,
   createPatient,
   updatePatient,
   archivePatient,
@@ -43,6 +42,7 @@ import {
   ALERT_SEVERITIES,
   SEVERITY_COLOR,
 } from "../components/patients/patientConstants";
+import { usePatients } from "../hooks/usePatients";
 import { usePatientAlerts } from "../hooks/usePatientAlerts";
 import { usePatientContacts } from "../hooks/usePatientContacts";
 
@@ -52,24 +52,45 @@ const PatientsPage = () => {
   const toast = useToast();
   const { settings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
-  const [searchName, setSearchName] = useState("");
-  const [searchDob, setSearchDob] = useState("");
 
   const [newPatient, setNewPatient] = useState(emptyPatient);
   // Snapshot of the form's values when the drawer was opened, used to detect real edits
   // (comparing against emptyPatient would falsely flag an untouched existing patient as dirty).
   const formBaselineRef = useRef(emptyPatient);
-  const [patients, setPatients] = useState([]);
   const [patientCalls, setPatientCalls] = useState([]);
-  const [paginationMeta, setPaginationMeta] = useState({ page: 1, total: 0, pages: 0 });
-  const [currentFilters, setCurrentFilters] = useState({});
-  const [loadingMore, setLoadingMore] = useState(false);
 
   const [editingPatientId, setEditingPatientId] = useState(null);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [drawerTab, setDrawerTab] = useState("overview"); // "overview" | "edit" | "history" | "alerts" | "contacts"
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Clear the open patient + its loaded call history (shared by search/show-all).
+  const clearSelection = () => {
+    setSelectedPatient(null);
+    setPatientCalls([]);
+  };
+
+  const {
+    searchName,
+    setSearchName,
+    searchDob,
+    setSearchDob,
+    patients,
+    setPatients,
+    paginationMeta,
+    currentFilters,
+    loadingMore,
+    showArchived,
+    hasSearched,
+    setHasSearched,
+    loadPatients,
+    handleToggleShowArchived,
+    handleSearch,
+    handleShowAll,
+  } = usePatients({ setLoading, setError, clearSelection });
 
   const {
     patientAlerts,
@@ -96,30 +117,6 @@ const PatientsPage = () => {
     resetContacts,
   } = usePatientContacts({ selectedPatient, toast, confirm });
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
-
-  const PER_PAGE = 25;
-
-  const loadPatients = async (filters, pageNum = 1, append = false, includeArchived = showArchived) => {
-    setCurrentFilters(filters);
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-
-    try {
-      const data = await getPatients({ ...filters, showArchived: includeArchived }, pageNum, PER_PAGE);
-      setPatients((prev) => append ? [...prev, ...data.items] : data.items);
-      setPaginationMeta({ page: data.page, total: data.total, pages: data.pages });
-    } catch (err) {
-      setError(err.message || "Failed to load patients.");
-      if (!append) setPatients([]);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
   // Reset the add/edit patient form and close the drawer.
   const resetPatientForm = () => {
     setNewPatient(emptyPatient);
@@ -130,15 +127,6 @@ const PatientsPage = () => {
     resetAlerts();
     resetContacts();
     setDrawerTab("overview");
-  };
-
-  // Toggle whether archived patients are included in search results.
-  const handleToggleShowArchived = async () => {
-    const next = !showArchived;
-    setShowArchived(next);
-    if (hasSearched) {
-      await loadPatients(currentFilters, 1, false, next);
-    }
   };
 
   // Open the drawer in add mode.
@@ -256,43 +244,6 @@ const PatientsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Search patients by name, date of birth, or both.
-  const handleSearch = async (e) => {
-    e.preventDefault();
-
-    setError("");
-    setHasSearched(true);
-
-    try {
-      if (!searchName.trim() && !searchDob.trim()) {
-        setError("Please enter a patient name or date of birth.");
-        setPatients([]);
-        setSelectedPatient(null);
-        setPatientCalls([]);
-        return;
-      }
-
-      const filters = { name: searchName.trim(), dob: searchDob.trim() };
-      await loadPatients(filters, 1, false);
-      setSelectedPatient(null);
-      setPatientCalls([]);
-    } catch (err) {
-      setError(err.message || "Failed to search patients.");
-      setPatients([]);
-      setSelectedPatient(null);
-      setPatientCalls([]);
-    }
-  };
-
-  // Load all patients from the backend.
-  const handleShowAll = async () => {
-    setError("");
-    setHasSearched(true);
-    setSelectedPatient(null);
-    setPatientCalls([]);
-    await loadPatients({}, 1, false);
   };
 
   // Archive a patient record (soft delete — history is preserved).
