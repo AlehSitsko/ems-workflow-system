@@ -144,16 +144,49 @@ GET  /api/analytics/dispatchers
 ## Dispatch Board
 
 ```text
-GET     /api/dispatch/board?date=<YYYY-MM-DD>
+GET     /api/dispatch/board?date=<YYYY-MM-DD>   (defaults to server-local today)
 POST    /api/dispatch/assign
 DELETE  /api/dispatch/assign/<assignment_id>
 PATCH   /api/dispatch/assign/<assignment_id>/complete
 PATCH   /api/dispatch/assign/<assignment_id>/reopen
-PATCH   /api/dispatch/units/<unit_id>/status
+PATCH   /api/dispatch/units/<unit_id>/status     (409 unless the unit's shift_date is today)
 PATCH   /api/dispatch/units/<unit_id>/call-order
 GET     /api/dispatch/dispatch-thresholds
 PUT     /api/dispatch/dispatch-thresholds
 ```
+
+**Date modes.** The board is one view over three date modes derived from
+`?date=`: **Planning** (future — assign/prepare units, no live lifecycle),
+**Live** (today — full operations), **History** (past — read-only). Assignment
+edits reuse the existing `CallAssignment` model (no duplicate "planned" call is
+created). Live status transitions (`/units/<id>/status`) are rejected with `409`
+unless the unit's `shift_date` equals the server-local today, so a saved
+`/dispatch?date=…` link can't accidentally advance a non-today unit. Selection
+deep links are supported: `/dispatch?date=Y&call=<id>` and `?unit=<id>`.
+
+## Calendar
+
+```text
+GET     /api/calendar/events?start=<YYYY-MM-DD>&end=<YYYY-MM-DD>   (role-filtered)
+```
+
+Read-only aggregation of existing domain records into a unified event contract
+plus per-day operational summaries. `start`/`end` are required, must be valid
+dates, `start ≤ end`, and span at most **93 days** (else `400`). Filtering and
+role scoping happen server-side; the frontend never hides data it was sent.
+
+- **Sources (MVP):** `scheduled_call` (derived from `Call.trip_date` /
+  `pickup_time` / status / active assignment) and `crew_shift` (derived from
+  `DailyCrewUnit`). No calendar-specific tables — events are derived, never copied.
+- **Roles:** admin / supervisor / dispatcher receive calls + crew + a minimized
+  patient label (`"John D."`, never full PHI); **HR** receives crew events only
+  (no call operational data, no PHI); an unknown role gets `403`.
+- **Response:** `{ start, end, events: [...], days: { "YYYY-MM-DD": summary } }`.
+  Each summary has call/unit counts, `warningCount`, `criticalCount`, and a
+  `readiness` of `empty | ready | warning | critical`. Each event carries
+  `{ id, type, title, date, start, end, allDay, status, severity, source,
+  sourceId, assignedUnitId, assignedUnitNumber, link, metadata }`; `link` points
+  back into the Dispatch Board for that date.
 
 ## Tasks
 

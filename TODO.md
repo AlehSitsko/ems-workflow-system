@@ -24,44 +24,39 @@ isolated Payroll pytest, and the Vitest frontend test foundation.
 - [x] Payroll pytest (`backend/tests/test_payroll.py`, 22 tests)
 - [x] Vitest foundation (`vitest`, RTL, jsdom; 32 tests) + CI `npm test`
 - [x] PatientsPage decomposition — **phase 1** (constants + `DetailItem` + `PatientFormSection` → `components/patients/`)
+- [x] PatientsPage decomposition — **phase 2** (`usePatients`, `usePatientForm`, `usePatientAlerts`, `usePatientContacts` hooks)
+- [x] PatientsPage decomposition — **phase 3** (drawer tab components + `PatientToolbar` + `PatientList`; page ~1,496 → ~437 lines)
 
-### Active — PatientsPage decomposition, phases 2–4
-
-- [ ] Phase 2 — extract data/logic hooks
-  Why: `pages/PatientsPage.jsx` is still ~1,690 lines mixing API loading, filter
-  state, form state, alerts, and contacts logic. Backend Patients tests + the
-  Vitest foundation now protect this refactor (the API contract is locked by
-  `test_patients.py`; utils by Vitest).
-  Scope: extract `hooks/usePatients.js` (list load, pagination, filters,
-  show-archived, archive/restore), `hooks/usePatientForm.js` (create/edit form
-  state, dirty check, validation), `hooks/usePatientAlerts.js`, and
-  `hooks/usePatientContacts.js`. Move logic only — no JSX-tree, layout, visual,
-  API-contract, or duplicate-detection change.
-  Acceptance: page shrinks materially; each hook owns one concern; UX identical.
-  Validate: `cd frontend && npm run lint && npm test && npm run build`; browser
-  pass — Show All / Show Archived, create, edit (all tabs), archive/restore,
-  add alert, add contact — zero console errors.
-
-- [ ] Phase 3 — extract drawer + tab components
-  Scope: `components/patients/PatientDrawer.jsx` plus `PatientOverviewTab`,
-  `PatientEditTab`, `PatientCallHistoryTab`, `PatientAlertsTab`,
-  `PatientContactsTab`, and `PatientForm.jsx` / `PatientArchiveDialog.jsx`. Wire
-  them to the phase-2 hooks; presentational only.
-  Validate: same as phase 2, per extracted component.
-
-- [ ] Phase 4 — extract list/toolbar components
-  Scope: `components/patients/PatientToolbar.jsx`, `PatientList.jsx`,
-  `PatientListItem.jsx`. `pages/PatientsPage.jsx` becomes a thin composition root.
-  Validate: same as phase 2; confirm search, pagination ("load more"), and
-  selection unchanged.
+PatientsPage decomposition is complete — see COMPLETED_BLOCKS.md.
 
 ---
 
-## P1 — Docker development environment (planned, not started)
+## P1 — Calendar MVP + Dispatch integration
+
+Read-only, role-aware operational calendar aggregating existing data. Foundation
+and the first Calendar ↔ Dispatch integration slice are **done** (see
+COMPLETED_BLOCKS.md → "Calendar"). Full spec in
+[docs/ROADMAP.md](docs/ROADMAP.md) → Phase 2.
+
+**Done:**
+- [x] Calendar page scaffold — month grid, weekend + US federal holiday highlighting, navigation, legend
+- [x] Unified event contract + `GET /api/calendar/events?start=&end=` (range-validated ≤93 days, backend role filtering, `{events, days}` with per-day readiness)
+- [x] Event sources (MVP): `scheduled_call` (from `Call`) and `crew_shift` (from `DailyCrewUnit`) — derived, not copied
+- [x] Month cells show call/unit/unassigned counts + readiness (icon + aria-label, not color-only); Day Operations Drawer (calls / units / issues) with "Open Day in Dispatch Board"
+- [x] Dispatch Board reads `?date=&call=&unit=`; Planning / Live / History modes; live status transitions gated to today (frontend disabled + backend `409`); linked call/unit selection
+- [x] HR receives crew-only, non-PHI calendar data
+
+**Remaining (next Calendar slice):**
+- [ ] More event sources: employee/patient birthdays, certification expirations, task due dates, vehicle inspection/maintenance dates (existing fields only)
+- [ ] Week and Agenda views (Month is live; the switch buttons are placeholders)
+- [ ] Saved user filter preferences; event-type filters
+- [ ] Reliable conflict checks currently deferred (see Tech-debt / follow-ups): shift **time-overlap** double-booking (MVP flags same-day double-booking regardless of overlap), vehicle **out-of-service** readiness (no reliable `DailyCrewUnit`→`Vehicle` link yet)
+
+## P2 — Docker development environment (planned, not started)
 
 Reproducible local dev/demo via containers. **Development only — this does not
 make the project production-ready** (no PostgreSQL, real auth, or hardening; see
-P4). Detailed phase notes in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 2.
+P4). Detailed phase notes in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 3.
 
 - [ ] `backend/Dockerfile` (Python slim, Flask dev server, `flask db upgrade` on start)
 - [ ] `frontend/Dockerfile` (Node, Vite dev server with hot reload; API URL via env)
@@ -74,34 +69,41 @@ P4). Detailed phase notes in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 2.
 - Out of scope for P1: PostgreSQL, Redis, Celery, Nginx, Kubernetes, production
   secrets, cloud deployment.
 
-## P2 — Calendar MVP (planned, not started)
+## P3 — Calendar operations & extensions (planned)
 
-Read-only, role-aware operational calendar aggregating existing data. No new
-large tables in the MVP — events are **derived** from Employees, Patients,
-certifications, Tasks, Crew units, Calls, and Vehicles. Full spec (event
-sources, access matrix, per-source rules) in [docs/ROADMAP.md](docs/ROADMAP.md)
-→ Phase 3.
+Later Calendar phases (see [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4). Not to
+be implemented before the current Calendar slice is complete:
 
-- [ ] Calendar architecture + unified event contract (id, type, title, start/end,
-  source, source_id, severity, link)
-- [ ] Backend `GET /api/calendar/events?start=&end=` — resolve actor → allowed
-  event types → query range → role-filter → strip inaccessible fields → return
-  unified events (filter server-side, never client-only)
-- [ ] Role filtering (admin / supervisor / dispatcher / HR access matrix)
-- [ ] Event sources: employee birthdays, patient birthdays (admin/supervisor/
-  dispatcher only), certification expirations, task due dates, crew shifts,
-  scheduled calls, vehicle expiration/maintenance dates (existing fields only)
-- [ ] Frontend month / week / agenda views, type badges, source links, filters,
-  loading/empty/error states, saved user filter preferences
-
-## P3 — Calendar extensions (planned)
-
+- [ ] Recurring patient transportation; linked outbound/return trips
+- [ ] Scheduling Inbox for calls without a date/time
+- [ ] Estimated trip duration + planned end time
+- [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
+- [ ] Day handoff summary; "Close Operational Day" workflow
 - [ ] `CalendarEvent` model for manual events (visibility scopes: company /
   operations / management / HR / patient-operations / private)
-- [ ] Participants, reminders, notification integration
-- [ ] Conflict detection, saved views
+- [ ] Participants, reminders, notification integration, saved views
 - [ ] Recurrence, ICS export, external (Google/Outlook) sync — much later; must
   not export patient data without a separate privacy/security policy
+- [ ] Route optimization — separate future research only
+
+## Tech debt / follow-ups (discovered during Calendar integration)
+
+- [ ] **Migration drift** — `flask --app app db check` reports pre-existing drift
+  independent of the Calendar work (no models changed): dropped performance
+  indexes, `org_id` foreign keys present in models but not the migration head,
+  and a leftover `_alembic_tmp_patient` table from an interrupted batch
+  migration in the dev DB. Needs a deliberate, analyzed reconciliation (do **not**
+  blind-accept autogenerated `remove_index`; keep the performance indexes). Track
+  separately from feature work.
+- [ ] `getShiftAlertSeverity` (`dispatchBoardUtils`) still derives "today" from
+  `toISOString()` (UTC); `todayStr` and the new date-mode logic are now local.
+  Align it to local for midnight-boundary correctness.
+- [ ] Calendar readiness: reliable **shift time-overlap** double-booking and
+  **vehicle out-of-service** checks (see P1 remaining) once a
+  `DailyCrewUnit`→`Vehicle` link and shift-overlap logic exist.
+- [ ] HR opens a Calendar `crew_shift` link into `/dispatch`, but HR has no
+  Dispatch access (redirects to home). Decide: hide the link for HR, or give HR a
+  read-only crew view.
 
 ## P4 — Later production hardening (planned)
 

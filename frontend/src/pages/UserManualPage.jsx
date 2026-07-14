@@ -47,6 +47,13 @@ const SECTIONS = [
     content: <DispatchSection />,
   },
   {
+    id: "calendar",
+    icon: <FaCalendarAlt />,
+    title: "Calendar",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <CalendarSection />,
+  },
+  {
     id: "call-form",
     icon: <FaPhone />,
     title: "Call Taking Form",
@@ -402,6 +409,39 @@ function DashboardSection() {
           "Red button in the top bar — always available for dispatcher and higher roles.",
           "Navigates directly to the Call Taking Form.",
         ]} />
+      </Sub>
+    </>
+  );
+}
+
+function CalendarSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Calendar is a read-only overview of what is scheduled and how ready each day is. It aggregates the same calls and crew shifts you work with on the Dispatch Board — it does not create separate records. Use it to see load, gaps, and upcoming conflicts at a glance, then jump into Dispatch to act.</p>
+
+      <Sub title="Month view">
+        <List items={[
+          "Each day cell shows compact counts — calls, units, and unassigned calls — plus a readiness indicator.",
+          "Readiness: Ready (all needed calls assigned, crews complete), Needs attention (unassigned calls, incomplete crews, missing pickup time), or Critical (e.g. an ALS call on a BLS unit).",
+          "Weekends are tinted and US federal holidays are marked. Use the arrows or Today to change month.",
+        ]} />
+        <Note>Counts and readiness are filtered by your role on the server. HR sees crew shifts only — never patient details.</Note>
+      </Sub>
+
+      <Sub title="Day Operations drawer">
+        <Step n={1}>Click any day to open its drawer.</Step>
+        <Step n={2}>Review the day summary, scheduled calls, crew units, and any detected issues.</Step>
+        <Step n={3}>Click <strong>Open Day in Dispatch Board</strong> to work that date, or click a specific call/unit to open it directly on the board.</Step>
+      </Sub>
+
+      <Sub title="Planning, Live, and History">
+        <List items={[
+          "Opening a future date puts the Dispatch Board in Planning mode — you can add units and assign calls ahead of time, but live status changes are disabled.",
+          "Today is Live mode — full operations.",
+          "A past date is History mode — read-only.",
+          "The board header shows the current mode and lets you step Previous day / Today / Next day.",
+        ]} />
+        <Tip>Planning assignments use the same records as live dispatch — nothing is duplicated, so a call you pre-assign is already assigned when its day becomes today.</Tip>
       </Sub>
     </>
   );

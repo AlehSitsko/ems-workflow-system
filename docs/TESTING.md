@@ -4,7 +4,7 @@
 
 Three layers of tests, in order of reliability:
 
-1. **Backend pytest (isolated) — 89 tests.** Run under `pytest` against an
+1. **Backend pytest (isolated) — 112 tests.** Run under `pytest` against an
    in-memory SQLite database built by the application factory; no live server,
    no dev database touched. Domains covered:
    - `test_auth.py` (6) — login success/failure, unknown/inactive user, bad body
@@ -15,21 +15,32 @@ Three layers of tests, in order of reliability:
      audit log
    - `test_payroll.py` (22) — FLSA per-ISO-week overtime, week boundaries,
      overnight/zero/negative durations, config/rate edge cases, CSV export
-2. **Frontend Vitest (isolated) — 32 tests.** Vitest + React Testing Library +
+   - `test_calendar.py` (23) — calendar events API (range validation, calls/crew
+     in range, cancelled/completed, assignment info, day-summary counts &
+     readiness, ALS-on-BLS critical, role filtering, HR-no-PHI, stable contract)
+     **and** the Dispatch date-mode guard (future allows planning assignment /
+     rejects live status, today allows live status, past rejects mutation)
+2. **Frontend Vitest (isolated) — 82 tests.** Vitest + React Testing Library +
    jsdom. Utility coverage (`timeUtils`, `dispatchBoardUtils` incl.
-   `getShiftAlertSeverity` with a faked clock, `licenseUtils`) plus a `StatusPill`
-   component smoke test proving the RTL setup.
+   `getShiftAlertSeverity` with a faked clock, date-mode helpers + timezone-safe
+   `addDays` month/year/leap boundaries, `licenseUtils`, `holidayUtils`,
+   `calendarUtils`, `calendarLinks`) plus component tests (`StatusPill`,
+   `CalendarDayCell`, `DayOperationsDrawer`, `BoardToolbar` mode badge + day nav,
+   `UnitDetailPanel` live-status gating).
 3. **Live QA scripts (`qa_test.py`, `stress_test.py`).** Standalone Python scripts
    that hit a **running** backend over HTTP. They create real rows and clean most
    up afterward, so they are smoke/regression tools, **not** isolated unit tests.
 
 ### Not yet covered
 
-- Dispatch, crew units, notifications, and analytics have isolated coverage only
-  through the live `qa_test.py` script, not pytest.
-- Frontend component/integration coverage is minimal (one smoke test) — most UI
-  changes are still verified manually. Broader component tests follow the
-  PatientsPage decomposition.
+- Crew units, notifications, and analytics have isolated coverage only through
+  the live `qa_test.py` script, not pytest. (Dispatch now has pytest coverage of
+  the date-mode guard via `test_calendar.py`; the assign/status/queue happy
+  paths still rely on `qa_test.py`.)
+- Frontend integration coverage of the full Dispatch Board page (URL param
+  parsing → board load → linked selection) is exercised manually / via the
+  browser preview; the unit-level pieces (mode helpers, link builder, toolbar,
+  unit panel) are covered by Vitest.
 - No tenant-isolation tests (`org_id` exists on tenant-scoped tables but nothing
   filters by it yet; a cross-tenant-leakage test should exist before filtering is
   turned on).

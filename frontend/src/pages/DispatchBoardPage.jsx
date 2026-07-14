@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import API_BASE from "../api/config.js";
 import { useToast } from "../components/ui/useToast";
 import { useConfirm } from "../components/ui/useConfirm";
@@ -31,6 +32,12 @@ import { isEmployeeEligibleForRole } from "../utils/licenseUtils";
 import {
   STATUS_NEXT,
   todayStr,
+  isIsoDate,
+  addDays,
+  boardMode,
+  BOARD_MODE_META,
+  canEditAssignments,
+  canUseLiveStatus,
   isAlsUnit,
   isAlsCall,
   isEmergencyCall,
@@ -64,12 +71,54 @@ const initialUnitForm = {
   noPatient: false,
 };
 
+// Find a call anywhere on a loaded board (open/completed/cancelled columns or
+// any unit's assigned/completed lists) by id. Used to focus a ?call= deep link.
+function findCallOnBoard(board, callId) {
+  const id = String(callId);
+  for (const pool of [board.openCalls, board.completedCalls, board.cancelledCalls]) {
+    const found = (pool || []).find((c) => String(c.id) === id);
+    if (found) return found;
+  }
+  for (const unit of board.units || []) {
+    for (const pool of [unit.assignedCalls, unit.completedCalls]) {
+      const found = (pool || []).find((c) => String(c.id) === id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function DispatchBoardPage() {
   const toast = useToast();
   const confirm = useConfirm();
-  const [date, setDate] = useState(todayStr());
+
+  // The board's date, its optional focused call/unit, and the operational mode
+  // all come from the URL (?date=&call=&unit=) so a Calendar link or a shared
+  // URL lands on the right day. Falls back to today's local date.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlDate = searchParams.get("date");
+  const [date, setDate] = useState(() => (isIsoDate(urlDate) ? urlDate : todayStr()));
+
+  const mode = useMemo(() => boardMode(date), [date]);
+  const canEdit = canEditAssignments(mode);
+  const canLive = canUseLiveStatus(mode);
+
+  // Change the board date and reflect it in the URL. Manual navigation clears
+  // any focused call/unit (those are one-shot deep links, see below).
+  const changeDate = useCallback((newDate) => {
+    if (!isIsoDate(newDate)) return;
+    setDate(newDate);
+    setSearchParams({ date: newDate }, { replace: true });
+  }, [setSearchParams]);
+
+  // Keep local date in sync when the URL date changes underneath us (e.g. the
+  // user follows another Calendar link while already on the board).
+  useEffect(() => {
+    const p = searchParams.get("date");
+    if (isIsoDate(p)) setDate((prev) => (p !== prev ? p : prev));
+  }, [searchParams]);
   const [board, setBoard] = useState({ openCalls: [], completedCalls: [], cancelledCalls: [], units: [] });
   const [callFilter, setCallFilter] = useState("open"); // "open" | "all" | "completed" | "cancelled"
   const [loading, setLoading] = useState(false);
@@ -132,12 +181,13 @@ export default function DispatchBoardPage() {
 
   useEffect(() => { loadBoard(date); }, [date, loadBoard]);
 
-  // Auto-refresh every 30 s when viewing today's board.
+  // Auto-refresh every 30 s only in Live mode (today). Planning/History are
+  // static snapshots and don't poll.
   useEffect(() => {
-    if (date !== todayStr()) return;
+    if (mode !== "live") return;
     const interval = setInterval(() => loadBoard(date, true), 30_000);
     return () => clearInterval(interval);
-  }, [date, loadBoard]);
+  }, [mode, date, loadBoard]);
 
   // ── Drag & drop ────────────────────────────────────────────────────────
 
@@ -151,6 +201,11 @@ export default function DispatchBoardPage() {
     if (!draggedCall) return;
     const call = draggedCall;
     setDraggedCall(null);
+
+    if (!canEdit) {
+      toast.error("Read-only day", "Assignments can't be changed on a past date.");
+      return;
+    }
 
     const msgs = [];
     if (isAlsCall(call) && !isAlsUnit(unit.unitType))
@@ -167,6 +222,10 @@ export default function DispatchBoardPage() {
   }
 
   async function doAssign(call, unit) {
+    if (!canEdit) {
+      toast.error("Read-only day", "Assignments can't be changed on a past date.");
+      return;
+    }
     try {
       await assignCall(call.id, unit.id, currentUser?.display_name || "");
       await loadBoard(date);
@@ -186,6 +245,8 @@ export default function DispatchBoardPage() {
   }
 
   async function handleUnitDoubleClick(unit) {
+    // Double-click advances live status — Live mode only.
+    if (!canLive) return;
     if (unit.dispatchStatus === "at_destination") {
       // Complete the current (first) assigned call and return unit to available
       const sorted = [...(unit.assignedCalls || [])].sort(
@@ -202,6 +263,10 @@ export default function DispatchBoardPage() {
   }
 
   async function handleStatusChange(unitId, status) {
+    if (!canLive) {
+      toast.error("Live status unavailable", `${BOARD_MODE_META[mode].label} mode — status changes only apply to today.`);
+      return;
+    }
     try {
       await updateUnitStatus(unitId, status);
       await loadBoard(date);
@@ -209,6 +274,10 @@ export default function DispatchBoardPage() {
   }
 
   async function handleUnassign(assignmentId) {
+    if (!canEdit) {
+      toast.error("Read-only day", "Assignments can't be changed on a past date.");
+      return;
+    }
     try {
       await unassignCall(assignmentId);
       await loadBoard(date);
@@ -216,6 +285,10 @@ export default function DispatchBoardPage() {
   }
 
   async function handleComplete(assignmentId) {
+    if (!canLive) {
+      toast.error("Live action unavailable", `${BOARD_MODE_META[mode].label} mode — completing calls only applies to today.`);
+      return;
+    }
     try {
       await completeAssignment(assignmentId);
       await loadBoard(date);
@@ -223,6 +296,10 @@ export default function DispatchBoardPage() {
   }
 
   async function handleReopen(assignmentId) {
+    if (!canLive) {
+      toast.error("Live action unavailable", `${BOARD_MODE_META[mode].label} mode — reopening calls only applies to today.`);
+      return;
+    }
     if (!assignmentId) { toast.error("Reopen failed", "No assignment linked to this call."); return; }
     try {
       await reopenAssignment(assignmentId);
@@ -265,6 +342,35 @@ export default function DispatchBoardPage() {
   function handleCardClick(call, isCompleted) {
     setCallModal({ call, isCompleted });
   }
+
+  // One-shot linked selection from a Calendar deep link (?call= / ?unit=). Once
+  // the board for the date has loaded, focus the matching unit (inspector) or
+  // call (detail modal), then strip the focus params — the date stays as the
+  // shareable state. A missing entity shows a toast instead of crashing.
+  const focusAppliedRef = useRef("");
+  useEffect(() => {
+    if (loading) return;
+    const focusCall = searchParams.get("call");
+    const focusUnit = searchParams.get("unit");
+    if (!focusCall && !focusUnit) return;
+
+    const key = `${date}|${focusCall || ""}|${focusUnit || ""}`;
+    if (focusAppliedRef.current === key) return;
+    focusAppliedRef.current = key;
+
+    if (focusUnit) {
+      const unit = board.units.find((u) => String(u.id) === String(focusUnit));
+      if (unit) setSelectedUnit(unit);
+      else toast.error("Unit not found", `Unit ${focusUnit} has no shift on ${date}.`);
+    }
+    if (focusCall) {
+      const call = findCallOnBoard(board, focusCall);
+      if (call) setCallModal({ call, isCompleted: call.status === "completed" });
+      else toast.error("Call not found", `Call ${focusCall} is not scheduled on ${date}.`);
+    }
+
+    setSearchParams({ date }, { replace: true });
+  }, [loading, board, date, searchParams, setSearchParams, toast]);
 
   const { sortCallsByPriority, handleSetHighPriority, handleMoveCall, handleResetPriority } =
     useCallPriority({ loadBoard, date, toast });
@@ -361,7 +467,16 @@ export default function DispatchBoardPage() {
     setHasAttemptedUnitSave(false);
   };
 
+  // Crew units can be created/edited in Planning + Live, but a past (History)
+  // day is read-only.
+  const guardEditable = () => {
+    if (canEdit) return true;
+    toast.error("Read-only day", "Crew units can't be changed on a past date.");
+    return false;
+  };
+
   const handleShowCreateUnit = () => {
+    if (!guardEditable()) return;
     setUnitForm({ ...initialUnitForm, shiftDate: date });
     setEditingUnitId(null);
     setShowUnitDrawer(true);
@@ -369,15 +484,15 @@ export default function DispatchBoardPage() {
   };
 
   const handleShowCreateNightUnit = () => {
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-    setUnitForm({ ...initialUnitForm, shiftDate: date, shiftType: "night", endDate: nextDay.toISOString().slice(0, 10) });
+    if (!guardEditable()) return;
+    setUnitForm({ ...initialUnitForm, shiftDate: date, shiftType: "night", endDate: addDays(date, 1) });
     setEditingUnitId(null);
     setShowUnitDrawer(true);
     setHasAttemptedUnitSave(false);
   };
 
   const handleEditUnit = (unit) => {
+    if (!guardEditable()) return;
     setEditingUnitId(unit.id);
     setUnitForm({
       shiftDate: unit.shiftDate || date,
@@ -416,6 +531,7 @@ export default function DispatchBoardPage() {
   };
 
   const handleDeleteUnit = async (unitId) => {
+    if (!guardEditable()) return;
     const confirmed = await confirm({ title: "Delete planned unit?", message: "This will remove the unit and its crew assignment.", variant: "danger", confirmLabel: "Delete" });
     if (!confirmed) return;
     setCrewSaving(true);
@@ -432,10 +548,9 @@ export default function DispatchBoardPage() {
   };
 
   const handleMakeNight = (unit) => {
+    if (!guardEditable()) return;
     const hasExisting = board.units.some(u => u.shiftType === "night");
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-    setNightForm({ startTime: unit.startTime || "", endTime: "", endDate: nextDay.toISOString().slice(0, 10) });
+    setNightForm({ startTime: unit.startTime || "", endTime: "", endDate: addDays(date, 1) });
     setNightDialog({ sourceUnit: unit, hasExisting });
   };
 
@@ -521,12 +636,16 @@ export default function DispatchBoardPage() {
       {/* Header */}
       <BoardToolbar
         date={date}
-        onDateChange={setDate}
+        onDateChange={changeDate}
+        mode={mode}
+        onPrevDay={() => changeDate(addDays(date, -1))}
+        onToday={() => changeDate(todayStr())}
+        onNextDay={() => changeDate(addDays(date, 1))}
         loading={loading}
         onRefresh={() => loadBoard(date)}
         onCreateDayUnit={handleShowCreateUnit}
         onCreateNightUnit={handleShowCreateNightUnit}
-        creatingDisabled={employeesLoading || crewSaving}
+        creatingDisabled={employeesLoading || crewSaving || !canEdit}
         error={error}
         openCallsCount={expandedCalls.length}
         unitsCount={board.units.length}
@@ -588,6 +707,8 @@ export default function DispatchBoardPage() {
             onEditUnit={handleEditUnit}
             onDeleteUnit={handleDeleteUnit}
             loading={loading}
+            liveControlsEnabled={canLive}
+            editEnabled={canEdit}
           />
 
           {/* Selected unit row divider + bottom panel */}
@@ -595,6 +716,7 @@ export default function DispatchBoardPage() {
             <UnitDetailPanel
               selectedUnit={selectedUnit}
               bottomHeight={bottomHeight}
+              liveControlsEnabled={canLive}
               onRowDividerMouseDown={handleRowDividerMouseDown}
               onStatusChange={handleStatusChange}
               sortCallsByPriority={sortCallsByPriority}

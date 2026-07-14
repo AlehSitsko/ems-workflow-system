@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
+  todayStr,
+  isIsoDate,
+  addDays,
+  boardMode,
+  canEditAssignments,
+  canUseLiveStatus,
   minCrewForType,
   isAlsUnit,
   isEmergencyCall,
@@ -114,5 +120,68 @@ describe("getShiftAlertSeverity", () => {
     expect(getShiftAlertSeverity({ ...base, plannedEndTime: "10:30" })).toBe("serious");
     // 3h overdue -> critical
     expect(getShiftAlertSeverity({ ...base, plannedEndTime: "09:00" })).toBe("critical");
+  });
+});
+
+// ── Date modes & boundary-safe date math (Calendar ↔ Dispatch integration) ──
+
+describe("todayStr", () => {
+  it("returns a local YYYY-MM-DD string", () => {
+    expect(isIsoDate(todayStr())).toBe(true);
+  });
+});
+
+describe("isIsoDate", () => {
+  it("accepts YYYY-MM-DD and rejects anything else", () => {
+    expect(isIsoDate("2026-07-16")).toBe(true);
+    expect(isIsoDate("2026-7-6")).toBe(false);
+    expect(isIsoDate("")).toBe(false);
+    expect(isIsoDate(null)).toBe(false);
+  });
+});
+
+describe("addDays (timezone-safe boundaries)", () => {
+  it("steps within a month", () => {
+    expect(addDays("2026-07-16", 1)).toBe("2026-07-17");
+    expect(addDays("2026-07-16", -1)).toBe("2026-07-15");
+  });
+  it("rolls across a month boundary", () => {
+    expect(addDays("2026-07-31", 1)).toBe("2026-08-01");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+  });
+  it("rolls across a year boundary", () => {
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2026-01-01", -1)).toBe("2025-12-31");
+  });
+  it("handles a leap day", () => {
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+  });
+});
+
+describe("boardMode", () => {
+  it("is live for today", () => {
+    expect(boardMode("2026-07-16", "2026-07-16")).toBe("live");
+    expect(boardMode(todayStr())).toBe("live");
+  });
+  it("is planning for a future date", () => {
+    expect(boardMode("2026-07-20", "2026-07-16")).toBe("planning");
+    expect(boardMode("2027-01-01", "2026-12-31")).toBe("planning");
+  });
+  it("is history for a past date", () => {
+    expect(boardMode("2026-07-10", "2026-07-16")).toBe("history");
+    expect(boardMode("2026-12-31", "2027-01-01")).toBe("history");
+  });
+});
+
+describe("mode capabilities", () => {
+  it("allows assignment edits in planning and live, not history", () => {
+    expect(canEditAssignments("planning")).toBe(true);
+    expect(canEditAssignments("live")).toBe(true);
+    expect(canEditAssignments("history")).toBe(false);
+  });
+  it("allows live status only in live mode", () => {
+    expect(canUseLiveStatus("live")).toBe(true);
+    expect(canUseLiveStatus("planning")).toBe(false);
+    expect(canUseLiveStatus("history")).toBe(false);
   });
 });
