@@ -45,29 +45,37 @@ ems-workflow-system/
 │       ├── document_routes.py            (HR document upload/preview/compliance)
 │       ├── task_routes.py                (Staff Tasks module — second-largest route file, 616 lines)
 │       ├── audit_routes.py
-│       └── settings_routes.py
+│       ├── settings_routes.py
+│       └── calendar_routes.py            (read-only unified calendar events API; aggregates
+│                                          Calls + DailyCrewUnits, role-filtered, per-day summaries)
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── api/                          (one thin fetch-wrapper module per backend blueprint)
-│   │   ├── pages/                        (one file per route — see "Known inconsistency" below)
-│   │   │   ├── DispatchBoardPage.jsx     (2,461 lines — largest frontend file by far; refactor plan in ROADMAP.md)
+│   │   ├── pages/                        (one file per route)
+│   │   │   ├── DispatchBoardPage.jsx     (~890 lines after its component/hook split; date-mode + URL logic)
+│   │   │   ├── CalendarPage.jsx          (operational calendar — month view + Day Operations drawer)
+│   │   │   ├── PatientsPage.jsx          (~437 lines — thin composition root after decomposition)
 │   │   │   ├── CrewPlannerPage.jsx       (1,576 lines)
 │   │   │   ├── CallFormPage.jsx          (1,283 lines)
 │   │   │   ├── EmployeesPage.jsx         (1,278 lines)
 │   │   │   ├── UserManualPage.jsx        (1,339 lines — mostly static reference content, lower refactor priority)
-│   │   │   ├── CallsPage.jsx, TasksPage.jsx, PayrollPage.jsx, HomePage.jsx,
-│   │   │   │   ComplianceDashboardPage.jsx, AuditLogPage.jsx, KioskPage.jsx,
-│   │   │   │   UserManagementPage.jsx, NotificationSettingsPage.jsx,
-│   │   │   │   SupervisorDashboardPage.jsx, LoginPage.jsx
-│   │   │   └── PatientsPage.jsx          (10-line wrapper — see "Known inconsistency" below)
+│   │   │   └── CallsPage.jsx, TasksPage.jsx, PayrollPage.jsx, HomePage.jsx,
+│   │   │       ComplianceDashboardPage.jsx, AuditLogPage.jsx, KioskPage.jsx,
+│   │   │       UserManagementPage.jsx, NotificationSettingsPage.jsx,
+│   │   │       SupervisorDashboardPage.jsx, LoginPage.jsx
 │   │   ├── components/
-│   │   │   ├── PatientsPage.jsx          (1,747 lines — the *real* Patients page component; see below)
 │   │   │   ├── CallForm.jsx              (1,025 lines — Classic call intake form)
 │   │   │   ├── DocumentsTab.jsx, TimePayTab.jsx, PriceCalculator.jsx, ExportButtons.jsx
+│   │   │   ├── patients/                 (decomposed Patients: DetailItem, PatientFormSection,
+│   │   │   │                              PatientToolbar, PatientList, PatientOverviewTab,
+│   │   │   │                              PatientEditTab, PatientAlertsTab, PatientContactsTab, …)
+│   │   │   ├── calendar/                 (CalendarToolbar, CalendarGrid, CalendarDayCell,
+│   │   │   │                              CalendarSidebar, DayOperationsDrawer)
+│   │   │   ├── dispatch/                 (StatusPill, UnitTable, UnitDetailPanel, BoardToolbar,
+│   │   │   │                              OpenCallsPanel, CallDetailModal, CallDrawer, …)
 │   │   │   ├── crew/                     (CrewPresetsSection, PatientOrderSection, PlannedUnitsList,
 │   │   │   │                              ShiftAlertsBlock, UnassignedEmployeesCard, VehicleRegistrySection)
-│   │   │   ├── dispatch/CallDrawer.jsx
 │   │   │   ├── settings/                 (TimeFormatSettings, BrowserNotificationSettings,
 │   │   │   │                              NotificationTypeSettings, DispatchVisualAlertsSettings)
 │   │   │   ├── layout/                   (AppLayout, Topbar, Sidebar, NotificationBell, navigationConfig)
@@ -89,9 +97,13 @@ ems-workflow-system/
                                             COMPLETED_BLOCKS.md, UI_STANDARD.md)
 ```
 
-### Known inconsistency: Patients page split across two directories
+### Resolved: Patients page directory split
 
-`frontend/src/pages/PatientsPage.jsx` is a 10-line wrapper that re-exports the real component from `frontend/src/components/PatientsPage.jsx` (1,747 lines) — every other route renders its page component directly from `pages/`. Harmless today, tracked as a cleanup item in [ROADMAP.md](ROADMAP.md) (Priority 1).
+`frontend/src/pages/PatientsPage.jsx` used to be a thin wrapper re-exporting a
+1,700-line component from `components/PatientsPage.jsx`. The decomposition is
+complete: the real page now lives in `pages/PatientsPage.jsx` (~437 lines) as a
+composition root, with hooks in `hooks/` and presentational pieces in
+`components/patients/`. There is no longer a `components/PatientsPage.jsx`.
 
 ## Data flow
 
@@ -111,6 +123,8 @@ Call Intake (Classic or Guided form)
 ```
 
 Crew Planning is a parallel, connected flow: Crew Units are planned per shift date (day/night, with vehicle assignment and certification-checked staff), and the Dispatch Board is really the same units viewed operationally on the current day — crew planning and dispatch are one integrated page, not two separate systems that sync.
+
+The **Calendar** and **Dispatch Board** are two views over the *same* records — the calendar never stores its own copy of a call or crew unit. The Calendar reads a role-filtered `GET /api/calendar/events?start=&end=` that derives events from `Call` (`scheduled_call`) and `DailyCrewUnit` (`crew_shift`) and returns per-day operational summaries (counts + readiness). The Dispatch Board reads the operational date from the URL (`?date=&call=&unit=`) and runs in one of three **date modes** — **Planning** (future: assign/prepare units, no live lifecycle), **Live** (today: full operations), **History** (past: read-only). Preliminary (planning) assignments reuse the existing `CallAssignment` model; live unit-status transitions are rejected (`409`) unless the unit's `shift_date` is the server-local today. `Call.trip_date` and `DailyCrewUnit.shift_date` are treated as local operational dates throughout (no UTC conversion).
 
 Staff Tasks, Notifications, and Settings are cross-cutting: any module can create a task or trigger a notification; every user has one settings blob (`User.settings_json`) covering notification prefs, dispatch alert thresholds, UI panel sizes, and time format.
 

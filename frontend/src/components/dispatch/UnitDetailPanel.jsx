@@ -12,7 +12,7 @@ import { STATUS_LABELS, STATUS_COLORS, STATUS_BG, minCrewForType } from "../../u
 // this component's own `selectedUnit` prop.
 
 export default function UnitDetailPanel({
-  selectedUnit, bottomHeight, onRowDividerMouseDown,
+  selectedUnit, bottomHeight, liveControlsEnabled = true, onRowDividerMouseDown,
   onStatusChange, sortCallsByPriority, isCallOverdue,
   onUnassign, onComplete, onCardClick, onSetPickupTime,
   onSetHighPriority, onMoveCall, onResetPriority,
@@ -41,7 +41,9 @@ export default function UnitDetailPanel({
             Crew: {selectedUnit.crewCount || 0}/{minCrewForType(selectedUnit.unitType)} min
           </span>
           <span className="ms-auto text-muted small" style={{ fontSize: 11 }}>
-            Double-click row to advance · or use buttons:
+            {liveControlsEnabled
+              ? "Double-click row to advance · or use buttons:"
+              : "Live status is available on today's board only."}
           </span>
         </div>
 
@@ -54,7 +56,7 @@ export default function UnitDetailPanel({
               <button
                 key={s}
                 className="btn btn-sm"
-                disabled={active}
+                disabled={active || !liveControlsEnabled}
                 style={{
                   fontSize: 12,
                   background: active ? STATUS_BG[s] : "transparent",
@@ -72,6 +74,7 @@ export default function UnitDetailPanel({
             <button
               className="btn btn-sm btn-outline-danger ms-auto"
               style={{ fontSize: 12 }}
+              disabled={!liveControlsEnabled}
               onClick={() => onStatusChange(selectedUnit.id, "out_of_service")}
             >
               Out of Service
@@ -80,6 +83,7 @@ export default function UnitDetailPanel({
             <button
               className="btn btn-sm btn-outline-success ms-auto"
               style={{ fontSize: 12 }}
+              disabled={!liveControlsEnabled}
               onClick={() => onStatusChange(selectedUnit.id, "available")}
             >
               Out of Service → Available

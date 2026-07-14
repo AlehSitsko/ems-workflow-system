@@ -58,8 +58,55 @@ export const TS_FIELDS = [
   { key: "completed_at",     label: "Completed",    color: "#adb5bd" },
 ];
 
+// Local operational date (YYYY-MM-DD). Uses local getters — never toISOString,
+// which would roll to the previous/next day for users behind/ahead of UTC.
+// trip_date / shift_date are local operational dates, so the board compares
+// against a local "today".
 export function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function isIsoDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// Step a YYYY-MM-DD date by ±N days, timezone-safe (local calendar math, no UTC
+// parsing). Correctly rolls across month and year boundaries.
+export function addDays(dateStr, delta) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + delta);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+// Dispatch Board operates in one of three date modes. A future date is Planning
+// (assign/prepare, no live lifecycle), today is Live (full operations), a past
+// date is History (read-only).
+export function boardMode(dateStr, today = todayStr()) {
+  if (!dateStr || dateStr === today) return "live";
+  return dateStr > today ? "planning" : "history";
+}
+
+export const BOARD_MODE_META = {
+  planning: { label: "Planning", hint: "Future date — assign and prepare units. Live status changes are disabled." },
+  live: { label: "Live", hint: "Today — full dispatch operations." },
+  history: { label: "History", hint: "Past date — read-only." },
+};
+
+// Assignment edits (assign/unassign/queue/units) are allowed in Planning + Live.
+export function canEditAssignments(mode) {
+  return mode === "planning" || mode === "live";
+}
+
+// Live lifecycle (status transitions, complete/reopen) is Live-only.
+export function canUseLiveStatus(mode) {
+  return mode === "live";
 }
 
 export function minCrewForType(t) {

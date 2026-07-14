@@ -346,6 +346,19 @@ def update_unit_status(unit_id):
     if status not in VALID_UNIT_STATUSES:
         return jsonify({"error": f"Invalid status. Valid: {VALID_UNIT_STATUSES}"}), 400
 
+    # Live operational status transitions only apply to today's board. A unit on
+    # a future date is in Planning Mode (assignments allowed, live lifecycle not)
+    # and a past date is History Mode (read-only). This guards against a saved
+    # /dispatch?date=... link accidentally advancing a non-today unit. shift_date
+    # is a local operational date, so compare against local today (not UTC).
+    today = datetime.now().strftime("%Y-%m-%d")
+    if unit.shift_date and unit.shift_date != today:
+        mode = "planning (future)" if unit.shift_date > today else "history (past)"
+        return jsonify({
+            "error": f"Live status changes are only allowed on today's board. "
+                     f"Unit {unit.truck_number} is on {unit.shift_date} — {mode}.",
+        }), 409
+
     old_status = unit.dispatch_status
     unit.dispatch_status = status
     unit.dispatch_status_changed_at = datetime.now().isoformat(timespec="seconds")

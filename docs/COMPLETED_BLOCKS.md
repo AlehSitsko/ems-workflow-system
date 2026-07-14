@@ -306,3 +306,26 @@ Historical record of shipped work, in the order it landed. For what's planned ne
 * **Backend test coverage** grew from 37 → 89 isolated pytest tests: added `test_patients.py` (30) and `test_payroll.py` (22). `conftest.py` now builds an isolated app per test via the factory
 * **Frontend Vitest foundation** — Vitest + React Testing Library + jsdom; 32 tests (utilities + a `StatusPill` component smoke test); `npm test` / `npm run test:watch` scripts wired into CI
 * **PatientsPage decomposition phase 1** — established `components/patients/` and moved the self-contained module-level pieces (`patientConstants.js`, `DetailItem.jsx`, `PatientFormSection.jsx`) out of the page. Remaining hook/tab phases tracked in TODO.md P0
+
+### PatientsPage decomposition — phases 2 & 3 (complete)
+
+* Phase 2 extracted four hooks to `hooks/` — `usePatients` (list load, search, pagination, show-archived, archive/restore), `usePatientForm` (create/edit form state + dirty check), `usePatientAlerts`, `usePatientContacts`
+* Phase 3 extracted the drawer tabs and list to `components/patients/` — `PatientOverviewTab`, `PatientCallHistoryTab`, `PatientAlertsTab`, `PatientContactsTab`, `PatientEditTab`, plus `PatientToolbar` and `PatientList`
+* `pages/PatientsPage.jsx` reduced to a thin composition root (~1,496 → ~437 lines). Behavior unchanged — verified with lint / Vitest / build each phase
+
+### Calendar foundation (complete)
+
+* New Calendar page at `/calendar` (sidebar → Operations), lazy-loaded and role-agnostic (any signed-in user)
+* Month grid with a fixed 6-week layout, weekend tinting, "today" highlight, and all 11 **US federal holidays** (fixed + floating, computed in `utils/holidayUtils.js`); timezone-safe local date math
+* `utils/calendarUtils.js` (month matrix, month title, cursor stepping) and `utils/holidayUtils.js`, both with Vitest coverage
+* Presentational components in `components/calendar/` — `CalendarToolbar`, `CalendarGrid`, `CalendarDayCell`, `CalendarSidebar`; theme-aware styling (light + dark) using `--ems-*` tokens + Bootstrap accents
+
+### Calendar ↔ Dispatch integration (complete)
+
+* **Unified events API** — `GET /api/calendar/events?start=&end=` (`routes/calendar_routes.py`): range-validated (required, valid, `start ≤ end`, ≤ 93 days), backend role filtering, and a stable event contract plus per-day operational summaries (call/unit counts, `warningCount`/`criticalCount`, `readiness`). Sources are **derived** from existing `Call` (`scheduled_call`) and `DailyCrewUnit` (`crew_shift`) records — no calendar-specific tables. Bounded query count (no N+1), eager patient load
+* **Role scoping (server-side)** — admin/supervisor/dispatcher get calls + crew + a minimized patient label (`"John D."`, never full PHI); HR gets crew-only, non-PHI data; unknown role → `403`
+* **Calendar month view** now shows per-day counts + a readiness indicator (icon + `aria-label`, never color alone), reloads on month change over the full visible grid range, and handles loading/error/empty states
+* **Day Operations Drawer** (shared `EntityDrawer`) — day readiness, scheduled calls, crew units, derived issues, and an **Open Day in Dispatch Board** button; calls/units link straight into the board
+* **Dispatch Board date modes** — the board reads `?date=&call=&unit=` from the URL and operates in **Planning** (future — assign/prepare, no live lifecycle), **Live** (today — full operations), or **History** (past — read-only). A visible mode badge, day navigation (prev/today/next) that updates the URL, and linked call/unit selection (consumed once, then stripped from the URL; missing entity shows a toast). Preliminary assignment reuses the existing `CallAssignment` model — no duplicate call is created
+* **Live-status safety** — operational status transitions are rejected with `409` unless the unit's `shift_date` is the server-local today, and the corresponding controls are disabled off-Live in the UI. `todayStr` and new date math are local (not UTC) with month/year/leap boundary tests
+* **Tests** — backend `test_calendar.py` (23: events contract, range validation, role filtering, HR-no-PHI, day summaries/readiness, ALS-on-BLS critical, and the Dispatch date-mode guard); frontend Vitest for the mode/date helpers, link builder, calendar cell/drawer, board toolbar, and unit-panel gating. Backend 112, frontend 82 tests total

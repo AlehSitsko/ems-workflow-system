@@ -30,6 +30,15 @@ A single read-only, role-aware operational calendar that aggregates data the
 system already holds. Automatic events are **derived**, not copied into a new
 table.
 
+**Shipped so far:** the page scaffold (month grid, weekend/US-holiday
+highlighting, navigation, legend); `GET /api/calendar/events?start=&end=` with
+range validation, backend role filtering, and per-day operational summaries; the
+first two event sources (`scheduled_call` from Call, `crew_shift` from
+DailyCrewUnit); month-cell readiness + a Day Operations drawer; and the Dispatch
+Board Planning/Live/History date modes with linked call/unit selection.
+**Remaining:** the additional derived sources below, Week/Agenda views, and saved
+filters.
+
 **Event sources (derived):** employee birthdays (Employee), patient birthdays
 (Patient), certification expirations (CPR/EVOC/EMT/Paramedic/document fields),
 task due/start dates (Task), crew shifts (DailyCrewUnit), scheduled calls (Call),
@@ -97,6 +106,13 @@ production deployment.**
 
 ## Phase 4 — Calendar operations (planned)
 
+Deferred deliberately — **not** part of the current Calendar slice:
+
+- Recurring patient transportation; linked outbound/return trips
+- Scheduling Inbox for calls without a date/time yet
+- Estimated trip duration + planned end time
+- Day / Agenda operational timeline; planned-vs-actual time comparison
+- Day handoff summary; a "Close Operational Day" workflow
 - Manual events via a new `CalendarEvent` model (title, description, type,
   start/end, all-day, visibility_scope, created_by, optional
   employee/patient/task/vehicle/crew links, location, priority, status,
@@ -104,6 +120,7 @@ production deployment.**
 - Visibility scopes (company / operations / management / HR / patient-operations
   / private / custom-later), participants
 - Reminders, notification integration, saved views, conflict detection
+- Route optimization — separate future research only
 
 ## Phase 5 — Operational improvements (planned)
 

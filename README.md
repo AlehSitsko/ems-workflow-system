@@ -63,7 +63,8 @@ It is not intended to replace primary dispatch software, CAD systems, EMR system
 ## Feature Highlights
 
 * **Call Intake** — Classic and Guided modes, patient lookup with duplicate prevention, quality scoring, price calculator
-* **Dispatch Board** — open calls, drag-and-drop assignment, unit status lifecycle with timestamps, return rides, cancel/reopen, priority queue, overdue/stuck alerts
+* **Dispatch Board** — open calls, drag-and-drop assignment, unit status lifecycle with timestamps, return rides, cancel/reopen, priority queue, overdue/stuck alerts. Reads `?date=` and runs in **Planning / Live / History** modes (future planning, live operations, read-only past); live status transitions are gated to today
+* **Calendar** — read-only operational calendar aggregating existing calls and crew shifts (not a duplicate store): month view with per-day readiness, weekend + US federal holidays, a Day Operations drawer, and one-click "Open Day in Dispatch Board". Backend role-filtered event API; HR sees crew-only, no PHI
 * **Patients** — operational records, dispatch comments, transport instructions, alerts, contacts, soft archive
 * **Crew Planner** — daily units, day/night shifts, shift duration & delay alerts, vehicle registry, certification-checked crew validation
 * **Employees / HR** — records, certifications, document management with expiry tracking, compliance dashboard
@@ -169,7 +170,7 @@ Full breakdown: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-Stable. All core modules (Call Intake, Dispatch Board, Patients, Crew Planner, Vehicle Registry, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **89 backend pytest tests + 32 frontend Vitest tests**, plus the live `qa_test.py` smoke suite (104/104). The project is in a stabilization pass — see Current Development Direction below.
+Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Vehicle Registry, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **112 backend pytest tests + 82 frontend Vitest tests**, plus the live `qa_test.py` smoke suite. The project is in a stabilization pass — see Current Development Direction below.
 
 Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 
@@ -182,16 +183,17 @@ Sequential phases — each starts only after the previous one lands. Full detail
 seeding, CI, Patients & Payroll tests, frontend test foundation, and the
 in-progress PatientsPage decomposition.
 
+**Current — operational Calendar (in progress):** the Calendar foundation and the
+first Calendar ↔ Dispatch integration slice have **shipped** — a role-filtered
+`GET /api/calendar/events` API, a month view with per-day readiness, a Day
+Operations drawer, and Planning/Live/History date modes on the Dispatch Board.
+Remaining Calendar work: more event sources (birthdays, certifications, task
+deadlines, vehicle dates), Week/Agenda views, and saved filters.
+
 **Next — infrastructure (planned):** a Docker development environment — backend
 and frontend Dockerfiles, Docker Compose, a named SQLite volume, health checks,
 and a reproducible setup. *Docker is planned, not yet implemented, and a Docker
 development environment does not make the project production-ready.*
-
-**Then — major feature (planned):** a role-aware operational **Calendar** —
-aggregating employee/patient birthdays, certification expirations, task
-deadlines, crew shifts, scheduled calls, and vehicle dates into month/week/agenda
-views with backend role-based filtering. *The Calendar is planned, not yet
-implemented.*
 
 ## Known Limitations
 
@@ -199,9 +201,9 @@ implemented.*
 * Multi-tenancy exists as a schema foundation only (`Organization` model, nullable `org_id` columns) — the organization table isn't seeded, no row has an `org_id`, and runtime tenant isolation is not active. Full activation is deferred to the production hardening phase.
 * SQLite is used for local development and is not intended for concurrent production dispatch usage.
 * The system does not include full clinical ePCR, NEMSIS export, insurance claims processing, or live GPS routing.
-* Docker and the operational Calendar are **planned, not implemented** — see Current Development Direction above.
-* `PatientsPage.jsx` is still large; its decomposition is in progress (see [TODO.md](TODO.md) P0).
-* Test coverage is 89 backend pytest + 32 frontend Vitest tests plus live QA scripts; several domains (dispatch, crew, notifications) still have isolated coverage only through the live `qa_test.py` script. See [docs/TESTING.md](docs/TESTING.md).
+* Docker is **planned, not implemented** — see Current Development Direction above. The operational Calendar is implemented for calls + crew shifts; additional event sources (birthdays, certifications, tasks, vehicles) and Week/Agenda views are still to come.
+* Calendar readiness uses only reliably-computable conflicts today; shift time-overlap double-booking and vehicle out-of-service checks are deferred (see [TODO.md](TODO.md) → Tech debt / follow-ups).
+* Test coverage is 112 backend pytest + 82 frontend Vitest tests plus live QA scripts; some domains (crew, notifications) still have isolated coverage only through the live `qa_test.py` script. See [docs/TESTING.md](docs/TESTING.md).
 * Some production-readiness tasks are intentionally deferred until the feature set stabilizes — see [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## Security Note

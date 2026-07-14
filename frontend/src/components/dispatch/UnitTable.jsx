@@ -26,6 +26,7 @@ export default function UnitTable({
   isUnitStuck, getUnitStuckMinutes, isCallOverdue, sortCallsByPriority,
   onUnitClick, onUnitDoubleClick, onDragOver, onDragLeave, onDrop,
   onMakeNight, onEditUnit, onDeleteUnit, loading,
+  liveControlsEnabled = true, editEnabled = true,
 }) {
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--ems-board-bg)" }}>
@@ -185,7 +186,8 @@ export default function UnitTable({
                           fontWeight: 600, whiteSpace: "nowrap",
                         }}
                         onClick={() => onUnitDoubleClick(unit)}
-                        title="Advance to next status"
+                        disabled={!liveControlsEnabled}
+                        title={liveControlsEnabled ? "Advance to next status" : "Live status is available on today's board only"}
                       >
                         {unit.dispatchStatus === "at_destination" ? "✓ Complete" : `→ ${STATUS_LABELS[STATUS_NEXT[unit.dispatchStatus]] || ""}`}
                       </button>
@@ -195,6 +197,7 @@ export default function UnitTable({
                         className="btn btn-sm"
                         style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #2a3347", color: "var(--ems-board-text-muted)" }}
                         onClick={() => onMakeNight(unit)}
+                        disabled={!editEnabled}
                         title="Make night crew"
                       >
                         <FaMoon style={{ fontSize: 10 }} />
@@ -204,6 +207,7 @@ export default function UnitTable({
                       className="btn btn-sm"
                       style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #2a3347", color: "var(--ems-board-text-muted)" }}
                       onClick={() => onEditUnit(unit)}
+                      disabled={!editEnabled}
                       title="Edit unit"
                     >
                       <FaEdit style={{ fontSize: 10 }} />
@@ -212,6 +216,7 @@ export default function UnitTable({
                       className="btn btn-sm"
                       style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #dc354533", color: "#ea868f" }}
                       onClick={() => onDeleteUnit(unit.id)}
+                      disabled={!editEnabled}
                       title="Delete unit"
                     >
                       <FaTrash style={{ fontSize: 10 }} />
