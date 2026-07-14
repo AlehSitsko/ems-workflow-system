@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 import EntityDrawer from "../components/ui/EntityDrawer";
@@ -36,13 +36,13 @@ import { formatTimeForDisplay } from "../utils/timeUtils";
 import DetailItem from "../components/patients/DetailItem";
 import PatientFormSection from "../components/patients/PatientFormSection";
 import {
-  emptyPatient,
   emptyContact,
   ALERT_CATEGORIES,
   ALERT_SEVERITIES,
   SEVERITY_COLOR,
 } from "../components/patients/patientConstants";
 import { usePatients } from "../hooks/usePatients";
+import { usePatientForm } from "../hooks/usePatientForm";
 import { usePatientAlerts } from "../hooks/usePatientAlerts";
 import { usePatientContacts } from "../hooks/usePatientContacts";
 
@@ -53,13 +53,17 @@ const PatientsPage = () => {
   const { settings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
 
-  const [newPatient, setNewPatient] = useState(emptyPatient);
-  // Snapshot of the form's values when the drawer was opened, used to detect real edits
-  // (comparing against emptyPatient would falsely flag an untouched existing patient as dirty).
-  const formBaselineRef = useRef(emptyPatient);
   const [patientCalls, setPatientCalls] = useState([]);
 
-  const [editingPatientId, setEditingPatientId] = useState(null);
+  const {
+    newPatient,
+    editingPatientId,
+    handleNewPatientChange,
+    isPatientFormDirty,
+    resetFormFields,
+    loadPatientIntoForm,
+  } = usePatientForm();
+
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [drawerTab, setDrawerTab] = useState("overview"); // "overview" | "edit" | "history" | "alerts" | "contacts"
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -119,8 +123,7 @@ const PatientsPage = () => {
 
   // Reset the add/edit patient form and close the drawer.
   const resetPatientForm = () => {
-    setNewPatient(emptyPatient);
-    setEditingPatientId(null);
+    resetFormFields();
     setDrawerOpen(false);
     setSelectedPatient(null);
     setPatientCalls([]);
@@ -131,32 +134,11 @@ const PatientsPage = () => {
 
   // Open the drawer in add mode.
   const handleShowAddForm = () => {
-    setNewPatient(emptyPatient);
-    formBaselineRef.current = emptyPatient;
-    setEditingPatientId(null);
+    resetFormFields();
     setSelectedPatient(null);
     setError("");
     setDrawerTab("edit");
     setDrawerOpen(true);
-  };
-
-  // Handle text, select, and checkbox field changes.
-  const handleNewPatientChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    setNewPatient((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  // Check whether the add/edit patient form has unsaved changes, relative to the
-  // values it was opened with (an untouched existing patient's form is never dirty).
-  const isPatientFormDirty = () => {
-    const baseline = formBaselineRef.current;
-    return Object.keys(emptyPatient).some((key) => {
-      return newPatient[key] !== baseline[key];
-    });
   };
 
   // Close the patient drawer only after confirming unsaved changes.
@@ -203,8 +185,7 @@ const PatientsPage = () => {
         savedPatient = await createPatient(newPatient);
       }
 
-      setNewPatient(emptyPatient);
-      setEditingPatientId(null);
+      resetFormFields();
       setSelectedPatient(savedPatient);
       setHasSearched(true);
 
@@ -224,8 +205,7 @@ const PatientsPage = () => {
         if (shouldRestore) {
           try {
             const { patient } = await restorePatient(err.existingPatient.id);
-            setNewPatient(emptyPatient);
-            setEditingPatientId(null);
+            resetFormFields();
             setSelectedPatient(patient);
             setDrawerTab("overview");
             setHasSearched(true);
@@ -302,44 +282,7 @@ const PatientsPage = () => {
 
   // Open drawer in edit mode for a patient.
   const handleEditPatient = async (patient) => {
-    setEditingPatientId(patient.id);
-    const loadedPatient = {
-      first_name: patient.first_name || "",
-      last_name: patient.last_name || "",
-      dob: patient.dob || "",
-      gender: patient.gender || "",
-      phone: patient.phone || "",
-      secondary_phone: patient.secondary_phone || "",
-      address: patient.address || "",
-      city: patient.city || "",
-      state: patient.state || "",
-      zip_code: patient.zip_code || "",
-      insurance: patient.insurance || "",
-      member_id: patient.member_id || "",
-      policy_number: patient.policy_number || "",
-      requires_auth: patient.requires_auth || false,
-      copay_required: patient.copay_required || false,
-      insurance_notes: patient.insurance_notes || "",
-      default_service_level: patient.default_service_level || "",
-      weight: patient.weight || "",
-      oxygen_required: patient.oxygen_required || false,
-      stairs: patient.stairs || false,
-      special_equipment_notes: patient.special_equipment_notes || "",
-      facility_name: patient.facility_name || "",
-      room_number: patient.room_number || "",
-      emergency_contact_name: patient.emergency_contact_name || "",
-      emergency_contact_phone: patient.emergency_contact_phone || "",
-      notes: patient.notes || "",
-      dispatch_comment: patient.dispatch_comment || "",
-      default_mobility_level: patient.default_mobility_level || "",
-      transport_instructions: patient.transport_instructions || "",
-      access_instructions: patient.access_instructions || "",
-      preferred_language: patient.preferred_language || "",
-      requires_interpreter: patient.requires_interpreter || false,
-      is_sensitive: patient.is_sensitive || false,
-    };
-    setNewPatient(loadedPatient);
-    formBaselineRef.current = loadedPatient;
+    loadPatientIntoForm(patient);
     setSelectedPatient(patient);
     setDrawerTab("edit");
     setDrawerOpen(true);
