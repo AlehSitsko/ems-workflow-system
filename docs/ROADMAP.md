@@ -2,9 +2,9 @@
 
 Phased long-range plan. Each phase is a coherent stage, not a loose feature list.
 Shipped work lives in [COMPLETED_BLOCKS.md](COMPLETED_BLOCKS.md); the active
-near-term slice is in [../TODO.md](../TODO.md). Phases are sequential — Docker
-(Phase 2) does not start until stabilization (Phase 1) lands, and the Calendar
-(Phase 3+) does not start until Docker lands.
+near-term slice is in [../TODO.md](../TODO.md). Phases are sequential — the
+Calendar MVP (Phase 2) does not start until stabilization (Phase 1) lands, and
+the reproducible Docker environment (Phase 3) follows the Calendar MVP.
 
 ---
 
@@ -24,21 +24,7 @@ features.
 - PatientsPage decomposition into components/hooks — **in progress** (phase 1 of 4
   done; see TODO.md P0)
 
-## Phase 2 — Reproducible development environment (planned)
-
-Containerize the dev/demo setup. **Development convenience only — not a
-production deployment.**
-
-- `backend/Dockerfile` (Flask dev server, migrations on startup)
-- `frontend/Dockerfile` (Vite dev server, hot reload, API URL via env)
-- `docker-compose.yml`, `.dockerignore`, `.env.example`
-- Named SQLite volume; optional explicit `seed-demo` step (never automatic)
-- Compose healthcheck against the existing `/api/health`
-- Docker setup guide + a CI job that builds both images
-- Explicitly **not** in this phase: PostgreSQL, Redis, Celery, Nginx, Kubernetes,
-  production secrets, cloud deploy.
-
-## Phase 3 — Functional Calendar MVP (planned)
+## Phase 2 — Functional Calendar MVP (in progress)
 
 A single read-only, role-aware operational calendar that aggregates data the
 system already holds. Automatic events are **derived**, not copied into a new
@@ -90,7 +76,24 @@ or calls. A future Worker role sees only their own shifts/tasks/certs.
   migrations before surfacing new ones).
 
 **Frontend:** month / week / agenda views, event-type badges, source links,
-filters, loading/empty/error states, saved user filter preferences.
+filters, loading/empty/error states, saved user filter preferences. The page
+scaffold (month grid, weekend/holiday highlighting, US federal holidays,
+navigation, legend) lands first as a static shell; the derived event API and
+role filtering follow.
+
+## Phase 3 — Reproducible development environment (planned)
+
+Containerize the dev/demo setup. **Development convenience only — not a
+production deployment.**
+
+- `backend/Dockerfile` (Flask dev server, migrations on startup)
+- `frontend/Dockerfile` (Vite dev server, hot reload, API URL via env)
+- `docker-compose.yml`, `.dockerignore`, `.env.example`
+- Named SQLite volume; optional explicit `seed-demo` step (never automatic)
+- Compose healthcheck against the existing `/api/health`
+- Docker setup guide + a CI job that builds both images
+- Explicitly **not** in this phase: PostgreSQL, Redis, Celery, Nginx, Kubernetes,
+  production secrets, cloud deploy.
 
 ## Phase 4 — Calendar operations (planned)
 

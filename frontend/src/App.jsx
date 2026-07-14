@@ -30,6 +30,7 @@ const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
 const CrewPlannerPage = lazy(() => import("./pages/CrewPlannerPage"));
 const DispatchBoardPage = lazy(() => import("./pages/DispatchBoardPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 
 function PageFallback() {
   return <div className="page-stack"><p className="text-muted">Loading...</p></div>;
@@ -356,6 +357,15 @@ function App() {
             <TasksRoute>
               <TasksPage currentUser={currentUser} />
             </TasksRoute>
+          }
+        />
+
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedLayout>
+              <CalendarPage currentUser={currentUser} />
+            </ProtectedLayout>
           }
         />
 

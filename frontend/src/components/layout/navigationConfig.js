@@ -15,6 +15,7 @@ import {
   FaShieldAlt,
   FaHistory,
   FaTasks,
+  FaCalendarAlt,
 } from "react-icons/fa";
 
 import {
@@ -70,6 +71,12 @@ export const navigationGroups = [
         path: "/calls",
         icon: FaClipboardList,
         canAccess: hasPatientAccess,
+      },
+      {
+        label: "Calendar",
+        path: "/calendar",
+        icon: FaCalendarAlt,
+        canAccess: () => true,
       },
     ],
   },
