@@ -31,6 +31,8 @@ const CrewPlannerPage = lazy(() => import("./pages/CrewPlannerPage"));
 const DispatchBoardPage = lazy(() => import("./pages/DispatchBoardPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const VehiclesListPage = lazy(() => import("./pages/fleet/VehiclesListPage"));
+const VehicleWorkspacePage = lazy(() => import("./pages/fleet/VehicleWorkspacePage"));
 
 function PageFallback() {
   return <div className="page-stack"><p className="text-muted">Loading...</p></div>;
@@ -45,6 +47,7 @@ import {
   hasCrewPlannerAccess,
   hasAdminAccess,
   hasDispatchAccess,
+  hasFleetAccess,
 } from "./api/authApi";
 
 function App() {
@@ -141,6 +144,24 @@ function App() {
     }
 
     if (!hasDispatchAccess(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return (
+      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppLayout>
+    );
+  };
+
+  // Protect Fleet pages. Dispatchers get read-only visibility; HR has no
+  // operational reason to see the fleet.
+  const FleetRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!hasFleetAccess(currentUser)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -357,6 +378,24 @@ function App() {
             <TasksRoute>
               <TasksPage currentUser={currentUser} />
             </TasksRoute>
+          }
+        />
+
+        <Route
+          path="/fleet/vehicles"
+          element={
+            <FleetRoute>
+              <VehiclesListPage currentUser={currentUser} />
+            </FleetRoute>
+          }
+        />
+
+        <Route
+          path="/fleet/vehicles/:vehicleId"
+          element={
+            <FleetRoute>
+              <VehicleWorkspacePage currentUser={currentUser} />
+            </FleetRoute>
           }
         />
 

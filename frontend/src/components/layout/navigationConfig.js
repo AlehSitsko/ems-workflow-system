@@ -16,6 +16,7 @@ import {
   FaHistory,
   FaTasks,
   FaCalendarAlt,
+  FaTruck,
 } from "react-icons/fa";
 
 import {
@@ -25,6 +26,7 @@ import {
   hasCrewPlannerAccess,
   hasSupervisorAccess,
   hasAdminAccess,
+  hasFleetAccess,
 } from "../../api/authApi";
 
 const hasPayrollAccess = (user) =>
@@ -77,6 +79,17 @@ export const navigationGroups = [
         path: "/calendar",
         icon: FaCalendarAlt,
         canAccess: () => true,
+      },
+    ],
+  },
+  {
+    title: "Fleet",
+    items: [
+      {
+        label: "Vehicles",
+        path: "/fleet/vehicles",
+        icon: FaTruck,
+        canAccess: hasFleetAccess,
       },
     ],
   },

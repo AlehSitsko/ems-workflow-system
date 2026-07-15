@@ -125,7 +125,7 @@ Deferred deliberately — **not** part of the current Calendar slice:
 - Reminders, notification integration, saved views, conflict detection
 - Route optimization — separate future research only
 
-## Phase 4b — Operational taxonomy & visual classification (planned, next)
+## Phase 4b — Operational taxonomy & visual classification (done)
 
 One canonical vocabulary before more colour/fleet work — today unit and
 service-level strings are duplicated as ad-hoc arrays across components.
@@ -212,7 +212,7 @@ Distinguish **intake calls** from **trips** — never use "calls" for both.
 - Per-user display settings for each metric; backend access control is
   independent of display settings
 
-## Phase 4f — Entity Workspaces & UI levels (planned)
+## Phase 4f — Entity Workspaces & UI levels (in progress)
 
 - Three UI levels: **Quick Peek** (drawer), **Quick Create/Edit** (drawer, short
   forms only), **Entity Workspace** (own route, tabs, documents, history,

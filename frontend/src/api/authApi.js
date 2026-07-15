@@ -123,6 +123,32 @@ export function hasCrewPlannerAccess(user) {
   );
 }
 
+// Check whether a user can view Fleet. Dispatchers get read-only visibility —
+// they need to know which vehicles are available and what is out of service —
+// while HR has no operational reason to see the fleet at all.
+export function hasFleetAccess(user) {
+  if (!user) {
+    return false;
+  }
+
+  return (
+    user.role === "admin" ||
+    user.role === "supervisor" ||
+    user.role === "dispatcher"
+  );
+}
+
+// Check whether a user can create/edit/retire fleet records. Dispatchers can
+// look but not touch; the frontend gate is a convenience, the backend is the
+// enforcement.
+export function hasFleetEditAccess(user) {
+  if (!user) {
+    return false;
+  }
+
+  return user.role === "admin" || user.role === "supervisor";
+}
+
 // Check whether a user has access to supervisor-only features.
 export function hasSupervisorAccess(user) {
   if (!user) {

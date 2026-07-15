@@ -4,7 +4,7 @@
 
 Three layers of tests, in order of reliability:
 
-1. **Backend pytest (isolated) — 147 tests.** Run under `pytest` against an
+1. **Backend pytest (isolated) — 206 tests.** Run under `pytest` against an
    in-memory SQLite database built by the application factory; no live server,
    no dev database touched. Domains covered:
    - `test_auth.py` (6) — login success/failure, unknown/inactive user, bad body
@@ -33,13 +33,28 @@ Three layers of tests, in order of reliability:
      + pickup-time history guards; and a full **Live workflow regression** proving
      assign → status → queue → pickup-time → complete → reopen → unassign still
      works today
-2. **Frontend Vitest (isolated) — 88 tests.** Vitest + React Testing Library +
+   - `test_taxonomy.py` (43) — canonical vocabulary + normalization against the
+     legacy values actually found in the database (`bls`/`als` casing, `BARI`,
+     `BLS4`); `emergency` rejected as a service level; qualification vs
+     administrative role; shift role derived from the crew slot; the published
+     `GET /api/taxonomy` contract matching the module; and the cleanup CLIs —
+     `normalize-taxonomy` (canonicalizes, never rewrites an unresolved value,
+     dry run writes nothing) and `migrate-emergency-service-level` (moves
+     `emergency` to `call_type` only when the slot is free, **never** overwriting
+     an existing type such as `return`)
+   - `test_fleet.py` (16) — Fleet permission matrix (dispatcher read-only, HR
+     `403`, unknown role `403`), taxonomy-on-write (`BARI` → `Bariatric`,
+     invalid type `400`), and the audit trail behind the Workspace Activity tab
+2. **Frontend Vitest (isolated) — 127 tests.** Vitest + React Testing Library +
    jsdom. Utility coverage (`timeUtils`, `dispatchBoardUtils` incl.
    `getShiftAlertSeverity` with a faked clock, date-mode helpers + timezone-safe
    `addDays` month/year/leap boundaries, `licenseUtils`, `holidayUtils`,
-   `calendarUtils`, `calendarLinks`) plus component tests (`StatusPill`,
-   `CalendarDayCell`, `DayOperationsDrawer`, `BoardToolbar` mode badge + day nav,
-   `UnitDetailPanel` live-status gating).
+   `calendarUtils`, `calendarLinks`, `taxonomy` mirror) plus component tests
+   (`StatusPill`, `CalendarDayCell`, `DayOperationsDrawer`, `BoardToolbar` mode
+   badge + day nav, `UnitDetailPanel` live-status gating, `TaxonomyBadges`
+   accessibility — label readable without colour, unknown degrades to a neutral
+   badge — and `EntityWorkspace` routing: URL-synced tabs, deep link,
+   loading/error/not-found/permission states, back-to-list, unsaved-changes).
 3. **Live QA scripts (`qa_test.py`, `stress_test.py`).** Standalone Python scripts
    that hit a **running** backend over HTTP. They create real rows and clean most
    up afterward, so they are smoke/regression tools, **not** isolated unit tests.

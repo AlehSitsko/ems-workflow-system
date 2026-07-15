@@ -100,6 +100,21 @@ be implemented before the current Calendar slice is complete:
   not export patient data without a separate privacy/security policy
 - [ ] Route optimization — separate future research only
 
+## P1b — Entity Workspace migration (in progress)
+
+The drawer-first rule is retired: complex entities move to full-page workspaces
+(see [docs/UI_STANDARD.md](docs/UI_STANDARD.md)). Vehicles is the reference
+implementation — migrate the rest **incrementally**, not in one rewrite.
+
+- [x] `EntityWorkspace` shell (URL-synced tabs, back-to-list with restored filters, loading/error/not-found/permission, unsaved-changes)
+- [x] Vehicle Workspace `/fleet/vehicles/:vehicleId` + Fleet vehicles list + Fleet nav group
+- [ ] Employee Workspace `/employees/:employeeId` (Overview, Qualifications, Documents, Schedule, Leave, Time & Pay, Tasks, Activity)
+- [ ] Patient Workspace `/patients/:patientId` (Overview, Transport Profile, Contacts, Alerts, Calls/Trips, Activity)
+- [ ] Consider `/tasks/:taskId`, `/calls/:callId`, `/operations/days/:date`
+- [ ] **Migrate to a react-router data router** (`createHashRouter`) so `useBlocker`
+  can guard sidebar navigation. Today `dirty` only guards the workspace's own back
+  link, tab switches and page unload — sidebar navigation is not blocked.
+
 ## Tech debt / follow-ups (discovered during Calendar integration)
 
 - [ ] **Migration drift** — `flask --app app db check` reports pre-existing drift
@@ -115,6 +130,15 @@ be implemented before the current Calendar slice is complete:
 - [ ] Calendar readiness: reliable **shift time-overlap** double-booking and
   **vehicle out-of-service** checks (see P1 remaining) once a
   `DailyCrewUnit`→`Vehicle` link and shift-overlap logic exist.
+- [ ] **Split `Employee.role`** into qualification + administrative role. It currently
+  mixes both (EMT/Paramedic vs Supervisor); the taxonomy normalizer interprets it,
+  but the column should be split (needs a migration).
+- [ ] **Call #27** still has `service_level='emergency'` with `call_type='return'` —
+  the cleanup deliberately refused to overwrite a real call_type. Needs a decision.
+- [ ] 3 calls / 3 patients hold an empty-string service level (`''`) — decide
+  whether to normalize to NULL.
+- [ ] `Vehicle.unit_type` is a single value; real multi-capability support lands
+  with Fleet Management.
 - [ ] HR opens a Calendar `crew_shift` link into `/dispatch`, but HR has no
   Dispatch access (redirects to home). Decide: hide the link for HR, or give HR a
   read-only crew view.

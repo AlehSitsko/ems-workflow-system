@@ -83,15 +83,50 @@ PUT     /api/crew-presets/<preset_id>
 DELETE  /api/crew-presets/<preset_id>
 ```
 
-## Vehicles
+## Vehicles (Fleet)
 
 ```text
-GET     /api/vehicles
-POST    /api/vehicles
-PUT     /api/vehicles/<vehicle_id>
-PATCH   /api/vehicles/<vehicle_id>/toggle-active
-DELETE  /api/vehicles/<vehicle_id>
+GET     /api/vehicles                              (?active=1 — admin/supervisor/dispatcher)
+GET     /api/vehicles/<vehicle_id>                 (backs the Vehicle Workspace deep link)
+POST    /api/vehicles                              (admin/supervisor)
+PUT     /api/vehicles/<vehicle_id>                 (admin/supervisor)
+PATCH   /api/vehicles/<vehicle_id>/toggle-active   (admin/supervisor)
+DELETE  /api/vehicles/<vehicle_id>                 (admin/supervisor)
 ```
+
+**Permission matrix.** Fleet is operational data: dispatchers need to know what
+is available or out of service, HR has no operational reason to see it.
+
+| Action | admin | supervisor | dispatcher | hr |
+|---|---|---|---|---|
+| View | yes | yes | yes (read-only) | **403** |
+| Create / edit / toggle / delete | yes | yes | **403** | **403** |
+
+`unitType` is normalized against the canonical taxonomy on write, so legacy
+`BARI` is stored as `Bariatric`; an unrecognised type is a `400`. All mutations
+are written to the audit log (`vehicle.created/updated/deactivated/deleted`),
+which is what the Vehicle Workspace Activity tab reads.
+
+## Taxonomy
+
+```text
+GET     /api/taxonomy      (canonical operational vocabulary; no role gate — it is vocabulary, not data)
+```
+
+The published contract for the strings that classify employees, vehicles, daily
+units, patients and calls. `backend/utils/taxonomy.py` is authoritative;
+`frontend/src/utils/taxonomy.js` mirrors it and this endpoint exists so the two
+can be verified rather than drifting silently.
+
+Returns `serviceLevels`, `unitTypes`, `vehicleCapabilities`, `qualifications`
+(value+label), `shiftRoles` (value+label), and `notServiceLevels` — values such
+as `emergency` that are explicitly **not** a level of care (it is a call type).
+
+Key distinctions the contract encodes:
+- `Patient.default_service_level` is a **preference**; `Call.service_level` is the
+  **actual requirement** of that trip. A patient default never rewrites existing calls.
+- An employee's **qualification** is not their **shift role** — the role comes from
+  the `DailyCrewUnit` slot, so a Paramedic may be rostered as Driver.
 
 ## Patients
 

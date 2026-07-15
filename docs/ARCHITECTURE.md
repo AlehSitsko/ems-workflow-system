@@ -132,6 +132,53 @@ The **Calendar** and **Dispatch Board** are two views over the *same* records �
 
 Staff Tasks, Notifications, and Settings are cross-cutting: any module can create a task or trigger a notification; every user has one settings blob (`User.settings_json`) covering notification prefs, dispatch alert thresholds, UI panel sizes, and time format.
 
+## Operational taxonomy
+
+`backend/utils/taxonomy.py` is the **single source of truth** for the strings
+that classify employees, vehicles, daily units, patients and calls. It is
+published at `GET /api/taxonomy` and mirrored (display layer only) by
+`frontend/src/utils/taxonomy.js`. Before it existed the same vocabulary was
+re-declared in half a dozen components, which is how the database acquired `bls`
+alongside `BLS`, `BARI` alongside `Bariatric`, and `emergency` stored as a
+*service level*.
+
+Four vocabularies that are deliberately distinct:
+
+| Vocabulary | Applies to | Note |
+|---|---|---|
+| Service level | `Patient.default_service_level`, `Call.service_level` | The patient value is a **preference**; the call value is the **actual requirement of that trip**. Changing a patient default never rewrites existing calls. |
+| Unit type | `DailyCrewUnit.unit_type` | How a crew is deployed for a day |
+| Vehicle capability | `Vehicle.unit_type` (single-value today) | Real multi-capability support arrives with Fleet Management |
+| Qualification | `Employee.role` | What the person is qualified to do |
+
+**Qualification ≠ shift role.** The role an employee works on a given shift comes
+from the `DailyCrewUnit` slot they occupy (`driver_id` / `medical_id` /
+`assist1_id` / `assist2_id`), so a Paramedic can be rostered as Driver.
+`Employee.role` currently mixes qualification (EMT, Paramedic) with an
+administrative role (Supervisor); the normalizer interprets both, and splitting
+the column is a future migration.
+
+Normalization happens **on write**. Values that cannot be resolved are preserved
+verbatim and surfaced as "Unknown" — never silently rewritten or blanked. Legacy
+cleanup is a deliberate CLI (`flask normalize-taxonomy`, dry run by default), not
+an implicit side effect.
+
+## Entity Workspace routes
+
+Complex entities get a full page with a canonical URL rather than an
+ever-growing drawer (see [UI_STANDARD.md](UI_STANDARD.md) for the decision
+rules). `components/workspace/EntityWorkspace.jsx` provides the shared shell:
+URL-synced tabs (`?tab=`), back-to-list that restores the list's filters,
+loading/error/not-found/permission states, and unsaved-changes protection.
+
+```text
+/fleet/vehicles            list (filters/search live in the URL)
+/fleet/vehicles/:vehicleId workspace  <- reference implementation
+```
+
+Planned next: `/employees/:employeeId`, `/patients/:patientId`. Drawers remain
+for quick peek / short create-edit forms.
+
 ## Authentication
 
 **Current state (intentional MVP, not an oversight):** header-based pseudo-auth. The frontend stores the logged-in user in `localStorage` after `POST /api/auth/login` and sends `X-User-Id` / `X-User-Role` / `X-User-Name` headers on subsequent requests; each route blueprint reads and trusts these headers directly (no JWT, no server-side session, no signed token). Role checks are inline per-route (`if role not in (...): return 403`), duplicated across files rather than centralized in a decorator.
