@@ -330,11 +330,15 @@ export default function DispatchBoardPage() {
   async function handleSetWillCallTime(callId, pickupTime) {
     if (!pickupTime) return;
     try {
-      await fetch(`${API_BASE}/api/calls/${callId}/pickup-time`, {
+      const res = await fetch(`${API_BASE}/api/calls/${callId}/pickup-time`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pickup_time: pickupTime }),
       });
+      // The backend rejects pickup-time edits on a past (history) trip — surface
+      // that reason rather than silently appearing to succeed.
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.error) || "Failed to set pickup time");
       await loadBoard(date);
     } catch (e) { toast.error("Failed to set pickup time", e.message); }
   }

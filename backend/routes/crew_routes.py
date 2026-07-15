@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 from models import db, DailyCrewUnit
 from utils.employee_utils import parse_optional_employee_id
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
+from utils.operational_dates import prohibit_historical_mutation
 from notification_utils import create_notification
 
 
@@ -94,6 +95,11 @@ def create_daily_crew_unit():
     if dt_error:
         return jsonify({"error": dt_error}), 400
 
+    # Crew shifts are planned for today or the future; a past board is read-only.
+    historical = prohibit_historical_mutation(shift_date, "Saving a crew shift")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     try:
         check_length(truck_number, 50, "truckNumber")
         check_length(data.get("notes"), 5000, "notes")
@@ -178,6 +184,11 @@ def update_daily_crew_unit(id):
     if dt_error:
         return jsonify({"error": dt_error}), 400
 
+    # Crew shifts are planned for today or the future; a past board is read-only.
+    historical = prohibit_historical_mutation(shift_date, "Saving a crew shift")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     try:
         check_length(truck_number, 50, "truckNumber")
         check_length(data.get("notes"), 5000, "notes")
@@ -231,6 +242,11 @@ def delete_daily_crew_unit(id):
     unit = DailyCrewUnit.query.get(id)
     if not unit:
         return jsonify({"error": "Crew unit not found"}), 404
+
+    historical = prohibit_historical_mutation(unit.shift_date, "Deleting a crew shift")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     try:
         db.session.delete(unit)
         db.session.commit()
@@ -243,6 +259,11 @@ def delete_daily_crew_unit(id):
 @crew_bp.route("/<int:id>/make-night", methods=["POST"])
 def make_night_crew(id):
     source = DailyCrewUnit.query.get_or_404(id)
+
+    historical = prohibit_historical_mutation(source.shift_date, "Creating a night crew")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     data = request.get_json() or {}
     replace = data.get("replace", False)
     end_date = (data.get("endDate") or "").strip() or None

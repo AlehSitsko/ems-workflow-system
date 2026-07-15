@@ -63,8 +63,8 @@ It is not intended to replace primary dispatch software, CAD systems, EMR system
 ## Feature Highlights
 
 * **Call Intake** — Classic and Guided modes, patient lookup with duplicate prevention, quality scoring, price calculator
-* **Dispatch Board** — open calls, drag-and-drop assignment, unit status lifecycle with timestamps, return rides, cancel/reopen, priority queue, overdue/stuck alerts. Reads `?date=` and runs in **Planning / Live / History** modes (future planning, live operations, read-only past); live status transitions are gated to today
-* **Calendar** — read-only operational calendar aggregating existing calls and crew shifts (not a duplicate store): month view with per-day readiness, weekend + US federal holidays, a Day Operations drawer, and one-click "Open Day in Dispatch Board". Backend role-filtered event API; HR sees crew-only, no PHI
+* **Dispatch Board** — open calls, drag-and-drop assignment, unit status lifecycle with timestamps, return rides, cancel/reopen, priority queue, overdue/stuck alerts. Reads `?date=` and runs in **Planning / Live / History** modes, enforced **on the backend** (`409`), not just by disabled buttons: Planning (future) allows crew shifts + assignment + queue but no live lifecycle; Live (today) allows everything; History (past) is read-only. Cross-date assignment and past assignment are rejected; board dates must be real calendar dates
+* **Calendar** — read-only operational calendar that aggregates existing records (never a duplicate store): month view with per-day readiness, weekend + US federal holidays, a Day Operations drawer, and one-click "Open Day in Dispatch Board". Sources: scheduled calls, crew shifts, patient & employee birthdays, certification expirations, task due dates, and vehicle compliance/maintenance dates. Role-filtered on the backend (HR gets crew-only, no PHI; dispatcher sees certifications without employee names), with per-user display settings
 * **Patients** — operational records, dispatch comments, transport instructions, alerts, contacts, soft archive
 * **Crew Planner** — daily units, day/night shifts, shift duration & delay alerts, vehicle registry, certification-checked crew validation
 * **Employees / HR** — records, certifications, document management with expiry tracking, compliance dashboard
@@ -125,10 +125,10 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-# Backend — 89 isolated pytest tests (in-memory SQLite, no server needed)
+# Backend — 147 isolated pytest tests (in-memory SQLite, no server needed)
 cd backend; pytest -v
 
-# Frontend — 32 Vitest tests (utilities + a component smoke test)
+# Frontend — 88 Vitest tests (utilities + component tests)
 cd frontend; npm test
 
 # Live QA (optional) — needs the backend running; use a DISPOSABLE database
@@ -170,7 +170,7 @@ Full breakdown: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Vehicle Registry, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **112 backend pytest tests + 82 frontend Vitest tests**, plus the live `qa_test.py` smoke suite. The project is in a stabilization pass — see Current Development Direction below.
+Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Vehicle Registry, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **147 backend pytest tests + 88 frontend Vitest tests**, plus the live `qa_test.py` smoke suite (104 checks). The project is in a stabilization pass — see Current Development Direction below.
 
 Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 
@@ -203,7 +203,7 @@ development environment does not make the project production-ready.*
 * The system does not include full clinical ePCR, NEMSIS export, insurance claims processing, or live GPS routing.
 * Docker is **planned, not implemented** — see Current Development Direction above. The operational Calendar is implemented for calls + crew shifts; additional event sources (birthdays, certifications, tasks, vehicles) and Week/Agenda views are still to come.
 * Calendar readiness uses only reliably-computable conflicts today; shift time-overlap double-booking and vehicle out-of-service checks are deferred (see [TODO.md](TODO.md) → Tech debt / follow-ups).
-* Test coverage is 112 backend pytest + 82 frontend Vitest tests plus live QA scripts; some domains (crew, notifications) still have isolated coverage only through the live `qa_test.py` script. See [docs/TESTING.md](docs/TESTING.md).
+* Test coverage is 147 backend pytest + 88 frontend Vitest tests plus live QA scripts (`qa_test.py`, 104 checks); some domains (crew, notifications) still have isolated coverage only through the live `qa_test.py` script. See [docs/TESTING.md](docs/TESTING.md).
 * Some production-readiness tasks are intentionally deferred until the feature set stabilizes — see [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## Security Note

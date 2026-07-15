@@ -53,6 +53,14 @@ COMPLETED_BLOCKS.md → "Calendar"). Full spec in
 - [x] Per-user calendar display settings (`settings.calendar`): source toggles, week start, density, weekends/holidays
 - [x] Backend role access for every source (HR crew-only/no-PHI; dispatcher sees certs without employee name; patient/vehicle ops-only)
 
+**Also done (P0 date-mode enforcement):**
+- [x] `utils/operational_dates.py` — single source of truth for local operational dates, mode derivation (Planning/Live/History) and the guards
+- [x] Backend enforcement on every mutating route: assign, unassign, complete, reopen, call-order, unit status, crew create/update/delete, make-night, pickup-time
+- [x] Cross-date assignment rejected (`trip_date` must equal `shift_date`); past assignment rejected; completed/cancelled call not assignable
+- [x] Real-calendar-date validation (`400` for 2026-99-99 / 2026-02-30, leap day accepted) on the board date and every guard; frontend `isIsoDate` uses the same meaning
+- [x] Dispatch API helpers surface the backend's specific rejection message
+- [x] `tests/test_date_modes.py` (22) incl. a full Live workflow regression
+
 **Remaining (next Calendar slice):**
 - [ ] Week and Agenda views (Month is live; the switch buttons are placeholders)
 - [ ] Reliable conflict checks currently deferred (see Tech-debt / follow-ups): shift **time-overlap** double-booking (MVP flags same-day double-booking regardless of overlap), vehicle **out-of-service** readiness (no reliable `DailyCrewUnit`→`Vehicle` link yet)

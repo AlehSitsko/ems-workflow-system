@@ -70,8 +70,15 @@ export function todayStr() {
   return `${y}-${m}-${day}`;
 }
 
+// True only for a *real* calendar date in YYYY-MM-DD form — the same meaning the
+// backend enforces (utils/operational_dates.parse_operational_date). A shape-only
+// regex would accept 2026-02-30 / 2026-99-99, so round-trip through a local Date
+// (never Date.parse of the string, which would apply UTC).
 export function isIsoDate(value) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
 // Step a YYYY-MM-DD date by ±N days, timezone-safe (local calendar math, no UTC
