@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 import pytest
 from werkzeug.security import generate_password_hash
 
-from models import db, User, Employee, Patient, Call, DailyCrewUnit, CallAssignment
+from models import db, User, Employee, Patient, Call, DailyCrewUnit, CallAssignment, Vehicle, Task
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
@@ -295,3 +295,84 @@ def test_existing_board_endpoint_unchanged(client, roles):
     assert "openCalls" in body and "units" in body
     assert body["date"] == TODAY
     assert len(body["units"]) == 1
+
+
+# ── Overlay sources: birthdays, certifications, tasks, vehicles ──────────────
+
+# A dob whose month-day equals FUTURE's, so the birthday occurrence lands on FUTURE.
+BIRTHDAY_DOB = f"1990-{FUTURE[5:7]}-{FUTURE[8:10]}"
+
+
+def mk_employee(first="Cal", last="Endar", dob=None, active=True, **certs):
+    e = Employee(first_name=first, last_name=last, role="EMT", is_active=active, dob=dob)
+    for k, v in certs.items():
+        setattr(e, k, v)
+    db.session.add(e)
+    db.session.commit()
+    return e
+
+
+def types_for(client, headers, type_, start=TODAY, end=FUTURE):
+    body = client.get(f"/api/calendar/events?start={start}&end={end}", headers=headers).get_json()
+    return [e for e in body["events"] if e["type"] == type_]
+
+
+def test_patient_birthday_visible_to_ops_not_hr(client, roles):
+    mk_patient("Birthday", "Person")
+    db.session.query(Patient).update({Patient.dob: BIRTHDAY_DOB})
+    db.session.commit()
+    disp = types_for(client, roles["dispatcher"], "patient_birthday")
+    assert len(disp) == 1
+    assert disp[0]["metadata"]["patientLabel"] == "Birthday P."  # minimized
+    assert types_for(client, roles["hr"], "patient_birthday") == []  # HR: no patient PHI
+
+
+def test_employee_birthday_visible_to_all_roles(client, roles):
+    mk_employee("Emp", "Loyee", dob=BIRTHDAY_DOB)
+    for role in ("admin", "dispatcher", "hr"):
+        evs = types_for(client, roles[role], "employee_birthday")
+        assert len(evs) == 1, role
+
+
+def test_birthday_recurs_regardless_of_birth_year(client, roles):
+    # dob in 1975 still produces an occurrence in the current-year range.
+    mk_employee("Old", "Timer", dob=f"1975-{FUTURE[5:7]}-{FUTURE[8:10]}")
+    assert len(types_for(client, roles["admin"], "employee_birthday")) == 1
+
+
+def test_certification_event_hides_name_from_dispatcher(client, roles):
+    mk_employee("Cert", "Holder", emt_has_license=True, emt_expiration_date=FUTURE)
+    admin_ev = types_for(client, roles["admin"], "certification")
+    assert len(admin_ev) == 1
+    assert admin_ev[0]["metadata"].get("employeeName") == "Cert Holder"
+    disp_ev = types_for(client, roles["dispatcher"], "certification")
+    assert len(disp_ev) == 1                                   # dispatcher sees the fact
+    assert "employeeName" not in disp_ev[0]["metadata"]        # but not the name
+    assert disp_ev[0]["sourceId"] is None
+
+
+def test_task_event_follows_task_visibility(client, roles):
+    # Plain admin task, not assigned/participant/visible_to_all.
+    t = Task(title="Due soon", task_type="General Task", status="New", priority="Normal",
+             due_date=FUTURE, created_at="2026-01-01", updated_at="2026-01-01")
+    db.session.add(t)
+    db.session.commit()
+    assert len(types_for(client, roles["admin"], "task")) == 1        # admin sees all
+    assert types_for(client, roles["dispatcher"], "task") == []       # unrelated dispatcher: none
+    t.visible_to_all = True
+    db.session.commit()
+    assert len(types_for(client, roles["dispatcher"], "task")) == 1   # announcement visible
+
+
+def test_vehicle_event_visible_to_ops_not_hr(client, roles):
+    v = Vehicle(unit_name="Ambu-1", unit_number="77", unit_type="BLS", inspection_expiry=FUTURE)
+    db.session.add(v)
+    db.session.commit()
+    assert len(types_for(client, roles["dispatcher"], "vehicle")) == 1
+    assert types_for(client, roles["hr"], "vehicle") == []
+
+
+def test_overlay_events_counted_in_day_summary(client, roles):
+    mk_employee("Emp", "Loyee", dob=BIRTHDAY_DOB)
+    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    assert body["days"][FUTURE]["otherEventsCount"] >= 1

@@ -73,6 +73,7 @@ class Employee(db.Model):
     email = db.Column(db.String(150))
     employee_number = db.Column(db.String(50))
     hire_date = db.Column(db.String(20))
+    dob = db.Column(db.String(20))  # YYYY-MM-DD; drives employee birthday calendar events
 
     # Operational employee information.
     role = db.Column(db.String(50), default="EMT")
@@ -114,6 +115,7 @@ class Employee(db.Model):
             "email": self.email or "",
             "employeeNumber": self.employee_number or "",
             "hireDate": self.hire_date or "",
+            "dob": self.dob or "",
             "role": self.role or "EMT",
             "status": self.status or "active",
             "isActive": self.is_active,
@@ -155,6 +157,12 @@ class Vehicle(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text)
 
+    # Compliance / maintenance dates (YYYY-MM-DD) — drive vehicle calendar events.
+    inspection_expiry = db.Column(db.String(20))
+    registration_expiry = db.Column(db.String(20))
+    insurance_expiry = db.Column(db.String(20))
+    next_maintenance_date = db.Column(db.String(20))
+
     created_at = db.Column(db.String(50))
     updated_at = db.Column(db.String(50))
 
@@ -169,6 +177,10 @@ class Vehicle(db.Model):
             "unitType": self.unit_type,
             "isActive": self.is_active,
             "notes": self.notes or "",
+            "inspectionExpiry": self.inspection_expiry or "",
+            "registrationExpiry": self.registration_expiry or "",
+            "insuranceExpiry": self.insurance_expiry or "",
+            "nextMaintenanceDate": self.next_maintenance_date or "",
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
@@ -1044,10 +1056,20 @@ class Task(db.Model):
 
     is_archived = db.Column(db.Boolean, default=False)
 
+    # When true, the task is an announcement visible to every known-role user
+    # (in addition to its creator/assignee/participants).
+    visible_to_all = db.Column(db.Boolean, default=False, nullable=False)
+
     assignee = db.relationship("Employee", foreign_keys=[assigned_to_employee_id])
     creator = db.relationship("User", foreign_keys=[created_by_user_id])
+    participants = db.relationship(
+        "TaskParticipant", back_populates="task", cascade="all, delete-orphan"
+    )
 
     TERMINAL_STATUSES = {"Completed", "Cancelled"}
+
+    def participant_employee_ids(self):
+        return [p.employee_id for p in self.participants]
 
     def is_overdue(self):
         if not self.due_date or self.status in self.TERMINAL_STATUSES:
@@ -1081,7 +1103,26 @@ class Task(db.Model):
             "updated_at": self.updated_at,
             "is_archived": self.is_archived,
             "is_overdue": self.is_overdue(),
+            "visible_to_all": bool(self.visible_to_all),
+            "participant_employee_ids": self.participant_employee_ids(),
         }
+
+
+class TaskParticipant(db.Model):
+    """Additional employees who can see a task (beyond its creator/assignee).
+
+    Kept employee-scoped to mirror `assigned_to_employee_id` so the same
+    logged-in-user → employee_id resolution drives visibility everywhere.
+    """
+    __tablename__ = "task_participant"
+    __table_args__ = (db.UniqueConstraint("task_id", "employee_id", name="uq_task_participant"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey("task.id"), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+
+    task = db.relationship("Task", back_populates="participants")
+    employee = db.relationship("Employee", foreign_keys=[employee_id])
 
 
 class TaskComment(db.Model):

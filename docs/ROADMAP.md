@@ -32,12 +32,15 @@ table.
 
 **Shipped so far:** the page scaffold (month grid, weekend/US-holiday
 highlighting, navigation, legend); `GET /api/calendar/events?start=&end=` with
-range validation, backend role filtering, and per-day operational summaries; the
-first two event sources (`scheduled_call` from Call, `crew_shift` from
-DailyCrewUnit); month-cell readiness + a Day Operations drawer; and the Dispatch
-Board Planning/Live/History date modes with linked call/unit selection.
-**Remaining:** the additional derived sources below, Week/Agenda views, and saved
-filters.
+range validation, backend role filtering, and per-day operational summaries;
+month-cell readiness + a Day Operations drawer; the Dispatch Board
+Planning/Live/History date modes with linked call/unit selection; **all seven
+event sources** (scheduled_call, crew_shift, patient/employee birthdays,
+certification expirations, task due dates, vehicle dates) with per-source role
+access; **Task participants + assign-to-all**; and **per-user calendar display
+settings** (source toggles, week start, density, weekend/holiday toggles).
+**Remaining:** Week/Agenda views and the deferred conflict checks (shift
+time-overlap, vehicle out-of-service).
 
 **Event sources (derived):** employee birthdays (Employee), patient birthdays
 (Patient), certification expirations (CPR/EVOC/EMT/Paramedic/document fields),

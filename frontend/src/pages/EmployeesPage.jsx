@@ -180,6 +180,7 @@ const initialFormData = {
 
   employeeNumber: "",
   hireDate: "",
+  dob: "",
 
   role: "EMT",
   status: "active",
@@ -317,6 +318,7 @@ function EmployeesPage() {
 
       employeeNumber: employee.employeeNumber || "",
       hireDate: employee.hireDate || "",
+      dob: employee.dob || "",
 
       role: employee.role || "EMT",
       status: employee.status || "active",
@@ -507,6 +509,7 @@ function EmployeesPage() {
 
       employeeNumber: formData.employeeNumber.trim(),
       hireDate: formData.hireDate,
+      dob: formData.dob,
 
       role: formData.role,
       status: formData.status,
@@ -981,6 +984,22 @@ function EmployeesPage() {
                         type="date"
                         className="form-control"
                         value={formData.hireDate}
+                        onChange={handleChange}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="col-md-4">
+                      <label htmlFor="dob" className="form-label">
+                        Date of Birth
+                      </label>
+
+                      <input
+                        id="dob"
+                        name="dob"
+                        type="date"
+                        className="form-control"
+                        value={formData.dob}
                         onChange={handleChange}
                         disabled={loading}
                       />

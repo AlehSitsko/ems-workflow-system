@@ -12,13 +12,14 @@ utils/auth_utils); replacing it with real auth is a separate hardening phase.
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy.orm import joinedload
 
-from models import db, Call, DailyCrewUnit, CallAssignment
-from utils.auth_utils import get_request_role, ALL_ROLES
+from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, Vehicle, Task, User
+from utils.auth_utils import get_request_role, get_request_user_id, ALL_ROLES
+from routes.task_routes import _visible_tasks_query
 
 calendar_bp = Blueprint("calendar", __name__, url_prefix="/api/calendar")
 
@@ -30,6 +31,50 @@ MAX_RANGE_DAYS = 93
 # Roles allowed to see patient-operational data (calls, assignments, PHI labels).
 # HR intentionally does not — it only receives crew (non-PHI) events.
 _OPERATIONAL_ROLES = {"admin", "supervisor", "dispatcher"}
+# Roles allowed to see employee names on certification events. Dispatcher sees
+# certification events for crew-readiness but without the employee's name (PII).
+_CERT_NAME_ROLES = {"admin", "supervisor", "hr"}
+
+
+def _birthday_occurrences(dob_str, start_date, end_date):
+    """Dates within [start, end] on which this dob's birthday falls.
+
+    Birthdays recur yearly, and a ≤93-day range can straddle a year boundary, so
+    check each candidate year. Feb-29 birthdays only occur in leap years.
+    """
+    if not dob_str:
+        return []
+    parts = dob_str.split("-")
+    if len(parts) != 3:
+        return []
+    try:
+        month, day = int(parts[1]), int(parts[2])
+    except ValueError:
+        return []
+    results = []
+    for year in range(start_date.year, end_date.year + 1):
+        try:
+            occ = date(year, month, day)
+        except ValueError:
+            continue
+        if start_date <= occ <= end_date:
+            results.append(occ)
+    return results
+
+
+def _expiry_severity(iso_date, today):
+    """Severity for a compliance/expiry date: critical if expired or ≤14 days,
+    warning if ≤30 days, else normal."""
+    try:
+        target = datetime.strptime(iso_date, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return "normal"
+    days = (target - today).days
+    if days <= 14:
+        return "critical"
+    if days <= 30:
+        return "warning"
+    return "normal"
 
 
 def _parse_iso_date(value):
@@ -215,6 +260,10 @@ def _empty_day_summary():
         "unitsIncomplete": 0,
         "warningCount": 0,
         "criticalCount": 0,
+        # Non-operational overlay events (birthdays, certifications, tasks,
+        # vehicles). Counted separately so they don't affect operational
+        # readiness but can still surface a day indicator.
+        "otherEventsCount": 0,
         "readiness": "empty",
     }
 
@@ -349,6 +398,142 @@ def get_calendar_events():
         double_booked = sum(1 for count in seen.values() if count > 1)
         if double_booked:
             _day(date_str)["criticalCount"] += double_booked
+
+    # ── Overlay sources (birthdays, certifications, tasks, vehicles) ─────────
+    # Informational events that do NOT affect operational readiness. Each source
+    # is role-gated here on the backend.
+    today_local = date.today()
+    actor_uid = get_request_user_id()
+    actor_emp_id = None
+    if actor_uid:
+        actor = db.session.get(User, actor_uid)
+        actor_emp_id = actor.employee_id if actor else None
+
+    def _add_overlay(event):
+        events.append(event)
+        _day(event["date"])["otherEventsCount"] += 1
+
+    # Patient birthdays — operational roles only, minimized name, active patients.
+    if role in _OPERATIONAL_ROLES:
+        patients = (
+            Patient.query
+            .filter(
+                Patient.dob.isnot(None), Patient.dob != "",
+                db.or_(Patient.is_archived.is_(False), Patient.is_archived.is_(None)),
+            )
+            .all()
+        )
+        for p in patients:
+            label = _minimized_patient_label(p)
+            for occ in _birthday_occurrences(p.dob, start, end):
+                iso = occ.isoformat()
+                _add_overlay({
+                    "id": f"patient_birthday:{p.id}:{iso}",
+                    "type": "patient_birthday",
+                    "title": f"{label} — Birthday" if label else "Patient birthday",
+                    "date": iso, "start": None, "end": None, "allDay": True,
+                    "status": "info", "severity": "normal",
+                    "source": "patient", "sourceId": p.id,
+                    "assignedUnitId": None, "assignedUnitNumber": None,
+                    "link": f"/patients?patient={p.id}",
+                    "metadata": {"patientLabel": label},
+                })
+
+    # Employee birthdays — all roles.
+    for e in Employee.query.filter(Employee.dob.isnot(None), Employee.dob != "").all():
+        name = f"{e.first_name} {e.last_name}".strip()
+        for occ in _birthday_occurrences(e.dob, start, end):
+            iso = occ.isoformat()
+            _add_overlay({
+                "id": f"employee_birthday:{e.id}:{iso}",
+                "type": "employee_birthday",
+                "title": f"{name} — Birthday",
+                "date": iso, "start": None, "end": None, "allDay": True,
+                "status": "info", "severity": "normal",
+                "source": "employee", "sourceId": e.id,
+                "assignedUnitId": None, "assignedUnitNumber": None,
+                "link": f"/employees?employee={e.id}",
+                "metadata": {"employeeName": name},
+            })
+
+    # Certification expirations — admin/supervisor/hr see the employee name;
+    # dispatcher sees the fact only (no name/link/id) for crew-readiness.
+    show_cert_names = role in _CERT_NAME_ROLES
+    cert_defs = [
+        ("cpr", "CPR", "cpr_has_license", "cpr_expiration_date"),
+        ("evoc", "EVOC", "evoc_has_license", "evoc_expiration_date"),
+        ("emt", "EMT", "emt_has_license", "emt_expiration_date"),
+        ("paramedic", "Paramedic", "paramedic_has_license", "paramedic_expiration_date"),
+    ]
+    for e in Employee.query.filter(Employee.is_active.is_(True)).all():
+        name = f"{e.first_name} {e.last_name}".strip()
+        for key, label, has_attr, exp_attr in cert_defs:
+            if not getattr(e, has_attr):
+                continue
+            exp = getattr(e, exp_attr)
+            if not exp or not (start_str <= exp <= end_str):
+                continue
+            meta = {"certType": label}
+            if show_cert_names:
+                meta["employeeName"] = name
+            _add_overlay({
+                "id": f"certification:{e.id}:{key}:{exp}",
+                "type": "certification",
+                "title": f"{name} — {label} cert expires" if show_cert_names else f"{label} certification expires",
+                "date": exp, "start": None, "end": None, "allDay": True,
+                "status": "expiring", "severity": _expiry_severity(exp, today_local),
+                "source": "employee", "sourceId": e.id if show_cert_names else None,
+                "assignedUnitId": None, "assignedUnitNumber": None,
+                "link": f"/employees?employee={e.id}" if show_cert_names else None,
+                "metadata": meta,
+            })
+
+    # Task due dates — reuse the app's Task visibility for the current actor.
+    task_query = _visible_tasks_query(
+        Task.query.filter(
+            Task.due_date.isnot(None), Task.due_date != "",
+            Task.due_date >= start_str, Task.due_date <= end_str,
+            Task.is_archived.is_(False),
+        ),
+        role, actor_uid, actor_emp_id,
+    )
+    for t in task_query.all():
+        _add_overlay({
+            "id": f"task:{t.id}",
+            "type": "task",
+            "title": t.title,
+            "date": t.due_date, "start": None, "end": None, "allDay": True,
+            "status": t.status, "severity": "warning" if t.is_overdue() else "normal",
+            "source": "task", "sourceId": t.id,
+            "assignedUnitId": None, "assignedUnitNumber": None,
+            "link": f"/tasks?task={t.id}",
+            "metadata": {"priority": t.priority, "taskType": t.task_type, "visibleToAll": bool(t.visible_to_all)},
+        })
+
+    # Vehicle compliance / maintenance dates — operational roles only (not HR).
+    if role in _OPERATIONAL_ROLES:
+        vehicle_defs = [
+            ("inspection_expiry", "Inspection"),
+            ("registration_expiry", "Registration"),
+            ("insurance_expiry", "Insurance"),
+            ("next_maintenance_date", "Maintenance"),
+        ]
+        for v in Vehicle.query.all():
+            for attr, label in vehicle_defs:
+                dval = getattr(v, attr)
+                if not dval or not (start_str <= dval <= end_str):
+                    continue
+                _add_overlay({
+                    "id": f"vehicle:{v.id}:{attr}:{dval}",
+                    "type": "vehicle",
+                    "title": f"Unit {v.unit_number} — {label}",
+                    "date": dval, "start": None, "end": None, "allDay": True,
+                    "status": "due", "severity": _expiry_severity(dval, today_local),
+                    "source": "vehicle", "sourceId": v.id,
+                    "assignedUnitId": None, "assignedUnitNumber": v.unit_number,
+                    "link": f"/crew-planner?vehicle={v.id}",
+                    "metadata": {"kind": label, "unitType": v.unit_type},
+                })
 
     for summary in days.values():
         _finalize_readiness(summary)

@@ -27,6 +27,8 @@ def apply_employee_data(employee, data):
         ""
     ).strip()
 
+    employee.dob = (data.get("dob") or "").strip() or None  # YYYY-MM-DD, drives birthday events
+
     # Operational role.
     employee.role = data.get(
         "role",

@@ -2,7 +2,7 @@ from datetime import datetime, date
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Task, TaskComment, TaskActivityLog, User, Employee
+from models import db, Task, TaskComment, TaskActivityLog, TaskParticipant, User, Employee
 from audit_utils import log_action
 from notification_utils import notify_user
 from utils.validation_utils import check_length, is_valid_date
@@ -74,6 +74,37 @@ def _current_employee_id(uid):
     return user.employee_id if user else None
 
 
+def _parse_participant_ids(data):
+    """Validate `participant_employee_ids` → deduped list of existing employee ids.
+
+    Returns None when the key is absent (leave participants unchanged on update);
+    raises ValueError on malformed input or unknown employee.
+    """
+    raw = data.get("participant_employee_ids")
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise ValueError("participant_employee_ids must be a list")
+    ids = []
+    for value in raw:
+        try:
+            eid = int(value)
+        except (TypeError, ValueError):
+            raise ValueError("participant_employee_ids must be integers")
+        if not Employee.query.get(eid):
+            raise ValueError(f"Employee {eid} not found")
+        if eid not in ids:
+            ids.append(eid)
+    return ids
+
+
+def _set_participants(task, employee_ids):
+    """Replace a task's participant set with the given employee ids."""
+    task.participants.clear()
+    for eid in employee_ids:
+        task.participants.append(TaskParticipant(employee_id=eid))
+
+
 def _notify_assignee(task):
     """Bell notification for whichever user account is linked to the newly
     assigned employee, if any (an employee doesn't necessarily have a login)."""
@@ -111,30 +142,46 @@ def _record_activity(task, action_type, old_value, new_value, uid, uname):
 
 
 def _visible_tasks_query(query, role, uid, employee_id):
-    """Apply role-based visibility scoping to a Task query."""
+    """Apply role-based visibility scoping to a Task query.
+
+    Beyond the role rules, every known-role user also sees: tasks they are a
+    participant of (their employee_id is in task_participant) and tasks flagged
+    visible_to_all ("assign to everyone" announcements).
+    """
     if role in ("admin", "supervisor"):
         return query
+
+    # Shared with all non-admin roles.
+    common = [Task.visible_to_all.is_(True)]
+    if employee_id:
+        common.append(Task.participants.any(TaskParticipant.employee_id == employee_id))
+
     if role == "hr":
         conditions = [Task.task_type.in_(HR_TASK_TYPES), Task.created_by_user_id == uid]
         if employee_id:
             conditions.append(Task.assigned_to_employee_id == employee_id)
-        return query.filter(db.or_(*conditions))
+        return query.filter(db.or_(*conditions, *common))
     if role == "dispatcher":
-        if not employee_id:
-            return query.filter(db.false())
-        return query.filter(Task.assigned_to_employee_id == employee_id)
+        conditions = list(common)
+        if employee_id:
+            conditions.append(Task.assigned_to_employee_id == employee_id)
+        return query.filter(db.or_(*conditions))
     return query.filter(db.false())
 
 
 def _can_view_task(task, role, uid, employee_id):
     if role in ("admin", "supervisor"):
         return True
+    if task.visible_to_all:
+        return True
+    is_participant = employee_id is not None and employee_id in task.participant_employee_ids()
     if role == "hr":
         return (task.task_type in HR_TASK_TYPES
                 or (employee_id and task.assigned_to_employee_id == employee_id)
+                or is_participant
                 or task.created_by_user_id == uid)
     if role == "dispatcher":
-        return employee_id is not None and task.assigned_to_employee_id == employee_id
+        return (employee_id is not None and task.assigned_to_employee_id == employee_id) or is_participant
     return False
 
 
@@ -357,8 +404,11 @@ def create_task():
 
     try:
         _validate_task_fields(data)
+        participant_ids = _parse_participant_ids(data)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+    visible_to_all = bool(data.get("visible_to_all", False))
 
     uid = _verified_user_id(_user_id_from_request())
     uname = _user_name_from_request()
@@ -375,11 +425,15 @@ def create_task():
         related_module=(data.get("related_module") or "").strip() or None,
         related_entity_id=data.get("related_entity_id") or None,
         due_date=due_date,
+        visible_to_all=visible_to_all,
         created_at=now,
         updated_at=now,
     )
     db.session.add(task)
     db.session.flush()
+
+    if participant_ids:
+        _set_participants(task, participant_ids)
 
     _record_activity(task, "created", None, title, uid, uname)
     db.session.commit()
@@ -423,6 +477,7 @@ def update_task(id):
 
     try:
         _validate_task_fields(data)
+        participant_ids = _parse_participant_ids(data)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -441,6 +496,10 @@ def update_task(id):
     task.due_date = due_date
     task.related_module = (data.get("related_module") or task.related_module or "").strip() or None
     task.related_entity_id = data.get("related_entity_id", task.related_entity_id)
+    if "visible_to_all" in data:
+        task.visible_to_all = bool(data.get("visible_to_all"))
+    if participant_ids is not None:
+        _set_participants(task, participant_ids)
     task.updated_at = _now()
 
     db.session.commit()

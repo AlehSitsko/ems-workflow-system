@@ -6,7 +6,16 @@ import TimeFormatSettings from "../components/settings/TimeFormatSettings";
 import BrowserNotificationSettings from "../components/settings/BrowserNotificationSettings";
 import NotificationTypeSettings from "../components/settings/NotificationTypeSettings";
 import DispatchVisualAlertsSettings from "../components/settings/DispatchVisualAlertsSettings";
+import CalendarDisplaySettings from "../components/settings/CalendarDisplaySettings";
 import API_BASE from "../api/config.js";
+
+const DEFAULT_CALENDAR_SETTINGS = {
+  sources: {
+    scheduled_call: true, crew_shift: true, patient_birthday: true,
+    employee_birthday: true, certification: true, task: true, vehicle: true,
+  },
+  showWeekends: true, showHolidays: true, weekStartsOn: 0, density: "comfortable",
+};
 
 function NotificationSettingsPage({ currentUser }) {
   // Available types + labels for this user's role (from backend, role-filtered)
@@ -17,6 +26,7 @@ function NotificationSettingsPage({ currentUser }) {
   const [localNotifs, setLocalNotifs] = useState({});
   const [localDispatch, setLocalDispatch] = useState({ pickup_late_after: 0, stuck_after: 30 });
   const [localTimeFormat, setLocalTimeFormat] = useState("12h");
+  const [localCalendar, setLocalCalendar] = useState(DEFAULT_CALENDAR_SETTINGS);
   const [hydrated, setHydrated] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -47,6 +57,11 @@ function NotificationSettingsPage({ currentUser }) {
     setLocalNotifs(notifValues);
     setLocalDispatch({ ...settings.dispatch });
     setLocalTimeFormat(settings.ui?.time_format === "24h" ? "24h" : "12h");
+    setLocalCalendar({
+      ...DEFAULT_CALENDAR_SETTINGS,
+      ...(settings.calendar || {}),
+      sources: { ...DEFAULT_CALENDAR_SETTINGS.sources, ...(settings.calendar?.sources || {}) },
+    });
     setHydrated(true);
   }, [settingsLoaded, loadingTypes, settings, availableTypes]);
 
@@ -76,6 +91,7 @@ function NotificationSettingsPage({ currentUser }) {
         notifications: localNotifs,
         dispatch: localDispatch,
         ui: { time_format: localTimeFormat },
+        calendar: localCalendar,
       });
       setSaved(true);
     } catch { /* noop */ }
@@ -144,6 +160,11 @@ function NotificationSettingsPage({ currentUser }) {
           pickupLateAfter={localDispatch.pickup_late_after}
           stuckAfter={localDispatch.stuck_after}
           onChange={setDispatchThreshold}
+        />
+
+        <CalendarDisplaySettings
+          value={localCalendar}
+          onChange={(next) => { setLocalCalendar(next); setSaved(false); }}
         />
       </section>
     </div>

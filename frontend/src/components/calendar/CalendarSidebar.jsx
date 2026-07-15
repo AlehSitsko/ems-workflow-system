@@ -7,15 +7,14 @@ import {
   FaTruck,
 } from "react-icons/fa";
 
-// Event sources the calendar will surface once the derived-events API lands
-// (Roadmap Phase 2). Shown now as a read-only preview so the page communicates
-// where it is headed — these are not yet wired to data.
-const PLANNED_SOURCES = [
+// Live event sources the calendar aggregates (role-filtered server-side).
+// Toggle visibility per source in Settings → Calendar.
+const EVENT_SOURCES = [
+  { icon: FaPhoneAlt, label: "Scheduled calls" },
+  { icon: FaAmbulance, label: "Crew shifts" },
   { icon: FaBirthdayCake, label: "Employee & patient birthdays" },
   { icon: FaCertificate, label: "Certification expirations" },
-  { icon: FaAmbulance, label: "Crew shifts" },
   { icon: FaTasks, label: "Task due dates" },
-  { icon: FaPhoneAlt, label: "Scheduled calls" },
   { icon: FaTruck, label: "Vehicle inspections & maintenance" },
 ];
 
@@ -77,12 +76,12 @@ const CalendarSidebar = ({ monthTitle, holidays }) => (
     <section className="content-panel">
       <div className="content-panel-header">
         <div>
-          <h4>Coming soon</h4>
-          <p>Event sources this calendar will aggregate.</p>
+          <h4>Event sources</h4>
+          <p>Aggregated here, filtered by your role. Toggle in Settings.</p>
         </div>
       </div>
       <ul className="calendar-source-list">
-        {PLANNED_SOURCES.map(({ icon: Icon, label }) => (
+        {EVENT_SOURCES.map(({ icon: Icon, label }) => (
           <li key={label}>
             <span className="calendar-source-icon">
               <Icon />

@@ -13,6 +13,11 @@ export const MONTH_LABELS = [
 // Weekday headers for a Sunday-first week (US convention).
 export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Weekday headers rotated for a given first day of week (0 = Sunday, 1 = Monday).
+export function getWeekdayLabels(weekStartsOn = 0) {
+  return Array.from({ length: 7 }, (_, i) => WEEKDAY_LABELS[(weekStartsOn + i) % 7]);
+}
+
 // True for Saturday (6) and Sunday (0).
 export function isWeekend(date) {
   const d = date.getDay();
@@ -20,12 +25,14 @@ export function isWeekend(date) {
 }
 
 // Build a fixed 6-week (42-cell) month matrix. Fixed height keeps the grid from
-// jumping as the user pages between months. Each cell describes one day:
+// jumping as the user pages between months. `weekStartsOn` (0 = Sunday,
+// 1 = Monday) rotates the leading column. Each cell describes one day:
 //   { date, iso, day, inCurrentMonth, isWeekend, isToday, holiday }
-export function getMonthMatrix(year, monthIndex, today = new Date()) {
+export function getMonthMatrix(year, monthIndex, today = new Date(), weekStartsOn = 0) {
   const todayIso = toISODate(today);
   const firstWeekday = new Date(year, monthIndex, 1).getDay();
-  const gridStart = new Date(year, monthIndex, 1 - firstWeekday);
+  const offset = (firstWeekday - weekStartsOn + 7) % 7;
+  const gridStart = new Date(year, monthIndex, 1 - offset);
 
   const weeks = [];
   for (let w = 0; w < 6; w += 1) {

@@ -52,4 +52,15 @@ describe("CalendarDayCell", () => {
     render(<CalendarDayCell cell={{ ...baseCell, holiday: { name: "Independence Day", shortName: "Independence Day" } }} />);
     expect(screen.getByText("Independence Day")).toBeInTheDocument();
   });
+
+  it("renders overlay badges for non-operational events", () => {
+    const events = [
+      { id: "employee_birthday:1", type: "employee_birthday", date: "2026-07-16" },
+      { id: "certification:2", type: "certification", date: "2026-07-16" },
+    ];
+    const { container } = render(<CalendarDayCell cell={baseCell} events={events} />);
+    const badges = container.querySelectorAll(".calendar-overlay-badge");
+    expect(badges.length).toBe(2);
+    expect(screen.getByRole("button").getAttribute("aria-label")).toMatch(/birthdays/);
+  });
 });

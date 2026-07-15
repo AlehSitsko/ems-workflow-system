@@ -4,23 +4,27 @@
 
 Three layers of tests, in order of reliability:
 
-1. **Backend pytest (isolated) — 112 tests.** Run under `pytest` against an
+1. **Backend pytest (isolated) — 125 tests.** Run under `pytest` against an
    in-memory SQLite database built by the application factory; no live server,
    no dev database touched. Domains covered:
    - `test_auth.py` (6) — login success/failure, unknown/inactive user, bad body
-   - `test_tasks.py` (31) — Task Management CRUD, close-permission workflow,
-     comments/activity, list/filter, dispatcher + HR permission matrices, archive
+   - `test_tasks.py` (37) — Task Management CRUD, close-permission workflow,
+     comments/activity, list/filter, dispatcher + HR permission matrices, archive,
+     **participants + assign-to-all visibility**
    - `test_patients.py` (30) — CRUD, duplicate detection (case/whitespace
      insensitive, incl. archived), archive/restore, alerts, contacts, JSON 404,
      audit log
    - `test_payroll.py` (22) — FLSA per-ISO-week overtime, week boundaries,
      overnight/zero/negative durations, config/rate edge cases, CSV export
-   - `test_calendar.py` (23) — calendar events API (range validation, calls/crew
+   - `test_calendar.py` (30) — calendar events API (range validation, calls/crew
      in range, cancelled/completed, assignment info, day-summary counts &
-     readiness, ALS-on-BLS critical, role filtering, HR-no-PHI, stable contract)
-     **and** the Dispatch date-mode guard (future allows planning assignment /
-     rejects live status, today allows live status, past rejects mutation)
-2. **Frontend Vitest (isolated) — 82 tests.** Vitest + React Testing Library +
+     readiness, ALS-on-BLS critical, role filtering, HR-no-PHI, stable contract;
+     **overlay sources** — patient/employee birthdays incl. year-independent
+     recurrence, certification name-hiding for dispatcher, task visibility,
+     vehicle events, `otherEventsCount`) **and** the Dispatch date-mode guard
+     (future allows planning assignment / rejects live status, today allows live
+     status, past rejects mutation)
+2. **Frontend Vitest (isolated) — 86 tests.** Vitest + React Testing Library +
    jsdom. Utility coverage (`timeUtils`, `dispatchBoardUtils` incl.
    `getShiftAlertSeverity` with a faked clock, date-mode helpers + timezone-safe
    `addDays` month/year/leap boundaries, `licenseUtils`, `holidayUtils`,
