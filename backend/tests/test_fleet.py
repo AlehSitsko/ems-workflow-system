@@ -216,3 +216,177 @@ def test_availability_for_service(app, kwargs, expected):
     db.session.add(v)
     db.session.commit()
     assert v.is_available_for_service() is expected
+
+
+# ── Odometer API ────────────────────────────────────────────────────────────
+
+def test_odometer_reading_is_recorded_and_caches_current(client, roles, vehicle):
+    resp = client.post(f"/api/vehicles/{vehicle.id}/odometer",
+                       json={"reading": 12000, "unit": "mi", "notes": "Start of shift"},
+                       headers=roles["admin"])
+    assert resp.status_code == 201
+    assert resp.get_json()["reading"] == 12000
+    refreshed = db.session.get(Vehicle, vehicle.id)
+    assert refreshed.current_odometer == 12000
+    assert refreshed.last_odometer_update
+
+
+def test_odometer_history_is_kept_not_overwritten(client, roles, vehicle):
+    for reading in (100, 200, 300):
+        client.post(f"/api/vehicles/{vehicle.id}/odometer", json={"reading": reading}, headers=roles["admin"])
+    history = client.get(f"/api/vehicles/{vehicle.id}/odometer", headers=roles["dispatcher"]).get_json()
+    assert [e["reading"] for e in history] == [300, 200, 100]   # newest first, nothing lost
+
+
+def test_odometer_cannot_run_backwards(client, roles, vehicle):
+    client.post(f"/api/vehicles/{vehicle.id}/odometer", json={"reading": 5000}, headers=roles["admin"])
+    resp = client.post(f"/api/vehicles/{vehicle.id}/odometer", json={"reading": 4000}, headers=roles["admin"])
+    assert resp.status_code == 409
+    assert "backwards" in resp.get_json()["error"]
+    assert db.session.get(Vehicle, vehicle.id).current_odometer == 5000  # unchanged
+
+
+def test_odometer_rollback_allowed_as_an_explicit_correction(client, roles, vehicle):
+    client.post(f"/api/vehicles/{vehicle.id}/odometer", json={"reading": 5000}, headers=roles["admin"])
+    resp = client.post(f"/api/vehicles/{vehicle.id}/odometer",
+                       json={"reading": 4000, "correction": True}, headers=roles["admin"])
+    assert resp.status_code == 201
+    assert resp.get_json()["source"] == "correction"
+    assert db.session.get(Vehicle, vehicle.id).current_odometer == 4000
+
+
+@pytest.mark.parametrize("payload,expected", [
+    ({}, 400),                      # reading required
+    ({"reading": -5}, 400),         # negative
+    ({"reading": "abc"}, 400),      # not an integer
+    ({"reading": 9999999}, 400),    # implausible - likely a typo
+    ({"reading": 100, "unit": "furlongs"}, 400),
+])
+def test_odometer_validation(client, roles, vehicle, payload, expected):
+    resp = client.post(f"/api/vehicles/{vehicle.id}/odometer", json=payload, headers=roles["admin"])
+    assert resp.status_code == expected
+
+
+def test_dispatcher_can_read_but_not_record_odometer(client, roles, vehicle):
+    assert client.get(f"/api/vehicles/{vehicle.id}/odometer", headers=roles["dispatcher"]).status_code == 200
+    assert client.post(f"/api/vehicles/{vehicle.id}/odometer", json={"reading": 1},
+                       headers=roles["dispatcher"]).status_code == 403
+    assert client.get(f"/api/vehicles/{vehicle.id}/odometer", headers=roles["hr"]).status_code == 403
+
+
+# ── Maintenance API ─────────────────────────────────────────────────────────
+
+def test_create_and_list_maintenance(client, roles, vehicle):
+    resp = client.post(f"/api/vehicles/{vehicle.id}/maintenance",
+                       json={"maintenanceType": "oil_change", "scheduledDate": "2026-08-01",
+                             "vendor": "Joe Garage", "cost": 89.5},
+                       headers=roles["supervisor"])
+    assert resp.status_code == 201
+    assert resp.get_json()["status"] == "scheduled"
+    records = client.get(f"/api/vehicles/{vehicle.id}/maintenance", headers=roles["dispatcher"]).get_json()
+    assert len(records) == 1
+
+
+@pytest.mark.parametrize("payload", [
+    {"maintenanceType": "teleportation"},
+    {"maintenanceType": "oil_change", "status": "invented"},
+    {"maintenanceType": "oil_change", "scheduledDate": "2026-02-30"},
+    {"maintenanceType": "oil_change", "cost": -10},
+    {"maintenanceType": "oil_change", "odometerAtService": -1},
+])
+def test_maintenance_validation(client, roles, vehicle, payload):
+    assert client.post(f"/api/vehicles/{vehicle.id}/maintenance", json=payload,
+                       headers=roles["admin"]).status_code == 400
+
+
+def test_completing_maintenance_fills_a_completion_date_and_updates_the_vehicle(client, roles, vehicle):
+    created = client.post(f"/api/vehicles/{vehicle.id}/maintenance",
+                          json={"maintenanceType": "oil_change", "scheduledDate": "2026-08-01"},
+                          headers=roles["admin"]).get_json()
+    record_id = created["id"]
+    resp = client.patch(f"/api/vehicles/maintenance/{record_id}",
+                        json={"status": "completed", "odometerAtService": 30000},
+                        headers=roles["admin"])
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "completed"
+    assert body["completedDate"]                    # filled rather than left blank
+    refreshed = db.session.get(Vehicle, vehicle.id)
+    assert refreshed.last_service_date == body["completedDate"]
+    assert refreshed.last_service_mileage == 30000
+
+
+def test_dispatcher_cannot_create_maintenance(client, roles, vehicle):
+    assert client.post(f"/api/vehicles/{vehicle.id}/maintenance",
+                       json={"maintenanceType": "oil_change"},
+                       headers=roles["dispatcher"]).status_code == 403
+
+
+# ── Capabilities ────────────────────────────────────────────────────────────
+
+def test_capabilities_are_validated_and_canonicalized(client, roles):
+    resp = client.post("/api/vehicles",
+                       json={"unitName": "Multi", "unitNumber": "MC1", "unitType": "BLS",
+                             "capabilities": ["bls", "BARI", "wc"]},
+                       headers=roles["admin"])
+    assert resp.status_code == 201
+    assert resp.get_json()["capabilities"] == ["BLS", "Bariatric", "Wheelchair"]
+
+
+def test_invalid_capability_is_rejected(client, roles):
+    resp = client.post("/api/vehicles",
+                       json={"unitName": "Bad", "unitNumber": "BC1", "unitType": "BLS",
+                             "capabilities": ["BLS", "teleport"]},
+                       headers=roles["admin"])
+    assert resp.status_code == 400
+    assert "teleport" in resp.get_json()["error"]
+
+
+# ── Retire instead of delete ────────────────────────────────────────────────
+
+def test_retire_requires_a_reason(client, roles, vehicle):
+    assert client.post(f"/api/vehicles/{vehicle.id}/retire", json={}, headers=roles["admin"]).status_code == 400
+
+
+def test_retiring_makes_a_vehicle_unavailable_but_keeps_it(client, roles, vehicle):
+    resp = client.post(f"/api/vehicles/{vehicle.id}/retire",
+                       json={"reason": "Sold"}, headers=roles["admin"])
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["isRetired"] is True and body["availableForService"] is False
+    assert body["retiredReason"] == "Sold"
+    assert db.session.get(Vehicle, vehicle.id) is not None   # still there
+
+
+def test_retiring_twice_is_rejected_and_unretire_restores(client, roles, vehicle):
+    client.post(f"/api/vehicles/{vehicle.id}/retire", json={"reason": "Sold"}, headers=roles["admin"])
+    assert client.post(f"/api/vehicles/{vehicle.id}/retire", json={"reason": "Again"},
+                       headers=roles["admin"]).status_code == 409
+    resp = client.post(f"/api/vehicles/{vehicle.id}/unretire", headers=roles["admin"])
+    assert resp.status_code == 200
+    assert resp.get_json()["isRetired"] is False
+
+
+def test_vehicle_with_history_cannot_be_deleted(client, roles, vehicle):
+    from models import DailyCrewUnit
+    unit = DailyCrewUnit(shift_date="2026-07-20", unit_type="BLS", truck_number="101",
+                         start_time="08:00", vehicle_id=vehicle.id)
+    db.session.add(unit)
+    db.session.commit()
+
+    resp = client.delete(f"/api/vehicles/{vehicle.id}", headers=roles["admin"])
+    assert resp.status_code == 409
+    assert "Retire it instead" in resp.get_json()["error"]
+    assert resp.get_json()["shifts"] == 1
+    assert db.session.get(Vehicle, vehicle.id) is not None
+
+
+def test_vehicle_without_history_can_still_be_deleted(client, roles, vehicle):
+    assert client.delete(f"/api/vehicles/{vehicle.id}", headers=roles["admin"]).status_code == 200
+
+
+def test_odometer_history_also_blocks_deletion(client, roles, vehicle):
+    client.post(f"/api/vehicles/{vehicle.id}/odometer", json={"reading": 10}, headers=roles["admin"])
+    resp = client.delete(f"/api/vehicles/{vehicle.id}", headers=roles["admin"])
+    assert resp.status_code == 409
+    assert resp.get_json()["odometerEntries"] == 1
