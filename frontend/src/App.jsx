@@ -7,7 +7,7 @@ import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { UserSettingsProvider } from "./context/UserSettingsContext";
 
-import AppLayout from "./components/layout/AppLayout";
+import AppShell from "./components/layout/AppShell";
 
 import HomePage from "./pages/HomePage";
 import CallFormPage from "./pages/CallFormPage";
@@ -71,9 +71,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -97,9 +97,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -114,9 +114,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -131,9 +131,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -148,9 +148,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -166,9 +166,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -183,9 +183,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -201,9 +201,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
@@ -218,9 +218,9 @@ function App() {
     }
 
     return (
-      <AppLayout currentUser={currentUser} onLogout={handleLogout}>
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
         {children}
-      </AppLayout>
+      </AppShell>
     );
   };
 
