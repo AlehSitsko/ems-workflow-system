@@ -113,7 +113,76 @@ def normalize_taxonomy_command(apply_changes):
                    f"{unresolved_total} unresolved. Re-run with --apply to write.")
 
 
+# Placeholder call_type values that carry no meaning and are safe to replace.
+_EMPTY_CALL_TYPES = {None, "", "none", "None"}
+
+
+@click.command("migrate-emergency-service-level")
+@click.option("--apply", "apply_changes", is_flag=True,
+              help="Write the changes. Without this flag the command is a dry run.")
+@with_appcontext
+def migrate_emergency_service_level_command(apply_changes):
+    """Move `emergency` out of service_level, where it never belonged.
+
+    `emergency` describes the *type* of a call, not the level of care, but the
+    old call forms offered it as a service level. This moves it to
+    `Call.call_type` and clears the bogus service_level.
+
+    Two cases are handled explicitly rather than by force:
+
+      * A call that already has a real call_type (e.g. 'return') is NOT
+        overwritten - that would destroy the existing type to save a value we
+        know is invalid. It is reported for a human decision.
+      * Patients have no call_type at all, so `emergency` cannot be moved. It is
+        cleared: it is not a valid default transport requirement, and the level
+        of care that matters operationally lives on each call.
+    """
+    moved, conflicts, patients_cleared = [], [], []
+
+    for call in Call.query.filter(Call.service_level == "emergency").all():
+        if call.call_type in _EMPTY_CALL_TYPES:
+            moved.append((call.id, call.call_type))
+            if apply_changes:
+                call.call_type = "emergency"
+                call.service_level = None
+        else:
+            conflicts.append((call.id, call.call_type))
+
+    for patient in Patient.query.filter(Patient.default_service_level == "emergency").all():
+        patients_cleared.append(patient.id)
+        if apply_changes:
+            patient.default_service_level = None
+
+    verb = "moved" if apply_changes else "would move"
+    click.echo("\nCall.service_level 'emergency' -> Call.call_type:")
+    for call_id, old_type in moved:
+        click.echo(f"  {verb} call #{call_id} (call_type {old_type!r} -> 'emergency', service_level -> None)")
+    if not moved:
+        click.echo("  nothing to move")
+
+    for call_id, existing in conflicts:
+        click.echo(f"  CONFLICT call #{call_id} already has call_type={existing!r} - "
+                   f"left untouched, needs a decision")
+
+    verb = "cleared" if apply_changes else "would clear"
+    click.echo("\nPatient.default_service_level 'emergency' (no call_type to move it to):")
+    for pid in patients_cleared:
+        click.echo(f"  {verb} patient #{pid}")
+    if not patients_cleared:
+        click.echo("  nothing to clear")
+
+    if apply_changes:
+        db.session.commit()
+        click.echo(f"\nmigrate-emergency-service-level: {len(moved)} call(s) moved, "
+                   f"{len(patients_cleared)} patient(s) cleared, {len(conflicts)} conflict(s) left.")
+    else:
+        click.echo(f"\nmigrate-emergency-service-level (dry run): {len(moved)} call(s), "
+                   f"{len(patients_cleared)} patient(s), {len(conflicts)} conflict(s). "
+                   f"Re-run with --apply to write.")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
     app.cli.add_command(normalize_taxonomy_command)
+    app.cli.add_command(migrate_emergency_service_level_command)
