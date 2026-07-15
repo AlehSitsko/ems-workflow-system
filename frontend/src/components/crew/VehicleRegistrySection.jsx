@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { FaPlus, FaTrash, FaTruck } from "react-icons/fa";
+import { VEHICLE_CAPABILITIES } from "../../utils/taxonomy";
 
-const VEHICLE_TYPES = ["BLS", "ALS", "BARI", "CCT"];
+// Vehicle types come from the canonical taxonomy (utils/taxonomy.js), which
+// mirrors backend/utils/taxonomy.py. Legacy "BARI" normalizes to "Bariatric".
+const VEHICLE_TYPES = VEHICLE_CAPABILITIES;
 
 /*
   Inline vehicle registry, embedded in Crew Planner.

@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from models import db, Patient, Call, PatientAlert, PatientContact
 from audit_utils import log_action
 from utils.validation_utils import check_length
+from utils.taxonomy import canonicalize_or_keep, normalize_service_level
 
 
 def _audit_user():
@@ -159,7 +160,8 @@ def create_patient():
         copay_required=data.get("copay_required", False),
         insurance_notes=data.get("insurance_notes"),
 
-        default_service_level=data.get("default_service_level"),
+        default_service_level=canonicalize_or_keep(
+            data.get("default_service_level"), normalize_service_level),
         weight=data.get("weight"),
         oxygen_required=data.get("oxygen_required", False),
         stairs=data.get("stairs", False),
@@ -233,6 +235,12 @@ def update_patient(id):
         _validate_patient_fields({k: v for k, v in data.items() if k in ALLOWED_FIELDS})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+    # The patient's default is only a preference — canonicalize it, but note this
+    # never rewrites the service_level already recorded on existing calls.
+    if "default_service_level" in data:
+        data["default_service_level"] = canonicalize_or_keep(
+            data["default_service_level"], normalize_service_level)
 
     new_first = data.get("first_name", patient.first_name)
     new_last = data.get("last_name", patient.last_name)

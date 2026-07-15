@@ -9,7 +9,10 @@ import click
 from flask.cli import with_appcontext
 from werkzeug.security import generate_password_hash
 
-from models import db, User
+from models import db, User, Call, Patient, DailyCrewUnit, Vehicle
+from utils.taxonomy import (
+    normalize_service_level, normalize_unit_type, normalize_vehicle_capability,
+)
 
 
 # Demo credentials — for local/demo environments only. Never seed these in a
@@ -48,6 +51,69 @@ def seed_demo_command():
     click.echo(f"seed-demo: created={created or 'none'} | skipped_existing={skipped or 'none'}")
 
 
+# Columns holding taxonomy values, with the normalizer that canonicalizes each.
+_TAXONOMY_TARGETS = [
+    ("Call.service_level", Call, "service_level", normalize_service_level),
+    ("Patient.default_service_level", Patient, "default_service_level", normalize_service_level),
+    ("DailyCrewUnit.unit_type", DailyCrewUnit, "unit_type", normalize_unit_type),
+    ("Vehicle.unit_type", Vehicle, "unit_type", normalize_vehicle_capability),
+]
+
+
+@click.command("normalize-taxonomy")
+@click.option("--apply", "apply_changes", is_flag=True,
+              help="Write the canonical values. Without this flag the command is a dry run.")
+@with_appcontext
+def normalize_taxonomy_command(apply_changes):
+    """Canonicalize legacy taxonomy values ('bls' to 'BLS', 'BARI' to 'Bariatric').
+
+    Dry run by default. Values that cannot be resolved to the canonical taxonomy
+    (for example `emergency` stored as a service level, when it is a call type
+    rather than a level of care) are reported and left untouched, never rewritten
+    or deleted: they need a human decision, not a silent guess.
+    """
+    total_changed = 0
+    unresolved_total = 0
+
+    for label, model, column, normalizer in _TAXONOMY_TARGETS:
+        rows = model.query.filter(getattr(model, column).isnot(None)).all()
+        changes = {}
+        unresolved = {}
+
+        for row in rows:
+            raw = getattr(row, column)
+            if raw is None or str(raw).strip() == "":
+                continue
+            canonical = normalizer(raw)
+            if canonical is None:
+                unresolved[raw] = unresolved.get(raw, 0) + 1
+            elif canonical != raw:
+                changes[(raw, canonical)] = changes.get((raw, canonical), 0) + 1
+                if apply_changes:
+                    setattr(row, column, canonical)
+
+        click.echo(f"\n{label}:")
+        if changes:
+            for (raw, canonical), count in sorted(changes.items(), key=lambda kv: -kv[1]):
+                verb = "updated" if apply_changes else "would update"
+                click.echo(f"  {verb} {count:>4}x  {raw!r} -> {canonical!r}")
+                total_changed += count
+        else:
+            click.echo("  already canonical")
+        for raw, count in sorted(unresolved.items(), key=lambda kv: -kv[1]):
+            click.echo(f"  UNRESOLVED {count:>4}x  {raw!r}  (left untouched, needs a decision)")
+            unresolved_total += count
+
+    if apply_changes:
+        db.session.commit()
+        click.echo(f"\nnormalize-taxonomy: applied {total_changed} change(s); "
+                   f"{unresolved_total} unresolved value(s) left untouched.")
+    else:
+        click.echo(f"\nnormalize-taxonomy (dry run): {total_changed} change(s) pending; "
+                   f"{unresolved_total} unresolved. Re-run with --apply to write.")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
+    app.cli.add_command(normalize_taxonomy_command)

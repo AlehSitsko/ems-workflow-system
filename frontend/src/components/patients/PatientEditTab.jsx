@@ -8,6 +8,7 @@ import {
 } from "react-icons/fa";
 
 import PatientFormSection from "./PatientFormSection";
+import { SERVICE_LEVELS } from "../../utils/taxonomy";
 
 // The full create/edit patient form (drawer "Edit" tab). Extracted from
 // PatientsPage.jsx (decomposition phase 3). Presentational — form field state,
@@ -250,11 +251,21 @@ const PatientEditTab = ({ error, newPatient, onChange, onSubmit, loading }) => (
             disabled={loading}
           >
             <option value="">Select</option>
-            <option value="BLS">BLS</option>
-            <option value="ALS">ALS</option>
-            <option value="Wheelchair">Wheelchair</option>
-            <option value="Stretcher">Stretcher</option>
+            {SERVICE_LEVELS.map((level) => (
+              <option key={level} value={level}>{level}</option>
+            ))}
+            {/* Preserve an unrecognised legacy value so editing the patient
+                cannot silently blank it — it stays selectable until cleaned up. */}
+            {newPatient.default_service_level
+              && !SERVICE_LEVELS.includes(newPatient.default_service_level) && (
+              <option value={newPatient.default_service_level}>
+                {newPatient.default_service_level} (unrecognised)
+              </option>
+            )}
           </select>
+          <div className="form-text">
+            Default preference only — each call keeps its own service level.
+          </div>
         </div>
 
         <div className="col-md-6">

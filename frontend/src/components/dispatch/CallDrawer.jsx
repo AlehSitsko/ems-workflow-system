@@ -6,8 +6,11 @@ import { useConfirm } from "../ui/useConfirm";
 import { createCall, updateCall } from "../../api/callsApi";
 import { createPatient, findDuplicatePatient, getPatients } from "../../api/patientsApi";
 import { getTodayDate, getLoggedDispatcherName, localIsoNow } from "../../utils/callUtils";
+import { SERVICE_LEVELS, normalizeServiceLevel } from "../../utils/taxonomy";
 
-const SERVICE_LEVELS = ["BLS", "ALS", "Stretcher", "Emergency"];
+// Service levels come from the canonical taxonomy. "Emergency" is deliberately
+// NOT one of them — it is a call type (see CALL_TYPES below). Offering it here
+// is what put `emergency` into Call.service_level historically.
 const CALL_TYPES = ["scheduled", "emergency", "return", "will_call"];
 const CALLER_TYPES = ["patient", "family", "facility", "other"];
 
@@ -408,9 +411,11 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {SERVICE_LEVELS.map(sl => (
                 <button key={sl} type="button"
-                  className={`btn btn-sm ${form.serviceLevel === sl.toLowerCase() ? "btn-primary" : "btn-outline-secondary"}`}
+                  // Store the canonical value. This used to write sl.toLowerCase(),
+                  // which is why 'bls'/'als' exist in the database.
+                  className={`btn btn-sm ${normalizeServiceLevel(form.serviceLevel) === sl ? "btn-primary" : "btn-outline-secondary"}`}
                   style={{ fontSize: 11 }}
-                  onClick={() => setFormDirty(p => ({ ...p, serviceLevel: sl.toLowerCase() }))}
+                  onClick={() => setFormDirty(p => ({ ...p, serviceLevel: sl }))}
                 >
                   {sl}
                 </button>

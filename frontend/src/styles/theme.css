@@ -83,6 +83,32 @@
   /* Drawer */
   --ems-drawer-bg:     #f5f7fb;
   --ems-drawer-surface: #ffffff;
+
+  /* ── Operational taxonomy (semantic classification colors) ──────────────
+     One meaning per color across every module. Colour is never the only
+     signal — badges always pair it with a label/icon and a tooltip.
+     RGB triplets so callers can do rgba(var(--x), .14) for tints.
+     Canonical vocabulary lives in utils/taxonomy (backend + frontend mirror). */
+
+  /* Service level / unit type / vehicle capability */
+  --ems-tax-bls-rgb:        25, 135, 84;    /* green  */
+  --ems-tax-als-rgb:        13, 110, 253;   /* blue   */
+  --ems-tax-bls4-rgb:       253, 126, 20;   /* orange */
+  --ems-tax-bls6-rgb:       217, 119, 6;    /* amber  */
+  --ems-tax-cct-rgb:        155, 28, 49;    /* burgundy */
+  --ems-tax-bariatric-rgb:  111, 66, 193;   /* purple */
+  --ems-tax-stretcher-rgb:  13, 148, 158;   /* teal   */
+  --ems-tax-wheelchair-rgb: 71, 85, 105;    /* slate  */
+  --ems-tax-assist-rgb:     108, 117, 125;  /* gray   */
+  --ems-tax-unknown-rgb:    134, 142, 150;  /* neutral — unrecognised value */
+
+  /* Employee qualification (what they are qualified to do) */
+  --ems-qual-driver-rgb:    71, 85, 105;    /* slate  — driver-only */
+  --ems-qual-emt-rgb:       16, 133, 101;   /* teal/green */
+  --ems-qual-paramedic-rgb: 13, 110, 253;   /* blue   */
+  --ems-qual-assist-rgb:    108, 117, 125;  /* gray   */
+  --ems-qual-admin-rgb:     111, 66, 193;   /* purple — administrative, not clinical */
+  --ems-qual-unknown-rgb:   134, 142, 150;
 }
 
 /* ─── Dark Theme ─────────────────────────────── */
@@ -151,6 +177,26 @@
 
   --ems-drawer-bg:      #0d1117;
   --ems-drawer-surface: #161b22;
+
+  /* Operational taxonomy — brightened for contrast on dark surfaces. The
+     *meaning* of each color is identical to the light theme. */
+  --ems-tax-bls-rgb:        117, 183, 152;
+  --ems-tax-als-rgb:        110, 168, 254;
+  --ems-tax-bls4-rgb:       253, 154, 74;
+  --ems-tax-bls6-rgb:       245, 179, 66;
+  --ems-tax-cct-rgb:        234, 134, 143;
+  --ems-tax-bariatric-rgb:  194, 159, 250;
+  --ems-tax-stretcher-rgb:  110, 223, 246;
+  --ems-tax-wheelchair-rgb: 148, 163, 184;
+  --ems-tax-assist-rgb:     173, 181, 189;
+  --ems-tax-unknown-rgb:    173, 181, 189;
+
+  --ems-qual-driver-rgb:    148, 163, 184;
+  --ems-qual-emt-rgb:       117, 183, 152;
+  --ems-qual-paramedic-rgb: 110, 168, 254;
+  --ems-qual-assist-rgb:    173, 181, 189;
+  --ems-qual-admin-rgb:     194, 159, 250;
+  --ems-qual-unknown-rgb:   173, 181, 189;
 }
 
 /* ─── Dispatch Board Tokens ──────────────────── */

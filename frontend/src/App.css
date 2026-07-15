@@ -2562,3 +2562,63 @@ textarea.form-control {
     display: none;
   }
 }
+
+/* ============================================================
+   Operational taxonomy badges
+   ============================================================
+   Colour is a secondary cue only — each badge also carries a text label and a
+   tooltip/aria-label, so the classification is never conveyed by colour alone.
+   Colours come from the semantic --ems-tax-* / --ems-qual-* tokens. */
+
+.taxonomy-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* Shift role: icon-led and colour-neutral on purpose, so it can never be
+   mistaken for the qualification colour. */
+.taxonomy-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+  color: var(--ems-text-muted);
+  background: var(--ems-bg-surface-2);
+  border: 1px solid var(--ems-border);
+}
+
+.taxonomy-role-badge svg {
+  font-size: 0.72em;
+}
+
+/* Employee avatar with a qualification-coloured ring. */
+.employee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1;
+  user-select: none;
+}
+
+/* Legend */
+.taxonomy-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
