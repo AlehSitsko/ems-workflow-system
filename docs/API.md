@@ -175,18 +175,36 @@ plus per-day operational summaries. `start`/`end` are required, must be valid
 dates, `start ≤ end`, and span at most **93 days** (else `400`). Filtering and
 role scoping happen server-side; the frontend never hides data it was sent.
 
-- **Sources (MVP):** `scheduled_call` (derived from `Call.trip_date` /
-  `pickup_time` / status / active assignment) and `crew_shift` (derived from
-  `DailyCrewUnit`). No calendar-specific tables — events are derived, never copied.
-- **Roles:** admin / supervisor / dispatcher receive calls + crew + a minimized
-  patient label (`"John D."`, never full PHI); **HR** receives crew events only
-  (no call operational data, no PHI); an unknown role gets `403`.
+- **Sources (derived, never copied):**
+  - `scheduled_call` — `Call` by `trip_date`/`pickup_time`/status/assignment
+  - `crew_shift` — `DailyCrewUnit`
+  - `patient_birthday` — `Patient.dob` (yearly-recurring; active/non-archived only)
+  - `employee_birthday` — `Employee.dob` (yearly-recurring)
+  - `certification` — `Employee` CPR/EVOC/EMT/Paramedic expiration dates
+  - `task` — `Task.due_date`, scoped by the app's Task visibility (creator /
+    assignee / participants / `visible_to_all`, admin+supervisor see all)
+  - `vehicle` — `Vehicle` inspection/registration/insurance/maintenance dates
+- **Role access (server-side):**
+  | Source | admin | supervisor | dispatcher | hr |
+  |---|---|---|---|---|
+  | scheduled_call / patient_birthday | ✓ | ✓ | ✓ | ✗ |
+  | crew_shift / employee_birthday | ✓ | ✓ | ✓ | ✓ |
+  | certification | ✓ (name) | ✓ (name) | ✓ (no name) | ✓ (name) |
+  | task | per Task visibility | | | |
+  | vehicle | ✓ | ✓ | ✓ | ✗ |
+
+  Calls carry a minimized patient label (`"John D."`, never full PHI); HR never
+  receives call/patient/vehicle data; dispatcher sees certification events for
+  crew-readiness but **without** the employee name; an unknown role gets `403`.
 - **Response:** `{ start, end, events: [...], days: { "YYYY-MM-DD": summary } }`.
-  Each summary has call/unit counts, `warningCount`, `criticalCount`, and a
-  `readiness` of `empty | ready | warning | critical`. Each event carries
-  `{ id, type, title, date, start, end, allDay, status, severity, source,
-  sourceId, assignedUnitId, assignedUnitNumber, link, metadata }`; `link` points
-  back into the Dispatch Board for that date.
+  Each summary has call/unit counts, `warningCount`, `criticalCount`,
+  `otherEventsCount` (non-operational overlay events), and a `readiness` of
+  `empty | ready | warning | critical` (readiness reflects calls & crew only).
+  Each event carries `{ id, type, title, date, start, end, allDay, status,
+  severity, source, sourceId, assignedUnitId, assignedUnitNumber, link,
+  metadata }`; `link` points back into the relevant module. Per-user display
+  preferences (source toggles, week start, density, weekends/holidays) live in
+  `settings.calendar`.
 
 ## Tasks
 
@@ -204,6 +222,13 @@ GET     /api/tasks/<task_id>/comments
 POST    /api/tasks/<task_id>/comments
 GET     /api/tasks/<task_id>/activity
 ```
+
+Create/update also accept `participant_employee_ids` (a list of additional
+employees who can see the task) and `visible_to_all` (boolean — an announcement
+every known-role user can see). A user sees a task if they created/assigned it,
+are its assignee, are a participant (their linked employee), or it is
+`visible_to_all`; admin/supervisor see all. `to_dict` returns
+`participant_employee_ids` and `visible_to_all`.
 
 ## User Settings
 

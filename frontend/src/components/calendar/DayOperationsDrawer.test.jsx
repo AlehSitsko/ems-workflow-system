@@ -17,6 +17,8 @@ const events = [
   },
   // Different day — must be filtered out.
   { id: "call:9", type: "scheduled_call", title: "ALS", date: "2026-07-17", start: null, status: "unassigned", severity: "warning", sourceId: 9, metadata: {} },
+  // Overlay event on the selected day.
+  { id: "employee_birthday:3", type: "employee_birthday", title: "Jane S. — Birthday", date: "2026-07-16", start: null, status: "info", severity: "normal", sourceId: 3, metadata: {} },
 ];
 
 const summary = {
@@ -60,6 +62,12 @@ describe("DayOperationsDrawer", () => {
   it("shows the readiness summary", () => {
     renderDrawer();
     expect(screen.getByText("Needs attention")).toBeInTheDocument();
+  });
+
+  it("lists non-operational overlay events in the Other section", () => {
+    renderDrawer();
+    expect(screen.getByText("Other (1)")).toBeInTheDocument();
+    expect(screen.getByText("Jane S. — Birthday")).toBeInTheDocument();
   });
 
   it("fires onOpenDay from the primary button", () => {

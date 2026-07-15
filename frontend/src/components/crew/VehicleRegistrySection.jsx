@@ -18,12 +18,16 @@ function VehicleRegistrySection({
   onDeleteVehicle,
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [form, setForm] = useState({ unitName: "", unitNumber: "", unitType: "BLS", notes: "" });
+  const EMPTY_VEHICLE = {
+    unitName: "", unitNumber: "", unitType: "BLS", notes: "",
+    inspectionExpiry: "", registrationExpiry: "", insuranceExpiry: "", nextMaintenanceDate: "",
+  };
+  const [form, setForm] = useState(EMPTY_VEHICLE);
 
   const handleAdd = async () => {
     if (!form.unitName.trim() || !form.unitNumber.trim()) return;
     await onAddVehicle(form);
-    setForm({ unitName: "", unitNumber: "", unitType: "BLS", notes: "" });
+    setForm(EMPTY_VEHICLE);
   };
 
   return (
@@ -104,6 +108,27 @@ function VehicleRegistrySection({
                     <FaPlus />
                   </button>
                 </div>
+              </div>
+
+              {/* Compliance / maintenance dates — drive vehicle calendar events */}
+              <div className="row g-2 mt-1">
+                {[
+                  ["inspectionExpiry", "Inspection"],
+                  ["registrationExpiry", "Registration"],
+                  ["insuranceExpiry", "Insurance"],
+                  ["nextMaintenanceDate", "Next Maintenance"],
+                ].map(([key, label]) => (
+                  <div className="col-md-3" key={key}>
+                    <label className="form-label fw-semibold small">{label}</label>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={form[key]}
+                      onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                      disabled={vehiclesLoading}
+                    />
+                  </div>
+                ))}
               </div>
 
               {vehicles.length > 0 && (

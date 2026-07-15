@@ -1,7 +1,16 @@
-import { FaAmbulance, FaPhoneAlt, FaExclamationTriangle, FaArrowRight } from "react-icons/fa";
+import { FaAmbulance, FaPhoneAlt, FaExclamationTriangle, FaArrowRight, FaRegCalendarCheck } from "react-icons/fa";
 
 import EntityDrawer from "../ui/EntityDrawer";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
+
+// Overlay (non-operational) event types shown in the "Other events" section.
+const OVERLAY_TYPES = {
+  patient_birthday: { emoji: "🎂", label: "Birthday" },
+  employee_birthday: { emoji: "🎂", label: "Birthday" },
+  certification: { emoji: "🎓", label: "Certification" },
+  task: { emoji: "🗒️", label: "Task" },
+  vehicle: { emoji: "🚑", label: "Vehicle" },
+};
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -47,6 +56,7 @@ const DayOperationsDrawer = ({
   const dayEvents = (events || []).filter((e) => e.date === dateIso);
   const calls = dayEvents.filter((e) => e.type === "scheduled_call");
   const units = dayEvents.filter((e) => e.type === "crew_shift");
+  const others = dayEvents.filter((e) => e.type in OVERLAY_TYPES);
 
   // Derive the issue list from the same events — reliable checks only.
   const issues = [];
@@ -158,6 +168,32 @@ const DayOperationsDrawer = ({
           </ul>
         )}
       </section>
+
+      {/* Other events — birthdays, certifications, tasks, vehicle dates */}
+      {others.length > 0 && (
+        <section className="calendar-day-section">
+          <h5><FaRegCalendarCheck /> Other ({others.length})</h5>
+          <ul className="calendar-day-list">
+            {others.map((e) => {
+              const meta = OVERLAY_TYPES[e.type];
+              return (
+                <li key={e.id} className="calendar-day-row calendar-day-row-static">
+                  <div className="calendar-day-row-main">
+                    <span className="calendar-day-time" aria-hidden="true">{meta.emoji}</span>
+                    <span className="calendar-day-title">{e.title}</span>
+                  </div>
+                  <div className="calendar-day-row-meta">
+                    {e.severity !== "normal" && (
+                      <span className={`calendar-tag ${e.severity === "critical" ? "crit" : "warn"}`}>{e.severity}</span>
+                    )}
+                    <span className="calendar-tag">{meta.label}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* Issues */}
       <section className="calendar-day-section">

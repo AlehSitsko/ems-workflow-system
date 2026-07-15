@@ -68,6 +68,8 @@ const emptyTask = {
   priority: "Normal",
   due_date: "",
   assigned_to_employee_id: "",
+  participant_employee_ids: [],
+  visible_to_all: false,
   related_module: "",
   related_entity_id: "",
 };
@@ -218,6 +220,8 @@ const TasksPage = ({ currentUser }) => {
       priority: task.priority || "Normal",
       due_date: task.due_date || "",
       assigned_to_employee_id: task.assigned_to_employee_id || "",
+      participant_employee_ids: task.participant_employee_ids || [],
+      visible_to_all: !!task.visible_to_all,
       related_module: task.related_module || "",
       related_entity_id: task.related_entity_id || "",
     };
@@ -234,6 +238,11 @@ const TasksPage = ({ currentUser }) => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setTaskForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleParticipantsChange = (e) => {
+    const ids = Array.from(e.target.selectedOptions, (o) => Number(o.value));
+    setTaskForm((prev) => ({ ...prev, participant_employee_ids: ids }));
   };
 
   const handleTabChange = async (key) => {
@@ -266,6 +275,8 @@ const TasksPage = ({ currentUser }) => {
         task_type: taskForm.task_type,
         priority: taskForm.priority,
         due_date: taskForm.due_date || null,
+        participant_employee_ids: (taskForm.participant_employee_ids || []).map(Number),
+        visible_to_all: !!taskForm.visible_to_all,
         related_module: taskForm.related_module || null,
         related_entity_id: taskForm.related_entity_id || null,
       };
@@ -654,6 +665,37 @@ const TasksPage = ({ currentUser }) => {
                       <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
                     ))}
                   </select>
+
+                  <label className="form-label">Participants (also see this task)</label>
+                  <select
+                    multiple
+                    className="form-select mb-1"
+                    size={Math.min(5, Math.max(3, employees.length))}
+                    value={(taskForm.participant_employee_ids || []).map(String)}
+                    onChange={handleParticipantsChange}
+                    disabled={taskForm.visible_to_all}
+                  >
+                    {employees.map((e) => (
+                      <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                    ))}
+                  </select>
+                  <div className="text-muted mb-2" style={{ fontSize: 12 }}>
+                    Hold Ctrl/Cmd to select multiple. Participants see the task in
+                    their list and calendar.
+                  </div>
+
+                  <div className="form-check mb-2">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="task-visible-to-all"
+                      checked={!!taskForm.visible_to_all}
+                      onChange={(e) => setTaskForm((prev) => ({ ...prev, visible_to_all: e.target.checked }))}
+                    />
+                    <label className="form-check-label" htmlFor="task-visible-to-all">
+                      Visible to everyone (announcement)
+                    </label>
+                  </div>
                 </>
               )}
             </div>

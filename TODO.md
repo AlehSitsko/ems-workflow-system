@@ -46,11 +46,17 @@ COMPLETED_BLOCKS.md → "Calendar"). Full spec in
 - [x] Dispatch Board reads `?date=&call=&unit=`; Planning / Live / History modes; live status transitions gated to today (frontend disabled + backend `409`); linked call/unit selection
 - [x] HR receives crew-only, non-PHI calendar data
 
+**Also done (event sources + settings slice):**
+- [x] Event sources added: patient & employee birthdays, certification expirations, task due dates, vehicle inspection/registration/insurance/maintenance dates
+- [x] Schema for those sources: `Employee.dob`, `Vehicle.{inspection,registration,insurance}_expiry` + `next_maintenance_date` (migration `e5a9c7d1b2f3`)
+- [x] Task participants + "assign to everyone" (`TaskParticipant`, `Task.visible_to_all`) with matching backend visibility + Tasks UI
+- [x] Per-user calendar display settings (`settings.calendar`): source toggles, week start, density, weekends/holidays
+- [x] Backend role access for every source (HR crew-only/no-PHI; dispatcher sees certs without employee name; patient/vehicle ops-only)
+
 **Remaining (next Calendar slice):**
-- [ ] More event sources: employee/patient birthdays, certification expirations, task due dates, vehicle inspection/maintenance dates (existing fields only)
 - [ ] Week and Agenda views (Month is live; the switch buttons are placeholders)
-- [ ] Saved user filter preferences; event-type filters
 - [ ] Reliable conflict checks currently deferred (see Tech-debt / follow-ups): shift **time-overlap** double-booking (MVP flags same-day double-booking regardless of overlap), vehicle **out-of-service** readiness (no reliable `DailyCrewUnit`→`Vehicle` link yet)
+- [ ] Performance: patient-birthday source scans all non-archived patients per load — consider limiting to recently-active patients on large datasets
 
 ## P2 — Docker development environment (planned, not started)
 

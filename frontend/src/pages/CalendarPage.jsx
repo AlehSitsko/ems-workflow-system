@@ -20,10 +20,26 @@ import DayOperationsDrawer from "../components/calendar/DayOperationsDrawer";
 // backend calendar API) into a month view with per-day readiness, and links
 // each day into the Dispatch Board. Read-only: it never mutates or duplicates a
 // call or crew unit.
+const DEFAULT_SOURCES = {
+  scheduled_call: true, crew_shift: true, patient_birthday: true,
+  employee_birthday: true, certification: true, task: true, vehicle: true,
+};
+
 const CalendarPage = ({ currentUser }) => {
   const navigate = useNavigate();
   const { settings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
+
+  // Per-user calendar display preferences (with safe fallbacks).
+  const calPrefs = settings?.calendar || {};
+  const enabledSources = useMemo(
+    () => ({ ...DEFAULT_SOURCES, ...(calPrefs.sources || {}) }),
+    [calPrefs.sources],
+  );
+  const weekStartsOn = calPrefs.weekStartsOn ?? 0;
+  const density = calPrefs.density || "comfortable";
+  const showWeekends = calPrefs.showWeekends !== false;
+  const showHolidays = calPrefs.showHolidays !== false;
 
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState(() => ({
@@ -31,10 +47,11 @@ const CalendarPage = ({ currentUser }) => {
     month: today.getMonth(),
   }));
 
-  const matrix = useMemo(
-    () => getMonthMatrix(cursor.year, cursor.month, today),
-    [cursor, today],
-  );
+  const matrix = useMemo(() => {
+    const m = getMonthMatrix(cursor.year, cursor.month, today, weekStartsOn);
+    // Strip holiday markers when the user has turned them off.
+    return showHolidays ? m : m.map((week) => week.map((c) => ({ ...c, holiday: null })));
+  }, [cursor, today, weekStartsOn, showHolidays]);
 
   // The visible grid can spill into adjacent months; fetch that full range so
   // out-of-month cells also show operational data.
@@ -71,6 +88,19 @@ const CalendarPage = ({ currentUser }) => {
       });
     return () => { cancelled = true; };
   }, [rangeStart, rangeEnd, currentUser]);
+
+  // Apply the user's per-source visibility toggles (display-only; access is
+  // already enforced server-side). Group the visible events by date for the
+  // month-cell overlay badges and the day drawer.
+  const visibleEvents = useMemo(
+    () => events.filter((e) => enabledSources[e.type] !== false),
+    [events, enabledSources],
+  );
+  const dayEventsByIso = useMemo(() => {
+    const map = {};
+    for (const e of visibleEvents) (map[e.date] ||= []).push(e);
+    return map;
+  }, [visibleEvents]);
 
   const monthTitle = getMonthTitle(cursor.year, cursor.month);
 
@@ -139,17 +169,25 @@ const CalendarPage = ({ currentUser }) => {
             <div className="calendar-loading" role="status">Loading operations…</div>
           )}
 
-          <CalendarGrid matrix={matrix} days={days} onDaySelect={handleDaySelect} />
+          <div className={`calendar-density-${density}${showWeekends ? "" : " hide-weekend-tint"}`}>
+            <CalendarGrid
+              matrix={matrix}
+              days={days}
+              dayEventsByIso={dayEventsByIso}
+              weekStartsOn={weekStartsOn}
+              onDaySelect={handleDaySelect}
+            />
+          </div>
         </section>
 
-        <CalendarSidebar monthTitle={monthTitle} holidays={monthHolidays} />
+        <CalendarSidebar monthTitle={monthTitle} holidays={showHolidays ? monthHolidays : []} />
       </div>
 
       <DayOperationsDrawer
         open={drawerOpen}
         dateIso={selectedDay}
         summary={selectedDay ? days[selectedDay] : null}
-        events={events}
+        events={visibleEvents}
         timeFormat={timeFormat}
         onClose={() => setDrawerOpen(false)}
         onOpenDay={openDay}

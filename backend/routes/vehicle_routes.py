@@ -68,6 +68,10 @@ def create_vehicle():
         unit_type=unit_type,
         is_active=data.get("isActive", True),
         notes=(data.get("notes") or "").strip(),
+        inspection_expiry=(data.get("inspectionExpiry") or "").strip() or None,
+        registration_expiry=(data.get("registrationExpiry") or "").strip() or None,
+        insurance_expiry=(data.get("insuranceExpiry") or "").strip() or None,
+        next_maintenance_date=(data.get("nextMaintenanceDate") or "").strip() or None,
         created_at=now,
         updated_at=now,
     )
@@ -124,6 +128,10 @@ def update_vehicle(id):
     vehicle.unit_type = unit_type
     vehicle.is_active = data.get("isActive", vehicle.is_active)
     vehicle.notes = (data.get("notes") or "").strip()
+    vehicle.inspection_expiry = (data.get("inspectionExpiry") or "").strip() or None
+    vehicle.registration_expiry = (data.get("registrationExpiry") or "").strip() or None
+    vehicle.insurance_expiry = (data.get("insuranceExpiry") or "").strip() or None
+    vehicle.next_maintenance_date = (data.get("nextMaintenanceDate") or "").strip() or None
     vehicle.updated_at = datetime.now().isoformat(timespec="seconds")
 
     try:

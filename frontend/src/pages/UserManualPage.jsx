@@ -423,9 +423,17 @@ function CalendarSection() {
         <List items={[
           "Each day cell shows compact counts — calls, units, and unassigned calls — plus a readiness indicator.",
           "Readiness: Ready (all needed calls assigned, crews complete), Needs attention (unassigned calls, incomplete crews, missing pickup time), or Critical (e.g. an ALS call on a BLS unit).",
+          "Small badges mark other events that day: 🎂 birthdays, 🎓 certification expirations, 🗒️ task due dates, 🚑 vehicle dates.",
           "Weekends are tinted and US federal holidays are marked. Use the arrows or Today to change month.",
         ]} />
-        <Note>Counts and readiness are filtered by your role on the server. HR sees crew shifts only — never patient details.</Note>
+        <Note>Everything is filtered by your role on the server. HR sees crew shifts, employee birthdays and certifications — never patient details, calls, or vehicles. Dispatchers see certifications as a fact only, without the employee's name.</Note>
+      </Sub>
+
+      <Sub title="Your calendar preferences">
+        <List items={[
+          "Open Settings to control what appears on your calendar: toggle each event source on/off, show/hide weekend highlighting and US holidays, choose the week start (Sunday or Monday), and pick comfortable or compact density.",
+          "These are personal display preferences — they don't change what other users see or your actual permissions.",
+        ]} />
       </Sub>
 
       <Sub title="Day Operations drawer">

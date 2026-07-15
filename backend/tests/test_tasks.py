@@ -273,3 +273,54 @@ def test_archived_task_visible_with_flag(client, roles):
     client.delete(f"/api/tasks/{task_id}", headers=roles["supervisor"])
     resp = client.get("/api/tasks?is_archived=1", headers=roles["admin"])
     assert any(t["id"] == task_id for t in resp.get_json()["items"])
+
+
+# ── Participants + assign-to-all visibility ──────────────────────────────────
+
+def test_create_task_with_participants_and_visible_to_all(client, roles, employee):
+    resp = create_task(client, roles["admin"],
+                       participant_employee_ids=[employee.id], visible_to_all=True)
+    assert resp.status_code == 201
+    body = resp.get_json()
+    assert body["participant_employee_ids"] == [employee.id]
+    assert body["visible_to_all"] is True
+
+
+def test_participant_dispatcher_can_view_unassigned_task(client, roles, employee):
+    # Admin creates a task that is NOT assigned to the dispatcher's employee,
+    # but lists them as a participant.
+    task_id = create_task(client, roles["admin"], participant_employee_ids=[employee.id]).get_json()["id"]
+    # The dispatcher fixture is linked to `employee`.
+    assert client.get(f"/api/tasks/{task_id}", headers=roles["dispatcher"]).status_code == 200
+
+
+def test_visible_to_all_task_seen_by_dispatcher(client, roles):
+    task_id = create_task(client, roles["admin"], visible_to_all=True).get_json()["id"]
+    assert client.get(f"/api/tasks/{task_id}", headers=roles["dispatcher"]).status_code == 200
+
+
+def test_plain_task_hidden_from_unrelated_dispatcher(client, roles):
+    # No assignee, no participant, not visible_to_all → dispatcher cannot view.
+    task_id = create_task(client, roles["admin"]).get_json()["id"]
+    assert client.get(f"/api/tasks/{task_id}", headers=roles["dispatcher"]).status_code == 403
+
+
+def test_update_sets_participants_and_visible_to_all(client, roles, employee):
+    task_id = create_task(client, roles["admin"]).get_json()["id"]
+    resp = client.put(f"/api/tasks/{task_id}", headers=roles["admin"], json={
+        "title": "Updated", "participant_employee_ids": [employee.id], "visible_to_all": True,
+    })
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["participant_employee_ids"] == [employee.id]
+    assert body["visible_to_all"] is True
+    # Clearing participants on a later update.
+    resp2 = client.put(f"/api/tasks/{task_id}", headers=roles["admin"], json={
+        "title": "Updated", "participant_employee_ids": [],
+    })
+    assert resp2.get_json()["participant_employee_ids"] == []
+
+
+def test_invalid_participant_id_rejected(client, roles):
+    resp = create_task(client, roles["admin"], participant_employee_ids=[999999])
+    assert resp.status_code == 400

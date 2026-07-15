@@ -25,6 +25,24 @@ DEFAULT_SETTINGS = {
             }
         },
     },
+    "calendar": {
+        # Per-source visibility. Operational sources (scheduled_call, crew_shift)
+        # and the derived overlay sources can each be toggled off in the user's
+        # view. Access is still enforced server-side; these are display prefs.
+        "sources": {
+            "scheduled_call":    True,
+            "crew_shift":        True,
+            "patient_birthday":  True,
+            "employee_birthday": True,
+            "certification":     True,
+            "task":              True,
+            "vehicle":           True,
+        },
+        "showWeekends":  True,   # highlight Sat/Sun
+        "showHolidays":  True,   # show US federal holiday markers
+        "weekStartsOn":  0,      # 0 = Sunday, 1 = Monday
+        "density":       "comfortable",  # comfortable | compact
+    },
 }
 
 

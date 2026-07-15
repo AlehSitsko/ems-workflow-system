@@ -4,6 +4,7 @@ import {
   getMonthMatrix,
   getMonthTitle,
   shiftMonth,
+  getWeekdayLabels,
 } from "./calendarUtils";
 
 describe("isWeekend", () => {
@@ -49,6 +50,20 @@ describe("getMonthMatrix", () => {
 describe("getMonthTitle", () => {
   it("formats the month and year", () => {
     expect(getMonthTitle(2026, 6)).toBe("July 2026");
+  });
+});
+
+describe("week start", () => {
+  it("rotates weekday labels for a Monday start", () => {
+    expect(getWeekdayLabels(0)[0]).toBe("Sun");
+    expect(getWeekdayLabels(1)[0]).toBe("Mon");
+    expect(getWeekdayLabels(1)[6]).toBe("Sun");
+  });
+
+  it("starts the grid on the configured weekday", () => {
+    // July 1 2026 is Wednesday; Monday-start grid begins Mon June 29.
+    const matrix = getMonthMatrix(2026, 6, new Date(2026, 6, 15), 1);
+    expect(matrix[0][0].iso).toBe("2026-06-29");
   });
 });
 
