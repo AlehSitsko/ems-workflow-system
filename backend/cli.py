@@ -181,8 +181,71 @@ def migrate_emergency_service_level_command(apply_changes):
                    f"Re-run with --apply to write.")
 
 
+@click.command("link-crew-units-to-vehicles")
+@click.option("--apply", "apply_changes", is_flag=True,
+              help="Write the links. Without this flag the command is a dry run.")
+@with_appcontext
+def link_crew_units_to_vehicles_command(apply_changes):
+    """Link legacy daily crew units to fleet vehicles by matching truck_number.
+
+    Only an unambiguous, exact match on `Vehicle.unit_number` is linked. A
+    truck_number that matches nothing, or matches more than one vehicle, is
+    reported and left unlinked — guessing here would attach a shift's history to
+    the wrong physical vehicle, which is worse than leaving it null.
+
+    `DailyCrewUnit.vehicle_id` is nullable precisely so legacy shifts can stay
+    honest about being unlinked.
+    """
+    vehicles = Vehicle.query.all()
+    by_number = {}
+    for vehicle in vehicles:
+        key = (vehicle.unit_number or "").strip().lower()
+        if key:
+            by_number.setdefault(key, []).append(vehicle)
+
+    linked, unmatched, ambiguous, already = 0, {}, {}, 0
+
+    for unit in DailyCrewUnit.query.filter(DailyCrewUnit.vehicle_id.is_(None)).all():
+        key = (unit.truck_number or "").strip().lower()
+        matches = by_number.get(key, [])
+        if len(matches) == 1:
+            linked += 1
+            if apply_changes:
+                unit.vehicle_id = matches[0].id
+        elif len(matches) > 1:
+            ambiguous[unit.truck_number] = ambiguous.get(unit.truck_number, 0) + 1
+        else:
+            unmatched[unit.truck_number] = unmatched.get(unit.truck_number, 0) + 1
+
+    already = DailyCrewUnit.query.filter(DailyCrewUnit.vehicle_id.isnot(None)).count()
+
+    verb = "linked" if apply_changes else "would link"
+    click.echo(f"\n{verb} {linked} crew unit(s) by exact truck_number match")
+    if already:
+        click.echo(f"  ({already} unit(s) already linked, skipped)")
+
+    if unmatched:
+        click.echo("\nUNRESOLVED - truck_number matches no vehicle (left unlinked):")
+        for number, count in sorted(unmatched.items(), key=lambda kv: -kv[1]):
+            click.echo(f"  {number!r:14} x{count}")
+    if ambiguous:
+        click.echo("\nAMBIGUOUS - truck_number matches several vehicles (left unlinked):")
+        for number, count in sorted(ambiguous.items(), key=lambda kv: -kv[1]):
+            click.echo(f"  {number!r:14} x{count}")
+
+    total_unresolved = sum(unmatched.values()) + sum(ambiguous.values())
+    if apply_changes:
+        db.session.commit()
+        click.echo(f"\nlink-crew-units-to-vehicles: linked {linked}; "
+                   f"{total_unresolved} left unlinked for a human decision.")
+    else:
+        click.echo(f"\nlink-crew-units-to-vehicles (dry run): {linked} link(s) pending; "
+                   f"{total_unresolved} unresolved. Re-run with --apply to write.")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
     app.cli.add_command(normalize_taxonomy_command)
     app.cli.add_command(migrate_emergency_service_level_command)
+    app.cli.add_command(link_crew_units_to_vehicles_command)
