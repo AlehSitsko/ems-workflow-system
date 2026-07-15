@@ -171,3 +171,49 @@ def test_normalize_taxonomy_cli_dry_run_writes_nothing(app):
     assert result.exit_code == 0
     assert "dry run" in result.output
     assert db.session.get(Call, call.id).service_level == "bls"  # untouched
+
+
+# ── emergency service_level migration ───────────────────────────────────────
+
+def test_emergency_moves_to_call_type_only_when_the_slot_is_free(app):
+    """`emergency` moves into call_type where nothing meaningful is there, and a
+    real existing call_type is never overwritten to save an invalid value."""
+    from models import db, Call, Patient
+    from cli import migrate_emergency_service_level_command
+
+    free = Call(trip_date="2026-06-16", service_level="emergency", call_type="none", status="new")
+    taken = Call(trip_date="2026-06-20", service_level="emergency", call_type="return", status="completed")
+    patient = Patient(first_name="Emer", last_name="Gency", default_service_level="emergency")
+    db.session.add_all([free, taken, patient])
+    db.session.commit()
+
+    result = app.test_cli_runner().invoke(migrate_emergency_service_level_command, ["--apply"])
+    assert result.exit_code == 0
+
+    # Moved: placeholder call_type replaced, bogus service_level cleared.
+    assert db.session.get(Call, free.id).call_type == "emergency"
+    assert db.session.get(Call, free.id).service_level is None
+
+    # Conflict: 'return' is preserved, the row is left alone and reported.
+    conflicted = db.session.get(Call, taken.id)
+    assert conflicted.call_type == "return"
+    assert conflicted.service_level == "emergency"
+    assert "CONFLICT" in result.output
+
+    # Patients have no call_type, so the invalid default is cleared.
+    assert db.session.get(Patient, patient.id).default_service_level is None
+
+
+def test_emergency_migration_dry_run_writes_nothing(app):
+    from models import db, Call
+    from cli import migrate_emergency_service_level_command
+
+    call = Call(trip_date="2026-06-16", service_level="emergency", call_type="none", status="new")
+    db.session.add(call)
+    db.session.commit()
+
+    result = app.test_cli_runner().invoke(migrate_emergency_service_level_command)
+    assert result.exit_code == 0
+    assert "dry run" in result.output
+    assert db.session.get(Call, call.id).service_level == "emergency"
+    assert db.session.get(Call, call.id).call_type == "none"
