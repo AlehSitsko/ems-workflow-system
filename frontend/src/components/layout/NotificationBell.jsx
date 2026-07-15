@@ -42,7 +42,7 @@ function NotificationBell({ notifications, unreadCount, markRead, markAllRead })
     <div ref={ref} style={{ position: "relative" }}>
       <button
         type="button"
-        className="topbar-icon-button"
+        className="app-header-icon-button"
         onClick={() => setOpen((o) => !o)}
         title="Notifications"
       >
