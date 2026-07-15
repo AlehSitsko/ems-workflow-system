@@ -1,0 +1,234 @@
+/* ============================================================================
+   Design tokens — the single source of truth for colour, spacing, radius,
+   elevation and control sizing.
+   ============================================================================
+
+   Loaded before every other stylesheet (see main.jsx). Nothing below this file
+   should contain a raw hex value.
+
+   Layering:
+     1. Primitive scales      (--space-*, --radius-*, --text-*, --control-*)
+     2. Semantic colour       (--color-*)  <- what components should use
+     3. Legacy alias bridge   (--ems-*)    <- maps the existing codebase onto
+                                              the tokens above, so the whole app
+                                              picks up the palette without a
+                                              2000-line CSS rewrite. New code
+                                              should use --color-* directly.
+
+   Both themes define the same names, so a component never branches on theme.
+*/
+
+:root {
+  /* ── Spacing scale (8px rhythm) ───────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* ── Radius ───────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;    /* badges, chips */
+  --radius-md: 8px;    /* buttons, inputs */
+  --radius-lg: 12px;   /* cards */
+  --radius-xl: 16px;   /* large panels */
+  --radius-pill: 999px;
+
+  /* ── Control sizing ───────────────────────────────────────────────────── */
+  --control-height: 38px;          /* standard input/select/button */
+  --control-height-compact: 32px;  /* dense operational toolbars */
+  --control-height-touch: 44px;    /* mobile minimum target */
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --text-xs: 12px;     /* dense metadata */
+  --text-sm: 13px;
+  --text-base: 14px;   /* body */
+  --text-md: 16px;
+  --text-lg: 20px;     /* section title */
+  --text-xl: 22px;     /* page title */
+  --text-2xl: 24px;    /* workspace entity title */
+  --leading-tight: 1.3;
+  --leading-normal: 1.5;
+
+  /* ── Elevation (deliberately restrained) ──────────────────────────────── */
+  --shadow-card: 0 1px 2px rgba(17, 33, 59, 0.04), 0 1px 3px rgba(17, 33, 59, 0.06);
+  --shadow-raised: 0 2px 8px rgba(17, 33, 59, 0.08);
+  --shadow-overlay: 0 12px 32px rgba(17, 33, 59, 0.18);
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
+  --header-height: 64px;
+  --page-max-width: 1440px;
+
+  /* =========================================================================
+     Semantic colour — LIGHT
+     ========================================================================= */
+
+  /* Sidebar keeps its navy identity in both themes. */
+  --color-sidebar: #071F3D;
+  --color-sidebar-hover: #0E315C;
+  --color-sidebar-active: #0D6EFD;
+  --color-sidebar-text: #C7D6EA;
+  --color-sidebar-text-strong: #FFFFFF;
+  --color-sidebar-section: #6E88A9;
+  --color-sidebar-border: #12335C;
+
+  --color-primary: #0D6EFD;
+  --color-primary-hover: #075FD8;
+  --color-primary-contrast: #FFFFFF;
+  --color-primary-rgb: 13, 110, 253;
+
+  /* Reserved for Start Taking Call and destructive actions only. */
+  --color-emergency: #E72F43;
+  --color-emergency-hover: #CB2437;
+  --color-emergency-rgb: 231, 47, 67;
+
+  --color-canvas: #F4F7FB;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F8FAFD;
+  --color-surface-hover: #F1F5FA;
+
+  --color-border: #DCE4EF;
+  --color-border-strong: #C9D5E5;
+
+  --color-text: #11213B;
+  --color-text-secondary: #5F6F86;
+  --color-text-muted: #8A98AC;
+  --color-text-inverse: #FFFFFF;
+
+  --color-success: #159A55;
+  --color-success-rgb: 21, 154, 85;
+  --color-warning: #E58A00;
+  --color-warning-rgb: 229, 138, 0;
+  --color-danger: #DC3545;
+  --color-danger-rgb: 220, 53, 69;
+  --color-purple: #7652D6;
+  --color-purple-rgb: 118, 82, 214;
+  --color-info: #0D6EFD;
+  --color-info-rgb: 13, 110, 253;
+
+  --color-focus-ring: rgba(13, 110, 253, 0.35);
+  --color-overlay: rgba(7, 31, 61, 0.45);
+
+  /* =========================================================================
+     Legacy alias bridge — existing --ems-* names now resolve to the tokens
+     above. This is what moves the whole app onto the mockup palette at once.
+     Prefer --color-* in new code; these exist so old CSS keeps working.
+     ========================================================================= */
+  --ems-bg-body: var(--color-canvas);
+  --ems-bg-surface: var(--color-surface);
+  --ems-bg-surface-2: var(--color-surface-subtle);
+  --ems-bg-hero: linear-gradient(135deg, var(--color-surface) 0%, #EEF4FD 100%);
+
+  --ems-border: var(--color-border);
+  --ems-border-light: var(--color-border);
+  --ems-hero-border: var(--color-border);
+
+  --ems-text-primary: var(--color-text);
+  --ems-text-secondary: var(--color-text-secondary);
+  --ems-text-muted: var(--color-text-muted);
+  --ems-text-subtle: var(--color-text-muted);
+
+  --ems-topbar-bg: var(--color-surface);
+  --ems-topbar-border: var(--color-border);
+
+  --ems-btn-icon-bg: var(--color-surface);
+  --ems-btn-icon-border: var(--color-border);
+  --ems-btn-icon-color: var(--color-text);
+
+  --ems-card-hover-border: var(--color-border-strong);
+
+  --ems-shadow: rgba(17, 33, 59, 0.06);
+  --ems-shadow-subtle: rgba(17, 33, 59, 0.045);
+  --ems-overlay-bg: var(--color-overlay);
+
+  --ems-danger-tint: rgba(var(--color-danger-rgb), 0.08);
+  --ems-danger-border: rgba(var(--color-danger-rgb), 0.35);
+  --ems-warning-tint: rgba(var(--color-warning-rgb), 0.10);
+  --ems-warning-border: rgba(var(--color-warning-rgb), 0.35);
+  --ems-success-tint: rgba(var(--color-success-rgb), 0.10);
+  --ems-success-border: rgba(var(--color-success-rgb), 0.35);
+
+  --ems-section-bg: var(--color-surface-subtle);
+  --ems-section-border: var(--color-border);
+  --ems-detail-bg: var(--color-surface-subtle);
+  --ems-detail-border: var(--color-border);
+
+  --ems-chip-bg: var(--color-surface);
+  --ems-chip-border: var(--color-border);
+  --ems-chip-warning-bg: rgba(var(--color-warning-rgb), 0.10);
+  --ems-chip-warning-border: rgba(var(--color-warning-rgb), 0.35);
+
+  --ems-search-result-bg: var(--color-surface);
+  --ems-search-result-border: var(--color-border-strong);
+  --ems-search-divider: var(--color-border);
+  --ems-service-card-bg: var(--color-surface);
+  --ems-service-card-border: var(--color-border-strong);
+  --ems-service-card-color: var(--color-primary);
+  --ems-intake-start-bg: rgba(var(--color-emergency-rgb), 0.06);
+  --ems-intake-start-border: rgba(var(--color-emergency-rgb), 0.25);
+  --ems-note-card-bg: var(--color-surface);
+  --ems-note-card-border: var(--color-border);
+  --ems-price-result-bg: rgba(var(--color-success-rgb), 0.08);
+  --ems-price-result-border: rgba(var(--color-success-rgb), 0.35);
+  --ems-price-result-color: var(--color-success);
+
+  --ems-score-bg: var(--color-text);
+  --ems-drawer-bg: var(--color-canvas);
+  --ems-drawer-surface: var(--color-surface);
+}
+
+/* ============================================================================
+   Semantic colour — DARK
+   A deliberate palette, not an inversion: the canvas is a desaturated navy that
+   matches the sidebar family, surfaces lift off it, and every semantic colour is
+   brightened to keep contrast on a dark background.
+   ============================================================================ */
+
+[data-bs-theme="dark"] {
+  --color-canvas: #0B1220;
+  --color-surface: #131C2E;
+  --color-surface-subtle: #18233A;
+  --color-surface-hover: #1E2B45;
+
+  --color-border: #263349;
+  --color-border-strong: #35455F;
+
+  --color-text: #E8EEF7;
+  --color-text-secondary: #A6B5CB;
+  --color-text-muted: #7C8CA5;
+
+  --color-primary: #4D93FF;
+  --color-primary-hover: #6BA5FF;
+  --color-primary-rgb: 77, 147, 255;
+
+  --color-emergency: #FF5A6B;
+  --color-emergency-hover: #FF7482;
+  --color-emergency-rgb: 255, 90, 107;
+
+  --color-success: #3CC47C;
+  --color-success-rgb: 60, 196, 124;
+  --color-warning: #F5A524;
+  --color-warning-rgb: 245, 165, 36;
+  --color-danger: #FF6B7A;
+  --color-danger-rgb: 255, 107, 122;
+  --color-purple: #A78BFA;
+  --color-purple-rgb: 167, 139, 250;
+  --color-info: #4D93FF;
+  --color-info-rgb: 77, 147, 255;
+
+  --color-focus-ring: rgba(77, 147, 255, 0.45);
+  --color-overlay: rgba(3, 8, 16, 0.65);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.22);
+  --shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  --ems-bg-hero: linear-gradient(135deg, var(--color-surface) 0%, #1B2740 100%);
+  --ems-shadow: rgba(0, 0, 0, 0.3);
+  --ems-shadow-subtle: rgba(0, 0, 0, 0.22);
+  --ems-score-bg: var(--color-surface-subtle);
+}

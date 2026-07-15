@@ -26,4 +26,12 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Tests run in Vitest under Node, so they may use node globals (e.g. reading
+    // a source file to assert it against config). App code stays browser-only.
+    files: ['**/*.test.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ])
