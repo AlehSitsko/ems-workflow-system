@@ -4,7 +4,7 @@
 
 Three layers of tests, in order of reliability:
 
-1. **Backend pytest (isolated) — 125 tests.** Run under `pytest` against an
+1. **Backend pytest (isolated) — 147 tests.** Run under `pytest` against an
    in-memory SQLite database built by the application factory; no live server,
    no dev database touched. Domains covered:
    - `test_auth.py` (6) — login success/failure, unknown/inactive user, bad body
@@ -21,10 +21,19 @@ Three layers of tests, in order of reliability:
      readiness, ALS-on-BLS critical, role filtering, HR-no-PHI, stable contract;
      **overlay sources** — patient/employee birthdays incl. year-independent
      recurrence, certification name-hiding for dispatcher, task visibility,
-     vehicle events, `otherEventsCount`) **and** the Dispatch date-mode guard
-     (future allows planning assignment / rejects live status, today allows live
-     status, past rejects mutation)
-2. **Frontend Vitest (isolated) — 86 tests.** Vitest + React Testing Library +
+     vehicle events, `otherEventsCount`) **and** a smoke check of the Dispatch
+     date-mode guard
+   - `test_date_modes.py` (22) — backend enforcement of Planning/Live/History,
+     driven through the API (never via the UI): `operational_dates` helper units
+     (impossible dates, leap day, mode classification); board date validation
+     (`400` for 2026-99-99 / 2026-02-30, `200` for 2028-02-29); assignment rules
+     (past rejected, cross-date rejected, future planning allowed,
+     completed/cancelled call not assignable); live-only lifecycle (future/past
+     complete + reopen rejected, past unassign/queue/status rejected); crew shift
+     + pickup-time history guards; and a full **Live workflow regression** proving
+     assign → status → queue → pickup-time → complete → reopen → unassign still
+     works today
+2. **Frontend Vitest (isolated) — 88 tests.** Vitest + React Testing Library +
    jsdom. Utility coverage (`timeUtils`, `dispatchBoardUtils` incl.
    `getShiftAlertSeverity` with a faked clock, date-mode helpers + timezone-safe
    `addDays` month/year/leap boundaries, `licenseUtils`, `holidayUtils`,
@@ -37,10 +46,11 @@ Three layers of tests, in order of reliability:
 
 ### Not yet covered
 
-- Crew units, notifications, and analytics have isolated coverage only through
-  the live `qa_test.py` script, not pytest. (Dispatch now has pytest coverage of
-  the date-mode guard via `test_calendar.py`; the assign/status/queue happy
-  paths still rely on `qa_test.py`.)
+- Notifications and analytics have isolated coverage only through the live
+  `qa_test.py` script, not pytest. Dispatch and crew-unit date rules are now
+  covered by `test_date_modes.py` (including the live assign → complete → reopen
+  → unassign loop); the remaining crew/notification happy paths still rely on
+  `qa_test.py`.
 - Frontend integration coverage of the full Dispatch Board page (URL param
   parsing → board load → linked selection) is exercised manually / via the
   browser preview; the unit-level pieces (mode helpers, link builder, toolbar,
@@ -116,7 +126,7 @@ python -m compileall backend qa_test.py stress_test.py
 
 ### What `qa_test.py` covers
 
-10 sections against the live backend, cleaned up at the end: Vehicles, Crew Units
+10 sections / **104 checks** against the live backend, cleaned up at the end: Vehicles, Crew Units
 (shift timing, midnight crossover), Shift Alerts, Dispatch Board, Notifications,
 Data Integrity (rollback), a light concurrent Load Test, Edge Cases (SQL-injection
 safety, malformed params), Patient Module, and Task Management.

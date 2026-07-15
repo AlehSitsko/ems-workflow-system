@@ -8,6 +8,12 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient, PatientAlert, Employee
 from notification_utils import create_notification
 from audit_utils import log_action
+from utils.operational_dates import (
+    require_valid_date,
+    require_live_date,
+    prohibit_historical_mutation,
+    validate_call_unit_dates,
+)
 
 
 def _audit_user():
@@ -58,6 +64,20 @@ def _crew_count(unit):
     return sum(1 for s in slots if s is not None)
 
 
+def _assignment_operational_date(assignment):
+    """The operational day an assignment belongs to.
+
+    The unit's shift_date is authoritative (that is the board the action happens
+    on); fall back to the call's trip_date for assignments whose unit was
+    removed.
+    """
+    unit = db.session.get(DailyCrewUnit, assignment.unit_id)
+    if unit and unit.shift_date:
+        return unit.shift_date
+    call = db.session.get(Call, assignment.call_id)
+    return call.trip_date if call else None
+
+
 def _emp_short(emp_id, emp_cache=None):
     if not emp_id:
         return None
@@ -70,6 +90,12 @@ def _emp_short(emp_id, emp_cache=None):
 @dispatch_bp.route("/board", methods=["GET"])
 def get_board():
     date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+
+    # A board date must be a real calendar day — reject 2026-99-99 / 2026-02-30
+    # rather than silently returning an empty board.
+    invalid = require_valid_date(date)
+    if invalid:
+        return jsonify(invalid[0]), invalid[1]
 
     all_day_calls = (
         Call.query
@@ -243,6 +269,25 @@ def assign_call():
     if not unit:
         return jsonify({"error": "Unit not found"}), 404
 
+    # A call may only be assigned to a unit working the same operational day...
+    mismatch = validate_call_unit_dates(call.trip_date, unit.shift_date)
+    if mismatch:
+        return jsonify(mismatch[0]), mismatch[1]
+
+    # ...and only on a day that is still open for planning (today or future).
+    historical = prohibit_historical_mutation(unit.shift_date, "Assigning a call")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
+    # A finished call needs the explicit reopen/uncancel workflow before it can
+    # be re-assigned — assignment must not silently resurrect it.
+    if call.status in ("completed", "cancelled"):
+        return jsonify({
+            "error": f"Call #{call.id} is {call.status} and cannot be assigned. "
+                     f"Reopen or uncancel it first.",
+            "status": call.status,
+        }), 409
+
     existing = CallAssignment.query.filter_by(call_id=call_id, is_active=True).first()
     if existing:
         existing.is_active = False
@@ -279,6 +324,13 @@ def unassign_call(assignment_id):
     if not assignment:
         return jsonify({"error": "Assignment not found"}), 404
 
+    # Unassigning is a planning operation: allowed today and in the future,
+    # never on a past (history) board.
+    historical = prohibit_historical_mutation(
+        _assignment_operational_date(assignment), "Unassigning a call")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     assignment.is_active = False
 
     call = db.session.get(Call, assignment.call_id)
@@ -298,6 +350,13 @@ def complete_assignment(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
     if not assignment:
         return jsonify({"error": "Assignment not found"}), 404
+
+    # Completion is live lifecycle — today only. A future trip has not happened
+    # yet; a past board is read-only.
+    not_live = require_live_date(
+        _assignment_operational_date(assignment), "Completing a call")
+    if not_live:
+        return jsonify(not_live[0]), not_live[1]
 
     assignment.is_active = False
 
@@ -319,6 +378,12 @@ def reopen_assignment(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
     if not assignment:
         return jsonify({"error": "Assignment not found"}), 404
+
+    # Reopen is live lifecycle — today only.
+    not_live = require_live_date(
+        _assignment_operational_date(assignment), "Reopening a call")
+    if not_live:
+        return jsonify(not_live[0]), not_live[1]
 
     assignment.is_active = True
 
@@ -346,18 +411,13 @@ def update_unit_status(unit_id):
     if status not in VALID_UNIT_STATUSES:
         return jsonify({"error": f"Invalid status. Valid: {VALID_UNIT_STATUSES}"}), 400
 
-    # Live operational status transitions only apply to today's board. A unit on
-    # a future date is in Planning Mode (assignments allowed, live lifecycle not)
-    # and a past date is History Mode (read-only). This guards against a saved
-    # /dispatch?date=... link accidentally advancing a non-today unit. shift_date
-    # is a local operational date, so compare against local today (not UTC).
-    today = datetime.now().strftime("%Y-%m-%d")
-    if unit.shift_date and unit.shift_date != today:
-        mode = "planning (future)" if unit.shift_date > today else "history (past)"
-        return jsonify({
-            "error": f"Live status changes are only allowed on today's board. "
-                     f"Unit {unit.truck_number} is on {unit.shift_date} — {mode}.",
-        }), 409
+    # Live operational status transitions only apply to today's board: a future
+    # unit is Planning (assignments yes, live lifecycle no) and a past unit is
+    # History (read-only). Guards a saved /dispatch?date=... link from advancing
+    # a non-today unit.
+    not_live = require_live_date(unit.shift_date, "Changing unit status")
+    if not_live:
+        return jsonify(not_live[0]), not_live[1]
 
     old_status = unit.dispatch_status
     unit.dispatch_status = status
@@ -402,6 +462,12 @@ def update_call_order(unit_id):
     unit = db.session.get(DailyCrewUnit, unit_id)
     if not unit:
         return jsonify({"error": "Unit not found"}), 404
+
+    # Queue order is a planning operation — today/future only.
+    historical = prohibit_historical_mutation(unit.shift_date, "Reordering the call queue")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     data = request.get_json() or {}
     call_ids = data.get("callIds", [])
     unit.call_priority = json.dumps([int(i) for i in call_ids])

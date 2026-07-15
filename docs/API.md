@@ -155,14 +155,36 @@ GET     /api/dispatch/dispatch-thresholds
 PUT     /api/dispatch/dispatch-thresholds
 ```
 
-**Date modes.** The board is one view over three date modes derived from
-`?date=`: **Planning** (future — assign/prepare units, no live lifecycle),
-**Live** (today — full operations), **History** (past — read-only). Assignment
-edits reuse the existing `CallAssignment` model (no duplicate "planned" call is
-created). Live status transitions (`/units/<id>/status`) are rejected with `409`
-unless the unit's `shift_date` equals the server-local today, so a saved
-`/dispatch?date=…` link can't accidentally advance a non-today unit. Selection
-deep links are supported: `/dispatch?date=Y&call=<id>` and `?unit=<id>`.
+**Date modes (backend-enforced).** The board is one view over three date modes
+derived from the operational date (`Call.trip_date` / `DailyCrewUnit.shift_date`,
+always **local** dates — never UTC-parsed). These are real backend rules in
+`utils/operational_dates.py`, not just disabled buttons:
+
+| Operation | Planning (future) | Live (today) | History (past) |
+|---|---|---|---|
+| Crew shift create/update/delete, make-night | ✓ | ✓ | `409` |
+| Assign / unassign | ✓ | ✓ | `409` |
+| Queue order (`call-order`) | ✓ | ✓ | `409` |
+| Pickup-time change | ✓ | ✓ | `409` |
+| Unit status transition | `409` | ✓ | `409` |
+| Complete / Reopen | `409` | ✓ | `409` |
+
+Additional assignment rules (all `409`): `Call.trip_date` must equal the unit's
+`shift_date` (**no cross-date assignment**); a call/unit without a valid
+operational date cannot be linked; a `completed`/`cancelled` call cannot be
+assigned until it is reopened/uncancelled. Assignment edits reuse the existing
+`CallAssignment` model — no duplicate "planned" call is created.
+
+History has **no supervisor/admin override** by design; adding one requires its
+own workflow (mandatory reason + audit record) — tracked in TODO.
+
+**Date validation.** Any operational date must be a real calendar date in
+`YYYY-MM-DD` form. `2026-99-99` and `2026-02-30` are rejected with `400`; a real
+leap day (`2028-02-29`) is accepted. Error responses carry `{error, mode, date}`
+(or `{error, tripDate, shiftDate}` for cross-date), and the frontend API helpers
+surface that message verbatim.
+
+Selection deep links are supported: `/dispatch?date=Y&call=<id>` and `?unit=<id>`.
 
 ## Calendar
 

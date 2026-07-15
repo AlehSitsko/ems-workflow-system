@@ -9,6 +9,7 @@ from notification_utils import create_notification
 from audit_utils import log_action
 from utils.validation_utils import check_length, is_valid_time
 from utils.auth_utils import require_role
+from utils.operational_dates import prohibit_historical_mutation
 
 
 def _user_name_from_request():
@@ -319,6 +320,12 @@ def update_pickup_time(call_id):
         _validate_time_field(new_time, "pickup_time")
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+    # Dispatch-board action: a past trip's pickup time is history (read-only).
+    historical = prohibit_historical_mutation(call.trip_date, "Changing pickup time")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
     call.pickup_time = new_time
     db.session.commit()
     return jsonify(call.to_dict())

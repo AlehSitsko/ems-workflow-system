@@ -138,6 +138,18 @@ describe("isIsoDate", () => {
     expect(isIsoDate("")).toBe(false);
     expect(isIsoDate(null)).toBe(false);
   });
+
+  // Same meaning as the backend guard: shape alone is not enough.
+  it("rejects impossible calendar dates", () => {
+    expect(isIsoDate("2026-02-30")).toBe(false);
+    expect(isIsoDate("2026-99-99")).toBe(false);
+    expect(isIsoDate("2026-13-01")).toBe(false);
+    expect(isIsoDate("2027-02-29")).toBe(false); // not a leap year
+  });
+
+  it("accepts a real leap day", () => {
+    expect(isIsoDate("2028-02-29")).toBe(true);
+  });
 });
 
 describe("addDays (timezone-safe boundaries)", () => {
