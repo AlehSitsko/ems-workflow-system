@@ -2622,3 +2622,187 @@ textarea.form-control {
   gap: 6px 10px;
   align-items: center;
 }
+
+/* ============================================================
+   Entity Workspace (full-page entity view)
+   ============================================================
+   The standard layout for complex entities — see docs/UI_STANDARD.md for the
+   Drawer vs Modal vs Full Page decision rules. */
+
+.workspace-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ems-text-muted);
+  text-decoration: none;
+  padding: 2px 0;
+}
+
+.workspace-back:hover {
+  color: var(--bs-primary);
+}
+
+.workspace-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspace-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.workspace-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--ems-border);
+  margin-bottom: 1.1rem;
+  padding-bottom: 8px;
+}
+
+.workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ems-text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.workspace-tab:hover:not(:disabled) {
+  background: var(--ems-bg-surface-2);
+}
+
+.workspace-tab.active {
+  background: rgba(var(--bs-primary-rgb), 0.12);
+  border-color: rgba(var(--bs-primary-rgb), 0.35);
+  color: var(--bs-primary);
+}
+
+.workspace-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.workspace-tab-soon {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--ems-bg-surface-2);
+  border: 1px solid var(--ems-border);
+  color: var(--ems-text-muted);
+}
+
+.workspace-body {
+  min-height: 120px;
+}
+
+.workspace-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ems-text-muted);
+  margin-bottom: 0.6rem;
+}
+
+/* ============================================================
+   Fleet
+   ============================================================ */
+
+.fleet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fleet-list-card {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ems-border);
+  background: var(--ems-bg-surface);
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.fleet-list-card:hover {
+  border-color: var(--ems-card-hover-border);
+}
+
+.fleet-list-card:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+}
+
+.fleet-list-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ems-text-primary);
+}
+
+.fleet-list-muted {
+  font-size: 0.75rem;
+  color: var(--ems-text-muted);
+}
+
+.fleet-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.fleet-status.active {
+  color: var(--bs-success);
+  background: rgba(var(--bs-success-rgb), 0.14);
+  border: 1px solid rgba(var(--bs-success-rgb), 0.4);
+}
+
+.fleet-status.inactive {
+  color: var(--ems-text-muted);
+  background: var(--ems-bg-surface-2);
+  border: 1px solid var(--ems-border);
+}
+
+.fleet-expiry-note {
+  color: var(--ems-text-muted);
+  font-size: 0.78rem;
+}
+
+.fleet-expiry.warn {
+  color: var(--bs-warning);
+  font-weight: 600;
+}
+
+.fleet-expiry.crit {
+  color: var(--bs-danger);
+  font-weight: 700;
+}

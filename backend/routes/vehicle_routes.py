@@ -5,6 +5,8 @@ from flask import Blueprint, jsonify, request
 from models import db, Vehicle
 from utils.validation_utils import check_length
 from utils.taxonomy import VEHICLE_CAPABILITIES, normalize_vehicle_capability
+from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
+from audit_utils import log_action
 
 
 vehicle_bp = Blueprint(
@@ -13,13 +15,25 @@ vehicle_bp = Blueprint(
     url_prefix="/api/vehicles"
 )
 
-# Vehicle types come from the canonical taxonomy (utils/taxonomy.py) — they are
+# Fleet is operational data. Admin/supervisor manage it; dispatchers need
+# read-only visibility of what is available or out of service; HR has no
+# operational reason to see the fleet.
+FLEET_VIEW_ROLES = ("admin", "supervisor", "dispatcher")
+FLEET_EDIT_ROLES = ("admin", "supervisor")
+
+
+def _audit_user():
+    return get_request_user_id(), get_request_user_name()
+
+
+# Vehicle types come from the canonical taxonomy (utils/taxonomy.py) - they are
 # no longer duplicated here or in the frontend. Legacy spellings ('BARI') are
 # normalized to their canonical form ('Bariatric') on write.
 
 
 # Return all vehicles. ?active=1 filters to active vehicles only.
 @vehicle_bp.route("", methods=["GET"])
+@require_role(*FLEET_VIEW_ROLES)
 def get_vehicles():
     query = Vehicle.query
 
@@ -31,8 +45,22 @@ def get_vehicles():
     return jsonify([v.to_dict() for v in vehicles])
 
 
+# Return a single vehicle. Backs the Vehicle Workspace deep link
+# (/fleet/vehicles/:id), so a shared URL resolves without loading the whole list.
+@vehicle_bp.route("/<int:id>", methods=["GET"])
+@require_role(*FLEET_VIEW_ROLES)
+def get_vehicle(id):
+    vehicle = Vehicle.query.get(id)
+
+    if not vehicle:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    return jsonify(vehicle.to_dict())
+
+
 # Create a new vehicle.
 @vehicle_bp.route("", methods=["POST"])
+@require_role(*FLEET_EDIT_ROLES)
 def create_vehicle():
     data = request.get_json()
 
@@ -81,6 +109,12 @@ def create_vehicle():
 
     try:
         db.session.add(vehicle)
+        db.session.flush()
+        uid, uname = _audit_user()
+        log_action("vehicle.created", "vehicle", vehicle.id,
+                   f"Unit {vehicle.unit_number}",
+                   {"unitName": vehicle.unit_name, "unitType": vehicle.unit_type},
+                   user_id=uid, user_name=uname)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -91,6 +125,7 @@ def create_vehicle():
 
 # Update an existing vehicle.
 @vehicle_bp.route("/<int:id>", methods=["PUT"])
+@require_role(*FLEET_EDIT_ROLES)
 def update_vehicle(id):
     vehicle = Vehicle.query.get(id)
 
@@ -127,6 +162,20 @@ def update_vehicle(id):
     if existing and existing.id != id:
         return jsonify({"error": f"Vehicle with unit number '{unit_number}' already exists"}), 409
 
+    # Capture what actually changed, for the audit trail / Activity tab.
+    incoming = {
+        "unit_name": unit_name,
+        "unit_number": unit_number,
+        "unit_type": unit_type,
+        "is_active": data.get("isActive", vehicle.is_active),
+        "notes": (data.get("notes") or "").strip(),
+        "inspection_expiry": (data.get("inspectionExpiry") or "").strip() or None,
+        "registration_expiry": (data.get("registrationExpiry") or "").strip() or None,
+        "insurance_expiry": (data.get("insuranceExpiry") or "").strip() or None,
+        "next_maintenance_date": (data.get("nextMaintenanceDate") or "").strip() or None,
+    }
+    changed = [field for field, value in incoming.items() if getattr(vehicle, field) != value]
+
     vehicle.unit_name = unit_name
     vehicle.unit_number = unit_number
     vehicle.unit_type = unit_type
@@ -139,6 +188,11 @@ def update_vehicle(id):
     vehicle.updated_at = datetime.now().isoformat(timespec="seconds")
 
     try:
+        uid, uname = _audit_user()
+        log_action("vehicle.updated", "vehicle", vehicle.id,
+                   f"Unit {vehicle.unit_number}",
+                   {"changed_fields": sorted(changed)},
+                   user_id=uid, user_name=uname)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -149,6 +203,7 @@ def update_vehicle(id):
 
 # Deactivate/reactivate a vehicle without deleting history.
 @vehicle_bp.route("/<int:id>/toggle-active", methods=["PATCH"])
+@require_role(*FLEET_EDIT_ROLES)
 def toggle_vehicle_active(id):
     vehicle = Vehicle.query.get(id)
 
@@ -159,6 +214,11 @@ def toggle_vehicle_active(id):
     vehicle.updated_at = datetime.now().isoformat(timespec="seconds")
 
     try:
+        uid, uname = _audit_user()
+        log_action("vehicle.activated" if vehicle.is_active else "vehicle.deactivated",
+                   "vehicle", vehicle.id, f"Unit {vehicle.unit_number}",
+                   {"isActive": vehicle.is_active},
+                   user_id=uid, user_name=uname)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -169,6 +229,7 @@ def toggle_vehicle_active(id):
 
 # Delete a vehicle.
 @vehicle_bp.route("/<int:id>", methods=["DELETE"])
+@require_role(*FLEET_EDIT_ROLES)
 def delete_vehicle(id):
     vehicle = Vehicle.query.get(id)
 
@@ -176,6 +237,11 @@ def delete_vehicle(id):
         return jsonify({"error": "Vehicle not found"}), 404
 
     try:
+        uid, uname = _audit_user()
+        log_action("vehicle.deleted", "vehicle", vehicle.id,
+                   f"Unit {vehicle.unit_number}",
+                   {"unitName": vehicle.unit_name, "unitType": vehicle.unit_type},
+                   user_id=uid, user_name=uname)
         db.session.delete(vehicle)
         db.session.commit()
     except Exception as e:
