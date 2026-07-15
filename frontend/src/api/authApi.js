@@ -110,6 +110,9 @@ export function hasEmployeeAccess(user) {
 }
 
 // Check whether a user can access crew planning features.
+// Crew Planner shows the day's crew units, which carry the patient order (PHI).
+// HR is excluded to match the backend gate on /api/crew-units — leaving HR in
+// the nav would only hand them a page that 403s.
 export function hasCrewPlannerAccess(user) {
   if (!user) {
     return false;
@@ -118,8 +121,7 @@ export function hasCrewPlannerAccess(user) {
   return (
     user.role === "admin" ||
     user.role === "supervisor" ||
-    user.role === "dispatcher" ||
-    user.role === "hr"
+    user.role === "dispatcher"
   );
 }
 
