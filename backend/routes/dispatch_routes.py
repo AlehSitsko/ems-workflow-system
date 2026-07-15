@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient, PatientAlert, Employee
 from notification_utils import create_notification
 from audit_utils import log_action
+from utils.auth_utils import require_role
 from utils.operational_dates import (
     require_valid_date,
     require_live_date,
@@ -26,6 +27,10 @@ def _audit_user():
 
 
 dispatch_bp = Blueprint("dispatch", __name__, url_prefix="/api/dispatch")
+
+# The board carries patient names and call details (PHI). HR has no operational
+# reason to see it, and an anonymous request must never reach it.
+DISPATCH_ROLES = ("admin", "supervisor", "dispatcher")
 
 VALID_UNIT_STATUSES = [
     "available",
@@ -106,6 +111,7 @@ def _emp_detail(emp_id, emp_cache=None):
 
 
 @dispatch_bp.route("/board", methods=["GET"])
+@require_role(*DISPATCH_ROLES)
 def get_board():
     date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
 
@@ -278,6 +284,7 @@ def get_board():
 
 
 @dispatch_bp.route("/assign", methods=["POST"])
+@require_role(*DISPATCH_ROLES)
 def assign_call():
     data = request.get_json()
     if not data:
@@ -347,6 +354,7 @@ def assign_call():
 
 
 @dispatch_bp.route("/assign/<int:assignment_id>", methods=["DELETE"])
+@require_role(*DISPATCH_ROLES)
 def unassign_call(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
     if not assignment:
@@ -374,6 +382,7 @@ def unassign_call(assignment_id):
 
 
 @dispatch_bp.route("/assign/<int:assignment_id>/complete", methods=["PATCH"])
+@require_role(*DISPATCH_ROLES)
 def complete_assignment(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
     if not assignment:
@@ -402,6 +411,7 @@ def complete_assignment(assignment_id):
 
 
 @dispatch_bp.route("/assign/<int:assignment_id>/reopen", methods=["PATCH"])
+@require_role(*DISPATCH_ROLES)
 def reopen_assignment(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
     if not assignment:
@@ -428,6 +438,7 @@ def reopen_assignment(assignment_id):
 
 
 @dispatch_bp.route("/units/<int:unit_id>/status", methods=["PATCH"])
+@require_role(*DISPATCH_ROLES)
 def update_unit_status(unit_id):
     unit = db.session.get(DailyCrewUnit, unit_id)
     if not unit:
@@ -486,6 +497,7 @@ def update_unit_status(unit_id):
 
 
 @dispatch_bp.route("/units/<int:unit_id>/call-order", methods=["PATCH"])
+@require_role(*DISPATCH_ROLES)
 def update_call_order(unit_id):
     unit = db.session.get(DailyCrewUnit, unit_id)
     if not unit:

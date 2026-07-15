@@ -1,4 +1,22 @@
 import API_BASE from "./config.js";
+import { getCurrentUser } from "./authApi";
+
+// The backend fails closed on these routes: anonymous gets 401, a forbidden role
+// gets 403. Every request must therefore carry caller identity. Read it from the
+// stored session rather than threading currentUser through every call site.
+function authHeaders() {
+  const user = getCurrentUser();
+  return {
+    "X-User-Role": user?.role || "",
+    "X-User-Id": String(user?.id || ""),
+    "X-User-Name": user?.display_name || "",
+  };
+}
+
+function jsonHeaders() {
+  return { ...authHeaders(), "Content-Type": "application/json" };
+}
+
 const BASE = `${API_BASE}/api/dispatch`;
 
 // The backend enforces the Planning/Live/History date rules and answers with a
@@ -19,38 +37,38 @@ async function readJsonOrThrow(res, fallback) {
 }
 
 export async function fetchBoard(date) {
-  const res = await fetch(`${BASE}/board?date=${date}`);
+  const res = await fetch(`${BASE}/board?date=${date}`, { headers: authHeaders() });
   return readJsonOrThrow(res, "Failed to load dispatch board");
 }
 
 export async function assignCall(callId, unitId, assignedBy = "") {
   const res = await fetch(`${BASE}/assign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify({ call_id: callId, unit_id: unitId, assigned_by: assignedBy }),
   });
   return readJsonOrThrow(res, "Failed to assign call");
 }
 
 export async function unassignCall(assignmentId) {
-  const res = await fetch(`${BASE}/assign/${assignmentId}`, { method: "DELETE" });
+  const res = await fetch(`${BASE}/assign/${assignmentId}`, { method: "DELETE", headers: authHeaders() });
   return readJsonOrThrow(res, "Failed to unassign call");
 }
 
 export async function completeAssignment(assignmentId) {
-  const res = await fetch(`${BASE}/assign/${assignmentId}/complete`, { method: "PATCH" });
+  const res = await fetch(`${BASE}/assign/${assignmentId}/complete`, { method: "PATCH", headers: authHeaders() });
   return readJsonOrThrow(res, "Failed to complete assignment");
 }
 
 export async function reopenAssignment(assignmentId) {
-  const res = await fetch(`${BASE}/assign/${assignmentId}/reopen`, { method: "PATCH" });
+  const res = await fetch(`${BASE}/assign/${assignmentId}/reopen`, { method: "PATCH", headers: authHeaders() });
   return readJsonOrThrow(res, "Failed to reopen assignment");
 }
 
 export async function updateUnitStatus(unitId, status) {
   const res = await fetch(`${BASE}/units/${unitId}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify({ status }),
   });
   return readJsonOrThrow(res, "Failed to update unit status");
@@ -59,7 +77,7 @@ export async function updateUnitStatus(unitId, status) {
 export async function updateCallOrder(unitId, callIds) {
   const res = await fetch(`${BASE}/units/${unitId}/call-order`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonHeaders(),
     body: JSON.stringify({ callIds }),
   });
   return readJsonOrThrow(res, "Failed to update call order");

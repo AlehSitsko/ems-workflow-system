@@ -88,14 +88,15 @@ def test_operational_mode_classifies_relative_to_local_today():
 
 # ── Board date validation ────────────────────────────────────────────────────
 
-def test_invalid_board_date_rejected(client):
-    assert client.get("/api/dispatch/board?date=2026-99-99").status_code == 400
-    assert client.get("/api/dispatch/board?date=2026-02-30").status_code == 400
-    assert client.get("/api/dispatch/board?date=garbage").status_code == 400
+def test_invalid_board_date_rejected(client, roles):
+    h = roles["dispatcher"]
+    assert client.get("/api/dispatch/board?date=2026-99-99", headers=h).status_code == 400
+    assert client.get("/api/dispatch/board?date=2026-02-30", headers=h).status_code == 400
+    assert client.get("/api/dispatch/board?date=garbage", headers=h).status_code == 400
 
 
-def test_leap_day_board_accepted(client):
-    resp = client.get("/api/dispatch/board?date=2028-02-29")
+def test_leap_day_board_accepted(client, roles):
+    resp = client.get("/api/dispatch/board?date=2028-02-29", headers=roles["dispatcher"])
     assert resp.status_code == 200
     assert resp.get_json()["date"] == "2028-02-29"
 

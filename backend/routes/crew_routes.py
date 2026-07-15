@@ -6,8 +6,14 @@ from flask import Blueprint, jsonify, request
 from models import db, DailyCrewUnit
 from utils.employee_utils import parse_optional_employee_id
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
+from utils.auth_utils import require_role
 from utils.operational_dates import prohibit_historical_mutation
 from utils.taxonomy import canonicalize_or_keep, normalize_unit_type
+
+
+# Crew units carry the day's patient order (PHI) and are operational planning
+# data, so HR is excluded and anonymous requests are rejected outright.
+CREW_ROLES = ("admin", "supervisor", "dispatcher")
 from notification_utils import create_notification
 
 
@@ -64,6 +70,7 @@ def _apply_patient_order(unit, data):
 
 
 @crew_bp.route("", methods=["GET"])
+@require_role(*CREW_ROLES)
 def get_daily_crew_units():
     shift_date = request.args.get("shift_date", "").strip()
     query = DailyCrewUnit.query
@@ -74,6 +81,7 @@ def get_daily_crew_units():
 
 
 @crew_bp.route("", methods=["POST"])
+@require_role(*CREW_ROLES)
 def create_daily_crew_unit():
     data = request.get_json()
     if not data:
@@ -159,6 +167,7 @@ def create_daily_crew_unit():
 
 
 @crew_bp.route("/<int:id>", methods=["PUT"])
+@require_role(*CREW_ROLES)
 def update_daily_crew_unit(id):
     unit = DailyCrewUnit.query.get(id)
     if not unit:
@@ -239,6 +248,7 @@ def update_daily_crew_unit(id):
 
 
 @crew_bp.route("/<int:id>", methods=["DELETE"])
+@require_role(*CREW_ROLES)
 def delete_daily_crew_unit(id):
     unit = DailyCrewUnit.query.get(id)
     if not unit:
@@ -258,6 +268,7 @@ def delete_daily_crew_unit(id):
 
 
 @crew_bp.route("/<int:id>/make-night", methods=["POST"])
+@require_role(*CREW_ROLES)
 def make_night_crew(id):
     source = DailyCrewUnit.query.get_or_404(id)
 
@@ -389,6 +400,7 @@ def _compute_shift_alerts(unit, now_dt=None):
 
 
 @crew_bp.route("/alerts", methods=["GET"])
+@require_role(*CREW_ROLES)
 def get_shift_alerts():
     """
     Return active near-end and delayed alerts for all non-completed units today.

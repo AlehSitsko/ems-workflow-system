@@ -27,6 +27,7 @@ import {
   createCrewUnit,
   deleteCrewUnit,
   getCrewUnits,
+  getShiftAlerts,
   makeNightCrew,
   updateCrewUnit,
 } from "../api/crewApi";
@@ -310,8 +311,9 @@ function CrewPlannerPage() {
   const loadShiftAlerts = async (date) => {
     try {
       const d = date || selectedDateRef.current;
-      const res = await fetch(`${API_BASE}/api/crew-units/alerts?date=${d}`);
-      const data = await res.json();
+      // Goes through crewApi so it carries caller identity — the endpoint now
+      // fails closed (401 anonymous / 403 forbidden role).
+      const data = await getShiftAlerts(d);
       setShiftAlerts(Array.isArray(data) ? data : []);
     } catch {
       setShiftAlerts([]);

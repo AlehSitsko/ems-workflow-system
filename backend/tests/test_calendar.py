@@ -291,7 +291,7 @@ def test_past_date_rejects_status_transition(client, roles):
 def test_existing_board_endpoint_unchanged(client, roles):
     mk_call(trip_date=TODAY, status="new")
     _mk_today_unit(truck="50")
-    body = client.get(f"/api/dispatch/board?date={TODAY}").get_json()
+    body = client.get(f"/api/dispatch/board?date={TODAY}", headers=roles["dispatcher"]).get_json()
     assert "openCalls" in body and "units" in body
     assert body["date"] == TODAY
     assert len(body["units"]) == 1

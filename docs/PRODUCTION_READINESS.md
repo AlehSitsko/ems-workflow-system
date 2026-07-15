@@ -10,10 +10,36 @@ None of the items below are urgent today. They become urgent the moment there's 
 
 **Current state:** header-based pseudo-auth (`X-User-Id`/`X-User-Role`/`X-User-Name`), backed by a `localStorage`-persisted login. See [ARCHITECTURE.md](ARCHITECTURE.md#authentication) for the full mechanism and why it's structured this way.
 
+> **This is not authentication — it is identification the server takes on trust.**
+> The caller states their own role in a request header, so anyone who can reach
+> the API can claim `admin` with a single `curl` flag. It is acceptable **only**
+> because this runs locally against demo data. Do not expose this API to an
+> untrusted network in its current state.
+
+**What the current scheme does guarantee.** Every gated route fails closed, and
+the two failure modes are distinct (`utils/auth_utils.py`):
+
+| Request | Result |
+|---|---|
+| No identity at all | `401 Authentication required` |
+| Identity present, role not permitted | `403 Insufficient permissions` |
+| Permitted role | Handler runs |
+
+So the *gate* is real and regression-tested (`tests/test_security.py`); the
+*identity behind it* is not trustworthy. Those are separate problems, and only
+the second one is still open.
+
+**History — why this is called out so bluntly.** An audit found the operational
+routes had no gate at all: an anonymous `GET /api/dispatch/board` returned the
+full board **including patient names**, and an anonymous `POST /api/crew-units`
+created a crew unit. Both are fixed and pinned by negative tests per role. The
+lesson is that "the frontend doesn't show it" was never protection, and no route
+should be added without a gate.
+
 **Production plan:**
-- Replace with JWT (access + refresh tokens) or server-side session auth
+- Replace headers with JWT (access + refresh tokens) or server-side session auth. Until then the trust boundary is the network, not the app
 - Transparent to users — no UI changes beyond login mechanics
-- Centralize role checks into a decorator (e.g. `@require_role("admin", "supervisor")`) instead of the current inline `if role not in (...): return 403` duplicated per route
+- Fail closed by default: prefer an explicit allowlist per blueprint over per-route opt-in, so a new route is protected by omission rather than exposed by it
 - Audit every route for correct auth requirements before calling this phase done
 
 ## Database
