@@ -10,6 +10,7 @@ from audit_utils import log_action
 from utils.validation_utils import check_length, is_valid_time
 from utils.auth_utils import require_role
 from utils.operational_dates import prohibit_historical_mutation
+from utils.taxonomy import canonicalize_or_keep, normalize_service_level
 
 
 def _user_name_from_request():
@@ -161,7 +162,9 @@ def create_call():
 
         caller_type=data.get("caller_type"),
         call_type=data.get("call_type"),
-        service_level=data.get("service_level"),
+        # Canonical taxonomy on write ('bls' → 'BLS'); an unrecognised legacy
+        # value is preserved rather than silently rewritten.
+        service_level=canonicalize_or_keep(data.get("service_level"), normalize_service_level),
 
         caller_phone=data.get("caller_phone"),
         caller_note=data.get("caller_note"),
@@ -247,6 +250,9 @@ def update_call(call_id):
         check_length(data.get("notes"), 5000, "notes")
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+    if "service_level" in data:
+        data["service_level"] = canonicalize_or_keep(data["service_level"], normalize_service_level)
 
     changed = {}
     for field in EDITABLE:

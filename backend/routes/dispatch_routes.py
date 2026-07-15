@@ -87,6 +87,24 @@ def _emp_short(emp_id, emp_cache=None):
     return f"{emp.first_name} {emp.last_name[0]}." if emp.last_name else emp.first_name
 
 
+def _emp_detail(emp_id, emp_cache=None):
+    """Crew member as {name, qualification} for the board's avatars.
+
+    `qualification` is what the employee is qualified to do; the role they work
+    on this shift comes from the crew slot they occupy, not from this value.
+    """
+    if not emp_id:
+        return None
+    emp = emp_cache.get(emp_id) if emp_cache else db.session.get(Employee, emp_id)
+    if not emp:
+        return None
+    return {
+        "id": emp.id,
+        "name": _emp_short(emp_id, emp_cache),
+        "qualification": emp.role,
+    }
+
+
 @dispatch_bp.route("/board", methods=["GET"])
 def get_board():
     date = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
@@ -195,9 +213,19 @@ def get_board():
     for unit in units:
         ud = unit.to_dict()
         ud["crewCount"] = _crew_count(unit)
+        # crewNames stays for backward compatibility (existing consumers read
+        # these strings). crewDetails is the richer shape the board's avatars
+        # use — name + qualification per crew slot, where the slot itself is the
+        # shift role.
         ud["crewNames"] = {
             "driver":  _emp_short(unit.driver_id, emp_cache),
             "medical": _emp_short(unit.medical_id, emp_cache),
+        }
+        ud["crewDetails"] = {
+            "driver":  _emp_detail(unit.driver_id, emp_cache),
+            "medical": _emp_detail(unit.medical_id, emp_cache),
+            "assist1": _emp_detail(unit.assist1_id, emp_cache),
+            "assist2": _emp_detail(unit.assist2_id, emp_cache),
         }
         ud["patientOrder"] = unit._parse_patient_order()
         ud["assignedCalls"] = calls_by_unit.get(unit.id, [])

@@ -1,6 +1,7 @@
 import React from "react";
 import StatusPill from "./StatusPill";
 import UnitTypeBadge from "./UnitTypeBadge";
+import { EmployeeAvatar, AssignedRoleBadge } from "../taxonomy/TaxonomyBadges";
 import { FaMoon, FaEdit, FaTrash } from "react-icons/fa";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
 import {
@@ -20,6 +21,15 @@ import {
 // drag-and-drop drop-target handler, double-click status-advance, and the
 // patient-queue sub-row. All handler *logic* stays in the page — this
 // component only wires the JSX to the callbacks passed in as props.
+
+// The crew slot IS the shift role — a Paramedic in the driver slot works as
+// Driver. Qualification (the avatar ring) is a separate axis.
+const CREW_SLOTS = [
+  { key: "driver", role: "driver" },
+  { key: "medical", role: "medical" },
+  { key: "assist1", role: "assist" },
+  { key: "assist2", role: "assist" },
+];
 
 export default function UnitTable({
   units, selectedUnit, dragOverUnitId, timeFormat,
@@ -92,19 +102,31 @@ export default function UnitTable({
                     <span className={`badge ${(unit.crewCount || 0) < minCrewForType(unit.unitType) ? "bg-danger" : "bg-secondary"}`} style={{ fontSize: 10 }}>
                       {unit.crewCount || 0}
                     </span>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      {unit.crewNames?.driver && (
-                        <span style={{ fontSize: 11, color: "var(--ems-board-text)", lineHeight: 1.3 }}>
-                          <span style={{ fontSize: 10, color: "var(--ems-text-muted)", marginRight: 3 }}>DRV</span>
-                          {unit.crewNames.driver}
-                        </span>
-                      )}
-                      {unit.crewNames?.medical && (
-                        <span style={{ fontSize: 11, color: "var(--ems-board-text)", lineHeight: 1.3 }}>
-                          <span style={{ fontSize: 10, color: "var(--ems-text-muted)", marginRight: 3 }}>MED</span>
-                          {unit.crewNames.medical}
-                        </span>
-                      )}
+                    {/* Avatar ring = what the person is QUALIFIED as; the badge
+                        next to it = the role they work on THIS shift (from the
+                        crew slot). A Paramedic rostered as Driver shows a blue
+                        ring and a Driver badge — the colour never implies the
+                        shift role. Falls back to crewNames on older payloads. */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {CREW_SLOTS.map(({ key, role }) => {
+                        const member = unit.crewDetails?.[key];
+                        const legacyName = !unit.crewDetails ? unit.crewNames?.[key] : null;
+                        if (!member && !legacyName) return null;
+                        return (
+                          <span key={key} style={{ display: "flex", alignItems: "center", gap: 4, lineHeight: 1.3 }}>
+                            <EmployeeAvatar
+                              name={member?.name || legacyName}
+                              qualification={member?.qualification}
+                              shiftRole={role}
+                              size={20}
+                            />
+                            <AssignedRoleBadge role={role} />
+                            <span style={{ fontSize: 11, color: "var(--ems-board-text)" }}>
+                              {member?.name || legacyName}
+                            </span>
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 </td>

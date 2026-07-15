@@ -45,6 +45,7 @@ import {
   expandAndSort,
   minCrewForType,
 } from "../utils/dispatchBoardUtils";
+import { UNIT_TYPES as TAXONOMY_UNIT_TYPES } from "../utils/taxonomy";
 import { usePanelResize, DEFAULT_LEFT_WIDTH, DEFAULT_BOTTOM_HEIGHT } from "../hooks/usePanelResize";
 import { useOverdueDetection } from "../hooks/useOverdueDetection";
 import { useCallPriority } from "../hooks/useCallPriority";
@@ -52,7 +53,8 @@ import { useUnitFormValidation } from "../hooks/useUnitFormValidation";
 
 // ── Crew Planner constants ─────────────────────────────────────────────────
 
-const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
+// Canonical daily operational unit types (utils/taxonomy.js).
+const UNIT_TYPES = TAXONOMY_UNIT_TYPES;
 
 const initialCrew = { driver: "", medical: "", assist1: "", assist2: "" };
 

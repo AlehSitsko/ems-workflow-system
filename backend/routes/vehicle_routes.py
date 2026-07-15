@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, Vehicle
 from utils.validation_utils import check_length
+from utils.taxonomy import VEHICLE_CAPABILITIES, normalize_vehicle_capability
 
 
 vehicle_bp = Blueprint(
@@ -12,8 +13,9 @@ vehicle_bp = Blueprint(
     url_prefix="/api/vehicles"
 )
 
-# Must stay in sync with VEHICLE_TYPES in frontend/src/components/crew/VehicleRegistrySection.jsx
-UNIT_TYPES = {"BLS", "ALS", "BARI", "CCT"}
+# Vehicle types come from the canonical taxonomy (utils/taxonomy.py) — they are
+# no longer duplicated here or in the frontend. Legacy spellings ('BARI') are
+# normalized to their canonical form ('Bariatric') on write.
 
 
 # Return all vehicles. ?active=1 filters to active vehicles only.
@@ -47,8 +49,9 @@ def create_vehicle():
         return jsonify({"error": "Unit number is required"}), 400
     if not unit_type:
         return jsonify({"error": "Unit type is required"}), 400
-    if unit_type not in UNIT_TYPES:
-        return jsonify({"error": f"Invalid unit type. Must be one of: {sorted(UNIT_TYPES)}"}), 400
+    unit_type = normalize_vehicle_capability(unit_type)
+    if not unit_type:
+        return jsonify({"error": f"Invalid unit type. Must be one of: {VEHICLE_CAPABILITIES}"}), 400
 
     try:
         check_length(unit_name, 50, "unitName")
@@ -109,8 +112,9 @@ def update_vehicle(id):
         return jsonify({"error": "Unit number is required"}), 400
     if not unit_type:
         return jsonify({"error": "Unit type is required"}), 400
-    if unit_type not in UNIT_TYPES:
-        return jsonify({"error": f"Invalid unit type. Must be one of: {sorted(UNIT_TYPES)}"}), 400
+    unit_type = normalize_vehicle_capability(unit_type)
+    if not unit_type:
+        return jsonify({"error": f"Invalid unit type. Must be one of: {VEHICLE_CAPABILITIES}"}), 400
 
     try:
         check_length(unit_name, 50, "unitName")

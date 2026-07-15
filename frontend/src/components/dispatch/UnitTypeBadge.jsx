@@ -1,18 +1,12 @@
+import { UnitTypeBadge as CanonicalUnitTypeBadge } from "../taxonomy/TaxonomyBadges";
+
+// Dispatch Board unit-type badge.
+//
+// This used to be binary — ALS was blue and *everything else* was rendered as
+// BLS green, so a Bariatric or CCT unit was silently mislabelled. It now
+// delegates to the canonical taxonomy badge, which resolves the real unit type,
+// gives each one its own semantic colour, and degrades an unrecognised value to
+// a neutral "Unknown" badge instead of a confident wrong one.
 export default function UnitTypeBadge({ unitType }) {
-  const als = (unitType || "").toUpperCase() === "ALS";
-  return (
-    <span style={{
-      display: "inline-block",
-      padding: "3px 10px",
-      borderRadius: 6,
-      fontWeight: 700,
-      fontSize: 13,
-      letterSpacing: 1,
-      background: als ? "rgba(29,78,216,0.15)" : "rgba(22,101,52,0.15)",
-      color: als ? "#1d4ed8" : "#166534",
-      border: `1px solid ${als ? "rgba(29,78,216,0.5)" : "rgba(22,101,52,0.5)"}`,
-    }}>
-      {unitType || "—"}
-    </span>
-  );
+  return <CanonicalUnitTypeBadge value={unitType} />;
 }

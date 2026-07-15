@@ -1,13 +1,13 @@
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useUserSettings } from "../../context/useUserSettings";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
-import { isEmergencyCall, isAlsCall, isWillCall, ALERT_SEVERITY_COLOR } from "../../utils/dispatchBoardUtils";
+import { isEmergencyCall, isWillCall, ALERT_SEVERITY_COLOR } from "../../utils/dispatchBoardUtils";
+import { ServiceLevelBadge } from "../taxonomy/TaxonomyBadges";
 
 export default function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
   const { settings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
   const emergency = isEmergencyCall(call);
-  const als = isAlsCall(call);
   const isReturn = call._slot === "return";
   const willCall = isWillCall(call);
   const status = statusOverride || call.status || "new";
@@ -70,9 +70,10 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
               note
             </span>
           )}
-          <span style={{ fontSize: 9, color: als ? "#1d4ed8" : "#166534", background: als ? "rgba(29,78,216,0.12)" : "rgba(22,101,52,0.12)", border: `1px solid ${als ? "rgba(29,78,216,0.4)" : "rgba(22,101,52,0.4)"}`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-            {als ? "ALS" : "BLS"}
-          </span>
+          {/* The call's ACTUAL service level. This used to render `als ? "ALS" :
+              "BLS"`, which mislabelled every Stretcher/Wheelchair/CCT call as
+              "BLS". The badge shows the real level from the canonical taxonomy. */}
+          <ServiceLevelBadge value={call.service_level} />
         </div>
       </div>
 

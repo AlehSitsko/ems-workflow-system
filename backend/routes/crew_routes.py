@@ -7,6 +7,7 @@ from models import db, DailyCrewUnit
 from utils.employee_utils import parse_optional_employee_id
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
 from utils.operational_dates import prohibit_historical_mutation
+from utils.taxonomy import canonicalize_or_keep, normalize_unit_type
 from notification_utils import create_notification
 
 
@@ -119,7 +120,7 @@ def create_daily_crew_unit():
 
     unit = DailyCrewUnit(
         shift_date=shift_date,
-        unit_type=data.get("unitType", "BLS"),
+        unit_type=canonicalize_or_keep(data.get("unitType", "BLS"), normalize_unit_type),
         truck_number=truck_number,
         start_time=start_time,
         end_time=end_time,
@@ -207,7 +208,7 @@ def update_daily_crew_unit(id):
         return jsonify({"error": str(e)}), 400
 
     unit.shift_date = shift_date
-    unit.unit_type = data.get("unitType", "BLS")
+    unit.unit_type = canonicalize_or_keep(data.get("unitType", "BLS"), normalize_unit_type)
     unit.truck_number = truck_number
     unit.start_time = start_time
     unit.end_time = end_time

@@ -37,6 +37,7 @@ import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/cal
 import TimeInput from "../components/ui/TimeInput";
 import { useUserSettings } from "../context/useUserSettings";
 import { formatTimeForDisplay } from "../utils/timeUtils";
+import { SERVICE_LEVELS } from "../utils/taxonomy";
 
 // Initial guided call state.
 const getInitialGuidedCallData = () => ({
@@ -104,12 +105,11 @@ function CallFormPage() {
   const [guidedSaveMessage, setGuidedSaveMessage] = useState("");
   const [missingInfoExplanation, setMissingInfoExplanation] = useState("");
 
-  const guidedServiceLevelOptions = [
-    { value: "stretcher", label: "Stretcher" },
-    { value: "bls", label: "BLS" },
-    { value: "als", label: "ALS" },
-    { value: "emergency", label: "Emergency" },
-  ];
+  // Service levels come from the canonical taxonomy (utils/taxonomy.js).
+  // "Emergency" is intentionally absent: it is a call type, not a level of care.
+  // These options previously wrote lowercase values ('bls'), which is why the
+  // database holds mixed casing.
+  const guidedServiceLevelOptions = SERVICE_LEVELS.map((level) => ({ value: level, label: level }));
 
   // Clear both the form and the calculator at the same time.
   const handleClearAll = () => {

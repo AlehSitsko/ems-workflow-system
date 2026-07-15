@@ -43,13 +43,14 @@ from routes.audit_routes import audit_bp
 from routes.settings_routes import settings_bp
 from routes.task_routes import task_bp
 from routes.calendar_routes import calendar_bp
+from routes.taxonomy_routes import taxonomy_bp
 
 
 # All API blueprints, registered in order by the factory.
 BLUEPRINTS = [
     auth_bp, employee_bp, crew_bp, crew_preset_bp, vehicle_bp, patient_bp,
     call_bp, analytics_bp, dispatch_bp, notif_bp, time_bp, payroll_bp,
-    doc_bp, audit_bp, settings_bp, task_bp, calendar_bp,
+    doc_bp, audit_bp, settings_bp, task_bp, calendar_bp, taxonomy_bp,
 ]
 
 

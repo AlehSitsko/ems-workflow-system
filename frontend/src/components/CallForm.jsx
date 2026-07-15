@@ -31,6 +31,7 @@ const SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545
 
 import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
 import TimeInput from "./ui/TimeInput";
+import { SERVICE_LEVELS } from "../utils/taxonomy";
 
 // Main form component for call intake.
 // forwardRef is used so the parent page can trigger exposed methods externally.
@@ -66,12 +67,11 @@ const CallForm = forwardRef((props, ref) => {
     serviceLevel: "",
   };
 
-  const serviceLevelOptions = [
-    { value: "stretcher", label: "Stretcher" },
-    { value: "bls", label: "BLS" },
-    { value: "als", label: "ALS" },
-    { value: "emergency", label: "Emergency" },
-  ];
+  // Service levels come from the canonical taxonomy (utils/taxonomy.js).
+  // "Emergency" is intentionally absent: it is a call type, not a level of care.
+  // These options previously wrote lowercase values ('bls'), which is why the
+  // database holds mixed casing.
+  const serviceLevelOptions = SERVICE_LEVELS.map((level) => ({ value: level, label: level }));
 
   const [formData, setFormData] = useState(initialFormData);
   const [patientSearchResults, setPatientSearchResults] = useState([]);
