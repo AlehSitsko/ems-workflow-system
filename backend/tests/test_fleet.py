@@ -122,3 +122,97 @@ def test_delete_is_audited_before_the_row_disappears(client, roles, vehicle):
     client.delete(f"/api/vehicles/{vid}", headers=roles["admin"])
     assert db.session.get(Vehicle, vid) is None
     assert AuditLog.query.filter_by(entity_type="vehicle", entity_id=vid, action="vehicle.deleted").first() is not None
+
+
+# ── Legacy crew-unit -> vehicle linking ─────────────────────────────────────
+
+def test_linking_only_takes_unambiguous_exact_matches(app):
+    """Guessing a vehicle would attach a shift's history to the wrong physical
+    truck, so only an exact single match is linked; everything else is reported
+    and left null."""
+    from models import DailyCrewUnit
+    from cli import link_crew_units_to_vehicles_command
+
+    exact = Vehicle(unit_name="Ambu-A", unit_number="201", unit_type="BLS")
+    dupe_a = Vehicle(unit_name="Dupe-1", unit_number="DUP", unit_type="BLS")
+    dupe_b = Vehicle(unit_name="Dupe-2", unit_number="dup", unit_type="ALS")  # same key, different case
+    db.session.add_all([exact, dupe_a, dupe_b])
+    db.session.commit()
+
+    def mk_unit(truck):
+        u = DailyCrewUnit(shift_date="2026-07-20", unit_type="BLS", truck_number=truck, start_time="08:00")
+        db.session.add(u)
+        return u
+
+    matched = mk_unit("201")
+    unmatched = mk_unit("BADINPUT")
+    ambiguous = mk_unit("DUP")
+    db.session.commit()
+
+    result = app.test_cli_runner().invoke(link_crew_units_to_vehicles_command, ["--apply"])
+    assert result.exit_code == 0
+
+    assert db.session.get(DailyCrewUnit, matched.id).vehicle_id == exact.id
+    assert db.session.get(DailyCrewUnit, unmatched.id).vehicle_id is None
+    assert db.session.get(DailyCrewUnit, ambiguous.id).vehicle_id is None
+    assert "UNRESOLVED" in result.output and "BADINPUT" in result.output
+    assert "AMBIGUOUS" in result.output
+
+
+def test_linking_dry_run_writes_nothing(app):
+    from models import DailyCrewUnit
+    from cli import link_crew_units_to_vehicles_command
+
+    v = Vehicle(unit_name="Ambu-A", unit_number="301", unit_type="BLS")
+    db.session.add(v)
+    db.session.commit()
+    unit = DailyCrewUnit(shift_date="2026-07-20", unit_type="BLS", truck_number="301", start_time="08:00")
+    db.session.add(unit)
+    db.session.commit()
+
+    result = app.test_cli_runner().invoke(link_crew_units_to_vehicles_command)
+    assert result.exit_code == 0
+    assert "dry run" in result.output
+    assert db.session.get(DailyCrewUnit, unit.id).vehicle_id is None
+
+
+# ── Vehicle model behaviour ─────────────────────────────────────────────────
+
+def test_capabilities_fall_back_to_unit_type_for_legacy_rows(app):
+    v = Vehicle(unit_name="Legacy", unit_number="L1", unit_type="ALS")  # no capabilities set
+    db.session.add(v)
+    db.session.commit()
+    assert v.parsed_capabilities() == ["ALS"]
+
+
+def test_capabilities_can_express_more_than_one_thing(app):
+    import json
+    v = Vehicle(unit_name="Multi", unit_number="M1", unit_type="BLS",
+                capabilities=json.dumps(["BLS", "Stretcher", "Wheelchair"]))
+    db.session.add(v)
+    db.session.commit()
+    assert v.parsed_capabilities() == ["BLS", "Stretcher", "Wheelchair"]
+
+
+def test_corrupt_capabilities_json_degrades_instead_of_raising(app):
+    v = Vehicle(unit_name="Broken", unit_number="B1", unit_type="BLS", capabilities="{not json")
+    db.session.add(v)
+    db.session.commit()
+    assert v.parsed_capabilities() == ["BLS"]
+
+
+@pytest.mark.parametrize("kwargs,expected", [
+    ({}, True),
+    ({"is_active": False}, False),
+    ({"is_retired": True}, False),
+    ({"operational_status": "out_of_service"}, False),
+    ({"operational_status": "maintenance"}, False),
+])
+def test_availability_for_service(app, kwargs, expected):
+    v = Vehicle(unit_name="Avail", unit_number="AV1", unit_type="BLS",
+                is_active=True, is_retired=False, operational_status="in_service")
+    for key, value in kwargs.items():
+        setattr(v, key, value)
+    db.session.add(v)
+    db.session.commit()
+    assert v.is_available_for_service() is expected
