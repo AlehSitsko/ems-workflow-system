@@ -170,6 +170,45 @@ export function describeQualification(rawValue) {
   };
 }
 
+// ── Operational status (a separate dimension from capability) ───────────────
+//
+// A vehicle's capability says what it CAN do; its operational status says
+// whether it is usable right now. Keeping them apart is why a Bariatric unit
+// that is out of service shows a purple capability AND a red status, instead of
+// one colour trying to mean both.
+
+export const OPERATIONAL_STATUSES = ["in_service", "out_of_service", "maintenance"];
+
+const OPERATIONAL_STATUS_META = {
+  in_service: { label: "In Service", tone: "success" },
+  out_of_service: { label: "Out of Service", tone: "danger" },
+  maintenance: { label: "Maintenance", tone: "warning" },
+  retired: { label: "Retired", tone: "neutral" },
+};
+
+/**
+ * Presentation for a vehicle's operational status.
+ * `isRetired` wins: a retired vehicle is not "in service" whatever the column says.
+ */
+export function describeOperationalStatus(value, { isRetired = false } = {}) {
+  if (isRetired) {
+    return { value: "retired", known: true, title: "Retired", ...OPERATIONAL_STATUS_META.retired };
+  }
+  const normalized = OPERATIONAL_STATUSES.find((s) => aliasKey(s) === aliasKey(value));
+  const meta = OPERATIONAL_STATUS_META[normalized];
+  if (!meta) {
+    const raw = String(value ?? "").trim();
+    return {
+      value: null,
+      known: false,
+      label: raw ? "Unknown" : "—",
+      tone: "neutral",
+      title: raw ? `Unrecognised status: ${raw}` : "No status set",
+    };
+  }
+  return { value: normalized, known: true, ...meta, title: meta.label };
+}
+
 /** Presentation for the role an employee works on a given shift (from the slot). */
 export function describeShiftRole(role) {
   const key = aliasKey(role);
