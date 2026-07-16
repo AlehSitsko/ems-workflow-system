@@ -16,6 +16,23 @@ Every page uses `.page-stack` (flex column, gap 1rem). Top-level sections use `.
 </section>
 ```
 
+### Global search / command palette
+`CommandPalette` lives in the header's center slot and opens with Cmd/Ctrl+K.
+It does two real things — jump to a page, or find a record — and never fakes a
+result set:
+
+- **Go to**: the same permission-filtered `getNavigationGroups(currentUser)`
+  the sidebar uses, so a command can never point somewhere the user can't go.
+- **Records**: real APIs, each gated by the matching `has*Access` helper —
+  patients via the server `name` search, vehicles/employees via their list APIs
+  filtered client-side. A source the user can't access is not searched; a source
+  with no free-text search (calls, tasks) is deliberately absent, not faked.
+
+Destinations are only ever real routes: vehicles deep-link to their workspace;
+a patient opens the Patients list pre-filtered to the surname via
+`location.state.commandSearch` (there is no per-patient route yet); employees
+open the Employees list.
+
 ---
 
 ## Data Display

@@ -6,6 +6,7 @@ import { hasCallIntakeAccess } from "../../api/authApi";
 import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
 import ThemeControl from "./ThemeControl";
+import CommandPalette from "./CommandPalette";
 
 /**
  * The one header every page inside the shell renders.
@@ -57,10 +58,11 @@ const AppHeader = forwardRef(function AppHeader(
         </div>
       </div>
 
-      {/* Center slot is reserved for the Global Search / command palette trigger.
-          It is intentionally empty until that is real — a disabled search box
-          that does nothing is worse than no search box. */}
-      <div className="app-header-center" />
+      {/* Global search / command palette — the trigger lives here; the overlay
+          it opens is rendered in a portal-like fixed layer by the component. */}
+      <div className="app-header-center">
+        <CommandPalette currentUser={currentUser} />
+      </div>
 
       <div className="app-header-right">
         {hasCallIntakeAccess(currentUser) && (
