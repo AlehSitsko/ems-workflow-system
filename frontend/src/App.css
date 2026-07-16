@@ -2301,8 +2301,8 @@ textarea.form-control {
 }
 
 .calendar-cell.today {
-  border-color: var(--bs-primary);
-  box-shadow: inset 0 0 0 1px var(--bs-primary);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 
 .calendar-cell-head {
@@ -2326,7 +2326,7 @@ textarea.form-control {
   height: 1.5rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: var(--bs-primary);
+  background: var(--color-primary);
   color: #fff;
   font-weight: 700;
 }
@@ -2340,7 +2340,7 @@ textarea.form-control {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--bs-danger);
+  background: var(--color-danger);
   flex-shrink: 0;
 }
 
@@ -2350,8 +2350,8 @@ textarea.form-control {
   line-height: 1.25;
   padding: 2px 6px;
   border-radius: 6px;
-  color: var(--bs-danger);
-  background: rgba(var(--bs-danger-rgb), 0.12);
+  color: var(--color-danger);
+  background: rgba(var(--color-danger-rgb), 0.12);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2384,8 +2384,8 @@ textarea.form-control {
 }
 
 .calendar-legend-swatch.today {
-  background: var(--bs-primary);
-  border-color: var(--bs-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .calendar-legend-swatch.weekend {
@@ -2393,8 +2393,8 @@ textarea.form-control {
 }
 
 .calendar-legend-swatch.holiday {
-  background: rgba(var(--bs-danger-rgb), 0.15);
-  border-color: var(--bs-danger);
+  background: rgba(var(--color-danger-rgb), 0.15);
+  border-color: var(--color-danger);
 }
 
 /* Sidebar: holidays + planned sources lists */
@@ -2493,7 +2493,7 @@ textarea.form-control {
 }
 
 .calendar-cell:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -2511,15 +2511,15 @@ textarea.form-control {
 }
 
 .calendar-readiness.ready {
-  color: var(--bs-success);
+  color: var(--color-success);
 }
 
 .calendar-readiness.warning {
-  color: var(--bs-warning);
+  color: var(--color-warning);
 }
 
 .calendar-readiness.critical {
-  color: var(--bs-danger);
+  color: var(--color-danger);
 }
 
 /* Compact operational counts inside a day cell */
@@ -2543,9 +2543,9 @@ textarea.form-control {
 }
 
 .calendar-chip.warn {
-  background: rgba(var(--bs-warning-rgb), 0.14);
-  border-color: rgba(var(--bs-warning-rgb), 0.4);
-  color: var(--bs-warning);
+  background: rgba(var(--color-warning-rgb), 0.14);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
+  color: var(--color-warning);
 }
 
 .calendar-loading {
@@ -2568,18 +2568,18 @@ textarea.form-control {
 }
 
 .calendar-day-readiness.readiness-ready {
-  border-color: rgba(var(--bs-success-rgb), 0.4);
-  background: rgba(var(--bs-success-rgb), 0.08);
+  border-color: rgba(var(--color-success-rgb), 0.4);
+  background: rgba(var(--color-success-rgb), 0.08);
 }
 
 .calendar-day-readiness.readiness-warning {
-  border-color: rgba(var(--bs-warning-rgb), 0.4);
-  background: rgba(var(--bs-warning-rgb), 0.08);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
+  background: rgba(var(--color-warning-rgb), 0.08);
 }
 
 .calendar-day-readiness.readiness-critical {
-  border-color: rgba(var(--bs-danger-rgb), 0.4);
-  background: rgba(var(--bs-danger-rgb), 0.08);
+  border-color: rgba(var(--color-danger-rgb), 0.4);
+  background: rgba(var(--color-danger-rgb), 0.08);
 }
 
 .calendar-day-readiness-label {
@@ -2597,12 +2597,12 @@ textarea.form-control {
 }
 
 .calendar-day-stats .warn {
-  color: var(--bs-warning);
+  color: var(--color-warning);
   font-weight: 600;
 }
 
 .calendar-day-stats .crit {
-  color: var(--bs-danger);
+  color: var(--color-danger);
   font-weight: 600;
 }
 
@@ -2653,7 +2653,7 @@ textarea.form-control {
 }
 
 .calendar-day-row:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -2698,9 +2698,9 @@ textarea.form-control {
 }
 
 .calendar-tag.warn {
-  background: rgba(var(--bs-warning-rgb), 0.14);
-  border-color: rgba(var(--bs-warning-rgb), 0.4);
-  color: var(--bs-warning);
+  background: rgba(var(--color-warning-rgb), 0.14);
+  border-color: rgba(var(--color-warning-rgb), 0.4);
+  color: var(--color-warning);
 }
 
 .calendar-status {
@@ -2708,14 +2708,14 @@ textarea.form-control {
   font-weight: 700;
   padding: 1px 7px;
   border-radius: 5px;
-  background: rgba(var(--bs-primary-rgb), 0.12);
-  color: var(--bs-primary);
+  background: rgba(var(--color-primary-rgb), 0.12);
+  color: var(--color-primary);
   white-space: nowrap;
 }
 
 .calendar-status.status-unassigned {
-  background: rgba(var(--bs-warning-rgb), 0.14);
-  color: var(--bs-warning);
+  background: rgba(var(--color-warning-rgb), 0.14);
+  color: var(--color-warning);
 }
 
 .calendar-status.status-cancelled {
@@ -2724,8 +2724,8 @@ textarea.form-control {
 }
 
 .calendar-status.crit {
-  background: rgba(var(--bs-danger-rgb), 0.14);
-  color: var(--bs-danger);
+  background: rgba(var(--color-danger-rgb), 0.14);
+  color: var(--color-danger);
 }
 
 .calendar-day-issues {
@@ -2741,20 +2741,20 @@ textarea.form-control {
 .calendar-day-issues li {
   padding: 6px 10px;
   border-radius: 8px;
-  border-left: 3px solid var(--bs-warning);
-  background: rgba(var(--bs-warning-rgb), 0.08);
+  border-left: 3px solid var(--color-warning);
+  background: rgba(var(--color-warning-rgb), 0.08);
   color: var(--ems-text-secondary);
 }
 
 .calendar-day-issues li.crit {
-  border-left-color: var(--bs-danger);
-  background: rgba(var(--bs-danger-rgb), 0.08);
+  border-left-color: var(--color-danger);
+  background: rgba(var(--color-danger-rgb), 0.08);
 }
 
 .calendar-tag.crit {
-  background: rgba(var(--bs-danger-rgb), 0.14);
-  border-color: rgba(var(--bs-danger-rgb), 0.4);
-  color: var(--bs-danger);
+  background: rgba(var(--color-danger-rgb), 0.14);
+  border-color: rgba(var(--color-danger-rgb), 0.4);
+  color: var(--color-danger);
 }
 
 .calendar-day-row-static {
@@ -2888,7 +2888,7 @@ textarea.form-control {
 }
 
 .fleet-list-card:focus-visible {
-  outline: 2px solid var(--bs-primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -2912,9 +2912,9 @@ textarea.form-control {
 }
 
 .fleet-status.active {
-  color: var(--bs-success);
-  background: rgba(var(--bs-success-rgb), 0.14);
-  border: 1px solid rgba(var(--bs-success-rgb), 0.4);
+  color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.14);
+  border: 1px solid rgba(var(--color-success-rgb), 0.4);
 }
 
 .fleet-status.inactive {
@@ -2929,11 +2929,11 @@ textarea.form-control {
 }
 
 .fleet-expiry.warn {
-  color: var(--bs-warning);
+  color: var(--color-warning);
   font-weight: 600;
 }
 
 .fleet-expiry.crit {
-  color: var(--bs-danger);
+  color: var(--color-danger);
   font-weight: 700;
 }

@@ -800,7 +800,9 @@ export default function DispatchBoardPage() {
                 {["day", "night"].map(t => (
                   <button key={t} type="button"
                     className={`btn btn-sm flex-fill ${unitForm.shiftType === t ? (t === "night" ? "btn-secondary" : "btn-warning") : "btn-outline-secondary"}`}
-                    style={unitForm.shiftType === t && t === "night" ? { background: "#1a2a4a", color: "#6ea8fe", borderColor: "#6ea8fe" } : undefined}
+                    style={unitForm.shiftType === t && t === "night"
+                      ? { background: "rgba(var(--color-primary-rgb), 0.14)", color: "var(--color-primary)", borderColor: "var(--color-primary)" }
+                      : undefined}
                     onClick={() => setUnitForm(p => ({ ...p, shiftType: t }))}
                   >
                     {t === "day" ? <><FaSun style={{ marginRight: 4 }} />Day</> : <><FaMoon style={{ marginRight: 4 }} />Night</>}
@@ -845,13 +847,13 @@ export default function DispatchBoardPage() {
       {/* Make Night Dialog */}
       {nightDialog && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1070, background: "rgba(15,23,42,0.65)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--ems-bg-surface, #1e2a3a)", border: "1px solid var(--ems-border, #2a3347)", borderRadius: 16, padding: "1.75rem", width: "100%", maxWidth: 440, boxShadow: "0 8px 32px rgba(0,0,0,0.2)", color: "var(--ems-text-primary, #e2e8f0)" }}>
+          <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 16, padding: "1.75rem", width: "100%", maxWidth: 440, boxShadow: "var(--shadow-raised)", color: "var(--color-text)" }}>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-              <FaMoon style={{ color: "#6ea8fe" }} /> Make Night Crew
+              <FaMoon style={{ color: "var(--color-primary)" }} /> Make Night Crew
             </div>
-            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 16 }}>
+            <p style={{ color: "var(--color-text-muted)", fontSize: 14, marginBottom: 16 }}>
               Copying crew from Truck <strong>{nightDialog.sourceUnit.truckNumber}</strong> to a night shift.
-              {nightDialog.hasExisting && <span style={{ color: "#f59e0b" }}> A night crew already exists for this date.</span>}
+              {nightDialog.hasExisting && <span style={{ color: "var(--color-warning)" }}> A night crew already exists for this date.</span>}
             </p>
             <div className="row g-2 mb-3">
               <div className="col-6">
@@ -884,11 +886,11 @@ export default function DispatchBoardPage() {
       )}
 
       <style>{`
-        .badge-als { background: rgba(13,110,253,0.2); color: #6ea8fe; border: 1px solid #6ea8fe44; }
-        .badge-bls { background: rgba(25,135,84,0.2); color: #75b798; border: 1px solid #75b79844; }
+        .badge-als { background: rgba(var(--ems-tax-als-rgb), 0.18); color: rgb(var(--ems-tax-als-rgb)); border: 1px solid rgba(var(--ems-tax-als-rgb), 0.4); }
+        .badge-bls { background: rgba(var(--ems-tax-bls-rgb), 0.18); color: rgb(var(--ems-tax-bls-rgb)); border: 1px solid rgba(var(--ems-tax-bls-rgb), 0.4); }
         .dispatch-board-table { color: var(--ems-board-text); background: var(--ems-board-bg); border-color: var(--ems-board-border); }
         .dispatch-board-table td, .dispatch-board-table th { background: var(--ems-board-bg) !important; color: inherit; border-color: var(--ems-board-border) !important; }
-        .dispatch-board-table tr:hover td { background: rgba(13,110,253,0.05) !important; }
+        .dispatch-board-table tr:hover td { background: rgba(var(--color-primary-rgb), 0.05) !important; }
         .dispatch-board-table thead th { background: var(--ems-board-bg-header) !important; color: var(--ems-board-text-muted) !important; }
       `}</style>
     </div>
