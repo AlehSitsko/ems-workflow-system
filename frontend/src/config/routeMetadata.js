@@ -6,7 +6,7 @@ import {
 
 import {
   hasPatientAccess, hasDispatchAccess, hasEmployeeAccess, hasCrewPlannerAccess,
-  hasSupervisorAccess, hasAdminAccess, hasFleetAccess,
+  hasSupervisorAccess, hasAdminAccess, hasFleetAccess, hasFleetEditAccess,
 } from "../api/authApi";
 
 /**
@@ -105,6 +105,31 @@ export const ROUTE_METADATA = [
     group: "Fleet",
     canAccess: hasFleetAccess,
     width: "standard",
+  },
+  {
+    // Declared before ":vehicleId" so the literal wins the match — otherwise the
+    // create form would resolve as a vehicle named "new".
+    path: "/fleet/vehicles/new",
+    title: "Add vehicle",
+    subtitle: "Register a physical vehicle",
+    icon: FaTruck,
+    group: "Fleet",
+    // Editing the fleet is admin/supervisor; the API enforces it too.
+    canAccess: hasFleetEditAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/fleet/vehicles",
+  },
+  {
+    path: "/fleet/vehicles/:vehicleId/edit",
+    title: "Edit vehicle",
+    subtitle: "Update the physical vehicle record",
+    icon: FaTruck,
+    group: "Fleet",
+    canAccess: hasFleetEditAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/fleet/vehicles",
   },
   {
     // Detail route: reachable from the list, not a sidebar entry. The workspace

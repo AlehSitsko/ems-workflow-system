@@ -101,3 +101,114 @@ export async function deleteVehicle(vehicleId) {
 
   return data;
 }
+
+// Update an existing vehicle (admin/supervisor — the API enforces it).
+export async function updateVehicle(vehicleId, vehicleData) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}`, {
+    method: "PUT",
+    headers: jsonHeaders(),
+    body: JSON.stringify(vehicleData),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to update vehicle");
+  return data;
+}
+
+// ── Odometer ────────────────────────────────────────────────────────────────
+
+export async function getOdometerHistory(vehicleId) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/odometer`, {
+    headers: authHeaders(),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load odometer history");
+  return data;
+}
+
+// `correction: true` records a reading below the current one as a deliberate
+// correction; without it the API rejects a backwards reading.
+export async function addOdometerReading(vehicleId, reading) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/odometer`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(reading),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const error = new Error(data.error || "Failed to record reading");
+    error.status = response.status;
+    error.currentOdometer = data.currentOdometer;
+    throw error;
+  }
+  return data;
+}
+
+// ── Maintenance ─────────────────────────────────────────────────────────────
+
+export async function getMaintenanceRecords(vehicleId) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/maintenance`, {
+    headers: authHeaders(),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load maintenance records");
+  return data;
+}
+
+export async function createMaintenanceRecord(vehicleId, record) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/maintenance`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(record),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to create maintenance record");
+  return data;
+}
+
+export async function updateMaintenanceRecord(recordId, patch) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/maintenance/${recordId}`, {
+    method: "PATCH",
+    headers: jsonHeaders(),
+    body: JSON.stringify(patch),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to update maintenance record");
+  return data;
+}
+
+// ── Shift history ───────────────────────────────────────────────────────────
+
+// Shifts this vehicle actually worked, via the real vehicle_id link.
+export async function getVehicleShifts(vehicleId, limit = 50) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/shifts?limit=${limit}`, {
+    headers: authHeaders(),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load shift history");
+  return data;
+}
+
+// ── Retire / restore ────────────────────────────────────────────────────────
+
+// Retire rather than delete: shifts, maintenance and odometer history must keep
+// a valid vehicle reference.
+export async function retireVehicle(vehicleId, reason) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/retire`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to retire vehicle");
+  return data;
+}
+
+export async function unretireVehicle(vehicleId) {
+  const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/unretire`, {
+    method: "POST",
+    headers: jsonHeaders(),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to restore vehicle");
+  return data;
+}

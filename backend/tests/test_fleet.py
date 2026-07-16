@@ -390,3 +390,67 @@ def test_odometer_history_also_blocks_deletion(client, roles, vehicle):
     resp = client.delete(f"/api/vehicles/{vehicle.id}", headers=roles["admin"])
     assert resp.status_code == 409
     assert resp.get_json()["odometerEntries"] == 1
+
+
+# ── Shift history (drives the Vehicle Workspace tab) ────────────────────────
+
+def test_shift_history_uses_the_real_vehicle_link_not_truck_number(client, roles, vehicle):
+    """Truck numbers get reused and reassigned, so a matching string is not
+    evidence this vehicle did that work. Only the FK counts."""
+    from models import DailyCrewUnit
+
+    linked = DailyCrewUnit(shift_date="2026-07-20", unit_type="BLS", truck_number="101",
+                           start_time="08:00", vehicle_id=vehicle.id)
+    # Same truck_number, but never linked — must not be attributed to this vehicle.
+    unlinked = DailyCrewUnit(shift_date="2026-07-21", unit_type="BLS", truck_number="101",
+                             start_time="08:00", vehicle_id=None)
+    db.session.add_all([linked, unlinked])
+    db.session.commit()
+
+    body = client.get(f"/api/vehicles/{vehicle.id}/shifts", headers=roles["admin"]).get_json()
+    assert [s["id"] for s in body] == [linked.id]
+
+
+def test_shift_history_is_newest_first_and_carries_crew(client, roles, vehicle):
+    from models import DailyCrewUnit, Employee
+
+    driver = Employee(first_name="Nina", last_name="Boyd", role="Driver")
+    medic = Employee(first_name="John", last_name="Cole", role="EMT")
+    db.session.add_all([driver, medic])
+    db.session.commit()
+
+    older = DailyCrewUnit(shift_date="2026-07-18", unit_type="BLS", truck_number="101",
+                          start_time="08:00", vehicle_id=vehicle.id)
+    newer = DailyCrewUnit(shift_date="2026-07-20", unit_type="ALS", truck_number="101",
+                          start_time="07:00", end_time="19:00", vehicle_id=vehicle.id,
+                          driver_id=driver.id, medical_id=medic.id)
+    db.session.add_all([older, newer])
+    db.session.commit()
+
+    body = client.get(f"/api/vehicles/{vehicle.id}/shifts", headers=roles["admin"]).get_json()
+    assert [s["shiftDate"] for s in body] == ["2026-07-20", "2026-07-18"]
+    assert body[0]["crew"]["driver"] == "Nina B."
+    assert body[0]["crew"]["medical"] == "John C."
+    assert body[0]["link"] == f"/dispatch?date=2026-07-20&unit={newer.id}"
+
+
+def test_shift_history_is_empty_for_a_vehicle_that_never_worked(client, roles, vehicle):
+    assert client.get(f"/api/vehicles/{vehicle.id}/shifts", headers=roles["admin"]).get_json() == []
+
+
+def test_shift_history_respects_the_fleet_permission_matrix(client, roles, vehicle):
+    assert client.get(f"/api/vehicles/{vehicle.id}/shifts", headers=roles["dispatcher"]).status_code == 200
+    assert client.get(f"/api/vehicles/{vehicle.id}/shifts", headers=roles["hr"]).status_code == 403
+    assert client.get(f"/api/vehicles/{vehicle.id}/shifts").status_code == 401
+
+
+def test_shift_history_404s_for_an_unknown_vehicle(client, roles):
+    assert client.get("/api/vehicles/999999/shifts", headers=roles["admin"]).status_code == 404
+
+
+def test_shift_history_limit_is_validated_and_capped(client, roles, vehicle):
+    assert client.get(f"/api/vehicles/{vehicle.id}/shifts?limit=abc",
+                      headers=roles["admin"]).status_code == 400
+    # Over-large limits are clamped rather than allowed to scan the table.
+    assert client.get(f"/api/vehicles/{vehicle.id}/shifts?limit=99999",
+                      headers=roles["admin"]).status_code == 200
