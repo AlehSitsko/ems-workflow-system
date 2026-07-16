@@ -1,9 +1,15 @@
-import { FaPlus, FaSearch, FaTimes } from "react-icons/fa";
+import { FaPlus, FaSearch } from "react-icons/fa";
 
-// Patient search panel: header + Add button, the search form (name / DOB /
-// show-archived), and the status alerts. Extracted from PatientsPage.jsx
-// (decomposition phase 3). Presentational — all state and handlers come from
-// the usePatients hook via props.
+import { PageHeader, PageToolbar, ToolbarField } from "../ui/Page";
+import { EmptyState, ErrorState } from "../ui/States";
+
+// Patient search panel: page header + Add button, the search form (name / DOB /
+// show-archived), and the search-state messages. Presentational — all state and
+// handlers come from the usePatients hook via props.
+//
+// This is a search band, not a filter band: Search and Show All are distinct
+// actions (a targeted query vs "load everything"), so they stay as explicit
+// buttons rather than filters that apply on change.
 const PatientToolbar = ({
   loading,
   error,
@@ -20,29 +26,25 @@ const PatientToolbar = ({
   onClear,
   onToggleShowArchived,
 }) => (
-  <section className="content-panel">
-    <div className="content-panel-header">
-      <div>
-        <h4>Patient Search</h4>
-        <p>Find patient records by name, date of birth, or load all records.</p>
-      </div>
-
-      <button
-        type="button"
-        className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
-        onClick={onShowAddForm}
-        disabled={loading}
-      >
-        <FaPlus />
-        Add Patient
-      </button>
-    </div>
+  <>
+    <PageHeader
+      title="Patients"
+      description="Find patient records by name, date of birth, or load all records."
+      actions={(
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={onShowAddForm}
+          disabled={loading}
+        >
+          <FaPlus aria-hidden="true" /> Add Patient
+        </button>
+      )}
+    />
 
     <form onSubmit={onSearch}>
-      <div className="row g-3">
-        <div className="col-md-5">
-          <label className="form-label">Patient Name</label>
-
+      <PageToolbar onClear={onClear} canClear={!!(searchName || searchDob || hasSearched)}>
+        <ToolbarField label="Patient name" grow>
           <input
             className="form-control"
             placeholder="Search by first or last name"
@@ -50,11 +52,9 @@ const PatientToolbar = ({
             onChange={(e) => setSearchName(e.target.value)}
             disabled={loading}
           />
-        </div>
+        </ToolbarField>
 
-        <div className="col-md-3">
-          <label className="form-label">Date of Birth</label>
-
+        <ToolbarField label="Date of birth">
           <input
             type="date"
             className="form-control"
@@ -62,38 +62,21 @@ const PatientToolbar = ({
             onChange={(e) => setSearchDob(e.target.value)}
             disabled={loading}
           />
-        </div>
+        </ToolbarField>
 
-        <div className="col-md-4 d-flex align-items-end gap-2 flex-wrap">
-          <button
-            type="submit"
-            className="btn btn-primary d-inline-flex align-items-center gap-2"
-            disabled={loading}
-          >
-            <FaSearch />
-            Search
-          </button>
+        <ToolbarField label="&nbsp;">
+          <div className="d-flex gap-2">
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              <FaSearch aria-hidden="true" /> Search
+            </button>
+            <button type="button" className="btn btn-outline-secondary" onClick={onShowAll} disabled={loading}>
+              Show All
+            </button>
+          </div>
+        </ToolbarField>
 
-          <button
-            type="button"
-            className="btn btn-outline-info"
-            onClick={onShowAll}
-            disabled={loading}
-          >
-            Show All
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-            onClick={onClear}
-            disabled={loading}
-          >
-            <FaTimes />
-            Clear
-          </button>
-
-          <div className="form-check form-switch mb-0 ms-2">
+        <ToolbarField label="Archived">
+          <div className="form-check form-switch toolbar-switch">
             <input
               type="checkbox"
               className="form-check-input"
@@ -103,35 +86,34 @@ const PatientToolbar = ({
               onChange={onToggleShowArchived}
               disabled={loading}
             />
-            <label className="form-check-label" htmlFor="show-archived-toggle" style={{ fontSize: 13 }}>
+            <label className="form-check-label" htmlFor="show-archived-toggle">
               Show archived
             </label>
           </div>
-        </div>
-      </div>
+        </ToolbarField>
+      </PageToolbar>
     </form>
 
-    {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
+    {error && <div className="mb-3"><ErrorState message={error} /></div>}
+
+    {loading && <p className="text-muted">Loading patient records…</p>}
 
     {!hasSearched && !loading && !error && (
-      <div className="alert alert-info mt-3 mb-0">
-        Enter a patient name, date of birth, or both. You can also use Show
-        All.
-      </div>
-    )}
-
-    {loading && (
-      <div className="alert alert-secondary mt-3 mb-0">
-        Loading patient records...
-      </div>
+      <EmptyState
+        variant="empty"
+        title="Search for a patient"
+        description="Enter a name, a date of birth, or both — or use Show All to load every record."
+      />
     )}
 
     {hasSearched && !loading && !error && patientsCount === 0 && (
-      <div className="alert alert-warning mt-3 mb-0">
-        No patients found.
-      </div>
+      <EmptyState
+        variant="no-results"
+        title="No patients found"
+        description="No records match this search. Try a different name or date of birth."
+      />
     )}
-  </section>
+  </>
 );
 
 export default PatientToolbar;
