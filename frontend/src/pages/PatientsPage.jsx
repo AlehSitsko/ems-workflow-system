@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 import EntityDrawer from "../components/ui/EntityDrawer";
@@ -75,6 +76,20 @@ const PatientsPage = () => {
     handleSearch,
     handleShowAll,
   } = usePatients({ setLoading, setError, clearSelection });
+
+  // Arriving from the command palette with a surname to look up: prefill the
+  // search box and run it, so the chosen patient is already on screen. Applied
+  // once per navigation so a re-render doesn't re-trigger it.
+  const location = useLocation();
+  const commandSearchApplied = useRef(false);
+  useEffect(() => {
+    const term = location.state?.commandSearch;
+    if (!term || commandSearchApplied.current) return;
+    commandSearchApplied.current = true;
+    setSearchName(term);
+    setHasSearched(true);
+    loadPatients({ name: term }, 1, false);
+  }, [location.state, setSearchName, setHasSearched, loadPatients]);
 
   const {
     patientAlerts,
