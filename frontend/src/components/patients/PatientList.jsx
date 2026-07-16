@@ -1,9 +1,13 @@
 import { FaUserSecret, FaTrashRestore, FaEdit, FaArchive } from "react-icons/fa";
 
-// Patient result list: summary badges, one card per patient (with the inline
-// default-service select), and the "Load more" pager. Extracted from
-// PatientsPage.jsx (decomposition phase 3). Presentational — all actions are
-// passed in as handlers.
+import { PageSection } from "../ui/Page";
+import StatusBadge from "../ui/StatusBadge";
+import { LoadMore } from "../ui/Entity";
+import { SERVICE_LEVELS, describeLevel } from "../../utils/taxonomy";
+
+// Patient result list: count badges, one card per patient (with the inline
+// default-service select), and the "Load more" pager. Presentational — all
+// actions are passed in as handlers.
 const PatientList = ({
   patients,
   paginationMeta,
@@ -18,39 +22,35 @@ const PatientList = ({
   onServiceLevelChange,
   onLoadMore,
 }) => {
-  const badges = [
-    { label: "Total", value: paginationMeta.total || patients.length, color: "#0d6efd" },
-    { label: "Loaded", value: patients.length, color: "#198754" },
-    ...(patientCalls.length > 0 ? [{ label: "Calls", value: patientCalls.length, color: "#6f42c1" }] : []),
-  ];
+  const total = paginationMeta.total || patients.length;
 
   return (
-    <section className="content-panel">
-      <div className="content-panel-header">
-        <div>
-          <h4>Patient List</h4>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {badges.map(s => (
-              <span key={s.label} style={{
-                fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
-                background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
-              }}>
-                {s.label}: {s.value}
-              </span>
-            ))}
-          </div>
+    <PageSection
+      title="Patient List"
+      actions={(
+        <div className="stat-chip-row">
+          <StatusBadge tone="info" label={`${total} total`} />
+          <StatusBadge tone="success" label={`${patients.length} loaded`} />
+          {patientCalls.length > 0 && (
+            <StatusBadge tone="purple" label={`${patientCalls.length} calls`} />
+          )}
         </div>
-      </div>
-
+      )}
+    >
       <div className="patient-list">
         {patients.map((patient) => {
           const isSelected = selectedPatient?.id === patient.id;
+          // The stored value is canonical (BLS/ALS/…). Options are built from the
+          // same canonical list, so the select displays what is stored instead of
+          // silently falling back to "Not set" on a casing mismatch. A legacy or
+          // unrecognised value is kept as its own option rather than hidden.
+          const level = patient.default_service_level || "";
+          const known = SERVICE_LEVELS.includes(level);
 
           return (
             <div
-              className={`patient-list-card ${isSelected ? "selected" : ""}`}
+              className={`patient-list-card ${isSelected ? "selected" : ""} ${patient.is_archived ? "is-archived" : ""}`}
               key={patient.id}
-              style={{ cursor: "pointer", opacity: patient.is_archived ? 0.6 : 1 }}
               onClick={() => onSelectPatient(patient)}
             >
               {/* Name + avatar */}
@@ -61,39 +61,39 @@ const PatientList = ({
                 <div>
                   <div className="patient-list-name d-flex align-items-center gap-2">
                     {patient.first_name} {patient.last_name}
-                    {patient.is_sensitive && <FaUserSecret title="Sensitive patient" style={{ color: "#f59e0b", fontSize: 12 }} />}
-                    {patient.is_archived && <span className="badge text-bg-secondary" style={{ fontSize: 10 }}>Archived</span>}
+                    {patient.is_sensitive && (
+                      <FaUserSecret title="Sensitive patient" className="patient-list-sensitive" />
+                    )}
+                    {patient.is_archived && <StatusBadge tone="neutral" label="Archived" />}
                   </div>
-                  <div className="patient-list-muted" style={{ fontSize: 11 }}>
-                    {patient.dob || "No DOB"}
-                  </div>
+                  <div className="patient-list-muted">{patient.dob || "No DOB"}</div>
                 </div>
               </div>
 
               {/* Phone */}
               <div>
                 <div className="compact-call-label">Phone</div>
-                <div style={{ fontSize: 13, color: "var(--ems-text-primary)" }}>{patient.phone || "—"}</div>
+                <div className="patient-list-value">{patient.phone || "—"}</div>
                 {patient.secondary_phone && (
-                  <div style={{ fontSize: 11, color: "var(--ems-text-muted)" }}>{patient.secondary_phone}</div>
+                  <div className="patient-list-muted">{patient.secondary_phone}</div>
                 )}
               </div>
 
               {/* Insurance */}
               <div>
                 <div className="compact-call-label">Insurance</div>
-                <div style={{ fontSize: 12, color: "var(--ems-text-secondary)" }}>{patient.insurance || "—"}</div>
+                <div className="patient-list-value-secondary">{patient.insurance || "—"}</div>
               </div>
 
               {/* Home address */}
               <div>
                 <div className="compact-call-label">Home Address</div>
-                <div style={{ fontSize: 12, color: "var(--ems-text-secondary)" }}>
+                <div className="patient-list-value-secondary">
                   {patient.address
                     ? <>
                         {patient.address}
                         {(patient.city || patient.state) && (
-                          <span style={{ color: "var(--ems-text-muted)" }}>
+                          <span className="patient-list-muted">
                             {", "}{[patient.city, patient.state].filter(Boolean).join(", ")}
                           </span>
                         )}
@@ -102,21 +102,23 @@ const PatientList = ({
                 </div>
               </div>
 
-              {/* Default service — inline select */}
-              <div onClick={e => e.stopPropagation()}>
+              {/* Default service — inline select, options from the canonical taxonomy */}
+              <div onClick={(e) => e.stopPropagation()}>
                 <div className="compact-call-label">Default Service</div>
                 <select
-                  className="form-select form-select-sm"
-                  style={{ fontSize: 11, padding: "2px 6px", width: 120, borderRadius: 6 }}
-                  value={patient.default_service_level || ""}
+                  className="form-select form-select-sm patient-service-select"
+                  value={level}
                   onChange={(e) => onServiceLevelChange(patient, e.target.value)}
                 >
                   <option value="">— Not set —</option>
-                  <option value="bls">BLS</option>
-                  <option value="als">ALS</option>
-                  <option value="emergency">Emergency</option>
-                  <option value="stretcher">Stretcher</option>
-                  <option value="wheelchair">Wheelchair</option>
+                  {SERVICE_LEVELS.map((lvl) => (
+                    <option key={lvl} value={lvl}>{lvl}</option>
+                  ))}
+                  {level && !known && (
+                    // Keep an unrecognised legacy value visible and selected
+                    // rather than blanking it — bad data stays findable.
+                    <option value={level}>{describeLevel(level).label}: {level}</option>
+                  )}
                 </select>
               </div>
 
@@ -135,7 +137,7 @@ const PatientList = ({
                   <>
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
+                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
                       onClick={() => onEditPatient(patient)}
                       disabled={loading}
                     >
@@ -157,19 +159,13 @@ const PatientList = ({
         })}
       </div>
 
-      {patients.length < paginationMeta.total && (
-        <div className="text-center mt-3">
-          <button
-            type="button"
-            className="btn btn-outline-secondary"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-          >
-            {loadingMore ? "Loading..." : `Load more (${patients.length} of ${paginationMeta.total})`}
-          </button>
-        </div>
-      )}
-    </section>
+      <LoadMore
+        loaded={patients.length}
+        total={total}
+        loading={loadingMore}
+        onLoadMore={onLoadMore}
+      />
+    </PageSection>
   );
 };
 
