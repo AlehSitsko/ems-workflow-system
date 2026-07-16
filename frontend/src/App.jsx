@@ -33,6 +33,7 @@ const TasksPage = lazy(() => import("./pages/TasksPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const VehiclesListPage = lazy(() => import("./pages/fleet/VehiclesListPage"));
 const VehicleWorkspacePage = lazy(() => import("./pages/fleet/VehicleWorkspacePage"));
+const VehicleFormPage = lazy(() => import("./pages/fleet/VehicleFormPage"));
 
 function PageFallback() {
   return <div className="page-stack"><p className="text-muted">Loading...</p></div>;
@@ -386,6 +387,26 @@ function App() {
           element={
             <FleetRoute>
               <VehiclesListPage currentUser={currentUser} />
+            </FleetRoute>
+          }
+        />
+
+        {/* "new" must be matched before ":vehicleId", or the form is swallowed
+            by the workspace route and looks for a vehicle called "new". */}
+        <Route
+          path="/fleet/vehicles/new"
+          element={
+            <FleetRoute>
+              <VehicleFormPage currentUser={currentUser} />
+            </FleetRoute>
+          }
+        />
+
+        <Route
+          path="/fleet/vehicles/:vehicleId/edit"
+          element={
+            <FleetRoute>
+              <VehicleFormPage currentUser={currentUser} />
             </FleetRoute>
           }
         />

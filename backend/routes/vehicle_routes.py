@@ -3,7 +3,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Vehicle, VehicleOdometerEntry, VehicleMaintenanceRecord, DailyCrewUnit
+from models import db, Vehicle, VehicleOdometerEntry, VehicleMaintenanceRecord, DailyCrewUnit, Employee
 from utils.validation_utils import check_length, is_valid_date
 from utils.taxonomy import VEHICLE_CAPABILITIES, normalize_vehicle_capability
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
@@ -337,6 +337,68 @@ def delete_vehicle(id):
         return jsonify({"error": str(e)}), 500
 
     return jsonify({"message": "Vehicle deleted"})
+
+
+# ── Shift history ───────────────────────────────────────────────────────────
+
+@vehicle_bp.route("/<int:id>/shifts", methods=["GET"])
+@require_role(*FLEET_VIEW_ROLES)
+def list_vehicle_shifts(id):
+    """Shifts this vehicle has been deployed on, newest first.
+
+    Driven by the real `DailyCrewUnit.vehicle_id` link. Legacy units that only
+    carry a matching `truck_number` are deliberately NOT included: truck numbers
+    get reused and reassigned, so guessing would attribute another truck's work
+    to this vehicle. Unlinked legacy shifts are surfaced by the
+    `link-crew-units-to-vehicles` CLI instead.
+    """
+    Vehicle.query.get_or_404(id)
+
+    try:
+        limit = min(int(request.args.get("limit", 50)), 200)
+    except (TypeError, ValueError):
+        return jsonify({"error": "limit must be an integer"}), 400
+
+    units = (DailyCrewUnit.query
+             .filter_by(vehicle_id=id)
+             .order_by(DailyCrewUnit.shift_date.desc(), DailyCrewUnit.start_time.desc())
+             .limit(limit)
+             .all())
+
+    # Batch-load the crew so a long history does not fan out into one query per
+    # shift per slot.
+    crew_ids = {eid for u in units
+                for eid in (u.driver_id, u.medical_id, u.assist1_id, u.assist2_id) if eid}
+    employees = {}
+    if crew_ids:
+        employees = {e.id: e for e in Employee.query.filter(Employee.id.in_(crew_ids)).all()}
+
+    def crew_name(emp_id):
+        emp = employees.get(emp_id)
+        if not emp:
+            return None
+        return f"{emp.first_name} {emp.last_name[0]}." if emp.last_name else emp.first_name
+
+    return jsonify([{
+        "id": u.id,
+        "shiftDate": u.shift_date,
+        "unitType": u.unit_type,
+        "truckNumber": u.truck_number,
+        "startTime": u.start_time,
+        "endTime": u.end_time or "",
+        "endDate": u.end_date or "",
+        "shiftType": u.shift_type or "day",
+        "shiftStatus": u.shift_status or "scheduled",
+        "dispatchStatus": u.dispatch_status or "available",
+        "crew": {
+            "driver": crew_name(u.driver_id),
+            "medical": crew_name(u.medical_id),
+            "assist1": crew_name(u.assist1_id),
+            "assist2": crew_name(u.assist2_id),
+        },
+        # Deep link back into the board for that operational day.
+        "link": f"/dispatch?date={u.shift_date}&unit={u.id}",
+    } for u in units])
 
 
 # ── Odometer ────────────────────────────────────────────────────────────────

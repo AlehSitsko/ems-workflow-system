@@ -32,6 +32,7 @@ export default function EntityWorkspace({
   backLabel = "Back",
   title,
   subtitle,
+  icon,
   badges,
   actions,
   tabs = [],
@@ -144,42 +145,43 @@ export default function EntityWorkspace({
     <div className="page-stack">
       {backLink}
 
-      <section className="content-panel">
-        <div className="content-panel-header">
-          <div>
-            <h4 className="workspace-title">
-              {title}
-              {badges && <span className="workspace-badges">{badges}</span>}
-            </h4>
-            {subtitle && <p>{subtitle}</p>}
-          </div>
-          {actions && <div className="workspace-actions">{actions}</div>}
+      <div className="workspace-header">
+        {icon && <span className="workspace-icon">{icon}</span>}
+        <div className="workspace-identity">
+          {/* Name, identifier, capability and status stay four separate things —
+              gluing them into one title would lose all four meanings. */}
+          <h2 className="workspace-title">{title}</h2>
+          {subtitle && <p className="workspace-subtitle">{subtitle}</p>}
+          {badges && <span className="workspace-badges">{badges}</span>}
         </div>
+        {actions && <div className="workspace-actions">{actions}</div>}
+      </div>
 
-        {tabs.length > 0 && (
-          <div className="workspace-tabs" role="tablist" aria-label={`${title} sections`}>
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === tab.key}
-                disabled={tab.disabled}
-                title={tab.disabledReason || undefined}
-                className={`workspace-tab${activeTab === tab.key ? " active" : ""}`}
-                onClick={() => handleTabChange(tab.key)}
-              >
-                {tab.label}
-                {tab.disabled && <span className="workspace-tab-soon">soon</span>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="workspace-body">
-          {typeof children === "function" ? children(activeTab) : children}
+      {tabs.length > 0 && (
+        <div className="workspace-tabs" role="tablist" aria-label={`${title} sections`}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              disabled={tab.disabled}
+              // The reason lives in the tooltip/accessible name, not as a "soon"
+              // word glued inside the label.
+              title={tab.disabledReason || undefined}
+              aria-description={tab.disabled ? tab.disabledReason : undefined}
+              className={`workspace-tab${activeTab === tab.key ? " active" : ""}`}
+              onClick={() => handleTabChange(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </section>
+      )}
+
+      <div className="workspace-body">
+        {typeof children === "function" ? children(activeTab) : children}
+      </div>
     </div>
   );
 }
