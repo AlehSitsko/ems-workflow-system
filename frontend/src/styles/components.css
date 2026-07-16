@@ -238,6 +238,13 @@
   outline-offset: 2px;
 }
 
+/* KPI row: tiles share one width so the row reads as a single scale. */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
 .stat-card-head {
   display: flex;
   align-items: center;
@@ -256,6 +263,8 @@
 .stat-card-value.tone-warning { color: var(--color-warning); }
 .stat-card-value.tone-danger  { color: var(--color-danger); }
 .stat-card-value.tone-info    { color: var(--color-primary); }
+.stat-card-value.tone-purple  { color: var(--color-purple); }
+.stat-card-value.tone-neutral { color: var(--color-text); }
 
 .stat-card-icon {
   color: var(--color-text-muted);
