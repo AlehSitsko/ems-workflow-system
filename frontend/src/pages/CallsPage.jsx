@@ -1,13 +1,5 @@
 import React, { useRef, useState } from "react";
-import {
-  FaCalendarDay,
-  FaClock,
-  FaClipboardList,
-  FaFilter,
-  FaSearch,
-  FaStarHalfAlt,
-  FaTimes,
-} from "react-icons/fa";
+import { FaCalendarDay, FaSearch } from "react-icons/fa";
 
 import { getCalls, uncancelCall, updateCall, createCall } from "../api/callsApi";
 import { localIsoNow } from "../utils/callUtils";
@@ -16,6 +8,12 @@ import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
 import { useUserSettings } from "../context/useUserSettings";
 import { formatTimeForDisplay } from "../utils/timeUtils";
+import { PageHeader, PageSection, PageToolbar, ToolbarField } from "../components/ui/Page";
+import { EmptyState, ErrorState } from "../components/ui/States";
+import { LoadMore } from "../components/ui/Entity";
+import StatusBadge from "../components/ui/StatusBadge";
+import { ServiceLevelBadge } from "../components/taxonomy/TaxonomyBadges";
+import { SERVICE_LEVELS, describeLevel } from "../utils/taxonomy";
 
 const CallsPage = ({ currentUser }) => {
   const toast = useToast();
@@ -44,87 +42,34 @@ const CallsPage = ({ currentUser }) => {
   const [editForm, setEditForm] = useState({});
   const [editSaving, setEditSaving] = useState(false);
 
-  // Return Bootstrap badge color based on quality score.
-  const getScoreColor = (score) => {
-    if (score === null || score === undefined) {
-      return "secondary";
-    }
-
-    if (score >= 80) {
-      return "success";
-    }
-
-    if (score >= 50) {
-      return "warning";
-    }
-
+  // Quality score → semantic tone. Score is a 0–100 backend value.
+  const scoreTone = (score) => {
+    if (score === null || score === undefined) return "neutral";
+    if (score >= 80) return "success";
+    if (score >= 50) return "warning";
     return "danger";
   };
 
-  // Render quality score badge using structured backend data.
-  const renderQualityBadge = (score) => {
-    if (score === null || score === undefined) {
-      return <span className="badge text-bg-secondary">—</span>;
-    }
-
-    return (
-      <span className={`badge text-bg-${getScoreColor(score)}`}>
-        {score}%
-      </span>
-    );
-  };
+  const renderQualityBadge = (score) => (
+    <StatusBadge
+      tone={scoreTone(score)}
+      label={score === null || score === undefined ? "—" : `${score}%`}
+      dot={false}
+    />
+  );
 
   const renderIssueBadge = (call) => {
-    if (call.missing_critical_fields) {
-      return <span className="badge text-bg-danger">Critical</span>;
-    }
-
-    if (call.missing_optional_fields) {
-      return <span className="badge text-bg-warning">Optional</span>;
-    }
-
-    return <span className="badge text-bg-success">Complete</span>;
+    if (call.missing_critical_fields) return <StatusBadge tone="danger" label="Critical" />;
+    if (call.missing_optional_fields) return <StatusBadge tone="warning" label="Optional" />;
+    return <StatusBadge tone="success" label="Complete" />;
   };
 
-  const formatServiceLevel = (serviceLevel) => {
-    if (!serviceLevel) {
-      return "—";
-    }
-
-    if (serviceLevel === "bls") {
-      return "BLS";
-    }
-
-    if (serviceLevel === "als") {
-      return "ALS";
-    }
-
-    if (serviceLevel === "emergency") {
-      return "Emergency";
-    }
-
-    if (serviceLevel === "stretcher") {
-      return "Stretcher";
-    }
-
-    return serviceLevel;
-  };
-
-  const renderServiceBadge = (serviceLevel) => {
-    if (!serviceLevel) {
-      return <span className="badge text-bg-secondary">—</span>;
-    }
-
-    if (serviceLevel === "emergency") {
-      return <span className="badge text-bg-danger">Emergency</span>;
-    }
-
-    return (
-      <span className="badge text-bg-primary">
-        {formatServiceLevel(serviceLevel)}
-      </span>
-    );
-  };
+  // Service level is rendered from the canonical taxonomy: what it displays
+  // matches what the backend stores (BLS/ALS/…), and a value that is not a
+  // service level — a stray "emergency" that belongs on call_type — degrades to
+  // a visible "Unknown" badge instead of being dressed up as a real level.
+  const renderServiceBadge = (serviceLevel) =>
+    serviceLevel ? <ServiceLevelBadge value={serviceLevel} /> : <StatusBadge tone="neutral" label="—" dot={false} />;
 
   const formatCallStatus = (status) => {
     const normalizedStatus = status || "new";
@@ -146,25 +91,15 @@ const CallsPage = ({ currentUser }) => {
     return labels[normalizedStatus] || normalizedStatus;
   };
 
+  const STATUS_TONE = { new: "neutral", completed: "success", cancelled: "danger" };
+
   const renderStatusBadge = (status) => {
     const normalizedStatus = status || "new";
-
-    if (normalizedStatus === "new") {
-      return <span className="badge text-bg-secondary">New</span>;
-    }
-
-    if (normalizedStatus === "completed") {
-      return <span className="badge text-bg-success">Completed</span>;
-    }
-
-    if (normalizedStatus === "cancelled") {
-      return <span className="badge text-bg-danger">Cancelled</span>;
-    }
-
     return (
-      <span className="badge text-bg-info">
-        {formatCallStatus(normalizedStatus)}
-      </span>
+      <StatusBadge
+        tone={STATUS_TONE[normalizedStatus] || "info"}
+        label={formatCallStatus(normalizedStatus)}
+      />
     );
   };
 
@@ -283,8 +218,9 @@ const CallsPage = ({ currentUser }) => {
       return_pickup: call.dropoff_address || "",
       return_destination: call.pickup_address || "",
       return_time: "",
-      // Default return service level: emergency calls go home as BLS
-      return_service_level: call.service_level === "emergency" ? "bls" : (call.service_level || "bls"),
+      // Default the return leg to the outbound call's level when it is a real
+      // one, otherwise BLS. Values are canonical to match the select options.
+      return_service_level: SERVICE_LEVELS.includes(call.service_level) ? call.service_level : "BLS",
     });
     setDrawerOpen(true);
   };
@@ -359,8 +295,10 @@ const CallsPage = ({ currentUser }) => {
     (call) => call.missing_critical_fields
   ).length;
 
+  // Emergency is a call TYPE, not a service level (the taxonomy migration moved
+  // it). Counting service_level here would measure an empty set and mislabel it.
   const emergencyCalls = calls.filter(
-    (call) => call.service_level === "emergency"
+    (call) => String(call.call_type || "").toLowerCase() === "emergency"
   ).length;
 
   const newCalls = calls.filter((call) => !call.status || call.status === "new")
@@ -378,173 +316,83 @@ const CallsPage = ({ currentUser }) => {
 
   return (
     <div className="page-stack">
-      <section className="content-panel">
-        <div className="content-panel-header">
-          <div>
-            <h4>Call History</h4>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {[
-                { label: "Total", value: total || calls.length, color: "#0d6efd" },
-                { label: "New", value: newCalls, color: "#198754" },
-                { label: "Avg Quality", value: averageQualityScore === null ? "—" : `${averageQualityScore}%`, color: "#6f42c1" },
-                { label: "Critical Missing", value: callsWithCriticalMissing, color: callsWithCriticalMissing > 0 ? "#ffc107" : "#6c757d" },
-                { label: "Emergency", value: emergencyCalls, color: emergencyCalls > 0 ? "#dc3545" : "#6c757d" },
-              ].map(s => (
-                <span key={s.label} style={{
-                  fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
-                  background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
-                }}>
-                  {s.label}: {s.value}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {error && (
-          <div className="alert alert-danger">
-            {error}
+      <PageHeader
+        title="Calls"
+        description="Review saved call records and call-quality tracking."
+        actions={(
+          <div className="stat-chip-row">
+            <StatusBadge tone="info" label={`${total || calls.length} total`} />
+            <StatusBadge tone="success" label={`${newCalls} new`} />
+            <StatusBadge tone="purple" label={`Avg ${averageQualityScore === null ? "—" : `${averageQualityScore}%`}`} />
+            <StatusBadge tone={callsWithCriticalMissing > 0 ? "warning" : "neutral"} label={`${callsWithCriticalMissing} critical missing`} />
+            <StatusBadge tone={emergencyCalls > 0 ? "danger" : "neutral"} label={`${emergencyCalls} emergency`} />
           </div>
         )}
+      />
 
-        <div className="row g-3">
-          <div className="col-md-3">
-            <label className="form-label">Date of Call</label>
+      {error && <div className="mb-3"><ErrorState message={error} /></div>}
 
-            <input
-              type="date"
-              className="form-control"
-              value={dateOfCall}
-              onChange={(e) => setDateOfCall(e.target.value)}
-              disabled={loading}
-            />
-          </div>
+      <PageToolbar onClear={handleClear} canClear={!!(dateOfCall || dispatcherName || status || minQualityScore || maxQualityScore || calls.length)}>
+        <ToolbarField label="Date of call">
+          <input type="date" className="form-control" value={dateOfCall}
+                 onChange={(e) => setDateOfCall(e.target.value)} disabled={loading} />
+        </ToolbarField>
 
-          <div className="col-md-3">
-            <label className="form-label">Dispatcher</label>
+        <ToolbarField label="Dispatcher">
+          <input type="text" className="form-control" placeholder="Dispatcher name" value={dispatcherName}
+                 onChange={(e) => setDispatcherName(e.target.value)} disabled={loading} />
+        </ToolbarField>
 
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Dispatcher name"
-              value={dispatcherName}
-              onChange={(e) => setDispatcherName(e.target.value)}
-              disabled={loading}
-            />
-          </div>
+        <ToolbarField label="Status">
+          <select className="form-select" value={status}
+                  onChange={(e) => setStatus(e.target.value)} disabled={loading}>
+            <option value="">All Statuses</option>
+            <option value="new">New</option>
+            <option value="pending_assignment">Pending Assignment</option>
+            <option value="assigned">Assigned</option>
+            <option value="en_route">En Route</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="no_show">No Show</option>
+            <option value="refused">Refused</option>
+          </select>
+        </ToolbarField>
 
-          <div className="col-md-3">
-            <label className="form-label">Status</label>
+        <ToolbarField label="Min quality">
+          <input type="number" className="form-control" placeholder="e.g. 50" min="0" max="100"
+                 value={minQualityScore} onChange={(e) => setMinQualityScore(e.target.value)} disabled={loading} />
+        </ToolbarField>
 
-            <select
-              className="form-select"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              disabled={loading}
-            >
-              <option value="">All Statuses</option>
-              <option value="new">New</option>
-              <option value="pending_assignment">Pending Assignment</option>
-              <option value="assigned">Assigned</option>
-              <option value="en_route">En Route</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="no_show">No Show</option>
-              <option value="refused">Refused</option>
-            </select>
-          </div>
+        <ToolbarField label="Max quality">
+          <input type="number" className="form-control" placeholder="e.g. 100" min="0" max="100"
+                 value={maxQualityScore} onChange={(e) => setMaxQualityScore(e.target.value)} disabled={loading} />
+        </ToolbarField>
 
-          <div className="col-md-3">
-            <label className="form-label">Min Quality Score</label>
-
-            <input
-              type="number"
-              className="form-control"
-              placeholder="Example: 50"
-              min="0"
-              max="100"
-              value={minQualityScore}
-              onChange={(e) => setMinQualityScore(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="col-md-3">
-            <label className="form-label">Max Quality Score</label>
-
-            <input
-              type="number"
-              className="form-control"
-              placeholder="Example: 100"
-              min="0"
-              max="100"
-              value={maxQualityScore}
-              onChange={(e) => setMaxQualityScore(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="col-12 d-flex align-items-end gap-2 flex-wrap">
-            <button
-              type="button"
-              className="btn btn-primary d-inline-flex align-items-center gap-2"
-              onClick={handleApplyFilters}
-              disabled={loading}
-            >
-              <FaSearch />
-              {loading ? "Loading..." : "Apply Filters"}
+        <ToolbarField label="&nbsp;">
+          <div className="d-flex gap-2">
+            <button type="button" className="btn btn-primary" onClick={handleApplyFilters} disabled={loading}>
+              <FaSearch aria-hidden="true" /> {loading ? "Loading…" : "Apply"}
             </button>
-
-            <button
-              type="button"
-              className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
-              onClick={handleToday}
-              disabled={loading}
-            >
-              <FaCalendarDay />
-              Today
+            <button type="button" className="btn btn-outline-secondary" onClick={handleToday} disabled={loading}>
+              <FaCalendarDay aria-hidden="true" /> Today
             </button>
-
-            <button
-              type="button"
-              className="btn btn-outline-info"
-              onClick={handleLoadAll}
-              disabled={loading}
-            >
+            <button type="button" className="btn btn-outline-secondary" onClick={handleLoadAll} disabled={loading}>
               Load All
             </button>
-
-            <button
-              type="button"
-              className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
-              onClick={handleClear}
-              disabled={loading}
-            >
-              <FaTimes />
-              Clear
-            </button>
           </div>
-        </div>
-      </section>
+        </ToolbarField>
+      </PageToolbar>
 
-      <section className="content-panel">
-        <div className="content-panel-header">
-          <div>
-            <h4>Calls</h4>
-            <p>Loaded call records and quality tracking information.</p>
-          </div>
-
-          <span className="badge text-bg-secondary">
-            {calls.length} / {total}
-          </span>
-        </div>
-
+      <PageSection
+        title="Call records"
+        actions={<StatusBadge tone="neutral" label={`${calls.length} of ${total}`} dot={false} />}
+      >
         {calls.length === 0 ? (
-          <div className="empty-state">
-            <FaClipboardList />
-            <h5>No calls loaded</h5>
-            <p>Apply filters, load today’s calls, or load all calls to view records.</p>
-          </div>
+          <EmptyState
+            variant="empty"
+            title="No calls loaded"
+            description="Apply filters, load today’s calls, or load all calls to view records."
+          />
         ) : (
           <div className="compact-call-list">
             {calls.map((call) => {
@@ -594,19 +442,13 @@ const CallsPage = ({ currentUser }) => {
           </div>
         )}
 
-        {calls.length > 0 && calls.length < total && (
-          <div className="text-center mt-3">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-            >
-              {loadingMore ? "Loading..." : `Load more (${calls.length} of ${total})`}
-            </button>
-          </div>
-        )}
-      </section>
+        <LoadMore
+          loaded={calls.length}
+          total={total}
+          loading={loadingMore}
+          onLoadMore={handleLoadMore}
+        />
+      </PageSection>
 
       <EntityDrawer
         open={drawerOpen}
@@ -641,7 +483,7 @@ const CallsPage = ({ currentUser }) => {
             <Di label="Status" value={formatCallStatus(selectedCall.status)} />
             <Di label="Caller Type" value={selectedCall.caller_type} />
             <Di label="Call Type" value={selectedCall.call_type} />
-            <Di label="Service Level" value={formatServiceLevel(selectedCall.service_level)} />
+            <Di label="Service Level" value={selectedCall.service_level ? describeLevel(selectedCall.service_level).label : null} />
             <Di label="Notes" value={selectedCall.notes} />
             {selectedCall.status === "cancelled" && (
               <div style={{ gridColumn: "1 / -1" }}>
@@ -771,10 +613,12 @@ const CallsPage = ({ currentUser }) => {
                   <label className="form-label">Service Level</label>
                   <select className="form-select" value={editForm.service_level} onChange={e => setEditForm(f => ({ ...f, service_level: e.target.value }))}>
                     <option value="">— Select —</option>
-                    <option value="stretcher">Stretcher</option>
-                    <option value="bls">BLS</option>
-                    <option value="als">ALS</option>
-                    <option value="emergency">Emergency</option>
+                    {SERVICE_LEVELS.map((lvl) => <option key={lvl} value={lvl}>{lvl}</option>)}
+                    {editForm.service_level && !SERVICE_LEVELS.includes(editForm.service_level) && (
+                      // Keep an unrecognised stored value (e.g. a legacy
+                      // "emergency") visible and selected rather than blanking it.
+                      <option value={editForm.service_level}>{editForm.service_level} (unknown)</option>
+                    )}
                   </select>
                 </div>
                 <div className="col-12">
@@ -908,16 +752,8 @@ const CallsPage = ({ currentUser }) => {
                         value={editForm.return_service_level}
                         onChange={e => setEditForm(f => ({ ...f, return_service_level: e.target.value }))}
                       >
-                        <option value="stretcher">Stretcher</option>
-                        <option value="bls">BLS</option>
-                        <option value="als">ALS</option>
-                        <option value="emergency">Emergency</option>
+                        {SERVICE_LEVELS.map((lvl) => <option key={lvl} value={lvl}>{lvl}</option>)}
                       </select>
-                      {editForm.service_level === "emergency" && editForm.return_service_level === "bls" && (
-                        <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 3 }}>
-                          Defaulted to BLS — original call was Emergency.
-                        </div>
-                      )}
                     </div>
 
                     {editForm.return_ride_option === "return" && (
