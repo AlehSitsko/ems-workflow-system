@@ -1179,6 +1179,14 @@ textarea.form-control {
   flex-wrap: wrap;
 }
 
+/* Wrapping row of small badges inside an entity card cell. */
+.employee-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
 @media (max-width: 767.98px) {
   .patient-list-card {
     grid-template-columns: minmax(0, 1fr) minmax(0, auto);
