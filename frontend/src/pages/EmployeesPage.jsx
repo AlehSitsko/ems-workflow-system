@@ -2,17 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useConfirm } from "../components/ui/useConfirm";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import {
-  FaBriefcaseMedical,
-  FaClock,
   FaEdit,
-  FaFileAlt,
   FaIdBadge,
   FaPlus,
   FaRedo,
-  FaTimes,
   FaTrash,
-  FaUserCheck,
-  FaUsers,
   FaVial,
 } from "react-icons/fa";
 
@@ -27,6 +21,9 @@ import { getDocuments, uploadDocument } from "../api/documentsApi";
 import { getCurrentUser } from "../api/authApi";
 import TimePayTab from "../components/TimePayTab";
 import DocumentsTab from "../components/DocumentsTab";
+import { PageHeader, PageSection } from "../components/ui/Page";
+import { EmptyState, ErrorState } from "../components/ui/States";
+import StatusBadge from "../components/ui/StatusBadge";
 
 // Maps cert field name → EmployeeDocument doc_type
 const CERT_DOC_TYPES = {
@@ -41,123 +38,6 @@ import {
   getEmployeeRoleClass,
   getEmployeeRoleLabel,
 } from "../utils/employeeRoleUtils";
-
-/*
-  Separate storage key for Crew Planner units.
-  This allows us to clear saved crews when loading test employees.
-*/
-const UNITS_STORAGE_KEY = "planned_units";
-
-/*
-  Helper to create license objects for test employees.
-*/
-const createLicense = (hasLicense, licenseName, expirationDate) => ({
-  hasLicense,
-  licenseName,
-  expirationDate,
-});
-
-/*
-  Predefined test employees for quick Crew Planner testing.
-*/
-const TEST_EMPLOYEES = [
-  {
-    firstName: "John",
-    lastName: "Carter",
-    phone: "215-555-0101",
-    email: "john.carter@example.com",
-    employeeNumber: "EMP-101",
-    hireDate: "2024-01-15",
-    role: "EMT",
-    status: "active",
-    isActive: true,
-    notes: "Test BLS driver / EMT",
-    cpr: createLicense(true, "CPR", "2027-12-31"),
-    evoc: createLicense(true, "EVOC", "2027-11-30"),
-    emt: createLicense(true, "EMT", "2027-10-31"),
-    paramedic: createLicense(false, "", ""),
-  },
-  {
-    firstName: "Mike",
-    lastName: "Dalton",
-    phone: "215-555-0102",
-    email: "mike.dalton@example.com",
-    employeeNumber: "EMP-102",
-    hireDate: "2024-03-01",
-    role: "EMT",
-    status: "active",
-    isActive: true,
-    notes: "Test BLS EMT",
-    cpr: createLicense(true, "CPR", "2027-12-31"),
-    evoc: createLicense(false, "", ""),
-    emt: createLicense(true, "EMT", "2027-08-31"),
-    paramedic: createLicense(false, "", ""),
-  },
-  {
-    firstName: "Sarah",
-    lastName: "Collins",
-    phone: "215-555-0103",
-    email: "sarah.collins@example.com",
-    employeeNumber: "EMP-201",
-    hireDate: "2023-09-10",
-    role: "Paramedic",
-    status: "active",
-    isActive: true,
-    notes: "Test ALS medic",
-    cpr: createLicense(true, "CPR", "2027-12-31"),
-    evoc: createLicense(false, "", ""),
-    emt: createLicense(false, "", ""),
-    paramedic: createLicense(true, "Paramedic", "2027-07-31"),
-  },
-  {
-    firstName: "Victor",
-    lastName: "Hayes",
-    phone: "215-555-0104",
-    email: "victor.hayes@example.com",
-    employeeNumber: "EMP-202",
-    hireDate: "2023-11-20",
-    role: "Paramedic",
-    status: "active",
-    isActive: true,
-    notes: "Test ALS driver / medic",
-    cpr: createLicense(true, "CPR", "2027-12-31"),
-    evoc: createLicense(true, "EVOC", "2027-06-30"),
-    emt: createLicense(false, "", ""),
-    paramedic: createLicense(true, "Paramedic", "2027-05-31"),
-  },
-  {
-    firstName: "Nina",
-    lastName: "Brooks",
-    phone: "215-555-0105",
-    email: "nina.brooks@example.com",
-    employeeNumber: "EMP-301",
-    hireDate: "2025-02-05",
-    role: "Driver",
-    status: "active",
-    isActive: true,
-    notes: "Test assist crew",
-    cpr: createLicense(true, "CPR", "2027-12-31"),
-    evoc: createLicense(false, "", ""),
-    emt: createLicense(false, "", ""),
-    paramedic: createLicense(false, "", ""),
-  },
-  {
-    firstName: "Ethan",
-    lastName: "Reed",
-    phone: "215-555-0106",
-    email: "ethan.reed@example.com",
-    employeeNumber: "EMP-302",
-    hireDate: "2025-04-12",
-    role: "Driver",
-    status: "active",
-    isActive: true,
-    notes: "Test assist crew",
-    cpr: createLicense(true, "CPR", "2027-12-31"),
-    evoc: createLicense(false, "", ""),
-    emt: createLicense(false, "", ""),
-    paramedic: createLicense(false, "", ""),
-  },
-];
 
 /*
   Default empty license object.
@@ -380,21 +260,12 @@ function EmployeesPage() {
   /*
     Maps operational employee status values to Bootstrap badge classes.
   */
-  const getEmployeeStatusBadgeClass = (status) => {
-    switch (status) {
-      case "active":
-        return "text-bg-success";
-      case "vacation":
-        return "text-bg-info";
-      case "sick":
-        return "text-bg-warning";
-      case "suspended":
-        return "text-bg-danger";
-      case "terminated":
-        return "text-bg-dark";
-      default:
-        return "text-bg-secondary";
-    }
+  const EMPLOYEE_STATUS_TONE = {
+    active: "success",
+    vacation: "info",
+    sick: "warning",
+    suspended: "danger",
+    terminated: "neutral",
   };
 
   /*
@@ -474,16 +345,9 @@ function EmployeesPage() {
   */
   const renderCprWarning = (employee) => {
     const warning = getCprWarning(employee);
-
-    if (!warning) {
-      return <span className="badge text-bg-success">CPR OK</span>;
-    }
-
-    if (warning === "CPR Expiring Soon") {
-      return <span className="badge text-bg-warning">{warning}</span>;
-    }
-
-    return <span className="badge text-bg-danger">{warning}</span>;
+    if (!warning) return <StatusBadge tone="success" label="CPR OK" />;
+    if (warning === "CPR Expiring Soon") return <StatusBadge tone="warning" label={warning} />;
+    return <StatusBadge tone="danger" label={warning} />;
   };
 
   /*
@@ -627,41 +491,6 @@ function EmployeesPage() {
     }
   };
 
-  /*
-    Loads predefined test employees into the backend.
-  */
-  const handleLoadTestEmployees = async () => {
-    const confirmed = await confirm({
-      title: "Load test employees?",
-      message: employees.length > 0
-        ? "This will add test employees and clear all planned units."
-        : "Load test employees and clear all planned units?",
-      variant: "warning",
-      confirmLabel: "Load",
-    });
-    if (!confirmed) return;
-
-    setLoading(true);
-    setError("");
-    setMessage("");
-
-    try {
-      for (const employee of TEST_EMPLOYEES) {
-        await createEmployee(employee);
-      }
-
-      localStorage.removeItem(UNITS_STORAGE_KEY);
-      resetForm();
-      setMessage("Test employees loaded successfully.");
-      await loadEmployees();
-    } catch (err) {
-      console.error("Failed to load test employees:", err);
-      setError(err.message || "Failed to load test employees.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const activeEmployees = employees.filter((employee) => employee.isActive).length;
 
   const employeesWithCprWarnings = employees.filter((employee) =>
@@ -670,80 +499,39 @@ function EmployeesPage() {
 
   return (
     <div className="page-stack">
-      {error && <div className="alert alert-danger mb-0">{error}</div>}
-
-      {message && <div className="alert alert-success mb-0">{message}</div>}
-
-      <section className="content-panel">
-        <div className="content-panel-header">
-          <div>
-            <h4>Employee List</h4>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {[
-                { label: "Total", value: employees.length, color: "#0d6efd" },
-                { label: "Active", value: activeEmployees, color: "#198754" },
-                { label: "CPR Warnings", value: employeesWithCprWarnings, color: employeesWithCprWarnings > 0 ? "#ffc107" : "#6c757d" },
-              ].map(s => (
-                <span key={s.label} style={{
-                  fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
-                  background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30`,
-                }}>
-                  {s.label}: {s.value}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <span className="badge text-bg-secondary">{employees.length}</span>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
-              onClick={handleShowAddForm}
-              disabled={loading}
-            >
-              <FaPlus />
-              Add Employee
+      <PageHeader
+        title="Employees"
+        description="Manage employee records, certifications, time & pay."
+        actions={(
+          <>
+            <StatusBadge tone="info" label={`${employees.length} total`} />
+            <StatusBadge tone="success" label={`${activeEmployees} active`} />
+            <StatusBadge
+              tone={employeesWithCprWarnings > 0 ? "warning" : "neutral"}
+              label={`${employeesWithCprWarnings} CPR ${employeesWithCprWarnings === 1 ? "warning" : "warnings"}`}
+            />
+            <button type="button" className="btn btn-primary" onClick={handleShowAddForm} disabled={loading}>
+              <FaPlus aria-hidden="true" /> Add Employee
             </button>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1"
-              onClick={loadEmployees}
-              disabled={loading}
-            >
-              <FaRedo />
-              Refresh
+            <button type="button" className="btn btn-outline-secondary" onClick={loadEmployees} disabled={loading}>
+              <FaRedo aria-hidden="true" /> Refresh
             </button>
+          </>
+        )}
+      />
 
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-primary"
-              onClick={handleLoadTestEmployees}
-              disabled={loading}
-            >
-              Load Test Crew
-            </button>
-          </div>
-        </div>
+      {error && <div className="mb-3"><ErrorState message={error} onRetry={loadEmployees} /></div>}
+      {message && <div className="alert alert-success">{message}</div>}
 
+      <PageSection title="Employee list">
         {loading && employees.length === 0 ? (
-          <div className="empty-state">
-            <FaUsers />
-
-            <h5>Loading employees</h5>
-
-            <p>Please wait while employee records are loaded.</p>
-          </div>
+          <p className="text-muted mb-0">Loading employees…</p>
         ) : employees.length === 0 ? (
-          <div className="empty-state">
-            <FaUsers />
-
-            <h5>No employees added yet</h5>
-
-            <p>Add an employee manually or load test crew records.</p>
-          </div>
+          <EmptyState
+            variant="empty"
+            title="No employees yet"
+            description="Add an employee to start building your roster."
+          />
         ) : (
           <div className="employee-row-list">
             {employees.map((employee) => (
@@ -779,36 +567,29 @@ function EmployeesPage() {
                 {/* Role + status */}
                 <div>
                   <div className="compact-call-label">Role / Status</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
+                  <div className="employee-badge-row">
                     {renderEmployeeRoleBadge(employee.role)}
-                    <span className={`badge ${getEmployeeStatusBadgeClass(employee.status || "active")}`} style={{ fontSize: 10 }}>
-                      {employee.status || "active"}
-                    </span>
-                    {!employee.isActive && <span className="badge text-bg-secondary" style={{ fontSize: 10 }}>Inactive</span>}
+                    <StatusBadge
+                      tone={EMPLOYEE_STATUS_TONE[employee.status || "active"] || "neutral"}
+                      label={employee.status || "active"}
+                    />
+                    {!employee.isActive && <StatusBadge tone="neutral" label="Inactive" />}
                   </div>
                 </div>
 
                 {/* Certifications */}
                 <div>
                   <div className="compact-call-label">Certifications</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
+                  <div className="employee-badge-row">
                     {[
                       { key: "cpr", label: "CPR", val: employee.cpr },
                       { key: "evoc", label: "EVOC", val: employee.evoc },
                       { key: "emt", label: "EMT", val: employee.emt },
                       { key: "paramedic", label: "Para", val: employee.paramedic },
                     ].map(({ key, label, val }) => {
-                      const active = val && val.status === "active";
-                      const expiring = val && val.status === "expiring";
-                      const color = active ? "#198754" : expiring ? "#f59e0b" : "#6c757d";
-                      return (
-                        <span key={key} style={{
-                          fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 6,
-                          background: `${color}14`, color, border: `1px solid ${color}30`,
-                        }}>
-                          {label}
-                        </span>
-                      );
+                      const tone = val && val.status === "active" ? "success"
+                        : val && val.status === "expiring" ? "warning" : "neutral";
+                      return <StatusBadge key={key} tone={tone} label={label} dot={false} />;
                     })}
                     {renderCprWarning(employee)}
                   </div>
@@ -817,7 +598,7 @@ function EmployeesPage() {
                 {/* Positions */}
                 <div>
                   <div className="compact-call-label">Positions</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
+                  <div className="employee-badge-row">
                     {renderAllowedPositions(employee)}
                   </div>
                 </div>
@@ -835,7 +616,7 @@ function EmployeesPage() {
             ))}
           </div>
         )}
-      </section>
+      </PageSection>
 
       <EntityDrawer
         open={showEmployeeForm}
