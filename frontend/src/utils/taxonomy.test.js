@@ -3,7 +3,7 @@ import {
   SERVICE_LEVELS, UNIT_TYPES,
   normalizeServiceLevel, normalizeUnitType, normalizeVehicleCapability,
   normalizeQualification, isAdministrativeRole,
-  describeLevel, describeQualification, describeShiftRole,
+  describeLevel, describeQualification, describeShiftRole, describeOperationalStatus,
 } from "./taxonomy";
 
 // This mirror must mean the same thing as backend/utils/taxonomy.py — the cases
@@ -109,5 +109,32 @@ describe("describeShiftRole", () => {
     expect(describeShiftRole("driver")).toMatchObject({ known: true, label: "Driver" });
     expect(describeShiftRole("medical").label).toBe("Medical");
     expect(describeShiftRole(null).known).toBe(false);
+  });
+});
+
+describe("describeOperationalStatus", () => {
+  it("is a separate dimension from capability", () => {
+    // A Bariatric vehicle that is out of service shows a purple capability AND
+    // a red status; neither colour has to mean both things.
+    expect(describeOperationalStatus("in_service")).toMatchObject({ label: "In Service", tone: "success" });
+    expect(describeOperationalStatus("out_of_service")).toMatchObject({ label: "Out of Service", tone: "danger" });
+    expect(describeOperationalStatus("maintenance")).toMatchObject({ label: "Maintenance", tone: "warning" });
+  });
+
+  it("lets retired override the status column", () => {
+    expect(describeOperationalStatus("in_service", { isRetired: true })).toMatchObject({
+      value: "retired", label: "Retired", tone: "neutral",
+    });
+  });
+
+  it("degrades an unknown status to neutral and keeps the raw value visible", () => {
+    const d = describeOperationalStatus("teleporting");
+    expect(d.known).toBe(false);
+    expect(d.tone).toBe("neutral");
+    expect(d.title).toContain("teleporting");
+  });
+
+  it("says so when no status is set", () => {
+    expect(describeOperationalStatus(null)).toMatchObject({ label: "—", tone: "neutral" });
   });
 });
