@@ -266,7 +266,7 @@ role scoping happen server-side; the frontend never hides data it was sent.
 ## Tasks
 
 ```text
-GET     /api/tasks                       (?assigned_to_employee_id=&status=&priority=&task_type=&due_before=&due_after=&created_by_user_id=&related_module=&related_entity_id=&overdue=1&is_archived=1 — role-scoped)
+GET     /api/tasks                       (?assigned_to_employee_id=&status=&priority=&task_type=&due_before=&due_after=&created_by_user_id=&related_module=&related_entity_id=&overdue=1&open=1&unassigned=1&mine=1&is_archived=1 — role-scoped)
 GET     /api/tasks/my                    (current user's assigned/created tasks)
 GET     /api/tasks/summary               (my_open/my_overdue/due_today; + total_open/total_overdue/unassigned_count for admin/supervisor)
 GET     /api/tasks/<task_id>
@@ -286,6 +286,25 @@ every known-role user can see). A user sees a task if they created/assigned it,
 are its assignee, are a participant (their linked employee), or it is
 `visible_to_all`; admin/supervisor see all. `to_dict` returns
 `participant_employee_ids` and `visible_to_all`.
+
+### Dashboard KPI filters
+
+`mine=1`, `open=1`, `unassigned=1` and `overdue=1` exist so a dashboard KPI can
+link to the exact list it counted:
+
+| Filter        | Meaning                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `mine=1`      | assigned to me, or raised by me (roles that may create tasks)     |
+| `open=1`      | status is not terminal (not Completed/Cancelled)                  |
+| `unassigned=1`| no assignee                                                       |
+| `overdue=1`   | due before today and not terminal                                 |
+
+`mine=1` and the summary's `my_*` counters share one condition builder
+(`_my_task_conditions`), so the count and the list cannot drift apart;
+`test_my_overdue_kpi_matches_the_list_it_links_to` asserts they agree. Combine
+them the way the dashboard does — for example `?mine=1&overdue=1` for
+"My Overdue Tasks". Filters with no toolbar control render as removable chips on
+the Tasks page, so a narrowed list always explains itself.
 
 ## User Settings
 

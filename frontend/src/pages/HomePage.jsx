@@ -14,13 +14,14 @@ const hasTaskAccess = (user) =>
 /**
  * Task KPIs.
  *
- * Every tile links to /tasks unqualified: TasksPage does not read query
- * parameters, so an "?overdue=1" link would look like a filter and silently do
- * nothing. Deep-linked filters come back once TasksPage supports them.
+ * Each tile links to the exact list it counted: the query mirrors the filter the
+ * summary endpoint applied, and a backend test asserts the count and the list
+ * agree. A number that opens a differently-filtered page is a lie about itself.
  */
 function TaskSummaryWidget({ currentUser }) {
   const [summary, setSummary] = useState(null);
   const isManager = ["admin", "supervisor"].includes(currentUser?.role);
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (!hasTaskAccess(currentUser)) return;
@@ -30,21 +31,26 @@ function TaskSummaryWidget({ currentUser }) {
   if (!hasTaskAccess(currentUser) || !summary) return null;
 
   const cards = [
-    { label: "My Open Tasks", value: summary.my_open, tone: "info" },
-    { label: "My Overdue Tasks", value: summary.my_overdue, tone: "danger" },
-    { label: "Tasks Due Today", value: summary.due_today, tone: "warning" },
+    { label: "My Open Tasks", value: summary.my_open, tone: "info", to: "/tasks?mine=1&open=1" },
+    { label: "My Overdue Tasks", value: summary.my_overdue, tone: "danger", to: "/tasks?mine=1&overdue=1" },
+    {
+      label: "Tasks Due Today",
+      value: summary.due_today,
+      tone: "warning",
+      to: `/tasks?mine=1&open=1&due_after=${today}&due_before=${today}`,
+    },
   ];
   if (isManager) {
     cards.push(
-      { label: "Unassigned Tasks", value: summary.unassigned_count, tone: "purple" },
-      { label: "Total Overdue", value: summary.total_overdue, tone: "danger" },
+      { label: "Unassigned Tasks", value: summary.unassigned_count, tone: "purple", to: "/tasks?unassigned=1&open=1" },
+      { label: "Total Overdue", value: summary.total_overdue, tone: "danger", to: "/tasks?overdue=1" },
     );
   }
 
   return (
     <div className="stat-grid">
       {cards.map((c) => (
-        <StatCard key={c.label} label={c.label} value={c.value} tone={c.tone} to="/tasks" />
+        <StatCard key={c.label} label={c.label} value={c.value} tone={c.tone} to={c.to} />
       ))}
     </div>
   );

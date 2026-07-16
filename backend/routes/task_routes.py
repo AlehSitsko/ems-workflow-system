@@ -191,6 +191,25 @@ def _validate_task_fields(data):
             check_length(data.get(field), max_len, field)
 
 
+def _my_task_conditions(role, uid, employee_id):
+    """Conditions for tasks that count as the caller's own.
+
+    A task is "mine" when it is assigned to me, or when I raised it (only roles
+    that can create tasks can own one that way).
+
+    Shared by the list endpoint's ?mine=1 and by the summary counters, so a
+    dashboard KPI and the list it links to cannot disagree about what "mine"
+    means. Returns an empty list when nothing can be mine; callers decide
+    whether that means "no filter" or "no rows".
+    """
+    conditions = []
+    if employee_id:
+        conditions.append(Task.assigned_to_employee_id == employee_id)
+    if role in ("admin", "supervisor", "hr"):
+        conditions.append(Task.created_by_user_id == uid)
+    return conditions
+
+
 # ── List / summary ───────────────────────────────────────────────────────────
 
 @task_bp.route("/tasks", methods=["GET"])
@@ -256,6 +275,20 @@ def get_tasks():
         today = date.today().isoformat()
         query = query.filter(Task.due_date < today, Task.status.notin_(Task.TERMINAL_STATUSES))
 
+    # "Open" means not in a terminal status. The summary counters exclude
+    # terminal tasks, so a KPI link must be able to exclude them too.
+    if request.args.get("open", "").strip() == "1":
+        query = query.filter(Task.status.notin_(Task.TERMINAL_STATUSES))
+
+    if request.args.get("unassigned", "").strip() == "1":
+        query = query.filter(Task.assigned_to_employee_id.is_(None))
+
+    if request.args.get("mine", "").strip() == "1":
+        my_conditions = _my_task_conditions(role, uid, employee_id)
+        # Nothing can be mine (no employee record, and a role that cannot raise
+        # tasks) — that is an empty result, not an unfiltered list.
+        query = query.filter(db.or_(*my_conditions)) if my_conditions else query.filter(db.false())
+
     query = _visible_tasks_query(query, role, uid, employee_id)
 
     page = request.args.get("page", 1, type=int)
@@ -315,11 +348,7 @@ def get_tasks_summary():
     employee_id = _current_employee_id(uid)
     today = date.today().isoformat()
 
-    my_conditions = []
-    if employee_id:
-        my_conditions.append(Task.assigned_to_employee_id == employee_id)
-    if role in ("admin", "supervisor", "hr"):
-        my_conditions.append(Task.created_by_user_id == uid)
+    my_conditions = _my_task_conditions(role, uid, employee_id)
 
     base = Task.query.filter(Task.is_archived.is_(False))
     if my_conditions:

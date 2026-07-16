@@ -64,6 +64,19 @@ describe("Dashboard task KPIs", () => {
     expect(screen.getByText("Unassigned Tasks")).toBeInTheDocument();
   });
 
+  it("links each KPI to the list its count came from", async () => {
+    renderHome(admin);
+    const href = async (label) =>
+      (await screen.findByText(label)).closest("a").getAttribute("href");
+
+    // The query mirrors the filter the summary endpoint applied; backend
+    // test_my_overdue_kpi_matches_the_list_it_links_to holds the two together.
+    expect(await href("My Open Tasks")).toBe("/tasks?mine=1&open=1");
+    expect(await href("My Overdue Tasks")).toBe("/tasks?mine=1&overdue=1");
+    expect(await href("Unassigned Tasks")).toBe("/tasks?unassigned=1&open=1");
+    expect(await href("Total Overdue")).toBe("/tasks?overdue=1");
+  });
+
   it("hides manager-only KPIs from other roles", async () => {
     renderHome({ id: 9, role: "dispatcher", display_name: "Dispatcher" });
     expect(await screen.findByText("My Open Tasks")).toBeInTheDocument();
