@@ -1148,38 +1148,57 @@ textarea.form-control {
    Tasks page
    ========================= */
 
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Columns use minmax(0, …) rather than fixed minimums: a long title shrinks the
+   row instead of pushing the whole page into a sideways scroll. */
 .task-list-card {
   display: grid;
-  grid-template-columns: minmax(200px, 1.6fr) minmax(140px, 1fr) 100px 100px 130px 140px;
-  gap: 0.75rem;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, auto) minmax(0, auto) minmax(0, auto) minmax(0, auto);
+  gap: var(--space-3);
   align-items: center;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--ems-border);
-  border-radius: 10px;
-  background: var(--ems-bg-surface);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
 
 .task-list-card:hover {
-  border-color: #0d6efd55;
+  border-color: var(--color-border-strong);
 }
 
 .task-list-title {
-  font-weight: 700;
-  color: var(--ems-text-primary);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
 }
 
 .task-list-meta {
-  font-size: 11px;
-  color: var(--ems-text-muted);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
 .task-overdue-tag {
-  color: #dc3545;
+  color: var(--color-danger);
   font-weight: 700;
-  font-size: 11px;
-  margin-left: 6px;
+  font-size: var(--text-xs);
+  margin-left: var(--space-2);
+  white-space: nowrap;
+}
+
+/* Six columns cannot stay legible on a phone; the row becomes a stack. */
+@media (max-width: 767.98px) {
+  .task-list-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+  }
 }
 
 .task-comment-item {

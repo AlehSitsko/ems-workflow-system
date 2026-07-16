@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FaCheckCircle,
   FaClipboardCheck,
@@ -6,12 +7,15 @@ import {
   FaEdit,
   FaHistory,
   FaPlus,
-  FaTasks,
+  FaTimes,
 } from "react-icons/fa";
 
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 import EntityDrawer from "../components/ui/EntityDrawer";
+import { PageHeader, PageSection, PageToolbar, ToolbarField } from "../components/ui/Page";
+import { EmptyState, ErrorState } from "../components/ui/States";
+import StatusBadge from "../components/ui/StatusBadge";
 
 import {
   getTasks,
@@ -44,21 +48,23 @@ const PRIORITIES = ["Low", "Normal", "High", "Urgent"];
 const CLOSE_STATUSES = ["Completed", "Cancelled"];
 const WORKER_ALLOWED_STATUSES = ["In Progress", "Waiting", "Done"];
 
-const STATUS_BADGE = {
-  New: "text-bg-secondary",
-  Assigned: "text-bg-info",
-  "In Progress": "text-bg-primary",
-  Waiting: "text-bg-warning",
-  Done: "text-bg-light",
-  Completed: "text-bg-success",
-  Cancelled: "text-bg-dark",
+// Semantic tones, not Bootstrap colour classes: the same status reads the same
+// way here as everywhere else in the app, in both themes.
+const STATUS_TONE = {
+  New: "neutral",
+  Assigned: "info",
+  "In Progress": "info",
+  Waiting: "warning",
+  Done: "purple",
+  Completed: "success",
+  Cancelled: "neutral",
 };
 
-const PRIORITY_BADGE = {
-  Low: "text-bg-secondary",
-  Normal: "text-bg-info",
-  High: "text-bg-warning",
-  Urgent: "text-bg-danger",
+const PRIORITY_TONE = {
+  Low: "neutral",
+  Normal: "info",
+  High: "warning",
+  Urgent: "danger",
 };
 
 const emptyTask = {
@@ -73,6 +79,33 @@ const emptyTask = {
   related_module: "",
   related_entity_id: "",
 };
+
+// Every filter the list understands. Anything else in the URL is ignored rather
+// than forwarded blindly to the API.
+const FILTER_KEYS = [
+  "assigned_to_employee_id", "status", "priority", "task_type",
+  "due_before", "due_after", "created_by_user_id", "is_archived",
+  "mine", "open", "unassigned", "overdue",
+];
+
+// Filters with no control in the toolbar: they arrive from a dashboard KPI link
+// and are shown as removable chips, so the list never silently hides rows for a
+// reason the user cannot see or undo.
+const SCOPE_CHIPS = [
+  { key: "mine", label: "Assigned to or raised by me" },
+  { key: "overdue", label: "Overdue" },
+  { key: "unassigned", label: "Unassigned" },
+  { key: "open", label: "Open (not completed or cancelled)" },
+];
+
+function filtersFromParams(searchParams) {
+  const out = {};
+  FILTER_KEYS.forEach((key) => {
+    const value = searchParams.get(key);
+    if (value) out[key] = value;
+  });
+  return out;
+}
 
 const canCreate = (role) => ["admin", "supervisor", "hr"].includes(role);
 
@@ -103,14 +136,28 @@ const TasksPage = ({ currentUser }) => {
   const [employees, setEmployees] = useState([]);
   const [users, setUsers] = useState([]);
 
-  const [assignedTo, setAssignedTo] = useState("");
-  const [status, setStatus] = useState("");
-  const [priority, setPriority] = useState("");
-  const [taskType, setTaskType] = useState("");
-  const [dueBefore, setDueBefore] = useState("");
-  const [dueAfter, setDueAfter] = useState("");
-  const [createdBy, setCreatedBy] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
+  // The URL is the source of truth for filters. That is what makes a dashboard
+  // KPI able to link to the exact list it counted, and what makes reload and
+  // browser back/forward keep the view the user was looking at.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+
+  const setFilter = (patch) => {
+    const next = { ...filters, ...patch };
+    setSearchParams(
+      Object.fromEntries(Object.entries(next).filter(([, v]) => v !== "" && v != null)),
+      { replace: true },
+    );
+  };
+
+  const assignedTo = filters.assigned_to_employee_id || "";
+  const status = filters.status || "";
+  const priority = filters.priority || "";
+  const taskType = filters.task_type || "";
+  const dueBefore = filters.due_before || "";
+  const dueAfter = filters.due_after || "";
+  const createdBy = filters.created_by_user_id || "";
+  const showArchived = filters.is_archived === "1";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -130,26 +177,13 @@ const TasksPage = ({ currentUser }) => {
   useEffect(() => {
     getEmployees().then(setEmployees).catch(() => setEmployees([]));
     getUsers().then(setUsers).catch(() => setUsers([]));
-    loadTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const buildFilters = (archivedOverride) => ({
-    assigned_to_employee_id: assignedTo,
-    status,
-    priority,
-    task_type: taskType,
-    due_before: dueBefore,
-    due_after: dueAfter,
-    created_by_user_id: createdBy,
-    is_archived: (archivedOverride ?? showArchived) ? "1" : "",
-  });
-
-  const loadTasks = async (filters = buildFilters()) => {
+  const loadTasks = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await getTasks(filters, currentUser);
+      const data = await getTasks({ ...filters, is_archived: filters.is_archived || "" }, currentUser);
       setTasks(data.items);
       setTotal(data.total);
     } catch (err) {
@@ -157,21 +191,11 @@ const TasksPage = ({ currentUser }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, currentUser]);
 
-  const handleApplyFilters = () => loadTasks();
+  useEffect(() => { loadTasks(); }, [loadTasks]);
 
-  const handleClear = () => {
-    setAssignedTo("");
-    setStatus("");
-    setPriority("");
-    setTaskType("");
-    setDueBefore("");
-    setDueAfter("");
-    setCreatedBy("");
-    setShowArchived(false);
-    loadTasks({});
-  };
+  const handleClear = () => setSearchParams({}, { replace: true });
 
   const resetDrawer = () => {
     setDrawerOpen(false);
@@ -345,97 +369,115 @@ const TasksPage = ({ currentUser }) => {
 
   const availableTaskTypes = role === "hr" ? HR_TASK_TYPES : TASK_TYPES;
 
+  const activeScopes = SCOPE_CHIPS.filter((chip) => filters[chip.key] === "1");
+  const hasFilters = Object.keys(filters).length > 0;
+
   return (
     <div className="page-stack">
-      <section className="content-panel">
-        <div className="content-panel-header">
-          <div>
-            <h4><FaTasks style={{ marginRight: 8 }} />Staff Tasks</h4>
-            <div style={{ fontSize: 12, color: "var(--ems-text-muted)" }}>
-              Total: {total}
-            </div>
-          </div>
-          {canCreate(role) && (
-            <button className="btn btn-primary btn-sm" onClick={openCreateDrawer}>
-              <FaPlus style={{ marginRight: 6 }} />Create Task
+      <PageHeader
+        title="Staff Tasks"
+        description="Assign and track staff work."
+        count={`${total} ${total === 1 ? "task" : "tasks"}`}
+        actions={canCreate(role) && (
+          <button type="button" className="btn btn-primary" onClick={openCreateDrawer}>
+            <FaPlus aria-hidden="true" /> Create Task
+          </button>
+        )}
+      />
+
+      {error && <div className="mb-3"><ErrorState message={error} onRetry={loadTasks} /></div>}
+
+      {activeScopes.length > 0 && (
+        <div className="filter-chips" aria-label="Active filters">
+          {activeScopes.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              className="filter-chip"
+              onClick={() => setFilter({ [chip.key]: "" })}
+            >
+              {chip.label}
+              <FaTimes aria-hidden="true" />
+              <span className="visually-hidden">Remove filter</span>
             </button>
-          )}
+          ))}
         </div>
+      )}
 
-        {error && <div className="alert alert-danger">{error}</div>}
+      <PageToolbar onClear={handleClear} canClear={hasFilters}>
+        <ToolbarField label="Assigned To">
+          <select className="form-select" value={assignedTo}
+                  onChange={(e) => setFilter({ assigned_to_employee_id: e.target.value })}>
+            <option value="">All employees</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+            ))}
+          </select>
+        </ToolbarField>
+        <ToolbarField label="Status">
+          <select className="form-select" value={status} onChange={(e) => setFilter({ status: e.target.value })}>
+            <option value="">All Statuses</option>
+            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </ToolbarField>
+        <ToolbarField label="Priority">
+          <select className="form-select" value={priority} onChange={(e) => setFilter({ priority: e.target.value })}>
+            <option value="">All Priorities</option>
+            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </ToolbarField>
+        <ToolbarField label="Task Type">
+          <select className="form-select" value={taskType} onChange={(e) => setFilter({ task_type: e.target.value })}>
+            <option value="">All Types</option>
+            {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </ToolbarField>
+        <ToolbarField label="Due After">
+          <input type="date" className="form-control" value={dueAfter}
+                 onChange={(e) => setFilter({ due_after: e.target.value })} />
+        </ToolbarField>
+        <ToolbarField label="Due Before">
+          <input type="date" className="form-control" value={dueBefore}
+                 onChange={(e) => setFilter({ due_before: e.target.value })} />
+        </ToolbarField>
+        <ToolbarField label="Created By">
+          <select className="form-select" value={createdBy}
+                  onChange={(e) => setFilter({ created_by_user_id: e.target.value })}>
+            <option value="">Anyone</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
+          </select>
+        </ToolbarField>
+        <ToolbarField label="Archived">
+          <div className="form-check form-switch toolbar-switch">
+            <input
+              id="tasks-show-archived"
+              className="form-check-input"
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setFilter({ is_archived: e.target.checked ? "1" : "" })}
+            />
+            <label className="form-check-label" htmlFor="tasks-show-archived">Show archived</label>
+          </div>
+        </ToolbarField>
+      </PageToolbar>
 
-        <div className="row g-3">
-          <div className="col-md-3">
-            <label className="form-label">Assigned To</label>
-            <select className="form-select" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
-              <option value="">All employees</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
-              ))}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Status</label>
-            <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">All Statuses</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Priority</label>
-            <select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="">All Priorities</option>
-              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Task Type</label>
-            <select className="form-select" value={taskType} onChange={(e) => setTaskType(e.target.value)}>
-              <option value="">All Types</option>
-              {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Due After</label>
-            <input type="date" className="form-control" value={dueAfter} onChange={(e) => setDueAfter(e.target.value)} />
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Due Before</label>
-            <input type="date" className="form-control" value={dueBefore} onChange={(e) => setDueBefore(e.target.value)} />
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">Created By</label>
-            <select className="form-select" value={createdBy} onChange={(e) => setCreatedBy(e.target.value)}>
-              <option value="">Anyone</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
-            </select>
-          </div>
-          <div className="col-md-3 d-flex align-items-end gap-2">
-            <button className="btn btn-primary" onClick={handleApplyFilters} disabled={loading}>
-              {loading ? "Loading..." : "Apply Filters"}
-            </button>
-            <button className="btn btn-outline-secondary" onClick={handleClear}>Clear</button>
-          </div>
-          <div className="col-md-3 d-flex align-items-end">
-            <div className="form-check form-switch">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => { setShowArchived(e.target.checked); loadTasks(buildFilters(e.target.checked)); }}
-              />
-              <label className="form-check-label">Show archived</label>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageSection title="Task List">
+        {loading && tasks.length === 0 && <p className="text-muted mb-0">Loading…</p>}
 
-      <section className="content-panel">
-        <h5>Task List</h5>
+        {!loading && tasks.length === 0 && (
+          <EmptyState
+            variant={hasFilters ? "no-results" : "empty"}
+            title={hasFilters ? "No tasks match these filters" : "No tasks yet"}
+            description={hasFilters
+              ? "Try removing a filter to widen the search."
+              : "Tasks assigned to you, or raised by you, appear here."}
+            action={hasFilters
+              ? <button type="button" className="btn btn-outline-secondary" onClick={handleClear}>Clear filters</button>
+              : undefined}
+          />
+        )}
+
         <div className="task-list">
-          {tasks.length === 0 && !loading && (
-            <div className="alert alert-light">No tasks found.</div>
-          )}
           {tasks.map((task) => (
             <div key={task.id} className="task-list-card" onClick={() => openEditDrawer(task)}>
               <div>
@@ -449,10 +491,10 @@ const TasksPage = ({ currentUser }) => {
                 )}
               </div>
               <div>
-                <span className={`badge ${STATUS_BADGE[task.status] || "text-bg-secondary"}`}>{task.status}</span>
+                <StatusBadge tone={STATUS_TONE[task.status] || "neutral"} label={task.status} />
               </div>
               <div>
-                <span className={`badge ${PRIORITY_BADGE[task.priority] || "text-bg-secondary"}`}>{task.priority}</span>
+                <StatusBadge tone={PRIORITY_TONE[task.priority] || "neutral"} label={task.priority} />
               </div>
               <div>
                 {formatDueDate(task.due_date)}
@@ -462,7 +504,7 @@ const TasksPage = ({ currentUser }) => {
             </div>
           ))}
         </div>
-      </section>
+      </PageSection>
 
       <EntityDrawer
         open={drawerOpen}
@@ -495,13 +537,13 @@ const TasksPage = ({ currentUser }) => {
               <div className="patient-detail-item">
                 <div className="patient-detail-label">Status</div>
                 <div className="patient-detail-value">
-                  <span className={`badge ${STATUS_BADGE[selectedTask.status]}`}>{selectedTask.status}</span>
+                  <StatusBadge tone={STATUS_TONE[selectedTask.status] || "neutral"} label={selectedTask.status} />
                 </div>
               </div>
               <div className="patient-detail-item">
                 <div className="patient-detail-label">Priority</div>
                 <div className="patient-detail-value">
-                  <span className={`badge ${PRIORITY_BADGE[selectedTask.priority]}`}>{selectedTask.priority}</span>
+                  <StatusBadge tone={PRIORITY_TONE[selectedTask.priority] || "neutral"} label={selectedTask.priority} />
                 </div>
               </div>
               <div className="patient-detail-item">

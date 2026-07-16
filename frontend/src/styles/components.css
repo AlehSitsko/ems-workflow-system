@@ -131,6 +131,48 @@
   gap: var(--space-2);
 }
 
+/* A filter that arrived from elsewhere (a dashboard KPI link) has no control in
+   the toolbar, so it gets a removable chip instead of narrowing the list for a
+   reason the user cannot see. */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+  background: rgba(var(--color-primary-rgb), 0.10);
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.filter-chip:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.45);
+}
+
+.filter-chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.toolbar-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  margin: 0;
+  padding-left: 2.5em;
+  white-space: nowrap;
+}
+
 .search-input {
   position: relative;
 }

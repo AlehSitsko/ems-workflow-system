@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 from werkzeug.security import generate_password_hash
 
@@ -324,3 +326,85 @@ def test_update_sets_participants_and_visible_to_all(client, roles, employee):
 def test_invalid_participant_id_rejected(client, roles):
     resp = create_task(client, roles["admin"], participant_employee_ids=[999999])
     assert resp.status_code == 400
+
+
+# ── Dashboard KPI filters (mine / open / unassigned / overdue) ───────────────
+
+def _yesterday():
+    return (date.today() - timedelta(days=1)).isoformat()
+
+
+def test_open_filter_excludes_terminal_tasks(client, roles):
+    done_id = create_task(client, roles["admin"], title="Closed one").get_json()["id"]
+    client.patch(f"/api/tasks/{done_id}/status", json={"status": "Completed"}, headers=roles["admin"])
+    open_id = create_task(client, roles["admin"], title="Open one").get_json()["id"]
+
+    ids = [t["id"] for t in client.get("/api/tasks?open=1", headers=roles["admin"]).get_json()["items"]]
+    assert open_id in ids
+    assert done_id not in ids
+
+
+def test_unassigned_filter_excludes_assigned_tasks(client, roles, employee):
+    unassigned_id = create_task(client, roles["admin"]).get_json()["id"]
+    assigned_id = create_task(client, roles["admin"]).get_json()["id"]
+    client.patch(f"/api/tasks/{assigned_id}/assign",
+                 json={"assigned_to_employee_id": employee.id}, headers=roles["admin"])
+
+    ids = [t["id"] for t in client.get("/api/tasks?unassigned=1", headers=roles["admin"]).get_json()["items"]]
+    assert unassigned_id in ids
+    assert assigned_id not in ids
+
+
+def test_mine_filter_excludes_other_peoples_tasks(client, roles):
+    mine_id = create_task(client, roles["admin"]).get_json()["id"]
+    theirs_id = create_task(client, roles["supervisor"]).get_json()["id"]
+
+    ids = [t["id"] for t in client.get("/api/tasks?mine=1", headers=roles["admin"]).get_json()["items"]]
+    assert mine_id in ids
+    assert theirs_id not in ids
+
+
+def test_mine_filter_includes_tasks_assigned_to_me(client, roles, employee):
+    """The dispatcher cannot raise tasks, so assignment is its only route to
+    ownership."""
+    task_id = create_task(client, roles["admin"]).get_json()["id"]
+    client.patch(f"/api/tasks/{task_id}/assign",
+                 json={"assigned_to_employee_id": employee.id}, headers=roles["admin"])
+
+    ids = [t["id"] for t in client.get("/api/tasks?mine=1", headers=roles["dispatcher"]).get_json()["items"]]
+    assert task_id in ids
+
+
+def test_overdue_filter_ignores_completed_overdue_tasks(client, roles):
+    stale_id = create_task(client, roles["admin"], due_date=_yesterday()).get_json()["id"]
+    closed_id = create_task(client, roles["admin"], due_date=_yesterday()).get_json()["id"]
+    client.patch(f"/api/tasks/{closed_id}/status", json={"status": "Completed"}, headers=roles["admin"])
+
+    ids = [t["id"] for t in client.get("/api/tasks?overdue=1", headers=roles["admin"]).get_json()["items"]]
+    assert stale_id in ids
+    assert closed_id not in ids
+
+
+def test_my_overdue_kpi_matches_the_list_it_links_to(client, roles):
+    """The dashboard KPI links to ?mine=1&overdue=1; the count and the list must
+    agree, or the number is a lie about the page it opens."""
+    create_task(client, roles["admin"], due_date=_yesterday())
+    create_task(client, roles["admin"], due_date=_yesterday())
+    create_task(client, roles["supervisor"], due_date=_yesterday())   # not mine
+    create_task(client, roles["admin"])                               # mine, not overdue
+
+    kpi = client.get("/api/tasks/summary", headers=roles["admin"]).get_json()["my_overdue"]
+    listed = client.get("/api/tasks?mine=1&overdue=1", headers=roles["admin"]).get_json()["total"]
+    assert kpi == listed == 2
+
+
+def test_unassigned_kpi_matches_the_list_it_links_to(client, roles, employee):
+    create_task(client, roles["admin"])
+    create_task(client, roles["admin"])
+    assigned_id = create_task(client, roles["admin"]).get_json()["id"]
+    client.patch(f"/api/tasks/{assigned_id}/assign",
+                 json={"assigned_to_employee_id": employee.id}, headers=roles["admin"])
+
+    kpi = client.get("/api/tasks/summary", headers=roles["admin"]).get_json()["unassigned_count"]
+    listed = client.get("/api/tasks?unassigned=1&open=1", headers=roles["admin"]).get_json()["total"]
+    assert kpi == listed == 2
