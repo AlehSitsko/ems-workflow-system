@@ -71,18 +71,18 @@ export default function UnitTable({
                 style={{
                   cursor: "pointer",
                   background: isDragOver
-                    ? "rgba(255,193,7,0.10)"
+                    ? "rgba(var(--color-warning-rgb),0.10)"
                     : isSelected
-                    ? "rgba(13,110,253,0.10)"
+                    ? "rgba(var(--color-primary-rgb),0.10)"
                     : shiftStyle
                     ? shiftStyle.bg
                     : "var(--ems-board-bg)",
                   borderLeft: isSelected
-                    ? "3px solid #6ea8fe"
+                    ? "3px solid var(--color-primary)"
                     : shiftStyle
                     ? `3px solid ${shiftStyle.border}`
                     : "3px solid transparent",
-                  outline: isDragOver ? "1px dashed #ffc107" : undefined,
+                  outline: isDragOver ? "1px dashed var(--color-warning)" : undefined,
                 }}
               >
                 <td className="fw-bold align-middle" style={{ color: "var(--ems-board-text)", fontSize: 15 }}>{unit.truckNumber}</td>
@@ -170,16 +170,16 @@ export default function UnitTable({
                         key={c.id}
                         className="badge"
                         style={{
-                          background: isEmergencyCall(c) ? "rgba(220,53,69,0.15)" : "var(--ems-board-bg-badge)",
-                          color: isEmergencyCall(c) ? "#dc2626" : "var(--ems-board-text)",
+                          background: isEmergencyCall(c) ? "rgba(var(--color-danger-rgb),0.15)" : "var(--ems-board-bg-badge)",
+                          color: isEmergencyCall(c) ? "var(--color-danger)" : "var(--ems-board-text)",
                           fontSize: 11,
                           fontWeight: 600,
-                          border: `1px solid ${isEmergencyCall(c) ? "#dc354588" : "var(--ems-board-border)"}`,
+                          border: `1px solid ${isEmergencyCall(c) ? "rgba(var(--color-danger-rgb), 0.53)" : "var(--ems-board-border)"}`,
                         }}
                       >
                         {c.patient_name || `#${c.id}`}
                         {hasReturnRide(c) && (
-                          <span style={{ color: "#6ea8fe", marginLeft: 4 }}>+R</span>
+                          <span style={{ color: "var(--color-primary)", marginLeft: 4 }}>+R</span>
                         )}
                       </span>
                     ))}
@@ -203,7 +203,7 @@ export default function UnitTable({
                         style={{
                           fontSize: 11, padding: "3px 8px",
                           background: STATUS_BG[STATUS_NEXT[unit.dispatchStatus]] || "transparent",
-                          border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "#49505788"}`,
+                          border: `1px solid ${STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "rgba(var(--ems-tax-unknown-rgb), 0.53)"}`,
                           color: STATUS_COLORS[STATUS_NEXT[unit.dispatchStatus]] || "var(--ems-board-text-muted)",
                           fontWeight: 600, whiteSpace: "nowrap",
                         }}
@@ -217,7 +217,7 @@ export default function UnitTable({
                     {unit.shiftType !== "night" && (
                       <button
                         className="btn btn-sm"
-                        style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #2a3347", color: "var(--ems-board-text-muted)" }}
+                        style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid var(--color-border)", color: "var(--ems-board-text-muted)" }}
                         onClick={() => onMakeNight(unit)}
                         disabled={!editEnabled}
                         title="Make night crew"
@@ -227,7 +227,7 @@ export default function UnitTable({
                     )}
                     <button
                       className="btn btn-sm"
-                      style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #2a3347", color: "var(--ems-board-text-muted)" }}
+                      style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid var(--color-border)", color: "var(--ems-board-text-muted)" }}
                       onClick={() => onEditUnit(unit)}
                       disabled={!editEnabled}
                       title="Edit unit"
@@ -236,7 +236,7 @@ export default function UnitTable({
                     </button>
                     <button
                       className="btn btn-sm"
-                      style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid #dc354533", color: "#ea868f" }}
+                      style={{ fontSize: 11, padding: "3px 7px", background: "transparent", border: "1px solid rgba(var(--color-danger-rgb), 0.2)", color: "var(--color-danger)" }}
                       onClick={() => onDeleteUnit(unit.id)}
                       disabled={!editEnabled}
                       title="Delete unit"
@@ -251,7 +251,7 @@ export default function UnitTable({
                 const allCalls = sortCallsByPriority(unit.assignedCalls || [], unit.callPriority || []);
                 if (allCalls.length === 0) return null;
                 return (
-                  <tr style={{ background: isSelected ? "rgba(13,110,253,0.06)" : "var(--ems-board-bg)", borderLeft: isSelected ? "3px solid #6ea8fe" : "3px solid transparent" }}>
+                  <tr style={{ background: isSelected ? "rgba(var(--color-primary-rgb),0.06)" : "var(--ems-board-bg)", borderLeft: isSelected ? "3px solid var(--color-primary)" : "3px solid transparent" }}>
                     <td colSpan={6} style={{ paddingTop: 0, paddingBottom: 6, paddingLeft: 16 }}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ems-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginRight: 2 }}>Patients:</span>
@@ -260,14 +260,14 @@ export default function UnitTable({
                           return (
                             <span key={c.id} className={overdue ? "ems-overdue-card" : ""} style={{
                               fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 6,
-                              background: overdue ? "rgba(220,53,69,0.1)" : "var(--ems-board-bg-badge)",
-                              color: overdue ? "#dc3545" : "var(--ems-board-text)",
-                              border: `1px solid ${overdue ? "#dc354555" : "var(--ems-board-border)"}`,
+                              background: overdue ? "rgba(var(--color-danger-rgb),0.1)" : "var(--ems-board-bg-badge)",
+                              color: overdue ? "var(--color-danger)" : "var(--ems-board-text)",
+                              border: `1px solid ${overdue ? "rgba(var(--color-danger-rgb), 0.33)" : "var(--ems-board-border)"}`,
                               display: "flex", alignItems: "center", gap: 4,
                             }}>
-                              <span style={{ fontSize: 10, fontWeight: 700, color: overdue ? "#dc3545" : "var(--ems-text-muted)" }}>{idx + 1}.</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: overdue ? "var(--color-danger)" : "var(--ems-text-muted)" }}>{idx + 1}.</span>
                               {c.patient_name || `Call #${c.id}`}
-                              {c.pickup_time && <span className={overdue ? "ems-overdue-text" : ""} style={{ fontSize: 10, color: overdue ? "#dc3545" : "var(--ems-text-muted)", marginLeft: 2 }}>{formatTimeForDisplay(c.pickup_time, timeFormat)}</span>}
+                              {c.pickup_time && <span className={overdue ? "ems-overdue-text" : ""} style={{ fontSize: 10, color: overdue ? "var(--color-danger)" : "var(--ems-text-muted)", marginLeft: 2 }}>{formatTimeForDisplay(c.pickup_time, timeFormat)}</span>}
                             </span>
                           );
                         })}

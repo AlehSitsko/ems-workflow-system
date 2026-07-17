@@ -25,7 +25,7 @@ export default function OpenCallsPanel({
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-      borderRight: "1px solid #1e2a3a",
+      borderRight: "1px solid var(--color-surface)",
     }}>
       {/* Column header */}
       <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
@@ -52,7 +52,7 @@ export default function OpenCallsPanel({
               transition: "all 0.15s",
             }}>
               {label}
-              <span style={{ marginLeft: 4, background: warn && leftPanelTab !== key ? "#f59e0b22" : "transparent", color: warn ? "#f59e0b" : "#475569", borderRadius: 8, padding: "0 5px", fontSize: 9 }}>{count}</span>
+              <span style={{ marginLeft: 4, background: warn && leftPanelTab !== key ? "rgba(var(--color-warning-rgb), 0.13)" : "transparent", color: warn ? "var(--color-warning)" : "var(--color-border-strong)", borderRadius: 8, padding: "0 5px", fontSize: 9 }}>{count}</span>
             </button>
           ))}
         </div>
@@ -60,11 +60,11 @@ export default function OpenCallsPanel({
         {/* Call filter tabs — only show on calls tab */}
         {leftPanelTab === "calls" && <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
           {[
-            { key: "open",      label: "Open",      count: expandedCalls.length,              color: "#6ea8fe" },
-            { key: "completed", label: "Done",       count: (completedCalls||[]).length, color: "#75b798" },
-            { key: "cancelled", label: "Cancelled",  count: (cancelledCalls||[]).length, color: "#ea868f" },
-            { key: "all",       label: "All",        count: expandedCalls.length + (completedCalls||[]).length + (cancelledCalls||[]).length, color: "#94a3b8" },
-          ].map(({ key, label, count, color }) => (
+            { key: "open",      label: "Open",      count: expandedCalls.length,              color: "var(--color-primary)", rgb: "var(--color-primary-rgb)" },
+            { key: "completed", label: "Done",       count: (completedCalls||[]).length, color: "var(--color-success)", rgb: "var(--color-success-rgb)" },
+            { key: "cancelled", label: "Cancelled",  count: (cancelledCalls||[]).length, color: "var(--color-danger)", rgb: "var(--color-danger-rgb)" },
+            { key: "all",       label: "All",        count: expandedCalls.length + (completedCalls||[]).length + (cancelledCalls||[]).length, color: "var(--color-text-muted)", rgb: "var(--ems-tax-unknown-rgb)" },
+          ].map(({ key, label, count, color, rgb }) => (
             <button
               key={key}
               onClick={() => onCallFilterChange(key)}
@@ -77,7 +77,7 @@ export default function OpenCallsPanel({
                 border: "none",
                 borderRadius: 6,
                 cursor: "pointer",
-                background: callFilter === key ? `${color}22` : "transparent",
+                background: callFilter === key ? `rgba(${rgb}, 0.13)` : "transparent",
                 color: callFilter === key ? color : "var(--ems-board-tab-inactive)",
                 borderBottom: callFilter === key ? `2px solid ${color}` : "2px solid transparent",
                 transition: "all 0.15s",
@@ -86,8 +86,8 @@ export default function OpenCallsPanel({
               {label}
               <span style={{
                 marginLeft: 4,
-                background: callFilter === key ? `${color}33` : "var(--ems-board-bg-badge)",
-                color: callFilter === key ? color : "#475569",
+                background: callFilter === key ? `rgba(${rgb}, 0.2)` : "var(--ems-board-bg-badge)",
+                color: callFilter === key ? color : "var(--color-border-strong)",
                 borderRadius: 8, padding: "0 5px", fontSize: 9,
               }}>
                 {count}
@@ -146,10 +146,10 @@ export default function OpenCallsPanel({
           <>
             {emergencyCalls.length > 0 && (
               <div className="mb-2">
-                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 6px", borderBottom: "1px solid rgba(220,53,69,0.2)", marginBottom: 4 }}>
-                  <span style={{ width: 3, height: 12, background: "#dc3545", borderRadius: 2, display: "inline-block" }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#ea868f", letterSpacing: 1 }}>EMERGENCY</span>
-                  <span style={{ fontSize: 9, background: "rgba(220,53,69,0.15)", color: "#ea868f", borderRadius: 8, padding: "0 6px", marginLeft: "auto" }}>{emergencyCalls.length}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 6px", borderBottom: "1px solid rgba(var(--color-danger-rgb),0.2)", marginBottom: 4 }}>
+                  <span style={{ width: 3, height: 12, background: "var(--color-danger)", borderRadius: 2, display: "inline-block" }} />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--color-danger)", letterSpacing: 1 }}>EMERGENCY</span>
+                  <span style={{ fontSize: 9, background: "rgba(var(--color-danger-rgb),0.15)", color: "var(--color-danger)", borderRadius: 8, padding: "0 6px", marginLeft: "auto" }}>{emergencyCalls.length}</span>
                 </div>
                 {emergencyCalls.map((call, i) => (
                   <CallCard key={`${call.id}-${call._slot}-${i}`} call={call} onDragStart={onDragStart} onCardClick={onCardClick} />
@@ -159,10 +159,10 @@ export default function OpenCallsPanel({
             {scheduledCalls.length > 0 && (
               <div>
                 {emergencyCalls.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 6px", borderBottom: "1px solid #1e2a3a", marginBottom: 4 }}>
-                    <span style={{ width: 3, height: 12, background: "#475569", borderRadius: 2, display: "inline-block" }} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1 }}>SCHEDULED</span>
-                    <span style={{ fontSize: 9, background: "var(--ems-board-bg-badge)", color: "#475569", borderRadius: 8, padding: "0 6px", marginLeft: "auto" }}>{scheduledCalls.length}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 4px 6px", borderBottom: "1px solid var(--color-surface)", marginBottom: 4 }}>
+                    <span style={{ width: 3, height: 12, background: "var(--color-border-strong)", borderRadius: 2, display: "inline-block" }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--color-border-strong)", letterSpacing: 1 }}>SCHEDULED</span>
+                    <span style={{ fontSize: 9, background: "var(--ems-board-bg-badge)", color: "var(--color-border-strong)", borderRadius: 8, padding: "0 6px", marginLeft: "auto" }}>{scheduledCalls.length}</span>
                   </div>
                 )}
                 {scheduledCalls.map((call, i) => (

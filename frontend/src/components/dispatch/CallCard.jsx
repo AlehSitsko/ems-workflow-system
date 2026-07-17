@@ -1,7 +1,7 @@
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useUserSettings } from "../../context/useUserSettings";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
-import { isEmergencyCall, isWillCall, ALERT_SEVERITY_COLOR } from "../../utils/dispatchBoardUtils";
+import { isEmergencyCall, isWillCall, ALERT_SEVERITY_STYLE } from "../../utils/dispatchBoardUtils";
 import { ServiceLevelBadge } from "../taxonomy/TaxonomyBadges";
 
 export default function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
@@ -14,11 +14,11 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
   const isCancelled = status === "cancelled";
   const isCompleted = status === "completed";
 
-  const accentColor = isCancelled ? "#6b7280"
-    : isCompleted   ? "#22c55e"
-    : emergency     ? "#dc3545"
-    : willCall      ? "#ffc107"
-    : isReturn      ? "#6ea8fe"
+  const accentColor = isCancelled ? "var(--color-text-muted)"
+    : isCompleted   ? "var(--color-success)"
+    : emergency     ? "var(--color-danger)"
+    : willCall      ? "var(--color-warning)"
+    : isReturn      ? "var(--color-primary)"
     : "var(--ems-board-tab-inactive)";
 
   return (
@@ -28,7 +28,7 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
       onClick={() => onCardClick && onCardClick(call, isCompleted)}
       style={{
         borderLeft: `3px solid ${accentColor}`,
-        background: isCancelled ? "rgba(107,114,128,0.08)" : isCompleted ? "rgba(34,197,94,0.06)" : "var(--ems-board-bg-card)",
+        background: isCancelled ? "rgba(var(--ems-tax-unknown-rgb),0.08)" : isCompleted ? "rgba(var(--color-success-rgb),0.06)" : "var(--ems-board-bg-card)",
         borderRadius: 7,
         cursor: isCancelled || isCompleted ? "pointer" : "grab",
         userSelect: "none",
@@ -40,24 +40,24 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
       {/* Top row: name + badges */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 4, marginBottom: 4 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: isCancelled ? "var(--ems-board-text-muted)" : isCompleted ? "#22c55e" : "var(--ems-board-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: isCancelled ? "var(--ems-board-text-muted)" : isCompleted ? "var(--color-success)" : "var(--ems-board-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {call.patient_name || `Call #${call.id}`}
           </div>
           {(isReturn || willCall) && (
             <div style={{ marginTop: 2 }}>
-              {isReturn && <span style={{ fontSize: 9, color: "#6ea8fe", background: "rgba(96,165,250,0.12)", padding: "1px 5px", borderRadius: 3, fontWeight: 700, marginRight: 3 }}>RETURN</span>}
-              {willCall && <span style={{ fontSize: 9, color: "#ffc107", background: "rgba(255,193,7,0.12)", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>WILL CALL</span>}
+              {isReturn && <span style={{ fontSize: 9, color: "var(--color-primary)", background: "rgba(var(--color-primary-rgb),0.12)", padding: "1px 5px", borderRadius: 3, fontWeight: 700, marginRight: 3 }}>RETURN</span>}
+              {willCall && <span style={{ fontSize: 9, color: "var(--color-warning)", background: "rgba(var(--color-warning-rgb),0.12)", padding: "1px 5px", borderRadius: 3, fontWeight: 700 }}>WILL CALL</span>}
             </div>
           )}
         </div>
         <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-          {isCancelled && <span style={{ fontSize: 9, color: "#6b7280", background: "rgba(107,114,128,0.15)", border: "1px solid rgba(107,114,128,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>CNCL</span>}
-          {isCompleted && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>DONE</span>}
-          {emergency && !isCancelled && <span style={{ fontSize: 9, color: "#f87171", background: "rgba(220,53,69,0.15)", border: "1px solid rgba(220,53,69,0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>EMRG</span>}
+          {isCancelled && <span style={{ fontSize: 9, color: "var(--color-text-muted)", background: "rgba(var(--ems-tax-unknown-rgb),0.15)", border: "1px solid rgba(var(--ems-tax-unknown-rgb),0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>CNCL</span>}
+          {isCompleted && <span style={{ fontSize: 9, color: "var(--color-success)", background: "rgba(var(--color-success-rgb),0.12)", border: "1px solid rgba(var(--color-success-rgb),0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>DONE</span>}
+          {emergency && !isCancelled && <span style={{ fontSize: 9, color: "var(--color-danger)", background: "rgba(var(--color-danger-rgb),0.15)", border: "1px solid rgba(var(--color-danger-rgb),0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>EMRG</span>}
           {call.patient_alert_severity && (
             <span
               title={`${call.patient_alert_count} active patient alert(s)`}
-              style={{ fontSize: 9, color: ALERT_SEVERITY_COLOR[call.patient_alert_severity], background: `${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}20`, border: `1px solid ${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}55`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}
+              style={{ fontSize: 9, color: ALERT_SEVERITY_STYLE[call.patient_alert_severity]?.fg, background: ALERT_SEVERITY_STYLE[call.patient_alert_severity]?.bg, border: `1px solid ${ALERT_SEVERITY_STYLE[call.patient_alert_severity]?.border}`, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}
             >
               <FaExclamationTriangle style={{ fontSize: 8 }} />
             </span>
@@ -65,7 +65,7 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
           {call.patient_dispatch_comment && (
             <span
               title="Patient has a dispatch note"
-              style={{ fontSize: 9, color: "#6ea8fe", background: "rgba(110,168,254,0.15)", border: "1px solid rgba(110,168,254,0.35)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}
+              style={{ fontSize: 9, color: "var(--color-primary)", background: "rgba(var(--color-primary-rgb),0.15)", border: "1px solid rgba(var(--color-primary-rgb),0.35)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}
             >
               note
             </span>
@@ -84,7 +84,7 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
           {call.appointment_time && !isReturn && <span style={{ color: "var(--ems-board-tab-inactive)", marginLeft: 6 }}>appt {formatTimeForDisplay(call.appointment_time, timeFormat)}</span>}
         </div>
       )}
-      {willCall && <div style={{ fontSize: 11, color: "#ca8a04" }}>📞 Will call when ready</div>}
+      {willCall && <div style={{ fontSize: 11, color: "var(--color-warning)" }}>📞 Will call when ready</div>}
 
       {/* Route */}
       {call.pickup_address && (
@@ -95,7 +95,7 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
 
       {/* Cancel reason for cancelled cards */}
       {isCancelled && call.cancel_reason && (
-        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 3, fontStyle: "italic" }}>
+        <div style={{ fontSize: 10, color: "var(--color-text-muted)", marginTop: 3, fontStyle: "italic" }}>
           ✕ {call.cancel_reason}
         </div>
       )}
