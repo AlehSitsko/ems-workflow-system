@@ -13,6 +13,20 @@ export async function getEmployees() {
   return data;
 }
 
+// A single employee by id — backs the Employee Workspace.
+export async function getEmployee(employeeId) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}`);
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const err = new Error(data.error || "Failed to fetch employee");
+    err.status = response.status;
+    throw err;
+  }
+
+  return data;
+}
+
 // Create a new employee record.
 export async function createEmployee(employeeData) {
   const response = await fetch(`${API_BASE_URL}/api/employees`, {

@@ -82,6 +82,14 @@ describe("CommandPalette record search", () => {
     expect(navigate).toHaveBeenCalledWith("/fleet/vehicles/1");
   });
 
+  it("deep-links an employee to their workspace", async () => {
+    renderPalette(admin);
+    openAndType("carter");
+    const employee = await screen.findByRole("option", { name: /John Carter/ });
+    fireEvent.click(employee);
+    expect(navigate).toHaveBeenCalledWith("/employees/3");
+  });
+
   it("opens a patient on the pre-filtered patients list (no per-patient route)", async () => {
     renderPalette(admin);
     openAndType("alala");

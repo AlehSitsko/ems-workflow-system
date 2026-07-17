@@ -27,6 +27,7 @@ import AuditLogPage from "./pages/AuditLogPage";
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const UserManualPage = lazy(() => import("./pages/UserManualPage"));
 const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
+const EmployeeWorkspacePage = lazy(() => import("./pages/employees/EmployeeWorkspacePage"));
 const CrewPlannerPage = lazy(() => import("./pages/CrewPlannerPage"));
 const DispatchBoardPage = lazy(() => import("./pages/DispatchBoardPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
@@ -306,6 +307,15 @@ function App() {
           element={
             <EmployeeRoute>
               <EmployeesPage />
+            </EmployeeRoute>
+          }
+        />
+
+        <Route
+          path="/employees/:employeeId"
+          element={
+            <EmployeeRoute>
+              <EmployeeWorkspacePage currentUser={currentUser} />
             </EmployeeRoute>
           }
         />

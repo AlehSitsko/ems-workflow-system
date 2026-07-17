@@ -108,7 +108,9 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
 
 - [x] `EntityWorkspace` shell (URL-synced tabs, back-to-list with restored filters, loading/error/not-found/permission, unsaved-changes)
 - [x] Vehicle Workspace `/fleet/vehicles/:vehicleId` + Fleet vehicles list + Fleet nav group
-- [ ] Employee Workspace `/employees/:employeeId` (Overview, Qualifications, Documents, Schedule, Leave, Time & Pay, Tasks, Activity)
+- [x] Employee Workspace `/employees/:employeeId` (Overview, Qualifications, Documents, Time & Pay, Tasks, Activity — all real; Schedule + Leave honestly disabled). Backed by new `GET /api/employees/<id>`. List row + command palette deep-link here; edit still bridges to the drawer via `location.state.editEmployeeId`.
+  - [ ] Follow-up: dedicated `EmployeeFormPage` (`/employees/new`, `/employees/:id/edit`) mirroring `VehicleFormPage`, to retire the edit drawer
+  - [ ] Follow-up: `GET /api/employees/<id>/shifts` (worked-shift history from `DailyCrewUnit` crew slots) to make the Schedule tab real
 - [ ] Patient Workspace `/patients/:patientId` (Overview, Transport Profile, Contacts, Alerts, Calls/Trips, Activity)
 - [ ] Consider `/tasks/:taskId`, `/calls/:callId`, `/operations/days/:date`
 - [ ] **Migrate to a react-router data router** (`createHashRouter`) so `useBlocker`
