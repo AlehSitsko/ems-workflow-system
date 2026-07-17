@@ -294,6 +294,16 @@ Common tokens:
 
 Dispatch Board uses its own `--ems-board-*` namespace for the dark operational theme.
 
+### Light / Dark / System
+
+`ThemeContext` holds a *preference* (`light` | `dark` | `system`) and derives the
+`resolvedTheme` actually applied to `<html data-bs-theme>`. When the preference
+is `system`, the OS setting is followed live via a `matchMedia` listener, so an
+OS theme change flips the app without a reload. A no-preference install defaults
+to `system`. An inline script in `index.html` applies the resolved theme before
+first paint to avoid a flash. `ThemeControl` (header) exposes all three and
+shows, on the System row, what it currently resolves to.
+
 ---
 
 ## Known Inconsistencies (tracked, not yet fixed)
