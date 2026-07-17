@@ -11,7 +11,7 @@ export default function CompletedCallCard({ call, onCardClick }) {
       <div style={{
         background: "var(--ems-board-bg)",
         borderRadius: 6,
-        borderLeft: "3px solid #495057",
+        borderLeft: "3px solid var(--color-text-muted)",
         padding: "8px 10px",
         marginBottom: ret ? 2 : 0,
       }}>
@@ -36,7 +36,7 @@ export default function CompletedCallCard({ call, onCardClick }) {
         <div style={{
           background: "var(--ems-board-bg)",
           borderRadius: 6,
-          borderLeft: "3px solid #495057",
+          borderLeft: "3px solid var(--color-text-muted)",
           padding: "6px 10px",
         }}>
           <span className="text-muted" style={{ fontSize: 11, fontStyle: "italic" }}>

@@ -97,6 +97,32 @@
   --ems-board-divider-col:  col-resize;
 }
 
+/* ─── Operational status pill palette ─────────────────
+   Each status pill is light text on a solid, deliberately dark chip, so it
+   stays legible on either a light or dark board — the values are therefore the
+   same in both themes and live once here. Inline status *accents* (not pills)
+   use the semantic --color-* tokens instead, so they adapt per theme. */
+:root {
+  --ems-status-available:        #75b798;
+  --ems-status-available-rgb:    117, 183, 152;
+  --ems-status-available-bg:     #166534;
+  --ems-status-en_route:         #6ea8fe;
+  --ems-status-en_route-rgb:     110, 168, 254;
+  --ems-status-en_route-bg:      #1d4ed8;
+  --ems-status-on_scene:         #ffda6a;
+  --ems-status-on_scene-rgb:     255, 218, 106;
+  --ems-status-on_scene-bg:      #854d0e;
+  --ems-status-transporting:     #c29ffa;
+  --ems-status-transporting-rgb: 194, 159, 250;
+  --ems-status-transporting-bg:  #5b21b6;
+  --ems-status-at_destination:   #6edff6;
+  --ems-status-at_destination-rgb: 110, 223, 246;
+  --ems-status-at_destination-bg: #155e75;
+  --ems-status-out_of_service:   #ea868f;
+  --ems-status-out_of_service-rgb: 234, 134, 143;
+  --ems-status-out_of_service-bg: #991b1b;
+}
+
 /* ── Dispatch overdue / stuck animations ──────────────────────────────────── */
 @keyframes ems-pulse-red {
   0%, 100% { opacity: 1; }

@@ -8,9 +8,9 @@ import { BOARD_MODE_META } from "../../utils/dispatchBoardUtils";
 
 // Visible mode badge colors (Planning / Live / History).
 const MODE_STYLE = {
-  planning: { bg: "rgba(110,168,254,0.18)", color: "#6ea8fe", border: "#6ea8fe66" },
-  live: { bg: "rgba(117,183,152,0.20)", color: "#75b798", border: "#75b79866" },
-  history: { bg: "rgba(148,163,184,0.18)", color: "#94a3b8", border: "#94a3b866" },
+  planning: { bg: "rgba(var(--color-primary-rgb),0.18)", color: "var(--color-primary)", border: "rgba(var(--color-primary-rgb), 0.4)" },
+  live: { bg: "rgba(var(--color-success-rgb),0.20)", color: "var(--color-success)", border: "rgba(var(--color-success-rgb), 0.4)" },
+  history: { bg: "rgba(var(--ems-tax-unknown-rgb),0.18)", color: "var(--color-text-muted)", border: "rgba(var(--ems-tax-unknown-rgb), 0.4)" },
 };
 
 export default function BoardToolbar({
@@ -24,7 +24,7 @@ export default function BoardToolbar({
   const modeMeta = BOARD_MODE_META[mode] || BOARD_MODE_META.live;
 
   return (
-    <div className="d-flex align-items-center gap-2 px-3 py-2 flex-wrap" style={{ background: "var(--ems-board-bg-header)", borderBottom: "1px solid #2a3347", flexShrink: 0 }}>
+    <div className="d-flex align-items-center gap-2 px-3 py-2 flex-wrap" style={{ background: "var(--ems-board-bg-header)", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
       <h5 className="mb-0 fw-bold" style={{ color: "var(--ems-board-text)", fontSize: 16 }}>Dispatch Board</h5>
 
       {/* Mode badge — Planning / Live / History */}
@@ -61,7 +61,7 @@ export default function BoardToolbar({
       <button className="btn btn-sm btn-outline-secondary" onClick={onRefresh} disabled={loading} style={{ fontSize: 12 }}>
         {loading ? "Loading…" : "Refresh"}
       </button>
-      <div style={{ width: 1, height: 20, background: "#2a3347", margin: "0 4px" }} />
+      <div style={{ width: 1, height: 20, background: "var(--color-border)", margin: "0 4px" }} />
       <button
         className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
         style={{ fontSize: 12 }}
@@ -72,7 +72,7 @@ export default function BoardToolbar({
       </button>
       <button
         className="btn btn-sm d-inline-flex align-items-center gap-1"
-        style={{ fontSize: 12, color: "#6ea8fe", border: "1px solid #6ea8fe44", background: "transparent" }}
+        style={{ fontSize: 12, color: "var(--color-primary)", border: "1px solid rgba(var(--color-primary-rgb), 0.27)", background: "transparent" }}
         onClick={onCreateNightUnit}
         disabled={creatingDisabled}
       >
@@ -81,12 +81,12 @@ export default function BoardToolbar({
       {error && <span className="text-danger small">{error}</span>}
       <span className="ms-auto text-muted small d-none d-lg-inline d-flex align-items-center gap-2">
         {openCallsCount} open · {unitsCount} units ·{" "}
-        <span style={{ color: "#6ea8fe" }}>click → inspect · dbl-click → status</span>
+        <span style={{ color: "var(--color-primary)" }}>click → inspect · dbl-click → status</span>
         {showResetLayout && (
           <button
             type="button"
             onClick={onResetLayout}
-            style={{ fontSize: 10, padding: "1px 7px", background: "transparent", border: "1px solid #475569", borderRadius: 5, color: "#94a3b8", cursor: "pointer", lineHeight: 1.6 }}
+            style={{ fontSize: 10, padding: "1px 7px", background: "transparent", border: "1px solid var(--color-border-strong)", borderRadius: 5, color: "var(--color-text-muted)", cursor: "pointer", lineHeight: 1.6 }}
             title="Reset panel sizes to default"
           >
             ⊞ Reset layout

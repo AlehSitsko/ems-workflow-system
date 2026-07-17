@@ -4,7 +4,7 @@ import { useUserSettings } from "../../context/useUserSettings";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
 import TimeInput from "../ui/TimeInput";
 import StatusPill from "./StatusPill";
-import { isEmergencyCall, isAlsCall, isWillCall, parseReturnInfo, ALERT_SEVERITY_COLOR } from "../../utils/dispatchBoardUtils";
+import { isEmergencyCall, isAlsCall, isWillCall, parseReturnInfo, ALERT_SEVERITY_STYLE } from "../../utils/dispatchBoardUtils";
 
 export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassign, onComplete, onCardClick, onSetPickupTime,
   isFirst, isLast, isOverdue, onSetHighPriority, onMoveUp, onMoveDown, hasPriorityControls }) {
@@ -19,13 +19,13 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
 
   const [wcTime, setWcTime] = useState(call.pickup_time || "");
 
-  const borderColor = isOverdue ? "#dc3545" : emergency ? "#dc3545" : willCall ? "#ffc107" : isReturnCall ? "#6ea8fe" : "#495057";
+  const borderColor = isOverdue ? "var(--color-danger)" : emergency ? "var(--color-danger)" : willCall ? "var(--color-warning)" : isReturnCall ? "var(--color-primary)" : "var(--color-text-muted)";
 
   return (
     <div className={`mb-2${isOverdue ? " ems-overdue-card" : ""}`} style={{ cursor: "pointer", borderRadius: 6 }} onClick={() => onCardClick && onCardClick(call, false)}>
       {/* Primary leg */}
       <div style={{
-        background: isOverdue ? "rgba(220,53,69,0.07)" : "var(--ems-board-bg)",
+        background: isOverdue ? "rgba(var(--color-danger-rgb),0.07)" : "var(--ems-board-bg)",
         borderRadius: 6,
         borderLeft: `3px solid ${borderColor}`,
         padding: "8px 10px",
@@ -38,36 +38,36 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
               <button
                 title="Set High Priority"
                 className="btn btn-sm"
-                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: isFirst ? "rgba(255,193,7,0.2)" : "transparent", color: isFirst ? "#ffc107" : "var(--ems-board-text-muted)", border: `1px solid ${isFirst ? "#ffc10744" : "#2a3347"}` }}
+                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: isFirst ? "rgba(var(--color-warning-rgb),0.2)" : "transparent", color: isFirst ? "var(--color-warning)" : "var(--ems-board-text-muted)", border: `1px solid ${isFirst ? "rgba(var(--color-warning-rgb), 0.27)" : "var(--color-border)"}` }}
                 onClick={() => onSetHighPriority && onSetHighPriority(call.id)}
               >⚡</button>
               <button
                 title="Move Up"
                 disabled={isFirst}
                 className="btn btn-sm"
-                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: "transparent", color: isFirst ? "#2a3347" : "var(--ems-board-text-muted)", border: "1px solid #2a3347" }}
+                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: "transparent", color: isFirst ? "var(--color-border)" : "var(--ems-board-text-muted)", border: "1px solid var(--color-border)" }}
                 onClick={() => onMoveUp && onMoveUp(call.id)}
               >▲</button>
               <button
                 title="Move Down"
                 disabled={isLast}
                 className="btn btn-sm"
-                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: "transparent", color: isLast ? "#2a3347" : "var(--ems-board-text-muted)", border: "1px solid #2a3347" }}
+                style={{ fontSize: 9, padding: "1px 5px", lineHeight: 1.2, background: "transparent", color: isLast ? "var(--color-border)" : "var(--ems-board-text-muted)", border: "1px solid var(--color-border)" }}
                 onClick={() => onMoveDown && onMoveDown(call.id)}
               >▼</button>
             </div>
           )}
           <div className="flex-grow-1 min-width-0">
             <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
-              <span className={`fw-bold${isOverdue ? " ems-overdue-text" : ""}`} style={{ color: isOverdue ? "#dc3545" : "var(--ems-board-text)", fontSize: 13 }}>
+              <span className={`fw-bold${isOverdue ? " ems-overdue-text" : ""}`} style={{ color: isOverdue ? "var(--color-danger)" : "var(--ems-board-text)", fontSize: 13 }}>
                 {call.patient_name || `Call #${call.id}`}
               </span>
               {willCall ? (
-                <span style={{ fontSize: 10, color: "#ffc107", background: "rgba(255,193,7,0.15)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                <span style={{ fontSize: 10, color: "var(--color-warning)", background: "rgba(var(--color-warning-rgb),0.15)", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
                   WILL CALL
                 </span>
               ) : (
-                <span style={{ fontSize: 10, color: isReturnCall ? "#6ea8fe" : "#adb5bd", background: isReturnCall ? "rgba(13,110,253,0.15)" : "var(--ems-board-border)", padding: "1px 6px", borderRadius: 4 }}>
+                <span style={{ fontSize: 10, color: isReturnCall ? "var(--color-primary)" : "var(--color-text-muted)", background: isReturnCall ? "rgba(var(--color-primary-rgb),0.15)" : "var(--ems-board-border)", padding: "1px 6px", borderRadius: 4 }}>
                   {isReturnCall ? "RETURN" : "OUTBOUND"}
                 </span>
               )}
@@ -77,7 +77,7 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
                 <span
                   title={`${call.patient_alert_count} active patient alert(s)`}
                   className="badge"
-                  style={{ fontSize: 10, color: ALERT_SEVERITY_COLOR[call.patient_alert_severity], background: `${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}20`, border: `1px solid ${ALERT_SEVERITY_COLOR[call.patient_alert_severity]}55` }}
+                  style={{ fontSize: 10, color: ALERT_SEVERITY_STYLE[call.patient_alert_severity]?.fg, background: ALERT_SEVERITY_STYLE[call.patient_alert_severity]?.bg, border: `1px solid ${ALERT_SEVERITY_STYLE[call.patient_alert_severity]?.border}` }}
                 >
                   <FaExclamationTriangle style={{ fontSize: 9 }} />
                 </span>
@@ -86,7 +86,7 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
                 <span
                   title="Patient has a dispatch note"
                   className="badge"
-                  style={{ fontSize: 10, color: "#6ea8fe", background: "rgba(110,168,254,0.15)", border: "1px solid rgba(110,168,254,0.35)" }}
+                  style={{ fontSize: 10, color: "var(--color-primary)", background: "rgba(var(--color-primary-rgb),0.15)", border: "1px solid rgba(var(--color-primary-rgb),0.35)" }}
                 >
                   note
                 </span>
@@ -101,11 +101,11 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
             {/* Will Call: show time setter or current time */}
             {willCall ? (
               <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: "#ffc107" }}>📞 Set pickup time:</span>
+                <span style={{ fontSize: 11, color: "var(--color-warning)" }}>📞 Set pickup time:</span>
                 <TimeInput value={wcTime} onChange={setWcTime} />
                 <button
                   className="btn btn-sm"
-                  style={{ fontSize: 10, padding: "1px 8px", background: "rgba(255,193,7,0.15)", color: "#ffc107", border: "1px solid #ffc10744" }}
+                  style={{ fontSize: 10, padding: "1px 8px", background: "rgba(var(--color-warning-rgb),0.15)", color: "var(--color-warning)", border: "1px solid rgba(var(--color-warning-rgb), 0.27)" }}
                   onClick={(e) => { e.stopPropagation(); onSetPickupTime && onSetPickupTime(call.id, wcTime); }}
                 >
                   Set
@@ -148,7 +148,7 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
         <div style={{
           background: "var(--ems-board-bg)",
           borderRadius: 6,
-          borderLeft: "3px solid #6ea8fe",
+          borderLeft: "3px solid var(--color-primary)",
           padding: "8px 10px",
           opacity: 0.85,
         }}>
@@ -156,7 +156,7 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
             <span className="fw-semibold" style={{ color: "var(--ems-board-text)", fontSize: 13 }}>
               {call.patient_name || `Call #${call.id}`}
             </span>
-            <span style={{ fontSize: 10, color: "#6ea8fe", background: "rgba(13,110,253,0.15)", padding: "1px 6px", borderRadius: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--color-primary)", background: "rgba(var(--color-primary-rgb),0.15)", padding: "1px 6px", borderRadius: 4 }}>
               RETURN
             </span>
             <span className="text-muted" style={{ fontSize: 10 }}>unassigned to unit</span>

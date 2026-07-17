@@ -21,41 +21,63 @@ export const STATUS_LABELS = {
   out_of_service: "Out of Service",
 };
 
+// Pill foreground (light accent) per status — see the --ems-status-* tokens in
+// theme.css. Whole-value usage, so the CSS variables drop straight in.
 export const STATUS_COLORS = {
-  available: "#75b798",
-  en_route: "#6ea8fe",
-  on_scene: "#ffda6a",
-  transporting: "#c29ffa",
-  at_destination: "#6edff6",
-  out_of_service: "#ea868f",
+  available:      "var(--ems-status-available)",
+  en_route:       "var(--ems-status-en_route)",
+  on_scene:       "var(--ems-status-on_scene)",
+  transporting:   "var(--ems-status-transporting)",
+  at_destination: "var(--ems-status-at_destination)",
+  out_of_service: "var(--ems-status-out_of_service)",
 };
 
-// Solid background colors for pills (readable on any bg)
+// Foreground as an rgb triple, for translucent borders/tints on the pill.
+export const STATUS_RGB = {
+  available:      "var(--ems-status-available-rgb)",
+  en_route:       "var(--ems-status-en_route-rgb)",
+  on_scene:       "var(--ems-status-on_scene-rgb)",
+  transporting:   "var(--ems-status-transporting-rgb)",
+  at_destination: "var(--ems-status-at_destination-rgb)",
+  out_of_service: "var(--ems-status-out_of_service-rgb)",
+};
+
+// Solid pill background per status — deliberately dark so the light foreground
+// reads on either a light or dark board.
 export const STATUS_BG = {
-  available:      "#166534",
-  en_route:       "#1d4ed8",
-  on_scene:       "#854d0e",
-  transporting:   "#5b21b6",
-  at_destination: "#155e75",
-  out_of_service: "#991b1b",
+  available:      "var(--ems-status-available-bg)",
+  en_route:       "var(--ems-status-en_route-bg)",
+  on_scene:       "var(--ems-status-on_scene-bg)",
+  transporting:   "var(--ems-status-transporting-bg)",
+  at_destination: "var(--ems-status-at_destination-bg)",
+  out_of_service: "var(--ems-status-out_of_service-bg)",
 };
 
-// Maps shift-alert severity to { border, bg } colors for the unit row
+// Shift-alert severity → { border, bg } for the unit row, on semantic tokens so
+// the tint tracks the theme.
 export const SHIFT_SEVERITY_STYLE = {
-  minor:    { border: "#fd7e14", bg: "rgba(253,126,20,0.06)"  },
-  warning:  { border: "#ffc107", bg: "rgba(255,193,7,0.10)"   },
-  serious:  { border: "#dc3545", bg: "rgba(220,53,69,0.09)"   },
-  critical: { border: "#dc3545", bg: "rgba(220,53,69,0.18)"   },
+  minor:    { border: "var(--color-warning)", bg: "rgba(var(--color-warning-rgb), 0.06)" },
+  warning:  { border: "var(--color-warning)", bg: "rgba(var(--color-warning-rgb), 0.10)" },
+  serious:  { border: "var(--color-danger)",  bg: "rgba(var(--color-danger-rgb), 0.09)" },
+  critical: { border: "var(--color-danger)",  bg: "rgba(var(--color-danger-rgb), 0.18)" },
 };
 
-export const ALERT_SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
+// Patient-alert severity → { fg, bg, border }. An object (not a bare colour)
+// because callers need a tinted background and border, which token rgba builds
+// cleanly where the old hex-suffix concatenation could not.
+export const ALERT_SEVERITY_STYLE = {
+  info:     { fg: "var(--color-primary)", bg: "rgba(var(--color-primary-rgb), 0.12)", border: "rgba(var(--color-primary-rgb), 0.33)" },
+  warning:  { fg: "var(--color-warning)", bg: "rgba(var(--color-warning-rgb), 0.12)", border: "rgba(var(--color-warning-rgb), 0.33)" },
+  critical: { fg: "var(--color-danger)",  bg: "rgba(var(--color-danger-rgb), 0.12)",  border: "rgba(var(--color-danger-rgb), 0.33)" },
+};
 
+// Call timestamp stages — semantic accent per stage (theme-aware).
 export const TS_FIELDS = [
-  { key: "dispatched_at",    label: "Dispatched",   color: "#6ea8fe" },
-  { key: "arrived_pickup_at", label: "On Scene",    color: "#75b798" },
-  { key: "patient_loaded_at", label: "Transporting", color: "#ffc107" },
-  { key: "arrived_dest_at",  label: "At Dest",      color: "#c29ffa" },
-  { key: "completed_at",     label: "Completed",    color: "#adb5bd" },
+  { key: "dispatched_at",     label: "Dispatched",   color: "var(--color-primary)" },
+  { key: "arrived_pickup_at", label: "On Scene",     color: "var(--color-success)" },
+  { key: "patient_loaded_at", label: "Transporting", color: "var(--color-warning)" },
+  { key: "arrived_dest_at",   label: "At Dest",      color: "var(--color-purple)" },
+  { key: "completed_at",      label: "Completed",    color: "var(--color-text-muted)" },
 ];
 
 // Local operational date (YYYY-MM-DD). Uses local getters — never toISOString,

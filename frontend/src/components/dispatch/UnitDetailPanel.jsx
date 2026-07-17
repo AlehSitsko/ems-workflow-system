@@ -26,7 +26,7 @@ export default function UnitDetailPanel({
       <div
         onMouseDown={onRowDividerMouseDown}
         style={{ height: 5, flexShrink: 0, background: "var(--ems-board-border)", cursor: "row-resize" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#6ea8fe55")}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(var(--color-primary-rgb), 0.33)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "var(--ems-board-border)")}
       />
 
@@ -97,11 +97,11 @@ export default function UnitDetailPanel({
             <p className="text-muted small mb-0">No calls assigned</p>
           )}
           {manualOrder && (
-            <div className="d-flex align-items-center justify-content-between mb-2" style={{ fontSize: 11, color: "#ffc107" }}>
+            <div className="d-flex align-items-center justify-content-between mb-2" style={{ fontSize: 11, color: "var(--color-warning)" }}>
               <span>⚡ Manual priority active</span>
               <button
                 className="btn btn-sm"
-                style={{ fontSize: 10, padding: "1px 8px", color: "var(--ems-board-text-muted)", background: "transparent", border: "1px solid #2a3347" }}
+                style={{ fontSize: 10, padding: "1px 8px", color: "var(--ems-board-text-muted)", background: "transparent", border: "1px solid var(--color-border)" }}
                 onClick={() => onResetPriority(selectedUnit)}
               >Reset to time order</button>
             </div>

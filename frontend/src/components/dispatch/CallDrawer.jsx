@@ -273,9 +273,9 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
             <div className="col-12">
               <div style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                borderRadius: 8, background: "rgba(13,110,253,0.08)", border: "1px solid rgba(13,110,253,0.25)",
+                borderRadius: 8, background: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.25)",
               }}>
-                <FaUser style={{ color: "#6ea8fe", fontSize: 14 }} />
+                <FaUser style={{ color: "var(--color-primary)", fontSize: 14 }} />
                 <span style={{ fontWeight: 700, fontSize: 14, color: "var(--ems-text-primary)", flex: 1 }}>{form.patientName}</span>
                 <button type="button" className="btn btn-sm btn-outline-secondary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={handleClearPatient}>
                   <FaTimes /> Change
@@ -369,11 +369,11 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
                   )}
                   <div className="row g-2">
                     <div className="col-6">
-                      <label style={{ fontSize: 12, fontWeight: 600 }}>First Name <span style={{ color: "#dc3545" }}>*</span></label>
+                      <label style={{ fontSize: 12, fontWeight: 600 }}>First Name <span style={{ color: "var(--color-danger)" }}>*</span></label>
                       <input style={inputStyle} value={newPatient.firstName} onChange={e => setNewPatient(p => ({ ...p, firstName: e.target.value }))} />
                     </div>
                     <div className="col-6">
-                      <label style={{ fontSize: 12, fontWeight: 600 }}>Last Name <span style={{ color: "#dc3545" }}>*</span></label>
+                      <label style={{ fontSize: 12, fontWeight: 600 }}>Last Name <span style={{ color: "var(--color-danger)" }}>*</span></label>
                       <input style={inputStyle} value={newPatient.lastName} onChange={e => setNewPatient(p => ({ ...p, lastName: e.target.value }))} />
                     </div>
                     <div className="col-6">
@@ -403,11 +403,11 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
           <SectionHeader>Trip Details</SectionHeader>
 
           <div className="col-md-6">
-            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Trip Date <span style={{ color: "#dc3545" }}>*</span></label>
+            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Trip Date <span style={{ color: "var(--color-danger)" }}>*</span></label>
             <input type="date" className="form-control" value={form.tripDate} onChange={field("tripDate")} disabled={saving} />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Service Level <span style={{ color: "#dc3545" }}>*</span></label>
+            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Service Level <span style={{ color: "var(--color-danger)" }}>*</span></label>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {SERVICE_LEVELS.map(sl => (
                 <button key={sl} type="button"
@@ -441,11 +441,11 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
             <input type="date" className="form-control" value={form.dateOfCall} onChange={field("dateOfCall")} disabled={saving} />
           </div>
           <div className="col-12">
-            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Pickup Address <span style={{ color: "#dc3545" }}>*</span></label>
+            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Pickup Address <span style={{ color: "var(--color-danger)" }}>*</span></label>
             <input type="text" className="form-control" placeholder="123 Main St, City, State" value={form.pickupAddress} onChange={field("pickupAddress")} disabled={saving} />
           </div>
           <div className="col-12">
-            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Dropoff Address <span style={{ color: "#dc3545" }}>*</span></label>
+            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Dropoff Address <span style={{ color: "var(--color-danger)" }}>*</span></label>
             <input type="text" className="form-control" placeholder="Hospital / Facility name + address" value={form.dropoffAddress} onChange={field("dropoffAddress")} disabled={saving} />
           </div>
 

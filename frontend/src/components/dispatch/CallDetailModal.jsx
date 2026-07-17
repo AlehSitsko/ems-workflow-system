@@ -21,7 +21,7 @@ import {
   isoToLocalDate,
   setIsoTime,
   TS_FIELDS,
-  ALERT_SEVERITY_COLOR,
+  ALERT_SEVERITY_STYLE,
 } from "../../utils/dispatchBoardUtils";
 
 export default function CallDetailModal({ call, isCompleted, onClose, onUnassign, onComplete, onReopen, onCancel, onUncancel, onEdit, onTimestampsUpdated }) {
@@ -97,8 +97,12 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
   const callerNote = call.caller_note;
   const cleanNotes = (call.notes || "").trim();
 
-  const accentColor = emergency ? "#dc3545" : isReturnCall ? "#6ea8fe" : isCompleted ? "#6c757d" : "#0d6efd";
-  const slColor = { bls: "#75b798", als: "#6ea8fe", emergency: "#ea868f", stretcher: "#c29ffa" }[call.service_level?.toLowerCase()] || "#adb5bd";
+  const accentColor = emergency ? "var(--color-danger)" : isReturnCall ? "var(--color-primary)" : isCompleted ? "var(--color-text-muted)" : "var(--color-primary)";
+  // The rgb triple behind the accent, so tinted backgrounds/borders can be built
+  // with rgba() instead of the old hex-suffix concatenation.
+  const accentRgb = emergency ? "var(--color-danger-rgb)" : isReturnCall ? "var(--color-primary-rgb)" : isCompleted ? "var(--ems-tax-unknown-rgb)" : "var(--color-primary-rgb)";
+  const slColor = { bls: "var(--color-success)", als: "var(--color-primary)", emergency: "var(--color-danger)", stretcher: "var(--color-purple)" }[call.service_level?.toLowerCase()] || "var(--color-text-muted)";
+  const slRgb = { bls: "var(--color-success-rgb)", als: "var(--color-primary-rgb)", emergency: "var(--color-danger-rgb)", stretcher: "var(--color-purple-rgb)" }[call.service_level?.toLowerCase()] || "var(--ems-tax-unknown-rgb)";
 
   const Section = ({ icon: Icon, title, children }) => (
     <div style={{ marginBottom: 14 }}>
@@ -114,10 +118,10 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
   return (
     <div className="modal d-block" style={{ background: "rgba(0,0,0,0.78)", zIndex: 1060 }} tabIndex={-1} onClick={onClose}>
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-content" style={{ background: "var(--ems-board-bg-card-alt)", border: `1px solid ${accentColor}44`, borderRadius: 14, overflow: "hidden" }}>
+        <div className="modal-content" style={{ background: "var(--ems-board-bg-card-alt)", border: `1px solid rgba(${accentRgb}, 0.27)`, borderRadius: 14, overflow: "hidden" }}>
 
           {/* Color bar + header */}
-          <div style={{ background: `linear-gradient(135deg, ${accentColor}22 0%, #1a2236 100%)`, borderBottom: `1px solid ${accentColor}33`, padding: "14px 18px" }}>
+          <div style={{ background: `linear-gradient(135deg, rgba(${accentRgb}, 0.13) 0%, var(--color-surface) 100%)`, borderBottom: `1px solid rgba(${accentRgb}, 0.2)`, padding: "14px 18px" }}>
             <div className="d-flex align-items-start justify-content-between">
               <div>
                 <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
@@ -125,20 +129,20 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                     {call.patient_name || `Call #${call.id}`}
                   </span>
                   {isReturnCall && (
-                    <span style={{ fontSize: 11, color: "#6ea8fe", background: "rgba(13,110,253,0.18)", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>RETURN</span>
+                    <span style={{ fontSize: 11, color: "var(--color-primary)", background: "rgba(var(--color-primary-rgb),0.18)", padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}>RETURN</span>
                   )}
                   {emergency && (
-                    <span style={{ fontSize: 11, background: "rgba(220,53,69,0.2)", color: "#ea868f", padding: "2px 8px", borderRadius: 20, fontWeight: 700, border: "1px solid #dc354555" }}>⚡ EMERGENCY</span>
+                    <span style={{ fontSize: 11, background: "rgba(var(--color-danger-rgb),0.2)", color: "var(--color-danger)", padding: "2px 8px", borderRadius: 20, fontWeight: 700, border: "1px solid rgba(var(--color-danger-rgb), 0.33)" }}>⚡ EMERGENCY</span>
                   )}
                 </div>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span style={{ fontSize: 12, color: slColor, background: `${slColor}18`, padding: "2px 10px", borderRadius: 20, fontWeight: 700, border: `1px solid ${slColor}44` }}>
+                  <span style={{ fontSize: 12, color: slColor, background: `rgba(${slRgb}, 0.09)`, padding: "2px 10px", borderRadius: 20, fontWeight: 700, border: `1px solid rgba(${slRgb}, 0.27)` }}>
                     {(call.service_level || "—").toUpperCase()}
                   </span>
                   {isCompleted ? (
-                    <span style={{ fontSize: 11, color: "var(--ems-board-text-muted)", background: "rgba(108,117,125,0.2)", padding: "2px 8px", borderRadius: 20, border: "1px solid #49505744" }}>✓ Completed</span>
+                    <span style={{ fontSize: 11, color: "var(--ems-board-text-muted)", background: "rgba(var(--ems-tax-unknown-rgb),0.2)", padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(var(--ems-tax-unknown-rgb), 0.27)" }}>✓ Completed</span>
                   ) : (
-                    <span style={{ fontSize: 11, color: "#75b798", background: "rgba(25,135,84,0.15)", padding: "2px 8px", borderRadius: 20, border: "1px solid #75b79844" }}>● Active</span>
+                    <span style={{ fontSize: 11, color: "var(--color-success)", background: "rgba(var(--color-success-rgb),0.15)", padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(var(--color-success-rgb), 0.27)" }}>● Active</span>
                   )}
                   <span style={{ fontSize: 11, color: "var(--ems-board-text-muted)" }}>#{call.id}</span>
                 </div>
@@ -154,7 +158,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
               <div style={{ background: "var(--ems-board-bg-card-alt)", borderRadius: 10, padding: "10px 14px" }}>
                 <div className="d-flex align-items-start gap-3">
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 3 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#75b798", border: "2px solid #75b798" }} />
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--color-success)", border: "2px solid var(--color-success)" }} />
                     <div style={{ width: 1, height: 28, background: "var(--ems-board-border)", margin: "3px 0" }} />
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor, border: `2px solid ${accentColor}` }} />
                   </div>
@@ -207,7 +211,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                 })}
                 <button
                   className="btn btn-sm"
-                  style={{ fontSize: 11, padding: "4px 10px", background: showTs ? "rgba(13,110,253,0.18)" : "transparent", color: showTs ? "#6ea8fe" : "var(--ems-board-text-muted)", border: `1px solid ${showTs ? "#6ea8fe55" : "var(--ems-board-border)"}`, borderRadius: 7, marginLeft: "auto" }}
+                  style={{ fontSize: 11, padding: "4px 10px", background: showTs ? "rgba(var(--color-primary-rgb),0.18)" : "transparent", color: showTs ? "var(--color-primary)" : "var(--ems-board-text-muted)", border: `1px solid ${showTs ? "rgba(var(--color-primary-rgb), 0.33)" : "var(--ems-board-border)"}`, borderRadius: 7, marginLeft: "auto" }}
                   onClick={() => { setShowTs(v => !v); setTsError(""); }}
                 >
                   {showTs ? "Cancel" : "✏ Edit"}
@@ -228,10 +232,10 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                       </div>
                     ))}
                   </div>
-                  {tsError && <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6 }}>{tsError}</div>}
+                  {tsError && <div style={{ fontSize: 12, color: "var(--color-danger)", marginBottom: 6 }}>{tsError}</div>}
                   <button
                     className="btn btn-sm"
-                    style={{ fontSize: 12, padding: "5px 16px", background: "rgba(13,110,253,0.18)", color: "#6ea8fe", border: "1px solid #6ea8fe55", fontWeight: 600 }}
+                    style={{ fontSize: 12, padding: "5px 16px", background: "rgba(var(--color-primary-rgb),0.18)", color: "var(--color-primary)", border: "1px solid rgba(var(--color-primary-rgb), 0.33)", fontWeight: 600 }}
                     onClick={handleTsSave}
                     disabled={tsSaving}
                   >
@@ -245,7 +249,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             {(patientAlerts.length > 0 || patientExtra?.dispatch_comment) && (
               <Section icon={FaExclamationTriangle} title="Patient Alerts">
                 {patientExtra?.is_sensitive && (
-                  <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--color-warning)", marginBottom: 8 }}>
                     <FaUserSecret style={{ marginRight: 4 }} /> Sensitive patient
                   </div>
                 )}
@@ -255,7 +259,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                       <span
                         key={a.id}
                         className="badge"
-                        style={{ background: `${ALERT_SEVERITY_COLOR[a.severity]}20`, color: ALERT_SEVERITY_COLOR[a.severity], border: `1px solid ${ALERT_SEVERITY_COLOR[a.severity]}50`, fontSize: 11 }}
+                        style={{ background: ALERT_SEVERITY_STYLE[a.severity]?.bg, color: ALERT_SEVERITY_STYLE[a.severity]?.fg, border: `1px solid ${ALERT_SEVERITY_STYLE[a.severity]?.border}`, fontSize: 11 }}
                         title={a.description || ""}
                       >
                         {a.title}
@@ -264,7 +268,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                   </div>
                 )}
                 {patientExtra?.dispatch_comment && (
-                  <div style={{ background: "rgba(13,110,253,0.08)", border: "1px solid rgba(110,168,254,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--ems-board-text)" }}>
+                  <div style={{ background: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--ems-board-text)" }}>
                     {patientExtra.dispatch_comment}
                   </div>
                 )}
@@ -300,7 +304,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             {/* Caller note */}
             {callerNote && (
               <Section icon={FaPhoneAlt} title="Caller Note">
-                <div style={{ background: "rgba(255,193,7,0.08)", border: "1px solid rgba(255,193,7,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#ffe69c" }}>
+                <div style={{ background: "rgba(var(--color-warning-rgb),0.08)", border: "1px solid rgba(var(--color-warning-rgb),0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "var(--color-warning)" }}>
                   {callerNote}
                 </div>
               </Section>
@@ -309,8 +313,8 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             {/* Return leg (legacy embedded) */}
             {ret && (
               <Section icon={FaArrowRight} title="Return Leg">
-                <div style={{ background: "rgba(13,110,253,0.08)", border: "1px solid rgba(110,168,254,0.2)", borderRadius: 8, padding: "8px 12px" }}>
-                  <div style={{ fontSize: 12, color: "#6ea8fe" }}>
+                <div style={{ background: "rgba(var(--color-primary-rgb),0.08)", border: "1px solid rgba(var(--color-primary-rgb),0.2)", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontSize: 12, color: "var(--color-primary)" }}>
                     {ret.returnPickup} <FaArrowRight style={{ fontSize: 9 }} /> {ret.returnDestination}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--ems-board-text-muted)", marginTop: 3 }}>
@@ -332,21 +336,21 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
 
           {/* Cancel form */}
           {showCancelForm && (
-            <div style={{ background: "var(--ems-board-bg-header)", borderTop: "1px solid #dc354544", padding: "12px 18px" }}>
-              <div style={{ fontSize: 12, color: "#ea868f", fontWeight: 600, marginBottom: 6 }}>Cancel Call — Reason Required</div>
+            <div style={{ background: "var(--ems-board-bg-header)", borderTop: "1px solid rgba(var(--color-danger-rgb), 0.27)", padding: "12px 18px" }}>
+              <div style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 600, marginBottom: 6 }}>Cancel Call — Reason Required</div>
               <textarea
                 className="form-control form-control-sm mb-2"
-                style={{ background: "var(--ems-board-bg)", color: "var(--ems-board-text)", border: "1px solid #dc354555", resize: "vertical", fontSize: 13 }}
+                style={{ background: "var(--ems-board-bg)", color: "var(--ems-board-text)", border: "1px solid rgba(var(--color-danger-rgb), 0.33)", resize: "vertical", fontSize: 13 }}
                 rows={2}
                 placeholder="State the reason for cancellation..."
                 value={cancelReason}
                 onChange={(e) => { setCancelReason(e.target.value); setCancelError(""); }}
               />
-              {cancelError && <div style={{ fontSize: 12, color: "#ea868f", marginBottom: 6 }}>{cancelError}</div>}
+              {cancelError && <div style={{ fontSize: 12, color: "var(--color-danger)", marginBottom: 6 }}>{cancelError}</div>}
               <div className="d-flex gap-2">
                 <button
                   className="btn btn-sm"
-                  style={{ background: "rgba(220,53,69,0.2)", color: "#ea868f", border: "1px solid #dc354555", fontWeight: 600, fontSize: 13 }}
+                  style={{ background: "rgba(var(--color-danger-rgb),0.2)", color: "var(--color-danger)", border: "1px solid rgba(var(--color-danger-rgb), 0.33)", fontWeight: 600, fontSize: 13 }}
                   onClick={handleCancelSubmit}
                   disabled={cancelling}
                 >
@@ -371,14 +375,14 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                   <>
                     <button
                       className="btn btn-sm"
-                      style={{ background: "rgba(25,135,84,0.15)", color: "#75b798", border: "1px solid #75b79855", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
+                      style={{ background: "rgba(var(--color-success-rgb),0.15)", color: "var(--color-success)", border: "1px solid rgba(var(--color-success-rgb), 0.33)", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
                       onClick={() => { onComplete(call.assignment_id); onClose(); }}
                     >
                       ✓ Mark Complete
                     </button>
                     <button
                       className="btn btn-sm"
-                      style={{ background: "rgba(108,117,125,0.12)", color: "var(--ems-board-text-muted)", border: "1px solid #49505755", fontSize: 13, padding: "6px 14px" }}
+                      style={{ background: "rgba(var(--ems-tax-unknown-rgb),0.12)", color: "var(--ems-board-text-muted)", border: "1px solid rgba(var(--ems-tax-unknown-rgb), 0.33)", fontSize: 13, padding: "6px 14px" }}
                       onClick={() => { onUnassign(call.assignment_id); onClose(); }}
                     >
                       ↩ Unassign
@@ -388,7 +392,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                 {isCompleted && (
                   <button
                     className="btn btn-sm"
-                    style={{ background: "rgba(255,193,7,0.12)", color: "#ffc107", border: "1px solid #ffc10755", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
+                    style={{ background: "rgba(var(--color-warning-rgb),0.12)", color: "var(--color-warning)", border: "1px solid rgba(var(--color-warning-rgb), 0.33)", fontWeight: 600, fontSize: 13, padding: "6px 16px" }}
                     onClick={() => { onReopen(call.assignment_id); onClose(); }}
                   >
                     ↩ Reopen Call
@@ -396,7 +400,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                 )}
                 <button
                   className="btn btn-sm"
-                  style={{ background: "rgba(220,53,69,0.1)", color: "#ea868f", border: "1px solid #dc354533", fontSize: 13, padding: "6px 14px" }}
+                  style={{ background: "rgba(var(--color-danger-rgb),0.1)", color: "var(--color-danger)", border: "1px solid rgba(var(--color-danger-rgb), 0.2)", fontSize: 13, padding: "6px 14px" }}
                   onClick={() => setShowCancelForm(true)}
                 >
                   ✕ Cancel Call
@@ -405,12 +409,12 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             )}
             {call.status === "cancelled" && (
               <div className="d-flex align-items-center gap-3">
-                <span style={{ fontSize: 12, color: "#ea868f", fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 600 }}>
                   ✕ Cancelled{call.cancel_reason ? ` — ${call.cancel_reason}` : ""}
                 </span>
                 <button
                   className="btn btn-sm"
-                  style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24", border: "1px solid #f59e0b44", fontSize: 12, padding: "4px 12px" }}
+                  style={{ background: "rgba(var(--color-warning-rgb),0.12)", color: "var(--color-warning)", border: "1px solid rgba(var(--color-warning-rgb), 0.27)", fontSize: 12, padding: "4px 12px" }}
                   onClick={() => { onUncancel(call.id); onClose(); }}
                 >
                   ↩ Uncancel
@@ -420,7 +424,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             {onEdit && (
               <button
                 className="btn btn-sm"
-                style={{ background: "rgba(13,110,253,0.1)", color: "#6ea8fe", border: "1px solid #6ea8fe44", fontSize: 13, padding: "6px 14px" }}
+                style={{ background: "rgba(var(--color-primary-rgb),0.1)", color: "var(--color-primary)", border: "1px solid rgba(var(--color-primary-rgb), 0.27)", fontSize: 13, padding: "6px 14px" }}
                 onClick={() => { onEdit(call); onClose(); }}
               >
                 ✏ Edit Call
@@ -428,7 +432,7 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             )}
             <button
               className="btn btn-sm ms-auto"
-              style={{ background: "transparent", color: "var(--ems-board-text-muted)", border: "1px solid #2a3347", fontSize: 13, padding: "6px 14px" }}
+              style={{ background: "transparent", color: "var(--ems-board-text-muted)", border: "1px solid var(--color-border)", fontSize: 13, padding: "6px 14px" }}
               onClick={onClose}
             >
               Close
