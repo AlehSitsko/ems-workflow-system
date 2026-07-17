@@ -165,6 +165,19 @@ export const ROUTE_METADATA = [
     width: "standard",
   },
   {
+    // Detail route: reached from the list, not a sidebar entry. The workspace
+    // renders its own entity header, so the shell header stays generic.
+    path: "/employees/:employeeId",
+    title: "Employee",
+    subtitle: "Employee record and history",
+    icon: FaUsers,
+    group: "Staff",
+    canAccess: hasEmployeeAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/employees",
+  },
+  {
     path: "/crew-planner",
     title: "Crew Planner",
     subtitle: "Plan unit assignments for the day",

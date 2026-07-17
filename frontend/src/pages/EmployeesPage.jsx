@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useConfirm } from "../components/ui/useConfirm";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import {
@@ -77,6 +78,8 @@ const initialFormData = {
 
 function EmployeesPage() {
   const confirm = useConfirm();
+  const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = getCurrentUser();
   const [employees, setEmployees] = useState([]);
   const [editingEmployeeId, setEditingEmployeeId] = useState(null);
@@ -228,6 +231,22 @@ function EmployeesPage() {
       setCertScans(scans);
     }).catch(() => setCertScans({}));
   };
+
+  // Bridge from the Employee Workspace's Edit action: once the list has loaded,
+  // open the edit drawer for the requested employee. Runs once per navigation.
+  const editBridgeDone = useRef(false);
+  useEffect(() => {
+    const id = location.state?.editEmployeeId;
+    if (!id || editBridgeDone.current || !employees.length) return;
+    const emp = employees.find((e) => e.id === id);
+    if (emp) {
+      editBridgeDone.current = true;
+      handleEdit(emp);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // handleEdit is stable for this one-shot; excluded to avoid re-running.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employees, location.state, location.pathname, navigate]);
 
   /*
     Calculates human-readable status for a certification.
@@ -538,7 +557,10 @@ function EmployeesPage() {
               <div
                 className="employee-row-card"
                 key={employee.id}
-                onClick={() => handleEdit(employee)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter") navigate(`/employees/${employee.id}`); }}
+                onClick={() => navigate(`/employees/${employee.id}`)}
                 style={{ cursor: "pointer" }}
               >
                 {/* Avatar + Name + number + hire date */}

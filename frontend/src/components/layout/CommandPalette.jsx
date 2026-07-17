@@ -195,7 +195,7 @@ export default function CommandPalette({ currentUser }) {
           title: `${emp.firstName} ${emp.lastName}`,
           subtitle: emp.employeeNumber ? `#${emp.employeeNumber}` : "Employee",
           icon: <FaUsers />,
-          run: () => navigate("/employees"),
+          run: () => navigate(`/employees/${emp.id}`),
         })),
       });
     }

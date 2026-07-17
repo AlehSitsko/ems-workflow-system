@@ -20,6 +20,17 @@ def get_employees():
     return jsonify([employee.to_dict() for employee in employees])
 
 
+# Return a single employee by id — backs the Employee Workspace.
+@employee_bp.route("/<int:id>", methods=["GET"])
+def get_employee(id):
+    employee = Employee.query.get(id)
+
+    if not employee:
+        return jsonify({"error": "Employee not found"}), 404
+
+    return jsonify(employee.to_dict())
+
+
 # Create a new employee record.
 @employee_bp.route("", methods=["POST"])
 def create_employee():
