@@ -26,7 +26,7 @@ function renderHeader(props = {}) {
   };
   render(
     <MemoryRouter>
-      <ThemeContext.Provider value={{ theme: "light", toggleTheme: vi.fn() }}>
+      <ThemeContext.Provider value={{ theme: "light", resolvedTheme: "light", setTheme: vi.fn(), toggleTheme: vi.fn() }}>
         <AppHeader {...merged} />
       </ThemeContext.Provider>
     </MemoryRouter>,
@@ -90,11 +90,11 @@ describe("AppHeader actions", () => {
     expect(screen.queryByRole("link", { name: /Start Taking Call/ })).not.toBeInTheDocument();
   });
 
-  it("has a working theme control rather than a decorative one", () => {
-    const toggleTheme = vi.fn();
+  it("has a working theme control that offers Light, Dark and System", () => {
+    const setTheme = vi.fn();
     render(
       <MemoryRouter>
-        <ThemeContext.Provider value={{ theme: "light", toggleTheme }}>
+        <ThemeContext.Provider value={{ theme: "system", resolvedTheme: "light", setTheme, toggleTheme: vi.fn() }}>
           <AppHeader
             meta={getRouteMetadata("/home")} currentUser={dispatcher} onLogout={vi.fn()}
             notifications={[]} unreadCount={0} markRead={vi.fn()} markAllRead={vi.fn()}
@@ -103,14 +103,17 @@ describe("AppHeader actions", () => {
         </ThemeContext.Provider>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Switch to dark mode" }));
-    expect(toggleTheme).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Theme" }));
+    // All three preferences are offered, and the current one is marked.
+    expect(screen.getByRole("menuitemradio", { name: /System/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Dark/ }));
+    expect(setTheme).toHaveBeenCalledWith("dark");
   });
 
   it("ships no disabled decorative search box", () => {
     const { container } = render(
       <MemoryRouter>
-        <ThemeContext.Provider value={{ theme: "light", toggleTheme: vi.fn() }}>
+        <ThemeContext.Provider value={{ theme: "light", resolvedTheme: "light", setTheme: vi.fn(), toggleTheme: vi.fn() }}>
           <AppHeader
             meta={getRouteMetadata("/home")} currentUser={dispatcher} onLogout={vi.fn()}
             notifications={[]} unreadCount={0} markRead={vi.fn()} markAllRead={vi.fn()}
