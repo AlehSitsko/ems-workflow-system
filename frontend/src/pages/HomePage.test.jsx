@@ -30,30 +30,36 @@ function renderHome(currentUser = admin) {
 beforeEach(() => vi.clearAllMocks());
 
 describe("Dashboard quick navigation", () => {
-  it("shows only destinations the user may open", () => {
+  // These roles have task access, so the async task summary loads after render;
+  // each test awaits it so that state update settles inside act().
+  it("shows only destinations the user may open", async () => {
     renderHome(hr);
     // The tile list is derived from route metadata rather than hand-copied, so a
     // role that cannot open Dispatch is never offered a tile to it.
     expect(screen.queryByRole("link", { name: /Dispatch Board/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Vehicles/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Employees/ })).toBeInTheDocument();
+    await screen.findByText("My Open Tasks");
   });
 
-  it("offers operational destinations to a dispatcher-capable role", () => {
+  it("offers operational destinations to a dispatcher-capable role", async () => {
     renderHome(admin);
     expect(screen.getByRole("link", { name: /Dispatch Board/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Vehicles/ })).toBeInTheDocument();
+    await screen.findByText("My Open Tasks");
   });
 
-  it("does not repeat the header's Start Taking Call CTA", () => {
+  it("does not repeat the header's Start Taking Call CTA", async () => {
     renderHome(admin);
     expect(screen.queryByText("Start Taking Call")).not.toBeInTheDocument();
+    await screen.findByText("My Open Tasks");
   });
 
-  it("does not link to the dashboard from its own quick navigation", () => {
+  it("does not link to the dashboard from its own quick navigation", async () => {
     renderHome(admin);
     const selfLinks = screen.getAllByRole("link").filter((a) => a.getAttribute("href") === "/home");
     expect(selfLinks).toHaveLength(0);
+    await screen.findByText("My Open Tasks");
   });
 });
 

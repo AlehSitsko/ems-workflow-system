@@ -73,6 +73,31 @@ flask --app app db upgrade
 
 Review the generated migration file before committing — Alembic's autogenerate is good but not infallible, especially for column type changes or renames.
 
+### Known autogenerate drift — do not blindly accept it
+
+`flask db check` (and `db migrate`) reports drift on SQLite that is **expected and
+must not be committed as a migration**. A database built purely from the
+migrations has the correct tables and columns (verified), so this drift is
+cosmetic/platform noise, not a schema defect:
+
+- **`remove_index` for `ix_<table>_<column>`** — the performance-index migration
+  created these indexes but the model columns don't declare `index=True`, so
+  autogenerate wants to *drop* them. Dropping them would be a performance
+  regression. Never accept these operations.
+- **`add_fk` (e.g. `daily_crew_unit.vehicle_id`, `call.cancelled_by`)** — the
+  models declare these foreign keys; SQLite's batch migrations don't store them
+  as named constraints, and SQLite doesn't enforce FKs by default anyway. This
+  cannot be reconciled away on SQLite and is harmless (the ORM relationships
+  work). A future Postgres deployment would carry the constraints natively.
+- **`modify_type` TEXT ↔ VARCHAR / `_alembic_tmp_*` tables** — only appear
+  against a *polluted dev database* (leftover batch temp tables, stale dropped
+  columns). A fresh migrated database shows none of these. Rebuild the dev DB
+  from migrations rather than "fixing" it with a migration.
+
+If you add a genuine model change, generate the migration, then **delete every
+one of the above spurious operations** from the file, leaving only your real
+change.
+
 ## Refactor discipline
 
 When working through the refactor plan in [ROADMAP.md](ROADMAP.md) Priority 1:
