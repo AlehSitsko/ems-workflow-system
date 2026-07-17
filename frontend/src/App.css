@@ -72,6 +72,11 @@ textarea.form-control {
 .app-content {
   flex: 1;
   min-width: 0;
+  /* The page body must never scroll horizontally: any incidental overflow
+     (e.g. an off-canvas drawer at narrow widths) is clipped here. Genuinely
+     wide content scrolls inside its own overflow-x container instead. `clip`
+     doesn't affect vertical scrolling or the fixed drawer overlay. */
+  overflow-x: clip;
 }
 
 /* Page width modes — owned by PageContainer, chosen per route in metadata. */
@@ -2533,7 +2538,10 @@ textarea.form-control {
 /* Weekday header row */
 .calendar-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* minmax(0, 1fr), not 1fr: 1fr floors at the cell's min-content, which keeps
+     the 7-column grid from shrinking on a phone and pushes the page sideways.
+     minmax(0, …) lets the columns shrink to fit. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 6px;
 }
@@ -2555,7 +2563,7 @@ textarea.form-control {
 /* Day grid */
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
 }
 

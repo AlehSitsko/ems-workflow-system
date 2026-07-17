@@ -108,10 +108,13 @@ describe("EntityWorkspace back navigation", () => {
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
   });
 
-  it("does not ask when there is nothing to lose", () => {
+  it("does not ask when there is nothing to lose", async () => {
     confirmMock.mockClear();
     renderWorkspace({ dirty: false });
     fireEvent.click(screen.getByRole("tab", { name: "Compliance" }));
+    // The tab still changes (async, through the guard) — wait for it to settle,
+    // then confirm the guard never prompted.
+    await waitFor(() => expect(screen.getByTestId("tab-content")).toHaveTextContent("compliance content"));
     expect(confirmMock).not.toHaveBeenCalled();
   });
 });
