@@ -1,229 +1,35 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
-import EntityDrawer from "../components/ui/EntityDrawer";
-import { FaPlus } from "react-icons/fa";
 
-import {
-  createPatient,
-  updatePatient,
-  archivePatient,
-  restorePatient,
-  getPatient,
-} from "../api/patientsApi";
-
-import { getPatientCalls } from "../api/callsApi";
-import { useUserSettings } from "../context/useUserSettings";
+import { archivePatient, restorePatient, updatePatient } from "../api/patientsApi";
 
 import PatientToolbar from "../components/patients/PatientToolbar";
 import PatientList from "../components/patients/PatientList";
-import PatientOverviewTab from "../components/patients/PatientOverviewTab";
-import PatientCallHistoryTab from "../components/patients/PatientCallHistoryTab";
-import PatientAlertsTab from "../components/patients/PatientAlertsTab";
-import PatientContactsTab from "../components/patients/PatientContactsTab";
-import PatientEditTab from "../components/patients/PatientEditTab";
 import { usePatients } from "../hooks/usePatients";
-import { usePatientForm } from "../hooks/usePatientForm";
-import { usePatientAlerts } from "../hooks/usePatientAlerts";
-import { usePatientContacts } from "../hooks/usePatientContacts";
 
-// Main patient management component.
+/**
+ * Patients search + list. Viewing and editing happen on the workspace
+ * (/patients/:id) and the form page (/patients/new, /patients/:id/edit); a row
+ * opens the workspace, Add and Edit navigate to the form.
+ */
 const PatientsPage = () => {
   const confirm = useConfirm();
   const toast = useToast();
   const navigate = useNavigate();
-  const { settings } = useUserSettings();
-  const timeFormat = settings?.ui?.time_format || "12h";
 
-  const [patientCalls, setPatientCalls] = useState([]);
-
-  const {
-    newPatient,
-    editingPatientId,
-    handleNewPatientChange,
-    isPatientFormDirty,
-    resetFormFields,
-    loadPatientIntoForm,
-  } = usePatientForm();
-
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const [drawerTab, setDrawerTab] = useState("overview"); // "overview" | "edit" | "history" | "alerts" | "contacts"
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  // Clear the open patient + its loaded call history (shared by search/show-all).
-  const clearSelection = () => {
-    setSelectedPatient(null);
-    setPatientCalls([]);
-  };
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
 
   const {
-    searchName,
-    setSearchName,
-    searchDob,
-    setSearchDob,
-    patients,
-    setPatients,
-    paginationMeta,
-    currentFilters,
-    loadingMore,
-    showArchived,
-    hasSearched,
-    setHasSearched,
-    loadPatients,
-    handleToggleShowArchived,
-    handleSearch,
-    handleShowAll,
-  } = usePatients({ setLoading, setError, clearSelection });
+    searchName, setSearchName,
+    searchDob, setSearchDob,
+    patients, setPatients,
+    paginationMeta, currentFilters, loadingMore, showArchived, hasSearched,
+    setHasSearched, loadPatients, handleToggleShowArchived, handleSearch, handleShowAll,
+  } = usePatients({ setLoading, setError, clearSelection: () => {} });
 
-  // Arriving from the command palette with a surname to look up: prefill the
-  // search box and run it, so the chosen patient is already on screen. Applied
-  // once per navigation so a re-render doesn't re-trigger it.
-  const location = useLocation();
-  const commandSearchApplied = useRef(false);
-  useEffect(() => {
-    const term = location.state?.commandSearch;
-    if (!term || commandSearchApplied.current) return;
-    commandSearchApplied.current = true;
-    setSearchName(term);
-    setHasSearched(true);
-    loadPatients({ name: term }, 1, false);
-  }, [location.state, setSearchName, setHasSearched, loadPatients]);
-
-  const {
-    patientAlerts,
-    showResolvedAlerts,
-    setShowResolvedAlerts,
-    newAlert,
-    setNewAlert,
-    loadPatientAlerts,
-    handleAddAlert,
-    handleResolveAlert,
-    resetAlerts,
-  } = usePatientAlerts({ selectedPatient, toast });
-
-  const {
-    patientContacts,
-    newContact,
-    setNewContact,
-    editingContactId,
-    setEditingContactId,
-    loadPatientContacts,
-    handleAddContact,
-    handleEditContact,
-    handleDeleteContact,
-    resetContacts,
-  } = usePatientContacts({ selectedPatient, toast, confirm });
-
-  // Reset the add/edit patient form and close the drawer.
-  const resetPatientForm = () => {
-    resetFormFields();
-    setDrawerOpen(false);
-    setSelectedPatient(null);
-    setPatientCalls([]);
-    resetAlerts();
-    resetContacts();
-    setDrawerTab("overview");
-  };
-
-  // Open the drawer in add mode.
-  const handleShowAddForm = () => {
-    resetFormFields();
-    setSelectedPatient(null);
-    setError("");
-    setDrawerTab("edit");
-    setDrawerOpen(true);
-  };
-
-  // Close the patient drawer only after confirming unsaved changes.
-  const closePatientFormSafely = async () => {
-    if (loading) return;
-
-    if (isPatientFormDirty()) {
-      const shouldClose = await confirm({
-        title: "Discard unsaved changes?",
-        message: "All entered patient information will be lost.",
-        variant: "warning",
-        confirmLabel: "Discard",
-      });
-      if (!shouldClose) return;
-    }
-
-    resetPatientForm();
-  };
-
-  // Load call history for a selected patient.
-  const loadPatientCalls = async (patientId) => {
-    try {
-      const calls = await getPatientCalls(patientId);
-      setPatientCalls(calls);
-    } catch (err) {
-      console.error("Failed to load patient call history:", err);
-      setPatientCalls([]);
-    }
-  };
-
-  // Create a new patient or update an existing patient.
-  const handleCreatePatient = async (e) => {
-    e.preventDefault();
-
-    setError("");
-    setLoading(true);
-
-    try {
-      let savedPatient;
-
-      if (editingPatientId) {
-        savedPatient = await updatePatient(editingPatientId, newPatient);
-      } else {
-        savedPatient = await createPatient(newPatient);
-      }
-
-      resetFormFields();
-      setSelectedPatient(savedPatient);
-      setHasSearched(true);
-
-      await loadPatients(currentFilters, 1, false);
-      await loadPatientCalls(savedPatient.id);
-      await loadPatientAlerts(savedPatient.id);
-      await loadPatientContacts(savedPatient.id);
-    } catch (err) {
-      // Offer to restore instead of creating a new record when the duplicate is archived.
-      if (err.existingPatient?.is_archived) {
-        const shouldRestore = await confirm({
-          title: "Patient already exists (archived)",
-          message: `${err.existingPatient.first_name} ${err.existingPatient.last_name} matches this name and DOB but is archived. Restore the existing record instead of creating a new one?`,
-          variant: "warning",
-          confirmLabel: "Restore existing patient",
-        });
-        if (shouldRestore) {
-          try {
-            const { patient } = await restorePatient(err.existingPatient.id);
-            resetFormFields();
-            setSelectedPatient(patient);
-            setDrawerTab("overview");
-            setHasSearched(true);
-            await loadPatients(currentFilters, 1, false);
-            await loadPatientCalls(patient.id);
-            await loadPatientAlerts(patient.id);
-            await loadPatientContacts(patient.id);
-            toast.success("Patient restored");
-          } catch (restoreErr) {
-            setError(restoreErr.message || "Restore failed.");
-          }
-          return;
-        }
-      }
-      setError(err.message || "Operation failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Archive a patient record (soft delete — history is preserved).
   const handleArchivePatient = async (id) => {
     const ok = await confirm({
       title: "Archive patient?",
@@ -232,93 +38,44 @@ const PatientsPage = () => {
       confirmLabel: "Archive",
     });
     if (!ok) return;
-
     setError("");
-
     try {
-      const { patient } = await archivePatient(id);
+      await archivePatient(id);
       await loadPatients(currentFilters, 1, false);
-
-      if (selectedPatient?.id === id) {
-        setSelectedPatient(patient);
-      }
-
-      if (editingPatientId === id) {
-        resetPatientForm();
-      }
       toast.success("Patient archived");
     } catch (err) {
       setError(err.message || "Archive failed.");
     }
   };
 
-  // Restore a previously archived patient.
   const handleRestorePatient = async (id) => {
     setError("");
     try {
-      const { patient } = await restorePatient(id);
+      await restorePatient(id);
       await loadPatients(currentFilters, 1, false);
-      if (selectedPatient?.id === id) {
-        setSelectedPatient(patient);
-      }
       toast.success("Patient restored");
     } catch (err) {
       setError(err.message || "Restore failed.");
     }
   };
 
-  // Open drawer in view mode for a patient.
-  // Selecting a patient opens their workspace (the drawer is now edit-only).
-  const handleSelectPatient = (patient) => navigate(`/patients/${patient.id}`);
-
-  // Open drawer in edit mode for a patient.
-  const handleEditPatient = async (patient) => {
-    loadPatientIntoForm(patient);
-    setSelectedPatient(patient);
-    setDrawerTab("edit");
-    setDrawerOpen(true);
-    await loadPatientCalls(patient.id);
-    await loadPatientAlerts(patient.id);
-    await loadPatientContacts(patient.id);
-  };
-
-  // Bridge from the Patient Workspace's Edit action: fetch the requested patient
-  // and open the edit drawer. Runs once per navigation. (A dedicated patient
-  // form page is the eventual replacement, mirroring the Employee migration.)
-  const editBridgeDone = useRef(false);
-  useEffect(() => {
-    const id = location.state?.editPatientId;
-    if (!id || editBridgeDone.current) return;
-    editBridgeDone.current = true;
-    getPatient(id)
-      .then((p) => handleEditPatient(p))
-      .catch(() => toast.error("Could not open patient for editing"));
-    navigate(location.pathname, { replace: true, state: {} });
-    // handleEditPatient is stable for this one-shot; excluded to avoid re-running.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state, location.pathname, navigate]);
-
   // Update a patient's default service level inline from the list row.
   const handleServiceLevelChange = async (patient, newLevel) => {
     try {
       const updated = await updatePatient(patient.id, { ...patient, default_service_level: newLevel });
-      setPatients(prev => prev.map(p => p.id === patient.id ? updated : p));
+      setPatients((prev) => prev.map((p) => (p.id === patient.id ? updated : p)));
       toast.success("Service level updated");
     } catch {
       toast.error("Failed to update service level");
     }
   };
 
-  // Clear search, results, selected patient, call history, and editing mode.
   const handleClear = () => {
     setSearchName("");
     setSearchDob("");
     setPatients([]);
-    setPatientCalls([]);
     setError("");
     setHasSearched(false);
-    setSelectedPatient(null);
-    resetPatientForm();
   };
 
   return (
@@ -333,7 +90,7 @@ const PatientsPage = () => {
         searchDob={searchDob}
         setSearchDob={setSearchDob}
         showArchived={showArchived}
-        onShowAddForm={handleShowAddForm}
+        onShowAddForm={() => navigate("/patients/new")}
         onSearch={handleSearch}
         onShowAll={handleShowAll}
         onClear={handleClear}
@@ -344,119 +101,18 @@ const PatientsPage = () => {
         <PatientList
           patients={patients}
           paginationMeta={paginationMeta}
-          patientCalls={patientCalls}
-          selectedPatient={selectedPatient}
+          patientCalls={[]}
+          selectedPatient={null}
           loading={loading}
           loadingMore={loadingMore}
-          onSelectPatient={handleSelectPatient}
-          onEditPatient={handleEditPatient}
+          onSelectPatient={(patient) => navigate(`/patients/${patient.id}`)}
+          onEditPatient={(patient) => navigate(`/patients/${patient.id}/edit`)}
           onArchivePatient={handleArchivePatient}
           onRestorePatient={handleRestorePatient}
           onServiceLevelChange={handleServiceLevelChange}
           onLoadMore={() => loadPatients(currentFilters, paginationMeta.page + 1, true)}
         />
       )}
-
-      <EntityDrawer
-        open={drawerOpen}
-        onClose={closePatientFormSafely}
-        title={
-          selectedPatient
-            ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
-            : "Add Patient"
-        }
-        subtitle={
-          selectedPatient
-            ? `DOB: ${selectedPatient.dob || "—"} · ${selectedPatient.default_service_level || "No Service"}`
-            : "New patient record"
-        }
-        width="50vw"
-        tabs={
-          selectedPatient
-            ? [
-                { key: "overview", label: "Overview" },
-                { key: "alerts", label: `Alerts${patientAlerts.filter(a => a.status === "active").length ? ` (${patientAlerts.filter(a => a.status === "active").length})` : ""}` },
-                { key: "contacts", label: "Contacts" },
-                { key: "edit", label: "Edit" },
-                { key: "history", label: "Call History" },
-              ]
-            : undefined
-        }
-        activeTab={drawerTab}
-        onTabChange={setDrawerTab}
-        footer={
-          drawerTab === "edit" ? (
-            <>
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={closePatientFormSafely}
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="patient-drawer-form"
-                className="btn btn-primary d-inline-flex align-items-center gap-2"
-                disabled={loading}
-              >
-                <FaPlus />
-                {loading ? "Saving..." : editingPatientId ? "Update Patient" : "Add Patient"}
-              </button>
-            </>
-          ) : null
-        }
-      >
-        {drawerTab === "overview" && selectedPatient && (
-          <PatientOverviewTab
-            selectedPatient={selectedPatient}
-            patientAlerts={patientAlerts}
-            onRestore={handleRestorePatient}
-            onEdit={handleEditPatient}
-            onArchive={handleArchivePatient}
-          />
-        )}
-
-        {drawerTab === "history" && (
-          <PatientCallHistoryTab patientCalls={patientCalls} timeFormat={timeFormat} />
-        )}
-
-        {drawerTab === "alerts" && selectedPatient && (
-          <PatientAlertsTab
-            newAlert={newAlert}
-            setNewAlert={setNewAlert}
-            onAddAlert={handleAddAlert}
-            showResolvedAlerts={showResolvedAlerts}
-            setShowResolvedAlerts={setShowResolvedAlerts}
-            patientAlerts={patientAlerts}
-            onResolveAlert={handleResolveAlert}
-          />
-        )}
-
-        {drawerTab === "contacts" && selectedPatient && (
-          <PatientContactsTab
-            newContact={newContact}
-            setNewContact={setNewContact}
-            editingContactId={editingContactId}
-            setEditingContactId={setEditingContactId}
-            onAddContact={handleAddContact}
-            patientContacts={patientContacts}
-            onEditContact={handleEditContact}
-            onDeleteContact={handleDeleteContact}
-          />
-        )}
-
-        {drawerTab === "edit" && (
-          <PatientEditTab
-            error={error}
-            newPatient={newPatient}
-            onChange={handleNewPatientChange}
-            onSubmit={handleCreatePatient}
-            loading={loading}
-          />
-        )}
-      </EntityDrawer>
     </div>
   );
 };

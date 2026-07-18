@@ -26,6 +26,7 @@ import AuditLogPage from "./pages/AuditLogPage";
 // only the page content area shows the fallback while the chunk loads.
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const PatientWorkspacePage = lazy(() => import("./pages/patients/PatientWorkspacePage"));
+const PatientFormPage = lazy(() => import("./pages/patients/PatientFormPage"));
 const UserManualPage = lazy(() => import("./pages/UserManualPage"));
 const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
 const EmployeeWorkspacePage = lazy(() => import("./pages/employees/EmployeeWorkspacePage"));
@@ -273,6 +274,26 @@ function App() {
           element={
             <PatientRoute>
               <PatientsPage />
+            </PatientRoute>
+          }
+        />
+
+        {/* "new" and ":patientId/edit" precede ":patientId", or the workspace
+            route swallows them and looks up a patient named "new". */}
+        <Route
+          path="/patients/new"
+          element={
+            <PatientRoute>
+              <PatientFormPage currentUser={currentUser} />
+            </PatientRoute>
+          }
+        />
+
+        <Route
+          path="/patients/:patientId/edit"
+          element={
+            <PatientRoute>
+              <PatientFormPage currentUser={currentUser} />
             </PatientRoute>
           }
         />

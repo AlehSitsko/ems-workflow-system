@@ -42,10 +42,8 @@ const yesNo = (v) => (v ? "Yes" : "No");
  * Every tab is backed by a real endpoint. Contacts, Alerts and Call history
  * reuse the existing tab components (and their hooks) so behaviour matches the
  * old drawer exactly; Overview and Transport are read views of the patient
- * record, and Activity comes from the patient audit log.
- *
- * Editing bridges to the Patients list drawer for now (there is no per-patient
- * form page yet) — the same first step the Employee Workspace took.
+ * record, and Activity comes from the patient audit log. Editing opens the
+ * dedicated patient form page.
  */
 export default function PatientWorkspacePage({ currentUser }) {
   const { patientId } = useParams();
@@ -120,7 +118,7 @@ export default function PatientWorkspacePage({ currentUser }) {
     }
   }, [patient, currentUser, loadTab, tabData, tabState]);
 
-  const handleEdit = () => navigate("/patients", { state: { editPatientId: patient.id } });
+  const handleEdit = () => navigate(`/patients/${patient.id}/edit`);
 
   const handleArchive = async () => {
     const ok = await confirm({
