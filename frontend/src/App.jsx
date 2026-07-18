@@ -28,6 +28,7 @@ const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const UserManualPage = lazy(() => import("./pages/UserManualPage"));
 const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
 const EmployeeWorkspacePage = lazy(() => import("./pages/employees/EmployeeWorkspacePage"));
+const EmployeeFormPage = lazy(() => import("./pages/employees/EmployeeFormPage"));
 const CrewPlannerPage = lazy(() => import("./pages/CrewPlannerPage"));
 const DispatchBoardPage = lazy(() => import("./pages/DispatchBoardPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
@@ -307,6 +308,26 @@ function App() {
           element={
             <EmployeeRoute>
               <EmployeesPage />
+            </EmployeeRoute>
+          }
+        />
+
+        {/* "new" and ":employeeId/edit" must precede ":employeeId", or the
+            workspace route swallows them and looks up an employee named "new". */}
+        <Route
+          path="/employees/new"
+          element={
+            <EmployeeRoute>
+              <EmployeeFormPage currentUser={currentUser} />
+            </EmployeeRoute>
+          }
+        />
+
+        <Route
+          path="/employees/:employeeId/edit"
+          element={
+            <EmployeeRoute>
+              <EmployeeFormPage currentUser={currentUser} />
             </EmployeeRoute>
           }
         />
