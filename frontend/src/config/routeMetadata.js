@@ -165,6 +165,29 @@ export const ROUTE_METADATA = [
     width: "standard",
   },
   {
+    // Declared before ":employeeId" so the literal wins the match.
+    path: "/employees/new",
+    title: "Add employee",
+    subtitle: "Create an employee record",
+    icon: FaUsers,
+    group: "Staff",
+    canAccess: hasEmployeeAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/employees",
+  },
+  {
+    path: "/employees/:employeeId/edit",
+    title: "Edit employee",
+    subtitle: "Update the employee record",
+    icon: FaUsers,
+    group: "Staff",
+    canAccess: hasEmployeeAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/employees",
+  },
+  {
     // Detail route: reached from the list, not a sidebar entry. The workspace
     // renders its own entity header, so the shell header stays generic.
     path: "/employees/:employeeId",

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { FaPen, FaIdBadge, FaCertificate, FaCalendarAlt } from "react-icons/fa";
 
 import EntityWorkspace from "../../components/workspace/EntityWorkspace";
@@ -65,7 +65,6 @@ const AUDIT_LABEL = {
 export default function EmployeeWorkspacePage({ currentUser }) {
   const { employeeId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { settings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
 
@@ -79,7 +78,6 @@ export default function EmployeeWorkspacePage({ currentUser }) {
   const [tabData, setTabData] = useState({ tasks: null, activity: null, shifts: null });
   const [tabState, setTabState] = useState({});
 
-  const listSearch = location.state?.listSearch || "";
 
   const loadEmployee = useCallback(() => {
     setLoading(true);
@@ -336,7 +334,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
         <button
           type="button"
           className="btn btn-outline-secondary btn-sm"
-          onClick={() => navigate("/employees", { state: { editEmployeeId: employee.id, listSearch } })}
+          onClick={() => navigate(`/employees/${employee.id}/edit`)}
         >
           <FaPen aria-hidden="true" /> Edit
         </button>
