@@ -60,7 +60,9 @@ export async function getPatient(id) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}`);
 
   if (!response.ok) {
-    throw new Error("Failed to fetch patient");
+    const err = new Error("Failed to fetch patient");
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();

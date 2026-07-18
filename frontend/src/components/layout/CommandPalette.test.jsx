@@ -90,12 +90,12 @@ describe("CommandPalette record search", () => {
     expect(navigate).toHaveBeenCalledWith("/employees/3");
   });
 
-  it("opens a patient on the pre-filtered patients list (no per-patient route)", async () => {
+  it("deep-links a patient to their workspace", async () => {
     renderPalette(admin);
     openAndType("alala");
     const patient = await screen.findByRole("option", { name: /Alla Alala/ });
     fireEvent.click(patient);
-    expect(navigate).toHaveBeenCalledWith("/patients", { state: { commandSearch: "Alala" } });
+    expect(navigate).toHaveBeenCalledWith("/patients/7");
   });
 
   it("does not search sources the role cannot access", async () => {
