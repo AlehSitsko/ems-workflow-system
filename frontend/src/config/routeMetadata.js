@@ -78,6 +78,28 @@ export const ROUTE_METADATA = [
     width: "standard",
   },
   {
+    path: "/patients/new",
+    title: "Add patient",
+    subtitle: "Create a patient record",
+    icon: FaUserInjured,
+    group: "Operations",
+    canAccess: hasPatientAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/patients",
+  },
+  {
+    path: "/patients/:patientId/edit",
+    title: "Edit patient",
+    subtitle: "Update the patient record",
+    icon: FaUserInjured,
+    group: "Operations",
+    canAccess: hasPatientAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/patients",
+  },
+  {
     // Detail route: reached from the list, not a sidebar entry. The workspace
     // renders its own entity header, so the shell header stays generic.
     path: "/patients/:patientId",
