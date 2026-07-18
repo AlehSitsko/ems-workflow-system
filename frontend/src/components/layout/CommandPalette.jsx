@@ -22,9 +22,8 @@ import { getEmployees } from "../../api/employeesApi";
  * a source the user cannot access is not searched, and a source without a
  * free-text search (calls, tasks) is deliberately absent rather than faked.
  *
- * Destinations are only ever real routes. Vehicles and employees deep-link to
- * their workspaces; patients open the Patients page pre-filtered to the chosen
- * surname (there is no per-patient route yet).
+ * Destinations are only ever real routes: patients, vehicles and employees all
+ * deep-link to their workspaces.
  */
 
 const MIN_QUERY = 2;
@@ -167,9 +166,7 @@ export default function CommandPalette({ currentUser }) {
           title: `${p.first_name} ${p.last_name}`,
           subtitle: p.dob ? `DOB ${p.dob}` : "Patient",
           icon: <FaUserInjured />,
-          // No per-patient route yet: land on the list pre-filtered to the
-          // surname so the record is one glance away.
-          run: () => navigate("/patients", { state: { commandSearch: p.last_name || p.first_name } }),
+          run: () => navigate(`/patients/${p.id}`),
         })),
       });
     }

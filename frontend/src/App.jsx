@@ -25,6 +25,7 @@ import AuditLogPage from "./pages/AuditLogPage";
 // bundle stays smaller. AppLayout/sidebar render immediately either way —
 // only the page content area shows the fallback while the chunk loads.
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
+const PatientWorkspacePage = lazy(() => import("./pages/patients/PatientWorkspacePage"));
 const UserManualPage = lazy(() => import("./pages/UserManualPage"));
 const EmployeesPage = lazy(() => import("./pages/EmployeesPage"));
 const EmployeeWorkspacePage = lazy(() => import("./pages/employees/EmployeeWorkspacePage"));
@@ -272,6 +273,15 @@ function App() {
           element={
             <PatientRoute>
               <PatientsPage />
+            </PatientRoute>
+          }
+        />
+
+        <Route
+          path="/patients/:patientId"
+          element={
+            <PatientRoute>
+              <PatientWorkspacePage currentUser={currentUser} />
             </PatientRoute>
           }
         />

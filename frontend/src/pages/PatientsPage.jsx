@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 import EntityDrawer from "../components/ui/EntityDrawer";
@@ -10,6 +10,7 @@ import {
   updatePatient,
   archivePatient,
   restorePatient,
+  getPatient,
 } from "../api/patientsApi";
 
 import { getPatientCalls } from "../api/callsApi";
@@ -31,6 +32,7 @@ import { usePatientContacts } from "../hooks/usePatientContacts";
 const PatientsPage = () => {
   const confirm = useConfirm();
   const toast = useToast();
+  const navigate = useNavigate();
   const { settings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
 
@@ -266,14 +268,8 @@ const PatientsPage = () => {
   };
 
   // Open drawer in view mode for a patient.
-  const handleSelectPatient = async (patient) => {
-    setSelectedPatient(patient);
-    setDrawerTab("overview");
-    setDrawerOpen(true);
-    await loadPatientCalls(patient.id);
-    await loadPatientAlerts(patient.id);
-    await loadPatientContacts(patient.id);
-  };
+  // Selecting a patient opens their workspace (the drawer is now edit-only).
+  const handleSelectPatient = (patient) => navigate(`/patients/${patient.id}`);
 
   // Open drawer in edit mode for a patient.
   const handleEditPatient = async (patient) => {
@@ -285,6 +281,22 @@ const PatientsPage = () => {
     await loadPatientAlerts(patient.id);
     await loadPatientContacts(patient.id);
   };
+
+  // Bridge from the Patient Workspace's Edit action: fetch the requested patient
+  // and open the edit drawer. Runs once per navigation. (A dedicated patient
+  // form page is the eventual replacement, mirroring the Employee migration.)
+  const editBridgeDone = useRef(false);
+  useEffect(() => {
+    const id = location.state?.editPatientId;
+    if (!id || editBridgeDone.current) return;
+    editBridgeDone.current = true;
+    getPatient(id)
+      .then((p) => handleEditPatient(p))
+      .catch(() => toast.error("Could not open patient for editing"));
+    navigate(location.pathname, { replace: true, state: {} });
+    // handleEditPatient is stable for this one-shot; excluded to avoid re-running.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, location.pathname, navigate]);
 
   // Update a patient's default service level inline from the list row.
   const handleServiceLevelChange = async (patient, newLevel) => {
