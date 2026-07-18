@@ -23,6 +23,9 @@ def _now():
 # Blueprint for patient management routes.
 patient_bp = Blueprint("patient", __name__)
 
+# Highest severity wins when a patient carries several active alerts.
+_ALERT_SEVERITY_RANK = {"critical": 3, "warning": 2, "info": 1}
+
 PATIENT_FIELD_LIMITS = {
     "first_name": 100,
     "last_name": 100,
@@ -105,8 +108,33 @@ def get_patients():
         page=page, per_page=per_page, error_out=False
     )
 
+    # Active-alert summary per patient, so the list can flag safety alerts at a
+    # glance without opening each record. Batch-loaded to avoid an N+1 query.
+    items = [patient.to_dict() for patient in pagination.items]
+    page_ids = [p.id for p in pagination.items]
+    if page_ids:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        active_alerts = (
+            PatientAlert.query
+            .filter(
+                PatientAlert.patient_id.in_(page_ids),
+                PatientAlert.is_active.is_(True),
+                db.or_(PatientAlert.expires_at.is_(None), PatientAlert.expires_at >= today_str),
+            )
+            .all()
+        )
+        severities_by_patient = {}
+        for a in active_alerts:
+            severities_by_patient.setdefault(a.patient_id, []).append(a.severity)
+        for item in items:
+            sevs = severities_by_patient.get(item["id"], [])
+            item["active_alert_count"] = len(sevs)
+            item["active_alert_severity"] = (
+                max(sevs, key=lambda s: _ALERT_SEVERITY_RANK.get(s, 0)) if sevs else None
+            )
+
     return jsonify({
-        "items": [patient.to_dict() for patient in pagination.items],
+        "items": items,
         "total": pagination.total,
         "page": pagination.page,
         "per_page": pagination.per_page,

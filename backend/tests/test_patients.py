@@ -212,6 +212,25 @@ def test_alert_requires_title(client):
                        headers=ADMIN).status_code == 400
 
 
+def test_patient_list_summarizes_active_alerts(client):
+    with_alert = _create(client, first_name="Alerted").get_json()["id"]
+    _create(client, first_name="Clean")
+    client.post(f"/api/patient/{with_alert}/alerts",
+                json={"category": "safety", "severity": "warning", "title": "Fall risk"}, headers=ADMIN)
+    client.post(f"/api/patient/{with_alert}/alerts",
+                json={"category": "behavior", "severity": "critical", "title": "Aggressive"}, headers=ADMIN)
+
+    items = client.get("/api/patients?per_page=100").get_json()["items"]
+    by_id = {p["id"]: p for p in items}
+    # Highest severity wins, and both active alerts are counted.
+    assert by_id[with_alert]["active_alert_count"] == 2
+    assert by_id[with_alert]["active_alert_severity"] == "critical"
+    # A patient without alerts reports none rather than omitting the field.
+    clean = next(p for p in items if p["first_name"] == "Clean")
+    assert clean["active_alert_count"] == 0
+    assert clean["active_alert_severity"] is None
+
+
 # ── Contacts ────────────────────────────────────────────────────────────────
 
 def test_create_and_list_contact(client):

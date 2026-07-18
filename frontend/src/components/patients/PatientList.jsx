@@ -1,9 +1,12 @@
-import { FaUserSecret, FaTrashRestore, FaEdit, FaArchive } from "react-icons/fa";
+import { FaUserSecret, FaTrashRestore, FaEdit, FaArchive, FaExclamationTriangle } from "react-icons/fa";
 
 import { PageSection } from "../ui/Page";
 import StatusBadge from "../ui/StatusBadge";
 import { LoadMore } from "../ui/Entity";
 import { SERVICE_LEVELS, describeLevel } from "../../utils/taxonomy";
+
+// Active-alert severity → badge tone. Highest severity is reported by the API.
+const ALERT_TONE = { critical: "danger", warning: "warning", info: "info" };
 
 // Patient result list: count badges, one card per patient (with the inline
 // default-service select), and the "Load more" pager. Presentational — all
@@ -63,6 +66,14 @@ const PatientList = ({
                     {patient.first_name} {patient.last_name}
                     {patient.is_sensitive && (
                       <FaUserSecret title="Sensitive patient" className="patient-list-sensitive" />
+                    )}
+                    {patient.active_alert_count > 0 && (
+                      <StatusBadge
+                        tone={ALERT_TONE[patient.active_alert_severity] || "danger"}
+                        icon={<FaExclamationTriangle />}
+                        label={String(patient.active_alert_count)}
+                        title={`${patient.active_alert_count} active alert${patient.active_alert_count === 1 ? "" : "s"} (${patient.active_alert_severity})`}
+                      />
                     )}
                     {patient.is_archived && <StatusBadge tone="neutral" label="Archived" />}
                   </div>
