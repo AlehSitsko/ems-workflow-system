@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaPen, FaIdBadge, FaTasks, FaCertificate } from "react-icons/fa";
+import { FaPen, FaIdBadge, FaCertificate, FaCalendarAlt } from "react-icons/fa";
 
 import EntityWorkspace from "../../components/workspace/EntityWorkspace";
 import { PageSection } from "../../components/ui/Page";
@@ -12,7 +12,7 @@ import DocumentsTab from "../../components/DocumentsTab";
 import TimePayTab from "../../components/TimePayTab";
 import { useUserSettings } from "../../context/useUserSettings";
 import { hasEmployeeAccess } from "../../api/authApi";
-import { getEmployee } from "../../api/employeesApi";
+import { getEmployee, getEmployeeShifts } from "../../api/employeesApi";
 import { getTasks } from "../../api/tasksApi";
 import { getAuditLog } from "../../api/auditApi";
 import { getEmployeeRoleClass, getEmployeeRoleLabel } from "../../utils/employeeRoleUtils";
@@ -43,6 +43,11 @@ const TASK_STATUS_TONE = {
   Done: "purple", Completed: "success", Cancelled: "neutral",
 };
 
+const SHIFT_STATUS_TONE = {
+  scheduled: "info", active: "success", near_end: "warning",
+  delayed: "warning", completed: "neutral", cancelled: "neutral",
+};
+
 const AUDIT_LABEL = {
   "employee.created": "Employee record created",
   "employee.updated": "Employee details updated",
@@ -71,7 +76,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
   const [error, setError] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
-  const [tabData, setTabData] = useState({ tasks: null, activity: null });
+  const [tabData, setTabData] = useState({ tasks: null, activity: null, shifts: null });
   const [tabState, setTabState] = useState({});
 
   const listSearch = location.state?.listSearch || "";
@@ -116,6 +121,9 @@ export default function EmployeeWorkspacePage({ currentUser }) {
         { "X-User-Role": currentUser?.role || "", "X-User-Id": String(currentUser?.id || "") },
       ).then((d) => d.entries || d.items || (Array.isArray(d) ? d : [])));
     }
+    if (tabData.shifts === null && tabState.shifts === undefined) {
+      loadTab("shifts", () => getEmployeeShifts(employeeId));
+    }
   }, [employee, employeeId, currentUser, loadTab, tabData, tabState]);
 
   const tabs = [
@@ -124,13 +132,8 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     { key: "documents", label: "Documents" },
     { key: "timepay", label: "Time & Pay" },
     { key: "tasks", label: "Tasks" },
+    { key: "schedule", label: "Schedule" },
     { key: "activity", label: "Activity" },
-    {
-      key: "schedule",
-      label: "Schedule",
-      disabled: true,
-      disabledReason: "Worked-shift history needs an employee-shifts endpoint that does not exist yet",
-    },
     {
       key: "leave",
       label: "Leave",
@@ -252,6 +255,39 @@ export default function EmployeeWorkspacePage({ currentUser }) {
                   {task.due_date ? formatDate(task.due_date) : "—"}
                   {task.is_overdue && <span className="task-overdue-tag">Overdue</span>}
                 </div>
+              </div>
+            ))}
+          </div>
+        </PageSection>
+      );
+    }
+
+    if (activeTab === "schedule") {
+      const state = tabState.shifts;
+      if (state === "loading" || state === undefined) return <LoadingSkeleton rows={3} label="Loading shifts" />;
+      if (state && state !== "ready") {
+        return <ErrorState message={state} onRetry={() => loadTab("shifts", () => getEmployeeShifts(employeeId))} />;
+      }
+      const shifts = tabData.shifts || [];
+      if (!shifts.length) {
+        return <EmptyState variant="empty" title="No shifts yet" description="Shifts this employee is rostered on will appear here." />;
+      }
+      return (
+        <PageSection title="Shift history" description="Shifts this employee has been rostered on, newest first.">
+          <div className="entity-list">
+            {shifts.map((s) => (
+              <div key={s.id} className="cert-row">
+                <span className="cert-row-icon" aria-hidden="true"><FaCalendarAlt /></span>
+                <div className="cert-row-body">
+                  <span className="cert-row-name">
+                    {formatDate(s.shiftDate)} · Unit {s.truckNumber} ({s.unitType})
+                  </span>
+                  <span className="cert-row-expiry">
+                    {s.startTime}{s.endTime ? `–${s.endTime}` : ""} · {s.shiftType === "night" ? "Night" : "Day"}
+                    {s.role ? ` · ${s.role}` : ""}
+                  </span>
+                </div>
+                <StatusBadge tone={SHIFT_STATUS_TONE[s.shiftStatus] || "neutral"} label={s.shiftStatus} />
               </div>
             ))}
           </div>

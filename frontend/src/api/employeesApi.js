@@ -27,6 +27,18 @@ export async function getEmployee(employeeId) {
   return data;
 }
 
+// Shifts this employee has been rostered on (newest first), with the role held.
+export async function getEmployeeShifts(employeeId, limit = 50) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/shifts?limit=${limit}`);
+  const data = await response.json().catch(() => ([]));
+
+  if (!response.ok) {
+    throw new Error((data && data.error) || "Failed to fetch employee shifts");
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 // Create a new employee record.
 export async function createEmployee(employeeData) {
   const response = await fetch(`${API_BASE_URL}/api/employees`, {

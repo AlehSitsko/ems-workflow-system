@@ -1,4 +1,4 @@
-from models import db, Employee
+from models import db, Employee, DailyCrewUnit
 
 
 def _make(app, **kw):
@@ -26,3 +26,35 @@ def test_get_employee_404_for_unknown_id(client):
     resp = client.get("/api/employees/999999")
     assert resp.status_code == 404
     assert "error" in resp.get_json()
+
+
+def _shift(emp, slot, date, **kw):
+    unit = DailyCrewUnit(shift_date=date, unit_type="BLS", truck_number="101",
+                         start_time="08:00", **{slot: emp.id})
+    db.session.add(unit)
+    db.session.commit()
+    return unit
+
+
+def test_employee_shifts_reports_role_across_slots(client, app):
+    emp = _make(app, first_name="Nina", last_name="Brooks")
+    _shift(emp, "driver_id", "2026-06-01")
+    _shift(emp, "medical_id", "2026-06-03")
+    _shift(emp, "assist1_id", "2026-06-02")
+    # A shift the employee is not on must not appear.
+    other = _make(app, first_name="Other", last_name="Person")
+    _shift(other, "driver_id", "2026-06-04")
+
+    resp = client.get(f"/api/employees/{emp.id}/shifts")
+    assert resp.status_code == 200
+    shifts = resp.get_json()
+    assert len(shifts) == 3
+    # Newest first.
+    assert [s["shiftDate"] for s in shifts] == ["2026-06-03", "2026-06-02", "2026-06-01"]
+    roles = {s["shiftDate"]: s["role"] for s in shifts}
+    assert roles == {"2026-06-03": "Medical", "2026-06-02": "Assist", "2026-06-01": "Driver"}
+
+
+def test_employee_shifts_404_for_unknown_id(client):
+    resp = client.get("/api/employees/999999/shifts")
+    assert resp.status_code == 404

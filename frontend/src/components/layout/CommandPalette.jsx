@@ -22,9 +22,9 @@ import { getEmployees } from "../../api/employeesApi";
  * a source the user cannot access is not searched, and a source without a
  * free-text search (calls, tasks) is deliberately absent rather than faked.
  *
- * Destinations are only ever real routes. Vehicles deep-link to their workspace;
- * patients open the Patients page pre-filtered to the chosen surname (there is
- * no per-patient route yet); employees open the Employees list.
+ * Destinations are only ever real routes. Vehicles and employees deep-link to
+ * their workspaces; patients open the Patients page pre-filtered to the chosen
+ * surname (there is no per-patient route yet).
  */
 
 const MIN_QUERY = 2;
