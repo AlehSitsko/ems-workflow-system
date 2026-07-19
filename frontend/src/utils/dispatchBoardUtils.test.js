@@ -13,6 +13,9 @@ import {
   timeToMinutes,
   expandAndSort,
   getShiftAlertSeverity,
+  setIsoTime,
+  toLocalIsoString,
+  localDatePart,
 } from "./dispatchBoardUtils";
 
 describe("minCrewForType", () => {
@@ -195,5 +198,58 @@ describe("mode capabilities", () => {
     expect(canUseLiveStatus("live")).toBe(true);
     expect(canUseLiveStatus("planning")).toBe(false);
     expect(canUseLiveStatus("history")).toBe(false);
+  });
+});
+
+describe("call timestamps stay in local time", () => {
+  it("toLocalIsoString serialises local parts, not UTC", () => {
+    const d = new Date(2026, 5, 29, 8, 5, 0); // 29 Jun 2026, 08:05 local
+    expect(toLocalIsoString(d)).toBe("2026-06-29T08:05:00");
+  });
+
+  it("setIsoTime writes back the time that was entered", () => {
+    // The regression: toISOString() converted to UTC and, since the stored
+    // string carries no "Z", the reader parsed it back as local — shifting the
+    // value by the UTC offset on every save.
+    expect(setIsoTime("", "2026-06-29", "08:00")).toBe("2026-06-29T08:00:00");
+    expect(setIsoTime("", "2026-06-29", "23:45")).toBe("2026-06-29T23:45:00");
+  });
+
+  it("survives a save/read round-trip unchanged", () => {
+    let stored = setIsoTime("", "2026-06-29", "08:00");
+    // Saving again (as re-editing the same call does) must not drift.
+    stored = setIsoTime(stored, "2026-06-29", "08:00");
+    stored = setIsoTime(stored, "2026-06-29", "08:00");
+    expect(stored).toBe("2026-06-29T08:00:00");
+    expect(stored.slice(11, 16)).toBe("08:00");
+  });
+
+  it("keeps an existing timestamp's own date", () => {
+    expect(setIsoTime("2026-06-20T14:00:00", "2026-06-29", "09:30"))
+      .toBe("2026-06-20T09:30:00");
+  });
+
+  it("localDatePart reads the date without a UTC roll", () => {
+    expect(localDatePart("2026-06-29T23:30:00")).toBe("2026-06-29");
+    expect(localDatePart("2026-06-29T00:15:00")).toBe("2026-06-29");
+  });
+});
+
+describe("getShiftAlertSeverity uses the local operational date", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("still colours a late-evening shift on the same local date", () => {
+    // 23:30 local is already the next day in UTC for anyone behind it; the old
+    // UTC "today" dropped the alert entirely at that hour.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 15, 23, 30, 0));
+    const unit = {
+      startTime: "12:00",
+      shiftDurationHours: 10,
+      plannedEndTime: "22:00", // ended 90 min ago -> delayed
+      shiftDate: "2026-06-15",
+      shiftStatus: "active",
+    };
+    expect(getShiftAlertSeverity(unit)).not.toBeNull();
   });
 });

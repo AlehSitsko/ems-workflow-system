@@ -92,6 +92,23 @@ export function todayStr() {
   return `${y}-${m}-${day}`;
 }
 
+// Serialise a Date as a naive LOCAL "YYYY-MM-DDTHH:MM:SS" — the convention call
+// timestamps are stored and read in. toISOString() must not be used here: it
+// converts to UTC, and because the result carries no "Z" the reader parses it
+// back as local time, shifting the value by the UTC offset on every save.
+export function toLocalIsoString(date) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`
+    + `T${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`;
+}
+
+// Local date part (YYYY-MM-DD) of a stored naive timestamp.
+export function localDatePart(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return toLocalIsoString(d).slice(0, 10);
+}
+
 // True only for a *real* calendar date in YYYY-MM-DD form — the same meaning the
 // backend enforces (utils/operational_dates.parse_operational_date). A shape-only
 // regex would accept 2026-02-30 / 2026-99-99, so round-trip through a local Date
@@ -214,7 +231,9 @@ export function getShiftAlertSeverity(unit) {
   if (!unit.startTime || !unit.shiftDurationHours || !unit.plannedEndTime) return null;
   if (unit.shiftStatus === "completed" || unit.shiftStatus === "cancelled") return null;
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  // Local operational date — shift_date is local, so a UTC "today" would drop
+  // the alert colouring either side of midnight for anyone off UTC.
+  const today = todayStr();
   // Only apply alert coloring for today's units; stale units from past dates stay neutral.
   if (unit.shiftDate && unit.shiftDate !== today) return null;
   const dateStr = unit.shiftDate || today;
@@ -253,10 +272,11 @@ export function isoToLocalDate(iso) {
 }
 
 export function setIsoTime(existingIso, callDate, timeStr) {
-  // Build a new ISO string preserving date (use call's trip_date if no existing ts)
-  const date = existingIso ? new Date(existingIso).toISOString().slice(0, 10)
-    : (callDate || new Date().toISOString().slice(0, 10));
+  // Keep the timestamp's own date (falling back to the call's trip_date), and
+  // write it back in the same naive-local form it was read in.
+  const date = existingIso ? localDatePart(existingIso) : (callDate || todayStr());
+  if (!date) return existingIso;
   const dt = new Date(`${date}T${timeStr}:00`);
   if (isNaN(dt)) return existingIso;
-  return dt.toISOString().slice(0, 19);
+  return toLocalIsoString(dt);
 }

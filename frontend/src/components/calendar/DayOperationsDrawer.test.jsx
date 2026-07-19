@@ -84,3 +84,22 @@ describe("DayOperationsDrawer", () => {
     expect(props.onOpenUnit).toHaveBeenCalledWith("2026-07-16", 5);
   });
 });
+
+describe("DayOperationsDrawer without Dispatch access", () => {
+  // HR sees crew shifts on the calendar but cannot open the board — the page
+  // withholds the handlers so the drawer must not offer a dead jump.
+  const readOnly = { onOpenDay: undefined, onOpenCall: undefined, onOpenUnit: undefined };
+
+  it("hides the Open in Dispatch button", () => {
+    renderDrawer(readOnly);
+    expect(screen.queryByRole("button", { name: /Open Day in Dispatch/i })).not.toBeInTheDocument();
+  });
+
+  it("still shows the day's operations, just not as links", () => {
+    renderDrawer(readOnly);
+    expect(screen.getByText("John D.")).toBeInTheDocument();
+    expect(screen.getByText("Unit 12")).toBeInTheDocument();
+    // No row is a button when there is nowhere to go.
+    expect(screen.queryAllByRole("button").filter((b) => /John D\.|Unit 12/.test(b.textContent))).toHaveLength(0);
+  });
+});

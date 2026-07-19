@@ -1,16 +1,17 @@
 import { FaChevronLeft, FaChevronRight, FaCalendarDay } from "react-icons/fa";
 
-// Month navigation bar shown above the grid: previous / next month, the current
-// month title, and a jump-to-today button. Presentational — all navigation is
-// handled by the page via props.
-const CalendarToolbar = ({ title, onPrev, onNext, onToday }) => (
+// Navigation bar shown above the grid: previous / next step, the current range
+// title, and a jump-to-today button. Presentational — all navigation is handled
+// by the page via props. `stepLabel` names the unit the arrows move by so the
+// labels match the active view.
+const CalendarToolbar = ({ title, onPrev, onNext, onToday, stepLabel = "month" }) => (
   <div className="calendar-toolbar">
     <div className="calendar-nav">
       <button
         type="button"
         className="btn btn-sm btn-outline-secondary"
         onClick={onPrev}
-        aria-label="Previous month"
+        aria-label={`Previous ${stepLabel}`}
       >
         <FaChevronLeft />
       </button>
@@ -21,7 +22,7 @@ const CalendarToolbar = ({ title, onPrev, onNext, onToday }) => (
         type="button"
         className="btn btn-sm btn-outline-secondary"
         onClick={onNext}
-        aria-label="Next month"
+        aria-label={`Next ${stepLabel}`}
       >
         <FaChevronRight />
       </button>
