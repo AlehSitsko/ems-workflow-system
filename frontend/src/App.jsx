@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState } from "react";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { createHashRouter, RouterProvider, Outlet, Navigate } from "react-router-dom";
 
 import "./App.css";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -229,272 +229,70 @@ function App() {
     );
   };
 
+  // A data router (createHashRouter) rather than the <HashRouter> component, so
+  // pages can use useBlocker to guard sidebar navigation against unsaved edits.
+  // Rebuilt only when the signed-in user changes (login/logout already remount),
+  // so ordinary navigation keeps one stable router instance.
+  const router = useMemo(() => createHashRouter([
+    {
+      // Root layout: one Suspense boundary for every lazy page.
+      element: <Suspense fallback={<PageFallback />}><Outlet /></Suspense>,
+      children: [
+        { path: "/", element: <Navigate to="/home" replace /> },
+
+        // Kiosk — no auth required, but pass currentUser for the Back button.
+        { path: "/kiosk", element: <KioskPage currentUser={currentUser} /> },
+
+        { path: "/login", element: <LoginRoute><LoginPage onLogin={handleLogin} /></LoginRoute> },
+
+        { path: "/home", element: <ProtectedLayout><HomePage currentUser={currentUser} /></ProtectedLayout> },
+        { path: "/call-form", element: <PatientRoute><CallFormPage /></PatientRoute> },
+        { path: "/patients", element: <PatientRoute><PatientsPage /></PatientRoute> },
+
+        // "new" and ":patientId/edit" precede ":patientId", or the workspace
+        // route swallows them and looks up a patient named "new".
+        { path: "/patients/new", element: <PatientRoute><PatientFormPage currentUser={currentUser} /></PatientRoute> },
+        { path: "/patients/:patientId/edit", element: <PatientRoute><PatientFormPage currentUser={currentUser} /></PatientRoute> },
+        { path: "/patients/:patientId", element: <PatientRoute><PatientWorkspacePage currentUser={currentUser} /></PatientRoute> },
+
+        { path: "/calls", element: <PatientRoute><CallsPage currentUser={currentUser} /></PatientRoute> },
+        { path: "/supervisor", element: <SupervisorRoute><SupervisorDashboardPage /></SupervisorRoute> },
+        { path: "/manual", element: <ProtectedLayout><UserManualPage currentUser={currentUser} /></ProtectedLayout> },
+
+        { path: "/employees", element: <EmployeeRoute><EmployeesPage /></EmployeeRoute> },
+        // "new" and ":employeeId/edit" must precede ":employeeId".
+        { path: "/employees/new", element: <EmployeeRoute><EmployeeFormPage currentUser={currentUser} /></EmployeeRoute> },
+        { path: "/employees/:employeeId/edit", element: <EmployeeRoute><EmployeeFormPage currentUser={currentUser} /></EmployeeRoute> },
+        { path: "/employees/:employeeId", element: <EmployeeRoute><EmployeeWorkspacePage currentUser={currentUser} /></EmployeeRoute> },
+
+        { path: "/users", element: <AdminRoute><UserManagementPage /></AdminRoute> },
+        { path: "/crew-planner", element: <CrewPlannerRoute><CrewPlannerPage /></CrewPlannerRoute> },
+        { path: "/dispatch", element: <DispatchRoute><DispatchBoardPage /></DispatchRoute> },
+        { path: "/notifications", element: <ProtectedLayout><NotificationSettingsPage currentUser={currentUser} /></ProtectedLayout> },
+        { path: "/payroll", element: <EmployeeRoute><PayrollPage /></EmployeeRoute> },
+        { path: "/compliance", element: <EmployeeRoute><ComplianceDashboardPage currentUser={currentUser} /></EmployeeRoute> },
+        { path: "/audit", element: <EmployeeRoute><AuditLogPage currentUser={currentUser} /></EmployeeRoute> },
+        { path: "/tasks", element: <TasksRoute><TasksPage currentUser={currentUser} /></TasksRoute> },
+
+        { path: "/fleet/vehicles", element: <FleetRoute><VehiclesListPage currentUser={currentUser} /></FleetRoute> },
+        // "new" must precede ":vehicleId".
+        { path: "/fleet/vehicles/new", element: <FleetRoute><VehicleFormPage currentUser={currentUser} /></FleetRoute> },
+        { path: "/fleet/vehicles/:vehicleId/edit", element: <FleetRoute><VehicleFormPage currentUser={currentUser} /></FleetRoute> },
+        { path: "/fleet/vehicles/:vehicleId", element: <FleetRoute><VehicleWorkspacePage currentUser={currentUser} /></FleetRoute> },
+
+        { path: "/calendar", element: <ProtectedLayout><CalendarPage currentUser={currentUser} /></ProtectedLayout> },
+
+        { path: "*", element: <Navigate to="/home" replace /> },
+      ],
+    },
+  ]), [currentUser]);
+
   return (
     <ThemeProvider>
     <ToastProvider>
     <ConfirmProvider>
     <UserSettingsProvider currentUser={currentUser}>
-    <HashRouter>
-      <Suspense fallback={<PageFallback />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/home" replace />} />
-
-        {/* Kiosk — no auth required, but pass currentUser for Back button */}
-        <Route path="/kiosk" element={<KioskPage currentUser={currentUser} />} />
-
-        <Route
-          path="/login"
-          element={
-            <LoginRoute>
-              <LoginPage onLogin={handleLogin} />
-            </LoginRoute>
-          }
-        />
-
-        <Route
-          path="/home"
-          element={
-            <ProtectedLayout>
-              <HomePage currentUser={currentUser} />
-            </ProtectedLayout>
-          }
-        />
-
-        <Route
-          path="/call-form"
-          element={
-            <PatientRoute>
-              <CallFormPage />
-            </PatientRoute>
-          }
-        />
-
-        <Route
-          path="/patients"
-          element={
-            <PatientRoute>
-              <PatientsPage />
-            </PatientRoute>
-          }
-        />
-
-        {/* "new" and ":patientId/edit" precede ":patientId", or the workspace
-            route swallows them and looks up a patient named "new". */}
-        <Route
-          path="/patients/new"
-          element={
-            <PatientRoute>
-              <PatientFormPage currentUser={currentUser} />
-            </PatientRoute>
-          }
-        />
-
-        <Route
-          path="/patients/:patientId/edit"
-          element={
-            <PatientRoute>
-              <PatientFormPage currentUser={currentUser} />
-            </PatientRoute>
-          }
-        />
-
-        <Route
-          path="/patients/:patientId"
-          element={
-            <PatientRoute>
-              <PatientWorkspacePage currentUser={currentUser} />
-            </PatientRoute>
-          }
-        />
-
-        <Route
-          path="/calls"
-          element={
-            <PatientRoute>
-              <CallsPage currentUser={currentUser} />
-            </PatientRoute>
-          }
-        />
-
-        <Route
-          path="/supervisor"
-          element={
-            <SupervisorRoute>
-              <SupervisorDashboardPage />
-            </SupervisorRoute>
-          }
-        />
-
-        <Route
-          path="/manual"
-          element={
-            <ProtectedLayout>
-              <UserManualPage currentUser={currentUser} />
-            </ProtectedLayout>
-          }
-        />
-
-        <Route
-          path="/employees"
-          element={
-            <EmployeeRoute>
-              <EmployeesPage />
-            </EmployeeRoute>
-          }
-        />
-
-        {/* "new" and ":employeeId/edit" must precede ":employeeId", or the
-            workspace route swallows them and looks up an employee named "new". */}
-        <Route
-          path="/employees/new"
-          element={
-            <EmployeeRoute>
-              <EmployeeFormPage currentUser={currentUser} />
-            </EmployeeRoute>
-          }
-        />
-
-        <Route
-          path="/employees/:employeeId/edit"
-          element={
-            <EmployeeRoute>
-              <EmployeeFormPage currentUser={currentUser} />
-            </EmployeeRoute>
-          }
-        />
-
-        <Route
-          path="/employees/:employeeId"
-          element={
-            <EmployeeRoute>
-              <EmployeeWorkspacePage currentUser={currentUser} />
-            </EmployeeRoute>
-          }
-        />
-
-        <Route
-          path="/users"
-          element={
-            <AdminRoute>
-              <UserManagementPage />
-            </AdminRoute>
-          }
-        />
-
-        <Route
-          path="/crew-planner"
-          element={
-            <CrewPlannerRoute>
-              <CrewPlannerPage />
-            </CrewPlannerRoute>
-          }
-        />
-
-        <Route
-          path="/dispatch"
-          element={
-            <DispatchRoute>
-              <DispatchBoardPage />
-            </DispatchRoute>
-          }
-        />
-
-        <Route
-          path="/notifications"
-          element={
-            <ProtectedLayout>
-              <NotificationSettingsPage currentUser={currentUser} />
-            </ProtectedLayout>
-          }
-        />
-
-        <Route
-          path="/payroll"
-          element={
-            <EmployeeRoute>
-              <PayrollPage />
-            </EmployeeRoute>
-          }
-        />
-
-        <Route
-          path="/compliance"
-          element={
-            <EmployeeRoute>
-              <ComplianceDashboardPage currentUser={currentUser} />
-            </EmployeeRoute>
-          }
-        />
-
-        <Route
-          path="/audit"
-          element={
-            <EmployeeRoute>
-              <AuditLogPage currentUser={currentUser} />
-            </EmployeeRoute>
-          }
-        />
-
-        <Route
-          path="/tasks"
-          element={
-            <TasksRoute>
-              <TasksPage currentUser={currentUser} />
-            </TasksRoute>
-          }
-        />
-
-        <Route
-          path="/fleet/vehicles"
-          element={
-            <FleetRoute>
-              <VehiclesListPage currentUser={currentUser} />
-            </FleetRoute>
-          }
-        />
-
-        {/* "new" must be matched before ":vehicleId", or the form is swallowed
-            by the workspace route and looks for a vehicle called "new". */}
-        <Route
-          path="/fleet/vehicles/new"
-          element={
-            <FleetRoute>
-              <VehicleFormPage currentUser={currentUser} />
-            </FleetRoute>
-          }
-        />
-
-        <Route
-          path="/fleet/vehicles/:vehicleId/edit"
-          element={
-            <FleetRoute>
-              <VehicleFormPage currentUser={currentUser} />
-            </FleetRoute>
-          }
-        />
-
-        <Route
-          path="/fleet/vehicles/:vehicleId"
-          element={
-            <FleetRoute>
-              <VehicleWorkspacePage currentUser={currentUser} />
-            </FleetRoute>
-          }
-        />
-
-        <Route
-          path="/calendar"
-          element={
-            <ProtectedLayout>
-              <CalendarPage currentUser={currentUser} />
-            </ProtectedLayout>
-          }
-        />
-
-        <Route path="*" element={<Navigate to="/home" replace />} />
-      </Routes>
-      </Suspense>
-    </HashRouter>
+      <RouterProvider router={router} />
     </UserSettingsProvider>
     </ConfirmProvider>
     </ToastProvider>

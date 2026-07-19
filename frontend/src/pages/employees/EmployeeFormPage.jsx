@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaChevronLeft } from "react-icons/fa";
 
@@ -6,6 +6,7 @@ import { getEmployee, createEmployee, updateEmployee } from "../../api/employees
 import { getDocuments, uploadDocument } from "../../api/documentsApi";
 import { hasEmployeeAccess } from "../../api/authApi";
 import { normalizeLicense, getCprWarning } from "../../utils/licenseUtils";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 import { PageHeader, PageSection } from "../../components/ui/Page";
 import { EmptyState, ErrorState } from "../../components/ui/States";
 import { useToast } from "../../components/ui/useToast";
@@ -97,8 +98,9 @@ export default function EmployeeFormPage({ currentUser }) {
     [form, baseline, certFiles],
   );
 
-  // Leaving with unsaved edits should be a decision, not an accident.
-  const savedCleanRef = useRef(false);
+  // The guard covers in-app navigation (sidebar, palette, back); beforeunload
+  // covers a browser close/refresh, which the router blocker can't intercept.
+  const { allowNext } = useUnsavedGuard(dirty);
   useEffect(() => {
     if (!dirty) return undefined;
     const handler = (e) => { e.preventDefault(); e.returnValue = ""; };
@@ -110,18 +112,8 @@ export default function EmployeeFormPage({ currentUser }) {
   const setLicense = (cert, patch) =>
     setForm((prev) => ({ ...prev, [cert]: { ...prev[cert], ...patch } }));
 
-  const leave = async () => {
-    if (dirty && !savedCleanRef.current) {
-      const ok = await confirm({
-        title: "Discard unsaved changes?",
-        message: "This employee has unsaved edits.",
-        variant: "warning",
-        confirmLabel: "Discard",
-      });
-      if (!ok) return;
-    }
-    navigate(backHref);
-  };
+  // Plain navigation — the unsaved-changes prompt is handled once by the guard.
+  const leave = () => navigate(backHref);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -190,7 +182,11 @@ export default function EmployeeFormPage({ currentUser }) {
         payload[cert]?.hasLicense && !certFiles[cert] && !certScans[cert]);
 
       toast.success(isEdit ? "Employee updated" : "Employee added");
-      savedCleanRef.current = true;
+      // Mark the form clean so navigating away (now or from the scan dialog)
+      // doesn't trip the unsaved-changes guard.
+      setBaseline(form);
+      setCertFiles({ cpr: null, evoc: null, emt: null, paramedic: null });
+      allowNext();
 
       if (missing.length > 0) {
         setScanDialogMissing({ id: savedId, certs: missing });
