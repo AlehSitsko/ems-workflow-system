@@ -70,8 +70,12 @@ export function isEmployeeEligibleForRole(employee, role, unitType) {
 
   if (role === "driver") {
     const hasEvoc = Boolean(employee.evoc?.hasLicense);
-    const isDriverRole = String(employee.role || "").toLowerCase() === "driver";
-    return hasEvoc || isDriverRole;
+    // A driver-only employee can drive without an EVOC record. Prefer the split
+    // `qualification` field; fall back to the legacy `role` for any record the
+    // API hasn't re-serialised yet.
+    const isDriverQualified = employee.qualification === "driver_only"
+      || String(employee.role || "").toLowerCase() === "driver";
+    return hasEvoc || isDriverQualified;
   }
 
   if (role === "medical") {

@@ -16,6 +16,9 @@ import { getEmployee, getEmployeeShifts } from "../../api/employeesApi";
 import { getTasks } from "../../api/tasksApi";
 import { getAuditLog } from "../../api/auditApi";
 import { getEmployeeRoleClass, getEmployeeRoleLabel } from "../../utils/employeeRoleUtils";
+import { describeQualification, ADMIN_ROLES } from "../../utils/taxonomy";
+
+const ADMIN_ROLE_LABEL = Object.fromEntries(ADMIN_ROLES.map((r) => [r.value, r.label]));
 import { getLicenseStatus, getCprWarning } from "../../utils/licenseUtils";
 import { formatDate, formatDateTime } from "../../utils/dateDisplay";
 
@@ -152,7 +155,14 @@ export default function EmployeeWorkspacePage({ currentUser }) {
           <PageSection title="Identity">
             <EntityField label="Name" value={fullName} />
             <EntityField label="Employee number" value={employee.employeeNumber || null} />
-            <EntityField label="Role" value={getEmployeeRoleLabel(employee.role)} />
+            <EntityField
+              label="Qualification"
+              value={employee.qualification ? describeQualification(employee.qualification).label : null}
+            />
+            <EntityField
+              label="Administrative role"
+              value={employee.adminRole ? (ADMIN_ROLE_LABEL[employee.adminRole] || employee.adminRole) : null}
+            />
             <EntityField
               label="Status"
               value={<StatusBadge tone={EMPLOYEE_STATUS_TONE[employee.status] || "neutral"} label={employee.status || "active"} />}
@@ -320,7 +330,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
       backLabel="Employees"
       title={fullName}
       subtitle={employee ? (employee.employeeNumber ? `#${employee.employeeNumber}` : "Employee") : null}
-      icon={employee && <EmployeeAvatar name={fullName} qualification={employee.role} size={44} />}
+      icon={employee && <EmployeeAvatar name={fullName} qualification={employee.qualification} size={44} />}
       badges={employee && (
         <>
           <span className={`employee-role-badge ${getEmployeeRoleClass(employee.role)}`}>

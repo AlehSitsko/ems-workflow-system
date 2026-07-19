@@ -31,6 +31,16 @@ export const SHIFT_ROLES = [
   { value: "assist", label: "Assist" },
 ];
 
+// Organisational roles an employee can hold — separate from their clinical
+// qualification (see the Employee.role split).
+export const ADMIN_ROLES = [
+  { value: "supervisor", label: "Supervisor" },
+  { value: "manager", label: "Manager" },
+  { value: "dispatcher", label: "Dispatcher" },
+  { value: "hr", label: "HR" },
+  { value: "admin", label: "Admin" },
+];
+
 // `emergency` is a call type / priority — never a level of care.
 const NOT_SERVICE_LEVELS = new Set(["emergency", "none"]);
 

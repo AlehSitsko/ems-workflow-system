@@ -156,6 +156,20 @@ def is_administrative_role(value):
     return _alias_key(value) in ADMINISTRATIVE_ROLES
 
 
+def normalize_admin_role(value):
+    """Canonical administrative role (supervisor/manager/admin/dispatcher/hr),
+    or None if the value is not an administrative role."""
+    key = _alias_key(value)
+    return key if key in ADMINISTRATIVE_ROLES else None
+
+
+# Human labels for the derived legacy `role` mirror and UI.
+ADMIN_ROLE_LABELS = {
+    "supervisor": "Supervisor", "manager": "Manager", "admin": "Admin",
+    "dispatcher": "Dispatcher", "hr": "HR",
+}
+
+
 def shift_role_for_slot(slot):
     """DailyCrewUnit crew slot name → shift role ('driver_id' → 'driver')."""
     return SLOT_TO_SHIFT_ROLE.get(slot)

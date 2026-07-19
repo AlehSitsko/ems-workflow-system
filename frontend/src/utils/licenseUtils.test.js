@@ -48,8 +48,11 @@ describe("isEmployeeEligibleForRole", () => {
     expect(isEmployeeEligibleForRole({ isActive: true, status: "inactive" }, "assist1")).toBe(false);
   });
 
-  it("driver needs EVOC or driver role", () => {
+  it("driver needs EVOC or a driver qualification", () => {
     expect(isEmployeeEligibleForRole(active({ evoc: { hasLicense: true } }), "driver")).toBe(true);
+    // Split field is authoritative...
+    expect(isEmployeeEligibleForRole(active({ qualification: "driver_only" }), "driver")).toBe(true);
+    // ...with the legacy role kept as a fallback.
     expect(isEmployeeEligibleForRole(active({ role: "driver" }), "driver")).toBe(true);
     expect(isEmployeeEligibleForRole(active(), "driver")).toBe(false);
   });

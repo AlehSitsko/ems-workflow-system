@@ -1,3 +1,9 @@
+from utils.taxonomy import (
+    normalize_qualification, normalize_admin_role, is_administrative_role,
+    QUALIFICATION_LABELS, ADMIN_ROLE_LABELS,
+)
+
+
 # Normalize nested license data coming from the frontend.
 def normalize_license_data(data, license_key):
     license_data = data.get(license_key) or {}
@@ -29,11 +35,30 @@ def apply_employee_data(employee, data):
 
     employee.dob = (data.get("dob") or "").strip() or None  # YYYY-MM-DD, drives birthday events
 
-    # Operational role.
-    employee.role = data.get(
-        "role",
-        "EMT"
-    ).strip()
+    # Role split: `qualification` (clinical/operational) and `admin_role`
+    # (organisational) are authoritative. If the client sends them, they win;
+    # otherwise fall back to splitting the legacy single `role` field so old
+    # callers keep working.
+    qualification = data.get("qualification")
+    admin_role = data.get("adminRole")
+
+    if qualification is None and admin_role is None and "role" in data:
+        legacy = (data.get("role") or "").strip()
+        if is_administrative_role(legacy):
+            admin_role = normalize_admin_role(legacy)
+        else:
+            qualification = normalize_qualification(legacy)
+
+    employee.qualification = (qualification or "").strip() or None
+    employee.admin_role = (admin_role or "").strip() or None
+
+    # Derived legacy mirror, so existing readers of `role` keep working.
+    if employee.admin_role:
+        employee.role = ADMIN_ROLE_LABELS.get(employee.admin_role, employee.admin_role.title())
+    elif employee.qualification:
+        employee.role = QUALIFICATION_LABELS.get(employee.qualification, employee.qualification)
+    else:
+        employee.role = "EMT"
 
     # Operational employee status.
     employee.status = data.get(
