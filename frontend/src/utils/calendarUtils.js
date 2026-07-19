@@ -65,3 +65,48 @@ export function shiftMonth(year, monthIndex, delta) {
   const base = new Date(year, monthIndex + delta, 1);
   return { year: base.getFullYear(), month: base.getMonth() };
 }
+
+// ── Week / Agenda helpers ───────────────────────────────────────────────────
+
+// A local-midnight Date `n` days from `date` (no timezone drift).
+export function addDays(date, n) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
+}
+
+// The first day of the week containing `date`, honouring `weekStartsOn`.
+export function startOfWeek(date, weekStartsOn = 0) {
+  const offset = (date.getDay() - weekStartsOn + 7) % 7;
+  return addDays(date, -offset);
+}
+
+// The 7 day cells of the week containing `anchor` — same cell shape the month
+// matrix uses (minus `inCurrentMonth`, which has no meaning for a week).
+export function getWeekDays(anchor, today = new Date(), weekStartsOn = 0) {
+  const todayIso = toISODate(today);
+  const start = startOfWeek(anchor, weekStartsOn);
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(start, i);
+    const iso = toISODate(date);
+    return {
+      date,
+      iso,
+      day: date.getDate(),
+      isWeekend: isWeekend(date),
+      isToday: iso === todayIso,
+      holiday: getHoliday(iso),
+    };
+  });
+}
+
+// "Jul 13 – 19, 2026", or "Jun 29 – Jul 5, 2026" across a month/year boundary.
+export function getRangeTitle(startDate, endDate) {
+  const sMonth = MONTH_LABELS[startDate.getMonth()].slice(0, 3);
+  const eMonth = MONTH_LABELS[endDate.getMonth()].slice(0, 3);
+  const sameMonth = startDate.getMonth() === endDate.getMonth()
+    && startDate.getFullYear() === endDate.getFullYear();
+  if (sameMonth) {
+    return `${sMonth} ${startDate.getDate()} – ${endDate.getDate()}, ${endDate.getFullYear()}`;
+  }
+  const sYear = startDate.getFullYear() !== endDate.getFullYear() ? `, ${startDate.getFullYear()}` : "";
+  return `${sMonth} ${startDate.getDate()}${sYear} – ${eMonth} ${endDate.getDate()}, ${endDate.getFullYear()}`;
+}

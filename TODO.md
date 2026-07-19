@@ -62,7 +62,9 @@ COMPLETED_BLOCKS.md → "Calendar"). Full spec in
 - [x] `tests/test_date_modes.py` (22) incl. a full Live workflow regression
 
 **Remaining (next Calendar slice):**
-- [ ] Week and Agenda views (Month is live; the switch buttons are placeholders)
+- [x] Week and Agenda views — one anchor date drives all three views; Week is
+  seven day columns with time-ordered events, Agenda a rolling four-week list
+  grouped by day. Both link calls/units into Dispatch like the month drawer.
 - [ ] Reliable conflict checks currently deferred (see Tech-debt / follow-ups): shift **time-overlap** double-booking (MVP flags same-day double-booking regardless of overlap), vehicle **out-of-service** readiness (no reliable `DailyCrewUnit`→`Vehicle` link yet)
 - [ ] Performance: patient-birthday source scans all non-archived patients per load — consider limiting to recently-active patients on large datasets
 
