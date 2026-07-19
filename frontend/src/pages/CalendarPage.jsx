@@ -4,17 +4,29 @@ import { useNavigate } from "react-router-dom";
 import {
   getMonthMatrix,
   getMonthTitle,
-  shiftMonth,
+  getWeekDays,
+  getRangeTitle,
+  startOfWeek,
+  addDays,
 } from "../utils/calendarUtils";
-import { getUsFederalHolidays } from "../utils/holidayUtils";
+import { getUsFederalHolidays, toISODate } from "../utils/holidayUtils";
 import { getCalendarEvents } from "../api/calendarApi";
 import { buildDispatchLink } from "../utils/calendarLinks";
 import { useUserSettings } from "../context/useUserSettings";
 
 import CalendarToolbar from "../components/calendar/CalendarToolbar";
 import CalendarGrid from "../components/calendar/CalendarGrid";
+import CalendarWeekView from "../components/calendar/CalendarWeekView";
+import CalendarAgendaView from "../components/calendar/CalendarAgendaView";
 import CalendarSidebar from "../components/calendar/CalendarSidebar";
 import DayOperationsDrawer from "../components/calendar/DayOperationsDrawer";
+
+const AGENDA_DAYS = 28; // agenda shows a rolling four-week window
+const VIEWS = [
+  { value: "month", label: "Month" },
+  { value: "week", label: "Week" },
+  { value: "agenda", label: "Agenda" },
+];
 
 // Operational calendar — aggregates existing calls and crew units (via the
 // backend calendar API) into a month view with per-day readiness, and links
@@ -42,21 +54,32 @@ const CalendarPage = ({ currentUser }) => {
   const showHolidays = calPrefs.showHolidays !== false;
 
   const today = useMemo(() => new Date(), []);
-  const [cursor, setCursor] = useState(() => ({
-    year: today.getFullYear(),
-    month: today.getMonth(),
-  }));
+  // One anchor date drives every view: the month/week it falls in, or the start
+  // of the agenda window. Switching views keeps you on the same date.
+  const [view, setView] = useState("month");
+  const [anchor, setAnchor] = useState(() => new Date());
 
   const matrix = useMemo(() => {
-    const m = getMonthMatrix(cursor.year, cursor.month, today, weekStartsOn);
+    const m = getMonthMatrix(anchor.getFullYear(), anchor.getMonth(), today, weekStartsOn);
     // Strip holiday markers when the user has turned them off.
     return showHolidays ? m : m.map((week) => week.map((c) => ({ ...c, holiday: null })));
-  }, [cursor, today, weekStartsOn, showHolidays]);
+  }, [anchor, today, weekStartsOn, showHolidays]);
 
-  // The visible grid can spill into adjacent months; fetch that full range so
-  // out-of-month cells also show operational data.
-  const rangeStart = matrix[0][0].iso;
-  const rangeEnd = matrix[5][6].iso;
+  const weekDays = useMemo(
+    () => getWeekDays(anchor, today, weekStartsOn),
+    [anchor, today, weekStartsOn],
+  );
+
+  const agendaStart = useMemo(() => startOfWeek(anchor, weekStartsOn), [anchor, weekStartsOn]);
+  const agendaEnd = useMemo(() => addDays(agendaStart, AGENDA_DAYS - 1), [agendaStart]);
+
+  // Fetch the range the active view needs. Month spills into adjacent months so
+  // out-of-month cells still show data.
+  const [rangeStart, rangeEnd] = useMemo(() => {
+    if (view === "week") return [weekDays[0].iso, weekDays[6].iso];
+    if (view === "agenda") return [toISODate(agendaStart), toISODate(agendaEnd)];
+    return [matrix[0][0].iso, matrix[5][6].iso];
+  }, [view, matrix, weekDays, agendaStart, agendaEnd]);
 
   const [events, setEvents] = useState([]);
   const [days, setDays] = useState({});
@@ -102,19 +125,32 @@ const CalendarPage = ({ currentUser }) => {
     return map;
   }, [visibleEvents]);
 
-  const monthTitle = getMonthTitle(cursor.year, cursor.month);
+  const monthTitle = getMonthTitle(anchor.getFullYear(), anchor.getMonth());
+  const viewTitle = view === "week"
+    ? getRangeTitle(weekDays[0].date, weekDays[6].date)
+    : view === "agenda"
+      ? getRangeTitle(agendaStart, agendaEnd)
+      : monthTitle;
 
+  // The sidebar always lists the anchor month's holidays, regardless of view.
   const monthHolidays = useMemo(() => {
-    const prefix = `${cursor.year}-${String(cursor.month + 1).padStart(2, "0")}`;
-    return getUsFederalHolidays(cursor.year).filter((h) => h.date.startsWith(prefix));
-  }, [cursor]);
+    const prefix = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, "0")}`;
+    return getUsFederalHolidays(anchor.getFullYear()).filter((h) => h.date.startsWith(prefix));
+  }, [anchor]);
 
-  const goToday = useCallback(
-    () => setCursor({ year: today.getFullYear(), month: today.getMonth() }),
-    [today],
-  );
-  const goPrev = () => setCursor((c) => shiftMonth(c.year, c.month, -1));
-  const goNext = () => setCursor((c) => shiftMonth(c.year, c.month, 1));
+  // Navigation steps by the active view's unit: a month, a week, or the agenda
+  // window.
+  const step = useCallback((dir) => {
+    setAnchor((a) => {
+      if (view === "week") return addDays(a, 7 * dir);
+      if (view === "agenda") return addDays(a, AGENDA_DAYS * dir);
+      return new Date(a.getFullYear(), a.getMonth() + dir, 1);
+    });
+  }, [view]);
+
+  const goToday = useCallback(() => setAnchor(new Date()), []);
+  const goPrev = () => step(-1);
+  const goNext = () => step(1);
 
   const handleDaySelect = (cell) => {
     setSelectedDay(cell.iso);
@@ -141,20 +177,22 @@ const CalendarPage = ({ currentUser }) => {
             </div>
 
             <div className="calendar-viewswitch" role="group" aria-label="Calendar view">
-              <button type="button" className="btn btn-sm btn-primary" aria-pressed="true">
-                Month
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-secondary" disabled title="Coming soon">
-                Week
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-secondary" disabled title="Coming soon">
-                Agenda
-              </button>
+              {VIEWS.map((v) => (
+                <button
+                  key={v.value}
+                  type="button"
+                  className={`btn btn-sm ${view === v.value ? "btn-primary" : "btn-outline-secondary"}`}
+                  aria-pressed={view === v.value}
+                  onClick={() => setView(v.value)}
+                >
+                  {v.label}
+                </button>
+              ))}
             </div>
           </div>
 
           <CalendarToolbar
-            title={monthTitle}
+            title={viewTitle}
             onPrev={goPrev}
             onNext={goNext}
             onToday={goToday}
@@ -170,13 +208,35 @@ const CalendarPage = ({ currentUser }) => {
           )}
 
           <div className={`calendar-density-${density}${showWeekends ? "" : " hide-weekend-tint"}`}>
-            <CalendarGrid
-              matrix={matrix}
-              days={days}
-              dayEventsByIso={dayEventsByIso}
-              weekStartsOn={weekStartsOn}
-              onDaySelect={handleDaySelect}
-            />
+            {view === "month" && (
+              <CalendarGrid
+                matrix={matrix}
+                days={days}
+                dayEventsByIso={dayEventsByIso}
+                weekStartsOn={weekStartsOn}
+                onDaySelect={handleDaySelect}
+              />
+            )}
+            {view === "week" && (
+              <CalendarWeekView
+                weekDays={weekDays}
+                dayEventsByIso={dayEventsByIso}
+                days={days}
+                timeFormat={timeFormat}
+                onDaySelect={handleDaySelect}
+                onOpenCall={openCall}
+                onOpenUnit={openUnit}
+              />
+            )}
+            {view === "agenda" && (
+              <CalendarAgendaView
+                events={visibleEvents}
+                todayIso={toISODate(today)}
+                timeFormat={timeFormat}
+                onOpenCall={openCall}
+                onOpenUnit={openUnit}
+              />
+            )}
           </div>
         </section>
 

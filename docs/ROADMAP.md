@@ -39,8 +39,9 @@ event sources** (scheduled_call, crew_shift, patient/employee birthdays,
 certification expirations, task due dates, vehicle dates) with per-source role
 access; **Task participants + assign-to-all**; and **per-user calendar display
 settings** (source toggles, week start, density, weekend/holiday toggles).
-**Remaining:** Week/Agenda views and the deferred conflict checks (shift
-time-overlap, vehicle out-of-service).
+Month, **Week** and **Agenda** views all ship.
+**Remaining:** the deferred conflict checks (shift time-overlap, vehicle
+out-of-service).
 
 **Event sources (derived):** employee birthdays (Employee), patient birthdays
 (Patient), certification expirations (CPR/EVOC/EMT/Paramedic/document fields),
