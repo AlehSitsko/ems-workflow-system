@@ -10,6 +10,7 @@ import { PageHeader } from "../../components/ui/Page";
 import { EmptyState } from "../../components/ui/States";
 import { useToast } from "../../components/ui/useToast";
 import { useConfirm } from "../../components/ui/useConfirm";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 
 /**
  * Create / edit a patient — the full-page form that replaces the list edit
@@ -37,7 +38,6 @@ export default function PatientFormPage({ currentUser }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notFound, setNotFound] = useState(false);
-  const [savedClean, setSavedClean] = useState(false);
 
   useEffect(() => {
     if (!isEdit || !canEdit) { resetFormFields(); setLoading(false); return undefined; }
@@ -57,28 +57,20 @@ export default function PatientFormPage({ currentUser }) {
 
   const dirty = isPatientFormDirty();
 
-  // Warn on reload/close with unsaved edits.
+  // The guard covers in-app navigation (sidebar, palette, back); beforeunload
+  // covers a browser close/refresh, which the router blocker can't intercept.
+  const { allowNext } = useUnsavedGuard(dirty);
   useEffect(() => {
-    if (!dirty || savedClean) return undefined;
+    if (!dirty) return undefined;
     const handler = (e) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty, savedClean]);
+  }, [dirty]);
 
-  const leave = async () => {
-    if (dirty && !savedClean) {
-      const ok = await confirm({
-        title: "Discard unsaved changes?",
-        message: "This patient has unsaved edits.",
-        variant: "warning",
-        confirmLabel: "Discard",
-      });
-      if (!ok) return;
-    }
-    navigate("/patients");
-  };
+  // Plain navigation — the unsaved-changes prompt is handled once by the guard.
+  const leave = () => navigate("/patients");
 
-  const goToWorkspace = (id) => { setSavedClean(true); navigate(`/patients/${id}`); };
+  const goToWorkspace = (id) => { allowNext(); navigate(`/patients/${id}`); };
 
   const submit = async (e) => {
     e.preventDefault();

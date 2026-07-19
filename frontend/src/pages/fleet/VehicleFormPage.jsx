@@ -8,7 +8,7 @@ import { VEHICLE_CAPABILITIES, OPERATIONAL_STATUSES, describeOperationalStatus }
 import { PageHeader, PageSection } from "../../components/ui/Page";
 import { EmptyState, ErrorState } from "../../components/ui/States";
 import { useToast } from "../../components/ui/useToast";
-import { useConfirm } from "../../components/ui/useConfirm";
+import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 
 const EMPTY = {
   unitName: "", unitNumber: "", unitType: "BLS", capabilities: ["BLS"],
@@ -33,7 +33,6 @@ export default function VehicleFormPage({ currentUser }) {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const confirm = useConfirm();
 
   const isEdit = vehicleId !== "new";
   const canEdit = hasFleetEditAccess(currentUser);
@@ -77,7 +76,10 @@ export default function VehicleFormPage({ currentUser }) {
     [form, baseline],
   );
 
-  // Leaving with unsaved edits should be a decision, not an accident.
+  // Leaving with unsaved edits should be a decision, not an accident. The guard
+  // covers in-app navigation (sidebar, palette, back); beforeunload covers a
+  // browser close/refresh, which the router blocker can't intercept.
+  const { allowNext } = useUnsavedGuard(dirty);
   useEffect(() => {
     if (!dirty) return undefined;
     const handler = (e) => { e.preventDefault(); e.returnValue = ""; };
@@ -96,18 +98,9 @@ export default function VehicleFormPage({ currentUser }) {
     });
   };
 
-  const leave = async () => {
-    if (dirty) {
-      const ok = await confirm({
-        title: "Discard unsaved changes?",
-        message: "This vehicle has unsaved edits.",
-        variant: "warning",
-        confirmLabel: "Discard",
-      });
-      if (!ok) return;
-    }
-    navigate(backHref);
-  };
+  // Plain navigation — the unsaved-changes prompt is handled once by
+  // useUnsavedGuard, so the back/Cancel controls don't confirm again.
+  const leave = () => navigate(backHref);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -123,6 +116,7 @@ export default function VehicleFormPage({ currentUser }) {
         : await createVehicle(payload);
       toast.success(isEdit ? "Vehicle updated" : "Vehicle added");
       setBaseline(form);   // clean, so leaving does not prompt
+      allowNext();         // don't guard the post-save redirect
       navigate(`/fleet/vehicles/${saved.id}`, { state: { listSearch } });
     } catch (err) {
       // Surface the API's own message (duplicate unit number, invalid

@@ -66,7 +66,9 @@ describe("metadata stays in step with the router", () => {
   // Resolved from the project root: vitest runs in jsdom, where import.meta.url
   // is not a file:// URL.
   const appSource = readFileSync(resolve(process.cwd(), "src/App.jsx"), "utf-8");
-  const routerPaths = [...appSource.matchAll(/<Route\s+path="([^"]+)"/g)]
+  // The app uses a data router (createHashRouter), so routes are config objects
+  // `{ path: "...", element: ... }` rather than <Route path="..."> elements.
+  const routerPaths = [...appSource.matchAll(/\bpath:\s*"([^"]+)"/g)]
     .map((m) => m[1])
     .filter((p) => p !== "*" && p !== "/");
 
