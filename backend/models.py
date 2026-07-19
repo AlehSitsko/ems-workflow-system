@@ -76,7 +76,17 @@ class Employee(db.Model):
     dob = db.Column(db.String(20))  # YYYY-MM-DD; drives employee birthday calendar events
 
     # Operational employee information.
+    # `role` used to conflate two independent axes. It is kept as a derived
+    # legacy mirror (see to_dict / apply_employee_data) so existing readers don't
+    # break, but the split columns below are authoritative:
+    #   qualification — what the person is clinically/operationally qualified for
+    #                   (driver_only / emt / paramedic / assist); drives crew
+    #                   eligibility. Nullable: a pure administrator has none.
+    #   admin_role    — organisational role (supervisor / manager / hr /
+    #                   dispatcher / admin); NOT a clinical qualification.
     role = db.Column(db.String(50), default="EMT")
+    qualification = db.Column(db.String(30))
+    admin_role = db.Column(db.String(30))
     status = db.Column(db.String(50), default="active")
 
     is_active = db.Column(db.Boolean, default=True)
@@ -116,6 +126,9 @@ class Employee(db.Model):
             "employeeNumber": self.employee_number or "",
             "hireDate": self.hire_date or "",
             "dob": self.dob or "",
+            # Split axes are authoritative; `role` is the derived legacy mirror.
+            "qualification": self.qualification,
+            "adminRole": self.admin_role,
             "role": self.role or "EMT",
             "status": self.status or "active",
             "isActive": self.is_active,

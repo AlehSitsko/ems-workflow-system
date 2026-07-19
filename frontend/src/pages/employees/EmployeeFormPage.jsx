@@ -6,6 +6,7 @@ import { getEmployee, createEmployee, updateEmployee } from "../../api/employees
 import { getDocuments, uploadDocument } from "../../api/documentsApi";
 import { hasEmployeeAccess } from "../../api/authApi";
 import { normalizeLicense, getCprWarning } from "../../utils/licenseUtils";
+import { QUALIFICATIONS, ADMIN_ROLES } from "../../utils/taxonomy";
 import { useUnsavedGuard } from "../../hooks/useUnsavedGuard";
 import { PageHeader, PageSection } from "../../components/ui/Page";
 import { EmptyState, ErrorState } from "../../components/ui/States";
@@ -21,7 +22,7 @@ const emptyLicense = { hasLicense: false, licenseName: "", expirationDate: "" };
 const EMPTY = {
   firstName: "", lastName: "", phone: "", email: "",
   employeeNumber: "", hireDate: "", dob: "",
-  role: "EMT", status: "active", isActive: true, notes: "", kioskPin: "",
+  qualification: "emt", adminRole: "", status: "active", isActive: true, notes: "", kioskPin: "",
   cpr: { ...emptyLicense }, evoc: { ...emptyLicense }, emt: { ...emptyLicense }, paramedic: { ...emptyLicense },
 };
 
@@ -68,6 +69,10 @@ export default function EmployeeFormPage({ currentUser }) {
           ...EMPTY,
           ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, emp[k] ?? EMPTY[k]])),
           isActive: Boolean(emp.isActive),
+          // qualification/adminRole are nullable — a null is a real "none", not a
+          // missing field, so don't fall back to EMPTY's create defaults.
+          qualification: emp.qualification || "",
+          adminRole: emp.adminRole || "",
           cpr: normalizeLicense(emp.cpr), evoc: normalizeLicense(emp.evoc),
           emt: normalizeLicense(emp.emt), paramedic: normalizeLicense(emp.paramedic),
         };
@@ -132,7 +137,8 @@ export default function EmployeeFormPage({ currentUser }) {
       employeeNumber: form.employeeNumber.trim(),
       hireDate: form.hireDate,
       dob: form.dob,
-      role: form.role,
+      qualification: form.qualification || null,
+      adminRole: form.adminRole || null,
       status: form.status,
       isActive: form.isActive,
       notes: form.notes.trim(),
@@ -277,12 +283,22 @@ export default function EmployeeFormPage({ currentUser }) {
                    onChange={(e) => set({ dob: e.target.value })} />
           </div>
           <div className="col-md-4">
-            <label className="form-label" htmlFor="e-role">Role</label>
-            <select id="e-role" className="form-select" value={form.role}
-                    onChange={(e) => set({ role: e.target.value })}>
-              {["EMT", "Paramedic", "Assist", "Dispatcher", "Driver", "Supervisor", "Manager", "HR"]
-                .map((r) => <option key={r} value={r}>{r}</option>)}
+            <label className="form-label" htmlFor="e-qual">Qualification</label>
+            <select id="e-qual" className="form-select" value={form.qualification}
+                    onChange={(e) => set({ qualification: e.target.value })}>
+              <option value="">— None —</option>
+              {QUALIFICATIONS.map((q) => <option key={q.value} value={q.value}>{q.label}</option>)}
             </select>
+            <div className="form-text">What the employee is qualified to do (drives crew eligibility).</div>
+          </div>
+          <div className="col-md-4">
+            <label className="form-label" htmlFor="e-admin">Administrative role</label>
+            <select id="e-admin" className="form-select" value={form.adminRole}
+                    onChange={(e) => set({ adminRole: e.target.value })}>
+              <option value="">— None —</option>
+              {ADMIN_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            <div className="form-text">Organisational role, separate from qualification.</div>
           </div>
           <div className="col-md-4">
             <label className="form-label" htmlFor="e-status">Employee status</label>

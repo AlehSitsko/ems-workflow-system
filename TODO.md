@@ -132,9 +132,10 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
 - [ ] Calendar readiness: reliable **shift time-overlap** double-booking and
   **vehicle out-of-service** checks (see P1 remaining) once a
   `DailyCrewUnit`→`Vehicle` link and shift-overlap logic exist.
-- [ ] **Split `Employee.role`** into qualification + administrative role. It currently
-  mixes both (EMT/Paramedic vs Supervisor); the taxonomy normalizer interprets it,
-  but the column should be split (needs a migration).
+- [x] **Split `Employee.role`** into `qualification` + `admin_role` (migration
+  `b7d3f8c1a2e4`, backfilled from the legacy value). `role` stays as a derived
+  legacy mirror for backward compatibility; the form has two selects, crew
+  eligibility reads `qualification`, and the workspace shows both axes.
 - [ ] **Call #27** still has `service_level='emergency'` with `call_type='return'` —
   the cleanup deliberately refused to overwrite a real call_type. Needs a decision.
 - [ ] 3 calls / 3 patients hold an empty-string service level (`''`) — decide
