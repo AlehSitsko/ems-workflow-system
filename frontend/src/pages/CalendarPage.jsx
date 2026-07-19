@@ -11,6 +11,7 @@ import {
 } from "../utils/calendarUtils";
 import { getUsFederalHolidays, toISODate } from "../utils/holidayUtils";
 import { getCalendarEvents } from "../api/calendarApi";
+import { hasDispatchAccess } from "../api/authApi";
 import { buildDispatchLink } from "../utils/calendarLinks";
 import { useUserSettings } from "../context/useUserSettings";
 
@@ -159,9 +160,19 @@ const CalendarPage = ({ currentUser }) => {
 
   // Navigation into the Dispatch Board on the chosen date (optionally focusing a
   // specific call/unit via query params).
-  const openDay = (iso) => navigate(buildDispatchLink(iso));
-  const openCall = (iso, callId) => navigate(buildDispatchLink(iso, { call: callId }));
-  const openUnit = (iso, unitId) => navigate(buildDispatchLink(iso, { unit: unitId }));
+  //
+  // HR can see crew shifts on the calendar but has no Dispatch access — the
+  // board would just bounce them home. So the links are only handed down to
+  // roles that can actually open it; without a handler the rows and the footer
+  // button simply don't offer the action.
+  const canOpenDispatch = hasDispatchAccess(currentUser);
+  const openDay = canOpenDispatch ? (iso) => navigate(buildDispatchLink(iso)) : undefined;
+  const openCall = canOpenDispatch
+    ? (iso, callId) => navigate(buildDispatchLink(iso, { call: callId }))
+    : undefined;
+  const openUnit = canOpenDispatch
+    ? (iso, unitId) => navigate(buildDispatchLink(iso, { unit: unitId }))
+    : undefined;
 
   return (
     <div className="page-stack">
@@ -196,6 +207,7 @@ const CalendarPage = ({ currentUser }) => {
             onPrev={goPrev}
             onNext={goNext}
             onToday={goToday}
+            stepLabel={view === "week" ? "week" : view === "agenda" ? "period" : "month"}
           />
 
           {error && (

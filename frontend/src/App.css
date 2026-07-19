@@ -112,7 +112,9 @@ textarea.form-control {
   display: flex;
   flex-direction: column;
   padding: var(--space-3) var(--space-3) var(--space-2);
-  overflow-y: auto;
+  /* The sidebar itself never scrolls — only .sidebar-nav does, so the footer
+     (which holds the collapse/expand control) always stays on screen. */
+  overflow: hidden;
   color: var(--color-sidebar-text);
   background: var(--color-sidebar);
   transition: width 0.18s ease, min-width 0.18s ease, transform 0.22s ease;
@@ -174,6 +176,9 @@ textarea.form-control {
 
 .sidebar-nav {
   flex: 1;
+  min-height: 0; /* allow the flex item to shrink so its own scrollbar engages */
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .sidebar-group {
@@ -238,6 +243,7 @@ textarea.form-control {
 }
 
 .sidebar-footer {
+  flex-shrink: 0; /* the collapse control must never be pushed off screen */
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-sidebar-border);
 }
@@ -281,7 +287,6 @@ textarea.form-control {
   min-width: var(--sidebar-width-collapsed);
   padding-left: var(--space-2);
   padding-right: var(--space-2);
-  overflow: visible;
 }
 
 .app-sidebar.collapsed .sidebar-brand {

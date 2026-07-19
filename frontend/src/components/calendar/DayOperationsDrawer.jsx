@@ -75,7 +75,9 @@ const DayOperationsDrawer = ({
 
   const readiness = summary?.readiness || "empty";
 
-  const footer = (
+  // Roles without Dispatch access get no handlers, so the drawer stays a
+  // read-only day summary instead of offering a jump that bounces them home.
+  const footer = onOpenDay ? (
     <button
       type="button"
       className="btn btn-primary d-inline-flex align-items-center gap-2"
@@ -84,7 +86,7 @@ const DayOperationsDrawer = ({
       Open Day in Dispatch Board
       <FaArrowRight />
     </button>
-  );
+  ) : null;
 
   return (
     <EntityDrawer
@@ -118,9 +120,11 @@ const DayOperationsDrawer = ({
         ) : (
           <ul className="calendar-day-list">
             {calls.map((c) => (
-              <li key={c.id} className="calendar-day-row" role="button" tabIndex={0}
-                  onClick={() => onOpenCall(dateIso, c.sourceId)}
-                  onKeyDown={(e) => { if (e.key === "Enter") onOpenCall(dateIso, c.sourceId); }}>
+              <li key={c.id} className="calendar-day-row"
+                  role={onOpenCall ? "button" : undefined}
+                  tabIndex={onOpenCall ? 0 : undefined}
+                  onClick={onOpenCall ? () => onOpenCall(dateIso, c.sourceId) : undefined}
+                  onKeyDown={onOpenCall ? (e) => { if (e.key === "Enter") onOpenCall(dateIso, c.sourceId); } : undefined}>
                 <div className="calendar-day-row-main">
                   <span className="calendar-day-time">{eventTime(c.start, timeFormat) || "No time"}</span>
                   <span className="calendar-day-title">{c.metadata?.patientLabel || c.title}</span>
@@ -148,9 +152,11 @@ const DayOperationsDrawer = ({
         ) : (
           <ul className="calendar-day-list">
             {units.map((u) => (
-              <li key={u.id} className="calendar-day-row" role="button" tabIndex={0}
-                  onClick={() => onOpenUnit(dateIso, u.sourceId)}
-                  onKeyDown={(e) => { if (e.key === "Enter") onOpenUnit(dateIso, u.sourceId); }}>
+              <li key={u.id} className="calendar-day-row"
+                  role={onOpenUnit ? "button" : undefined}
+                  tabIndex={onOpenUnit ? 0 : undefined}
+                  onClick={onOpenUnit ? () => onOpenUnit(dateIso, u.sourceId) : undefined}
+                  onKeyDown={onOpenUnit ? (e) => { if (e.key === "Enter") onOpenUnit(dateIso, u.sourceId); } : undefined}>
                 <div className="calendar-day-row-main">
                   <span className="calendar-day-title">Unit {u.assignedUnitNumber}</span>
                   <span className="calendar-tag">{u.metadata?.unitType}</span>

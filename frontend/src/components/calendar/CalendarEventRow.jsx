@@ -23,7 +23,9 @@ export default function CalendarEventRow({ event, timeFormat = "12h", onOpenCall
   const meta = TYPE_META[event.type] || { emoji: "•", label: event.type };
   const isCall = event.type === "scheduled_call";
   const isUnit = event.type === "crew_shift";
-  const clickable = isCall || isUnit;
+  // Only offer the jump when a handler was supplied — the page withholds them
+  // from roles without Dispatch access rather than rendering a dead link.
+  const clickable = (isCall && !!onOpenCall) || (isUnit && !!onOpenUnit);
 
   const time = eventTime(event.start, timeFormat);
   const title = isCall
