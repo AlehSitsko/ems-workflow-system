@@ -184,6 +184,45 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   Inactive assignment history is deleted with the shift it describes, which the FK
   used to block even after a clean unassign. Calls themselves are never touched.
 
+## P4d — Employee leave / absence (done; HR review screen pending)
+
+Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
+
+- [x] `EmployeeLeaveRequest` model + migration `e7c2a94f16bd` — one row per
+  request holding an inclusive date range, never one row per day
+- [x] Canonical `LEAVE_TYPES` / `LEAVE_STATUSES` in `utils/taxonomy.py` (with
+  aliases: PTO → vacation, rejected → denied) and published via `GET /api/taxonomy`
+- [x] `/api/leave-requests` — list (filter by employee/status/overlapping range),
+  read, create, edit, approve/deny, cancel, delete
+- [x] **Structural privacy**: sick / medical / bereavement report as
+  `unavailable` to supervisor and dispatcher, and the HR-only fields (reason,
+  private notes, review trail) are omitted from the payload rather than blanked
+- [x] Permissions: HR + admin manage and decide; supervisor may file a request
+  (lands in `pending`) but cannot approve or edit; dispatcher is read-only;
+  hard delete is admin-only (cancelling is the normal path)
+- [x] Overlapping requests for one employee refused with `409`; denied/cancelled
+  leave frees the dates; partial day allowed on single-day requests only
+- [x] Approving reports the shifts the employee is already rostered on, instead
+  of leaving the staffing hole to be found on the day
+- [x] `tests/test_leave.py` (35), including tests that fail if the sensitive type
+  leaks or an HR-only field is blanked instead of omitted
+- [x] Calendar integration: leave is stored as one range and derived into one
+  event per covered day so it lands in the month grid; approved leave warns,
+  pending reads "(requested)", denied/cancelled produce nothing. The privacy rule
+  holds here too — sensitive types render as "Unavailable" for non-HR roles
+- [x] Crew planning conflict: saving a shift whose crew is on leave returns
+  `leaveConflicts` (critical for approved, warning for pending) and the Dispatch
+  Board raises it as a toast. `GET /api/leave-requests/unavailable?date=` answers
+  "who is away today" for a shift form without disclosing the type or reason
+- [x] UI: the Employee Workspace "Leave" tab is real — file a request
+  (HR/admin/supervisor), approve, deny or cancel (HR/admin). It renders only the
+  fields the API sent, so it cannot widen what the server narrowed
+  (`EmployeeLeaveTab.test.jsx`, 6 tests)
+- [ ] A dedicated HR review screen listing pending requests across all employees
+  (today they are reviewed from the employee's own workspace)
+- [ ] Leave balances / PTO accrual / holiday policy — still deferred until the
+  business rules are agreed
+
 ## P4 — Later production hardening (planned)
 
 - [ ] Production authentication (replace header-based `X-User-*` with JWT/session)

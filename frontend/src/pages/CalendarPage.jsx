@@ -36,6 +36,7 @@ const VIEWS = [
 const DEFAULT_SOURCES = {
   scheduled_call: true, crew_shift: true, patient_birthday: true,
   employee_birthday: true, certification: true, task: true, vehicle: true,
+  employee_leave: true,
 };
 
 const CalendarPage = ({ currentUser }) => {

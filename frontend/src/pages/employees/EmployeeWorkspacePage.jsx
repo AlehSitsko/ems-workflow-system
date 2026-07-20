@@ -11,6 +11,10 @@ import { EmployeeAvatar } from "../../components/taxonomy/TaxonomyBadges";
 import DocumentsTab from "../../components/DocumentsTab";
 import TimePayTab from "../../components/TimePayTab";
 import { useUserSettings } from "../../context/useUserSettings";
+import EmployeeLeaveTab from "../../components/employees/EmployeeLeaveTab";
+import {
+  getLeaveRequests, createLeaveRequest, decideLeaveRequest, cancelLeaveRequest,
+} from "../../api/leaveApi";
 import { hasEmployeeAccess } from "../../api/authApi";
 import { getEmployee, getEmployeeShifts } from "../../api/employeesApi";
 import { getTasks } from "../../api/tasksApi";
@@ -61,9 +65,12 @@ const AUDIT_LABEL = {
  * Employee Workspace.
  *
  * Every tab is backed by a real endpoint, following the Vehicle Workspace
- * reference. Schedule and Leave are honestly disabled: there is no
- * employee-shifts endpoint yet, and leave management (roadmap Phase 4d) does not
- * exist — a disabled tab with a reason beats an empty tab that implies it does.
+ * reference.
+ *
+ * The Leave tab renders whatever /api/leave-requests chose to send for the
+ * caller's role: HR and admin receive the type, reason and review trail, a
+ * supervisor only the dates and whether they block scheduling. The page does not
+ * re-apply that rule — it cannot widen what the server already narrowed.
  */
 export default function EmployeeWorkspacePage({ currentUser }) {
   const { employeeId } = useParams();
@@ -78,7 +85,8 @@ export default function EmployeeWorkspacePage({ currentUser }) {
   const [error, setError] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
-  const [tabData, setTabData] = useState({ tasks: null, activity: null, shifts: null });
+  const [tabData, setTabData] = useState({ tasks: null, activity: null, shifts: null, leave: null });
+  const [leaveBusy, setLeaveBusy] = useState(false);
   const [tabState, setTabState] = useState({});
 
 
@@ -125,6 +133,9 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     if (tabData.shifts === null && tabState.shifts === undefined) {
       loadTab("shifts", () => getEmployeeShifts(employeeId));
     }
+    if (tabData.leave === null && tabState.leave === undefined) {
+      loadTab("leave", () => getLeaveRequests({ employeeId }));
+    }
   }, [employee, employeeId, currentUser, loadTab, tabData, tabState]);
 
   const tabs = [
@@ -135,16 +146,53 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     { key: "tasks", label: "Tasks" },
     { key: "schedule", label: "Schedule" },
     { key: "activity", label: "Activity" },
-    {
-      key: "leave",
-      label: "Leave",
-      disabled: true,
-      disabledReason: "Employee leave management is not built yet (roadmap Phase 4d)",
-    },
+    { key: "leave", label: "Leave" },
   ];
 
   const fullName = employee ? `${employee.firstName} ${employee.lastName}`.trim() : "Employee";
   const cprWarning = employee ? getCprWarning(employee) : "";
+
+  // Leave actions. Each one refetches rather than patching local state: the API
+  // is the authority on what this role may see of the updated record.
+  const reloadLeave = useCallback(
+    () => loadTab("leave", () => getLeaveRequests({ employeeId })),
+    [loadTab, employeeId],
+  );
+
+  const fileLeave = async (payload) => {
+    setLeaveBusy(true);
+    try {
+      await createLeaveRequest({ ...payload, employeeId: Number(employeeId) });
+      reloadLeave();
+    } finally {
+      setLeaveBusy(false);
+    }
+  };
+
+  const decideLeave = async (id, status) => {
+    setLeaveBusy(true);
+    try {
+      await decideLeaveRequest(id, status);
+      reloadLeave();
+      loadTab("shifts", () => getEmployeeShifts(employeeId));   // approval can affect rostering
+    } catch (err) {
+      setTabState((st) => ({ ...st, leave: err.message || "Could not record the decision" }));
+    } finally {
+      setLeaveBusy(false);
+    }
+  };
+
+  const cancelLeave = async (id) => {
+    setLeaveBusy(true);
+    try {
+      await cancelLeaveRequest(id);
+      reloadLeave();
+    } catch (err) {
+      setTabState((st) => ({ ...st, leave: err.message || "Could not cancel the request" }));
+    } finally {
+      setLeaveBusy(false);
+    }
+  };
 
   const renderTab = (activeTab) => {
     if (!employee) return null;
@@ -300,6 +348,27 @@ export default function EmployeeWorkspacePage({ currentUser }) {
             ))}
           </div>
         </PageSection>
+      );
+    }
+
+    if (activeTab === "leave") {
+      const state = tabState.leave;
+      if (state === "loading" || state === undefined) return <LoadingSkeleton rows={3} label="Loading leave" />;
+      if (state && state !== "ready") {
+        return <ErrorState message={state} onRetry={reloadLeave} />;
+      }
+      const role = currentUser?.role;
+      return (
+        <EmployeeLeaveTab
+          requests={tabData.leave || []}
+          employeeName={fullName}
+          canFile={["admin", "hr", "supervisor"].includes(role)}
+          canDecide={["admin", "hr"].includes(role)}
+          onCreate={fileLeave}
+          onDecide={decideLeave}
+          onCancel={cancelLeave}
+          busy={leaveBusy}
+        />
       );
     }
 

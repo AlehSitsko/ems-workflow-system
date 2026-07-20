@@ -10,6 +10,7 @@ const OVERLAY_TYPES = {
   certification: { emoji: "🎓", label: "Certification" },
   task: { emoji: "🗒️", label: "Task" },
   vehicle: { emoji: "🚑", label: "Vehicle" },
+  employee_leave: { emoji: "🌴", label: "Leave" },
 };
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

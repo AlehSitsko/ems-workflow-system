@@ -65,6 +65,47 @@ SLOT_TO_SHIFT_ROLE = {
 NOT_SERVICE_LEVELS = {"emergency", "none"}
 
 
+# ── Employee leave / absence (roadmap Phase 4d) ─────────────────────────────
+
+LEAVE_TYPES = [
+    "vacation", "sick", "unpaid", "personal", "medical",
+    "bereavement", "training", "administrative", "other",
+]
+
+LEAVE_TYPE_LABELS = {
+    "vacation": "Vacation / PTO",
+    "sick": "Sick",
+    "unpaid": "Unpaid",
+    "personal": "Personal",
+    "medical": "Medical",
+    "bereavement": "Bereavement",
+    "training": "Training",
+    "administrative": "Administrative",
+    "other": "Other",
+}
+
+# Types that reveal something about a person's health or a death in the family.
+# Scheduling only ever needs to know that someone is unavailable, so for roles
+# without HR permission these are reported as plain "Unavailable" — the
+# distinction is enforced when the payload is built, not left to the UI.
+SENSITIVE_LEAVE_TYPES = {"sick", "medical", "bereavement"}
+
+LEAVE_STATUSES = ["draft", "pending", "approved", "denied", "cancelled"]
+
+LEAVE_STATUS_LABELS = {
+    "draft": "Draft",
+    "pending": "Pending",
+    "approved": "Approved",
+    "denied": "Denied",
+    "cancelled": "Cancelled",
+}
+
+# Statuses that actually make someone unavailable. Denied and cancelled leave has
+# no effect on staffing; a draft is not a request yet.
+BLOCKING_LEAVE_STATUSES = {"approved"}
+WARNING_LEAVE_STATUSES = {"pending"}
+
+
 def _alias_key(value):
     """Lowercase, trimmed, separators stripped: 'BLS-4' / 'bls 4' / 'BLS4' all match."""
     return "".join(ch for ch in str(value or "").strip().lower() if ch.isalnum())
@@ -95,6 +136,23 @@ _VEHICLE_CAPABILITY_ALIASES = _build_alias_map(VEHICLE_CAPABILITIES, {
     "bari": "Bariatric",
     "wc": "Wheelchair",
     "support": "Assist",
+})
+
+_LEAVE_TYPE_ALIASES = _build_alias_map(LEAVE_TYPES, {
+    "pto": "vacation",
+    "holiday": "vacation",
+    "annualleave": "vacation",
+    "sickleave": "sick",
+    "fmla": "medical",
+    "funeral": "bereavement",
+    "admin": "administrative",
+})
+
+_LEAVE_STATUS_ALIASES = _build_alias_map(LEAVE_STATUSES, {
+    "rejected": "denied",
+    "declined": "denied",
+    "canceled": "cancelled",   # US spelling
+    "submitted": "pending",
 })
 
 _QUALIFICATION_ALIASES = {
@@ -151,6 +209,27 @@ def normalize_qualification(value):
     return _QUALIFICATION_ALIASES.get(key)
 
 
+def normalize_leave_type(value):
+    """Canonical leave type, or None if unrecognised ('PTO' → 'vacation')."""
+    key = _alias_key(value)
+    return _LEAVE_TYPE_ALIASES.get(key) if key else None
+
+
+def normalize_leave_status(value):
+    """Canonical leave status, or None if unrecognised ('rejected' → 'denied')."""
+    key = _alias_key(value)
+    return _LEAVE_STATUS_ALIASES.get(key) if key else None
+
+
+def is_sensitive_leave_type(value):
+    """True for leave types that disclose health or bereavement.
+
+    Used to decide whether a payload may name the type at all — scheduling roles
+    get "Unavailable" instead.
+    """
+    return normalize_leave_type(value) in SENSITIVE_LEAVE_TYPES
+
+
 def is_administrative_role(value):
     """True for organisational roles that are not clinical qualifications."""
     return _alias_key(value) in ADMINISTRATIVE_ROLES
@@ -197,4 +276,13 @@ def as_contract():
         "qualifications": [{"value": q, "label": QUALIFICATION_LABELS[q]} for q in QUALIFICATIONS],
         "shiftRoles": [{"value": r, "label": SHIFT_ROLE_LABELS[r]} for r in SHIFT_ROLES],
         "notServiceLevels": sorted(NOT_SERVICE_LEVELS),
+        "leaveTypes": [
+            # `sensitive` is published so the frontend can label the privacy rule
+            # it is already subject to, never so it can apply the rule itself.
+            {"value": t, "label": LEAVE_TYPE_LABELS[t], "sensitive": t in SENSITIVE_LEAVE_TYPES}
+            for t in LEAVE_TYPES
+        ],
+        "leaveStatuses": [
+            {"value": s, "label": LEAVE_STATUS_LABELS[s]} for s in LEAVE_STATUSES
+        ],
     }

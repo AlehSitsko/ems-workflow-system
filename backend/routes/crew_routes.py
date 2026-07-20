@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 
-from models import db, DailyCrewUnit, Vehicle, CallAssignment
+from models import db, DailyCrewUnit, Vehicle, CallAssignment, Employee, EmployeeLeaveRequest
 from utils.employee_utils import parse_optional_employee_id
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
 from utils.auth_utils import require_role
@@ -31,6 +31,43 @@ def _validate_shift_datetimes(shift_date, start_time, end_time, end_date):
     if end_date and not is_valid_date(end_date):
         return "Invalid endDate. Expected YYYY-MM-DD."
     return None
+
+
+def _leave_conflicts(unit):
+    """Crew members on leave over this shift's date.
+
+    Approved leave is a real conflict — the person is not available and the shift
+    is short-handed. A pending request is a warning: it may still be denied. The
+    message names the person and the fact, never the kind of leave, matching the
+    privacy rule the leave API enforces.
+    """
+    crew_ids = [uid for uid in (unit.driver_id, unit.medical_id, unit.assist1_id, unit.assist2_id) if uid]
+    if not crew_ids:
+        return []
+
+    rows = EmployeeLeaveRequest.query.filter(
+        EmployeeLeaveRequest.employee_id.in_(crew_ids),
+        EmployeeLeaveRequest.status.in_(["approved", "pending"]),
+        EmployeeLeaveRequest.start_date <= unit.shift_date,
+        EmployeeLeaveRequest.end_date >= unit.shift_date,
+    ).all()
+    if not rows:
+        return []
+
+    employees = {e.id: e for e in Employee.query.filter(Employee.id.in_({r.employee_id for r in rows})).all()}
+    conflicts = []
+    for row in rows:
+        emp = employees.get(row.employee_id)
+        name = f"{emp.first_name} {emp.last_name}".strip() if emp else f"Employee #{row.employee_id}"
+        approved = row.blocks_scheduling()
+        conflicts.append({
+            "employeeId": row.employee_id,
+            "severity": "critical" if approved else "warning",
+            "message": (f"{name} is on approved leave on {unit.shift_date}."
+                        if approved else
+                        f"{name} has a pending leave request covering {unit.shift_date}."),
+        })
+    return conflicts
 
 
 def _resolve_vehicle(data, current_vehicle_id=None):
@@ -206,7 +243,12 @@ def create_daily_crew_unit():
             entity_type="unit", entity_id=unit.id,
         )
 
-    return jsonify(unit.to_dict()), 201
+    body = unit.to_dict()
+    conflicts = _leave_conflicts(unit)
+    if conflicts:
+        body["leaveConflicts"] = conflicts
+
+    return jsonify(body), 201
 
 
 @crew_bp.route("/<int:id>", methods=["PUT"])
@@ -291,7 +333,13 @@ def update_daily_crew_unit(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-    return jsonify(unit.to_dict())
+
+    body = unit.to_dict()
+    conflicts = _leave_conflicts(unit)
+    if conflicts:
+        body["leaveConflicts"] = conflicts
+
+    return jsonify(body)
 
 
 @crew_bp.route("/<int:id>", methods=["DELETE"])
