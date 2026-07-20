@@ -73,7 +73,13 @@ COMPLETED_BLOCKS.md → "Calendar"). Full spec in
   starting the evening before is still checked. Every conflict is reported on
   both shifts (`metadata.conflicts`) and named in the day drawer, so a readiness
   count is always explainable. `tests/test_calendar_conflicts.py` (18).
-- [ ] Performance: patient-birthday source scans all non-archived patients per load — consider limiting to recently-active patients on large datasets
+- [x] Performance: the patient-birthday source no longer reads every non-archived
+  patient per load. A birthday can only fall in the requested range if its dob
+  ends with one of the range's ≤93 MM-DD values, so the database filters on that
+  and returns only the four columns the label needs. Measured on a 51,000-patient
+  copy: a month range went 858 ms → 41 ms, a 92-day range 834 ms → 123 ms, with
+  identical output. (Limiting to recently-active patients was the original idea
+  and is not needed — it would also have silently dropped real birthdays.)
 
 ## P2 — Docker development environment (planned, not started)
 
