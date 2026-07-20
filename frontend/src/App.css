@@ -72,6 +72,11 @@ textarea.form-control {
 .app-content {
   flex: 1;
   min-width: 0;
+  /* A column so a page can claim the full height below the header. Without it
+     a page's `height: 100%` resolves against `auto` and collapses to its
+     content, which is what left the Dispatch Board sitting in the top third. */
+  display: flex;
+  flex-direction: column;
   /* The page body must never scroll horizontally: any incidental overflow
      (e.g. an off-canvas drawer at narrow widths) is clipped here. Genuinely
      wide content scrolls inside its own overflow-x container instead. `clip`
@@ -82,6 +87,12 @@ textarea.form-control {
 /* Page width modes — owned by PageContainer, chosen per route in metadata. */
 .page-container {
   padding: var(--space-6);
+  /* Grow into the space below the header, but never shrink below the content:
+     ordinary pages keep scrolling normally. */
+  flex: 1 0 auto;
+  /* As a flex item, `margin: 0 auto` on the capped mode below would otherwise
+     shrink the box to its content instead of centring a full-width one. */
+  width: 100%;
 }
 
 .page-container.standard {
@@ -93,9 +104,16 @@ textarea.form-control {
   max-width: none;
 }
 
-/* Dispatch Board manages its own full-height panels, so the container must not
-   add padding that would push it into a scrollbar. */
-.page-container.wide:has(.dispatch-board-root) {
+/* Dispatch Board manages its own full-height panels: it fills the viewport and
+   scrolls inside its own panes, so the container gives it the whole area and
+   adds no padding that would push it into a scrollbar. (The selector used to
+   name .dispatch-board-root, a class that does not exist in the markup, so none
+   of this applied and the board collapsed to its content height.) */
+.page-container.wide:has(.dispatch-board) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
   padding: 0;
 }
 
