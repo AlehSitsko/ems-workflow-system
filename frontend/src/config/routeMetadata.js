@@ -1,6 +1,6 @@
 import {
   FaHome, FaTh, FaPhoneAlt, FaUserInjured, FaClipboardList, FaCalendarAlt,
-  FaTruck, FaTasks, FaUsers, FaAmbulance, FaMoneyBillWave, FaShieldAlt, FaUmbrellaBeach, FaInbox,
+  FaTruck, FaTasks, FaUsers, FaAmbulance, FaMoneyBillWave, FaShieldAlt, FaUmbrellaBeach, FaInbox, FaClipboardCheck, FaSyncAlt,
   FaChartBar, FaUserCog, FaHistory, FaCog, FaBookOpen, FaClock,
 } from "react-icons/fa";
 
@@ -201,6 +201,33 @@ export const ROUTE_METADATA = [
     width: "standard",
     hidden: true,
     parent: "/calls",
+  },
+  {
+    path: "/recurring-trips",
+    title: "Recurring trips",
+    subtitle: "Standing transport orders",
+    icon: FaSyncAlt,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
+  },
+  {
+    path: "/day-closeout",
+    title: "Day closeout",
+    subtitle: "Review and sign off an operational day",
+    icon: FaClipboardCheck,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
+  },
+  {
+    path: "/confirmation-round",
+    title: "Confirmation round",
+    subtitle: "Ring through a day's trips",
+    icon: FaPhoneAlt,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
   },
   {
     path: "/scheduling-inbox",

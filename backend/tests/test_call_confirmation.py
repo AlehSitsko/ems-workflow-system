@@ -170,3 +170,68 @@ def test_the_detail_endpoint_carries_a_minimized_patient_label(client, roles):
 
     body = client.get(f"/api/calls/{c.id}", headers=roles["dispatcher"]).get_json()
     assert body["patientLabel"] == "John D."
+
+
+# ── The day's round ─────────────────────────────────────────────────────────
+
+def round_for(client, headers, day=TOMORROW):
+    resp = client.get(f"/api/calls/confirmation-round?date={day}", headers=headers)
+    assert resp.status_code == 200, resp.get_json()
+    return resp.get_json()
+
+
+def test_the_round_lists_the_day_in_pickup_order(client, roles):
+    for time in ("14:00", "08:30", "11:15"):
+        db.session.add(Call(trip_date=TOMORROW, status="new", pickup_time=time))
+    db.session.commit()
+
+    times = [c["pickup_time"] for c in round_for(client, roles["dispatcher"])["calls"]]
+    assert times == ["08:30", "11:15", "14:00"]
+
+
+def test_calls_without_a_time_sort_last(client, roles):
+    """Establishing the time is often the point of ringing, so they are not lost
+    at the top of the list."""
+    db.session.add(Call(trip_date=TOMORROW, status="new", pickup_time="09:00"))
+    db.session.add(Call(trip_date=TOMORROW, status="new", pickup_time=""))
+    db.session.commit()
+
+    times = [c["pickup_time"] for c in round_for(client, roles["dispatcher"])["calls"]]
+    assert times == ["09:00", ""]
+
+
+def test_the_round_tallies_what_is_left(client, roles):
+    confirmed = Call(trip_date=TOMORROW, status="new", confirmation_status="confirmed")
+    no_answer = Call(trip_date=TOMORROW, status="new", confirmation_status="no_answer")
+    fresh = Call(trip_date=TOMORROW, status="new")
+    db.session.add_all([confirmed, no_answer, fresh])
+    db.session.commit()
+
+    summary = round_for(client, roles["dispatcher"])["summary"]
+    assert summary["total"] == 3
+    assert summary["confirmed"] == 1
+    # Still to ring: never called, plus the ones that did not pick up.
+    assert summary["remaining"] == 2
+
+
+def test_cancelled_and_completed_trips_are_not_in_the_round(client, roles):
+    db.session.add(Call(trip_date=TOMORROW, status="cancelled"))
+    db.session.add(Call(trip_date=TOMORROW, status="completed"))
+    db.session.add(Call(trip_date=TOMORROW, status="new"))
+    db.session.commit()
+
+    assert round_for(client, roles["dispatcher"])["summary"]["total"] == 1
+
+
+def test_declining_during_the_round_removes_it_from_the_round(client, roles, call):
+    assert round_for(client, roles["dispatcher"])["summary"]["total"] == 1
+
+    set_confirmation(client, roles["dispatcher"], call.id, "declined", "Not needed")
+    assert round_for(client, roles["dispatcher"])["summary"]["total"] == 0
+
+
+def test_the_round_validates_its_date(client, roles):
+    assert client.get("/api/calls/confirmation-round?date=2099-02-30",
+                      headers=roles["dispatcher"]).status_code == 400
+    assert client.get("/api/calls/confirmation-round",
+                      headers=roles["dispatcher"]).status_code == 400

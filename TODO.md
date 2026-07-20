@@ -103,7 +103,13 @@ P4). Detailed phase notes in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 3.
 Later Calendar phases (see [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4). Not to
 be implemented before the current Calendar slice is complete:
 
-- [ ] Recurring patient transportation; linked outbound/return trips
+- [x] Recurring patient transportation + linked outbound/return trips —
+  `RecurringTrip` (migration `b8e17d3c94af`), `/api/recurring-trips`, and the
+  `/recurring-trips` page. A standing order materialises ordinary Call rows a few
+  weeks ahead, so the board, calendar, inbox and confirmation round need no
+  knowledge of recurrence. Regeneration is idempotent; a trip a human has touched
+  (confirmed, assigned, cancelled or hand-edited) is never rewritten or withdrawn
+  unless the editor explicitly asks to re-sync. `tests/test_recurring_trips.py` (25)
 - [x] Scheduling Inbox for calls without a trip date — `GET /api/calls/unscheduled`
   and `PATCH /api/calls/<id>/schedule`, plus the `/scheduling-inbox` page
   (Operations → Scheduling Inbox). Such calls were previously invisible: the
@@ -112,7 +118,14 @@ be implemented before the current Calendar slice is complete:
   the past or onto a finished call is refused. `tests/test_scheduling_inbox.py` (20)
 - [ ] Estimated trip duration + planned end time
 - [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
-- [ ] Day handoff summary; "Close Operational Day" workflow
+- [x] Day handoff summary + "Close Operational Day" — `/day-closeout` and
+  `/api/operations/days/<day>`. Past dates were already read-only, so closing is
+  not a lock: it is the review of what the day ended up as, the loose ends nobody
+  tidied (a call left assigned, a shift with no actual end time — neither visible
+  on a board that only shows today), and a name against the sign-off. Closing
+  over loose ends requires explicit acknowledgement; the stored snapshot keeps
+  saying what was true at sign-off even if a call is edited later. Supervisor and
+  admin close, dispatcher reads, admin alone reopens. `tests/test_day_closure.py` (20)
 - [ ] `CalendarEvent` model for manual events (visibility scopes: company /
   operations / management / HR / patient-operations / private)
 - [ ] Participants, reminders, notification integration, saved views
@@ -248,7 +261,11 @@ The day-before ring-round that checks tomorrow's trips are still on.
   buttons. Reachable from the scheduling inbox and the board
 - [x] CONF / NO ANS badge on the Dispatch Board call card
 - [x] `tests/test_call_confirmation.py` (15) + frontend `confirmation.test.js` (5)
-- [ ] Bulk "confirmation round" view for a whole day (one screen, call after call)
+- [x] `/confirmation-round` — a whole day as a call list in pickup order, with a
+  running tally of what is left. Trips with no time sort last (establishing the
+  time is often the point of ringing). Confirmed / No answer / Declined are
+  recorded inline; a no-answer deliberately stays in the "still to ring" count.
+  `GET /api/calls/confirmation-round?date=`
 
 ## P4 — Later production hardening (planned)
 

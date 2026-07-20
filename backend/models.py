@@ -835,6 +835,17 @@ class Call(db.Model):
     # trip is still on. Four states rather than a flag: "nobody answered" and
     # "not called yet" look the same on a board but mean opposite things to the
     # person working the list. Canonical values in utils.taxonomy.
+    # Set when this call was generated from a standing order. Regenerating the
+    # template only ever touches its own untouched calls.
+    recurring_trip_id = db.Column(db.Integer, db.ForeignKey("recurring_trip.id"),
+                                  nullable=True, index=True)
+    # Raised the moment a human changes a generated call — its time, its unit,
+    # its confirmation. From then on the template stops rewriting it, because a
+    # schedule change must never quietly undo a dispatcher's correction.
+    recurrence_locked = db.Column(db.Boolean, default=False)
+    # The other leg of an outbound/return pair.
+    linked_call_id = db.Column(db.Integer, db.ForeignKey("call.id"), nullable=True)
+
     confirmation_status = db.Column(db.String(20), default="not_called", index=True)
     confirmation_note = db.Column(db.Text)
     confirmed_at = db.Column(db.String(50))
@@ -886,6 +897,10 @@ class Call(db.Model):
             "notes": self.notes,
 
             "cancel_reason": self.cancel_reason,
+
+            "recurring_trip_id": self.recurring_trip_id,
+            "recurrence_locked": bool(self.recurrence_locked),
+            "linked_call_id": self.linked_call_id,
 
             "confirmation_status": self.confirmation_status or "not_called",
             "confirmation_note": self.confirmation_note or "",
@@ -1496,3 +1511,130 @@ class EmployeeLeaveRequest(db.Model):
             data["leaveType"] = "unavailable" if is_sensitive_leave_type(self.leave_type) else self.leave_type
 
         return data
+
+
+class OperationalDayClosure(db.Model):
+    """A day someone has reviewed and signed off.
+
+    Past dates are already read-only (see utils.operational_dates), so this is
+    not a lock — it is the record that a human checked the day, what state it was
+    in when they did, and what they said about it. Without it "yesterday is
+    finished" is an assumption; with it, it is a fact with a name against it.
+
+    The counts are a snapshot taken at closing time. They are stored rather than
+    recomputed because the point is what the day looked like when it was signed
+    off — a later edit to a call should not silently rewrite the handoff.
+    """
+    __tablename__ = "operational_day_closure"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # One closure per operational day.
+    day = db.Column(db.String(20), nullable=False, unique=True, index=True)
+
+    closed_at = db.Column(db.String(50), nullable=False)
+    closed_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    closed_by_name = db.Column(db.String(150))
+    notes = db.Column(db.Text)
+
+    # Snapshot of the day as it stood when it was closed.
+    calls_total = db.Column(db.Integer, default=0)
+    calls_completed = db.Column(db.Integer, default=0)
+    calls_cancelled = db.Column(db.Integer, default=0)
+    calls_unfinished = db.Column(db.Integer, default=0)
+    units_total = db.Column(db.Integer, default=0)
+    units_unfinished = db.Column(db.Integer, default=0)
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    def to_dict(self):
+        return {
+            "day": self.day,
+            "closedAt": self.closed_at,
+            "closedBy": self.closed_by,
+            "closedByName": self.closed_by_name or "",
+            "notes": self.notes or "",
+            "snapshot": {
+                "callsTotal": self.calls_total or 0,
+                "callsCompleted": self.calls_completed or 0,
+                "callsCancelled": self.calls_cancelled or 0,
+                "callsUnfinished": self.calls_unfinished or 0,
+                "unitsTotal": self.units_total or 0,
+                "unitsUnfinished": self.units_unfinished or 0,
+            },
+        }
+
+
+class RecurringTrip(db.Model):
+    """A standing transport order — dialysis every Mon/Wed/Fri, and the like.
+
+    The template does not replace the trips it produces: it materialises real
+    Call rows a few weeks ahead. Every generated trip is an ordinary call, so the
+    board, the calendar, the confirmation round and cancellation all work on it
+    without knowing recurrence exists. The alternative — computing trips on the
+    fly — would have meant teaching every one of those surfaces about records
+    that do not exist yet.
+    """
+    __tablename__ = "recurring_trip"
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"), nullable=False, index=True)
+
+    # What the trip is, copied onto each generated call.
+    service_level = db.Column(db.String(50))
+    call_type = db.Column(db.String(50), default="Appointment")
+    pickup_time = db.Column(db.String(20))
+    pickup_address = db.Column(db.String(500))
+    dropoff_address = db.Column(db.String(500))
+    notes = db.Column(db.Text)
+
+    # Weekdays as a JSON array of ints, Monday = 0 (matches date.weekday()).
+    weekdays = db.Column(db.Text, nullable=False, default="[]")
+
+    start_date = db.Column(db.String(20), nullable=False, index=True)
+    end_date = db.Column(db.String(20))          # NULL = open-ended
+    horizon_weeks = db.Column(db.Integer, default=4)
+
+    # The return leg, when the patient is brought back the same day.
+    return_pickup_time = db.Column(db.String(20))
+
+    is_active = db.Column(db.Boolean, default=True, index=True)
+
+    created_at = db.Column(db.String(50))
+    created_by_name = db.Column(db.String(150))
+    updated_at = db.Column(db.String(50))
+
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    patient = db.relationship("Patient", foreign_keys=[patient_id])
+
+    def parsed_weekdays(self):
+        try:
+            days = json.loads(self.weekdays or "[]")
+            return sorted({int(d) for d in days if 0 <= int(d) <= 6})
+        except (ValueError, TypeError):
+            return []
+
+    def to_dict(self):
+        patient = self.patient
+        return {
+            "id": self.id,
+            "patientId": self.patient_id,
+            "patientName": f"{patient.first_name} {patient.last_name}".strip() if patient else "",
+            "serviceLevel": self.service_level or "",
+            "callType": self.call_type or "Appointment",
+            "pickupTime": self.pickup_time or "",
+            "pickupAddress": self.pickup_address or "",
+            "dropoffAddress": self.dropoff_address or "",
+            "notes": self.notes or "",
+            "weekdays": self.parsed_weekdays(),
+            "startDate": self.start_date,
+            "endDate": self.end_date or "",
+            "horizonWeeks": self.horizon_weeks or 4,
+            "returnPickupTime": self.return_pickup_time or "",
+            "isActive": bool(self.is_active),
+            "createdAt": self.created_at or "",
+            "createdByName": self.created_by_name or "",
+            "updatedAt": self.updated_at or "",
+        }

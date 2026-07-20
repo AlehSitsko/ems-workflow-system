@@ -117,6 +117,17 @@ export async function setCallConfirmation(callId, status, note = "", headers = {
   return data;
 }
 
+// One day's trips as a call list, with a tally of what is left to ring.
+export async function getConfirmationRound(dateIso, headers = {}) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/calls/confirmation-round?date=${encodeURIComponent(dateIso)}`,
+    { headers },
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load the confirmation round");
+  return data;
+}
+
 // The scheduling inbox: calls taken without a trip date. They appear on no
 // board and in no calendar until they get one, which is the point of the queue.
 export async function getUnscheduledCalls(headers = {}) {

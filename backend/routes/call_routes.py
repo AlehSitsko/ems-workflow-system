@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, Patient
 from notification_utils import create_notification
 from audit_utils import log_action
-from utils.validation_utils import check_length, is_valid_time
+from utils.validation_utils import check_length, is_valid_time, is_valid_date
 from utils.auth_utils import require_role
 from utils.operational_dates import prohibit_historical_mutation
 from utils.taxonomy import (
@@ -268,6 +268,13 @@ def update_call(call_id):
                 setattr(call, field, new_val)
 
     if changed:
+        # A generated call a human has edited stops following its template:
+        # otherwise the next schedule change would quietly overwrite the
+        # correction just made by hand, which is the one thing recurrence must
+        # never do.
+        if call.recurring_trip_id:
+            call.recurrence_locked = True
+
         log_action("call.updated", "call", call_id,
                    f"Call #{call_id}",
                    {"changed_fields": ", ".join(changed.keys()),
@@ -419,6 +426,8 @@ def schedule_call(call_id):
     call.trip_date = trip_date
     if pickup_time:
         call.pickup_time = pickup_time
+    if call.recurring_trip_id:
+        call.recurrence_locked = True
 
     log_action("call.scheduled", "call", call_id, f"Call #{call_id}",
                {"trip_date": trip_date, "pickup_time": pickup_time or None},
@@ -522,3 +531,47 @@ def set_call_confirmation(call_id):
                            f"has been cancelled and kept in history.")
 
     return jsonify(body)
+
+
+@call_bp.route("/confirmation-round", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
+def confirmation_round():
+    """One day's trips as a call list, in the order a dispatcher would ring them.
+
+    Opening each trip's page one at a time works for a single correction but not
+    for a round of twenty. This returns the day in pickup order together with a
+    tally, so the screen can show what is left rather than making someone count.
+
+    Cancelled and completed trips are excluded: there is nothing to confirm about
+    a trip that is not happening or has already happened.
+    """
+    trip_date = request.args.get("date", "").strip()
+    if not is_valid_date(trip_date):
+        return jsonify({"error": "date must be a real date (YYYY-MM-DD)"}), 400
+
+    calls = (
+        Call.query
+        .filter(
+            Call.trip_date == trip_date,
+            Call.status.notin_(_INBOX_EXCLUDED_STATUSES),
+        )
+        .options(joinedload(Call.patient))
+        # Calls with no pickup time sort last: they are the ones where the time
+        # itself is what the confirmation call needs to establish.
+        .order_by(Call.pickup_time.is_(None), Call.pickup_time == "", Call.pickup_time.asc())
+        .all()
+    )
+
+    tally = {status: 0 for status in CONFIRMATION_STATUSES}
+    for call in calls:
+        tally[call.confirmation_status or "not_called"] += 1
+
+    return jsonify({
+        "date": trip_date,
+        "calls": [_call_with_patient_summary(c) for c in calls],
+        "summary": {
+            "total": len(calls),
+            **tally,
+            "remaining": tally["not_called"] + tally["no_answer"],
+        },
+    })
