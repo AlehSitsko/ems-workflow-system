@@ -228,3 +228,50 @@ def test_shifts_without_conflicts_report_an_empty_list(client, admin, crew):
     resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
     shifts = {e["sourceId"]: e for e in resp.get_json()["events"] if e["type"] == "crew_shift"}
     assert shifts[u.id]["metadata"]["conflicts"] == []
+
+
+# ── Patient birthdays are filtered in SQL, not in Python ────────────────────
+
+def test_birthday_range_filtering_matches_the_naive_scan(client, admin):
+    """The database-side filter must select exactly what a full scan would."""
+    from models import Patient
+    from routes.calendar_routes import _birthday_occurrences
+    from datetime import date as _date
+
+    dobs = ["1980-07-04", "1975-07-31", "1990-08-01", "1966-06-30",
+            "2000-02-29", "1955-12-25", "1988-07-15"]
+    for i, dob in enumerate(dobs):
+        db.session.add(Patient(first_name=f"B{i}", last_name=f"Day{i}", dob=dob))
+    db.session.commit()
+
+    start, end = _date(2026, 7, 1), _date(2026, 7, 31)
+    expected = {
+        p.id for p in Patient.query.filter(Patient.dob.isnot(None)).all()
+        if _birthday_occurrences(p.dob, start, end)
+    }
+
+    resp = client.get(f"/api/calendar/events?start={start}&end={end}", headers=admin)
+    got = {e["sourceId"] for e in resp.get_json()["events"] if e["type"] == "patient_birthday"}
+    assert got == expected
+
+
+def test_a_leap_day_birthday_appears_only_when_the_range_holds_a_feb_29(client, admin):
+    from models import Patient
+    db.session.add(Patient(first_name="Leap", last_name="Year", dob="2000-02-29"))
+    db.session.commit()
+
+    def birthdays(start, end):
+        resp = client.get(f"/api/calendar/events?start={start}&end={end}", headers=admin)
+        return [e for e in resp.get_json()["events"] if e["type"] == "patient_birthday"]
+
+    assert birthdays("2028-02-01", "2028-02-29")   # 2028 is a leap year
+    assert not birthdays("2027-02-01", "2027-02-28")
+
+
+def test_archived_patients_still_stay_out(client, admin):
+    from models import Patient
+    db.session.add(Patient(first_name="Gone", last_name="Away", dob="1980-07-04", is_archived=True))
+    db.session.commit()
+
+    resp = client.get("/api/calendar/events?start=2026-07-01&end=2026-07-31", headers=admin)
+    assert not [e for e in resp.get_json()["events"] if e["type"] == "patient_birthday"]

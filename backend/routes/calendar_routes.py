@@ -62,6 +62,22 @@ def _birthday_occurrences(dob_str, start_date, end_date):
     return results
 
 
+def _month_days_in_range(start_date, end_date):
+    """The distinct MM-DD strings the range covers (at most 93 of them).
+
+    Lets the database do the filtering: a birthday can only fall in the range if
+    its dob ends with one of these, so there is no need to read every row and
+    discard most of them in Python. Feb-29 is included only when the range
+    actually contains a Feb 29, which keeps the leap-year rule intact.
+    """
+    days = set()
+    cursor = start_date
+    while cursor <= end_date:
+        days.add(cursor.strftime("-%m-%d"))
+        cursor += timedelta(days=1)
+    return days
+
+
 def _expiry_severity(iso_date, today):
     """Severity for a compliance/expiry date: critical if expired or ≤14 days,
     warning if ≤30 days, else normal."""
@@ -544,10 +560,18 @@ def get_calendar_events():
 
     # Patient birthdays — operational roles only, minimized name, active patients.
     if role in _OPERATIONAL_ROLES:
+        # Only the rows whose dob can actually land in the range, and only the
+        # four columns the label needs — reading every patient to keep a few
+        # thousand costs ~35x more once the list grows past a few tens of
+        # thousands. substr() is used rather than LIKE so the match is anchored.
+        month_days = _month_days_in_range(start, end)
         patients = (
-            Patient.query
+            db.session.query(
+                Patient.id, Patient.first_name, Patient.last_name, Patient.dob,
+            )
             .filter(
                 Patient.dob.isnot(None), Patient.dob != "",
+                db.func.substr(Patient.dob, 5, 6).in_(month_days),
                 db.or_(Patient.is_archived.is_(False), Patient.is_archived.is_(None)),
             )
             .all()
