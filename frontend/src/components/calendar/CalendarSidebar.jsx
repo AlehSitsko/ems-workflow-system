@@ -5,6 +5,7 @@ import {
   FaTasks,
   FaPhoneAlt,
   FaTruck,
+  FaUmbrellaBeach,
 } from "react-icons/fa";
 
 // Live event sources the calendar aggregates (role-filtered server-side).
@@ -16,6 +17,7 @@ const EVENT_SOURCES = [
   { icon: FaCertificate, label: "Certification expirations" },
   { icon: FaTasks, label: "Task due dates" },
   { icon: FaTruck, label: "Vehicle inspections & maintenance" },
+  { icon: FaUmbrellaBeach, label: "Employee leave" },
 ];
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

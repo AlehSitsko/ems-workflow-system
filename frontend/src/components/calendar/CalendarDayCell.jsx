@@ -15,6 +15,7 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
 // meaning so the indicator isn't color-only.
 const OVERLAY_BADGES = [
   { types: ["patient_birthday", "employee_birthday"], emoji: "🎂", label: "birthdays" },
+  { types: ["employee_leave"], emoji: "🌴", label: "staff away" },
   { types: ["certification"], emoji: "🎓", label: "certifications" },
   { types: ["task"], emoji: "🗒️", label: "tasks" },
   { types: ["vehicle"], emoji: "🚑", label: "vehicle dates" },

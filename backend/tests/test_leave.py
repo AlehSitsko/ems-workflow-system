@@ -310,3 +310,135 @@ def test_filtering_by_employee_and_status(client, roles, employee):
 
 def test_an_unknown_status_filter_is_rejected(client, roles, employee):
     assert client.get("/api/leave-requests?status=maybe", headers=roles["hr"]).status_code == 400
+
+
+# ── Calendar integration ────────────────────────────────────────────────────
+
+def _leave_events(client, headers, start="2099-03-01", end="2099-03-31"):
+    resp = client.get(f"/api/calendar/events?start={start}&end={end}", headers=headers)
+    return [e for e in resp.get_json()["events"] if e["type"] == "employee_leave"]
+
+
+def test_approved_leave_appears_on_every_day_it_covers(client, roles, employee):
+    """Stored as one range, rendered per day — the month grid needs both."""
+    leave = create(client, roles["hr"], employee.id).get_json()   # Mar 2 – 6
+    client.patch(f"/api/leave-requests/{leave['id']}/decision",
+                 headers=roles["hr"], json={"status": "approved"})
+
+    dates = sorted(e["date"] for e in _leave_events(client, roles["hr"]))
+    assert dates == ["2099-03-02", "2099-03-03", "2099-03-04", "2099-03-05", "2099-03-06"]
+
+
+def test_leave_is_clipped_to_the_requested_window(client, roles, employee):
+    create(client, roles["hr"], employee.id, startDate="2099-02-25", endDate="2099-03-04")
+    dates = sorted(e["date"] for e in _leave_events(client, roles["hr"]))
+    assert dates[0] == "2099-03-01"     # the February days are outside the window
+
+
+def test_denied_and_cancelled_leave_produces_no_calendar_events(client, roles, employee):
+    first = create(client, roles["hr"], employee.id).get_json()
+    client.patch(f"/api/leave-requests/{first['id']}/decision",
+                 headers=roles["hr"], json={"status": "denied"})
+    assert _leave_events(client, roles["hr"]) == []
+
+    second = create(client, roles["hr"], employee.id, startDate="2099-03-20", endDate="2099-03-21").get_json()
+    client.patch(f"/api/leave-requests/{second['id']}/cancel", headers=roles["hr"])
+    assert _leave_events(client, roles["hr"]) == []
+
+
+def test_pending_leave_shows_as_a_request_and_does_not_block(client, roles, employee):
+    create(client, roles["hr"], employee.id, leaveType="vacation")
+    event = _leave_events(client, roles["hr"])[0]
+
+    assert event["status"] == "pending"
+    assert "(requested)" in event["title"]
+    assert event["metadata"]["blocksScheduling"] is False
+    assert event["severity"] == "normal"
+
+
+@pytest.mark.parametrize("role", ["supervisor", "dispatcher"])
+def test_the_calendar_hides_sensitive_leave_types_too(client, roles, employee, role):
+    """The privacy rule has to hold on every surface, not just the leave API."""
+    create(client, roles["hr"], employee.id, leaveType="sick", reason="Flu")
+
+    event = _leave_events(client, roles[role])[0]
+    assert "Unavailable" in event["title"]
+    assert "Sick" not in event["title"]
+    assert "Flu" not in str(event)
+    assert event["metadata"]["leaveLabel"] == "Unavailable"
+
+
+def test_hr_sees_the_leave_type_on_the_calendar(client, roles, employee):
+    create(client, roles["hr"], employee.id, leaveType="sick")
+    assert "Sick" in _leave_events(client, roles["hr"])[0]["title"]
+
+
+def test_non_sensitive_leave_is_named_on_the_calendar_for_everyone(client, roles, employee):
+    create(client, roles["hr"], employee.id, leaveType="training")
+    for role in ("hr", "supervisor", "dispatcher"):
+        assert "Training" in _leave_events(client, roles[role])[0]["title"]
+
+
+# ── Crew planning conflicts ─────────────────────────────────────────────────
+
+def _make_shift(client, roles, employee, date="2099-03-03"):
+    return client.post("/api/crew-units", headers=roles["admin"], json={
+        "shiftDate": date, "unitType": "BLS", "truckNumber": "101",
+        "startTime": "08:00", "endTime": "20:00",
+        "crew": {"driver": str(employee.id)}, "noPatient": True, "patientOrder": [],
+    })
+
+
+def test_rostering_someone_on_approved_leave_reports_a_conflict(client, roles, employee):
+    leave = create(client, roles["hr"], employee.id).get_json()
+    client.patch(f"/api/leave-requests/{leave['id']}/decision",
+                 headers=roles["hr"], json={"status": "approved"})
+
+    body = _make_shift(client, roles, employee).get_json()
+    conflict = body["leaveConflicts"][0]
+    assert conflict["severity"] == "critical"
+    assert "on approved leave" in conflict["message"]
+    assert "Nina Brooks" in conflict["message"]
+
+
+def test_the_conflict_message_never_names_the_leave_type(client, roles, employee):
+    leave = create(client, roles["hr"], employee.id, leaveType="medical", reason="Surgery").get_json()
+    client.patch(f"/api/leave-requests/{leave['id']}/decision",
+                 headers=roles["hr"], json={"status": "approved"})
+
+    body = _make_shift(client, roles, employee).get_json()
+    assert "medical" not in str(body["leaveConflicts"]).lower()
+    assert "Surgery" not in str(body["leaveConflicts"])
+
+
+def test_a_pending_request_is_only_a_warning(client, roles, employee):
+    create(client, roles["hr"], employee.id)
+    conflict = _make_shift(client, roles, employee).get_json()["leaveConflicts"][0]
+    assert conflict["severity"] == "warning"
+    assert "pending leave request" in conflict["message"]
+
+
+def test_a_shift_outside_the_leave_range_has_no_conflict(client, roles, employee):
+    leave = create(client, roles["hr"], employee.id).get_json()   # Mar 2 – 6
+    client.patch(f"/api/leave-requests/{leave['id']}/decision",
+                 headers=roles["hr"], json={"status": "approved"})
+
+    body = _make_shift(client, roles, employee, date="2099-03-10").get_json()
+    assert "leaveConflicts" not in body
+
+
+def test_the_unavailable_endpoint_answers_without_disclosing_anything(client, roles, employee):
+    create(client, roles["hr"], employee.id, leaveType="sick", reason="Flu")
+
+    rows = client.get("/api/leave-requests/unavailable?date=2099-03-03",
+                      headers=roles["dispatcher"]).get_json()
+    assert len(rows) == 1
+    assert rows[0]["employeeId"] == employee.id
+    assert rows[0]["blocksScheduling"] is False        # still pending
+    assert set(rows[0]) == {"employeeId", "status", "blocksScheduling",
+                            "isPartialDay", "startTime", "endTime"}
+
+
+def test_the_unavailable_endpoint_validates_its_date(client, roles):
+    assert client.get("/api/leave-requests/unavailable?date=2099-02-30",
+                      headers=roles["dispatcher"]).status_code == 400

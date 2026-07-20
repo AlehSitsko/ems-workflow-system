@@ -162,6 +162,40 @@ def list_leave_requests():
     return jsonify([r.to_dict(visibility) for r in requests_])
 
 
+@leave_bp.route("/unavailable", methods=["GET"])
+@require_role(*VIEW_ROLES)
+def unavailable_on_date():
+    """Who is away on a given day — the crew planner's question, answered without
+    disclosing anything else.
+
+    Deliberately minimal: an employee id, whether the leave is approved (a hard
+    conflict) or still pending (a warning), and the partial-day window if there
+    is one. No type, no reason, for any role — a shift form has no business
+    knowing why, only that it should warn.
+    """
+    date_str = request.args.get("date", "").strip()
+    if not is_valid_date(date_str):
+        return jsonify({"error": "date must be a real date (YYYY-MM-DD)"}), 400
+
+    rows = EmployeeLeaveRequest.query.filter(
+        EmployeeLeaveRequest.status.in_(["approved", "pending"]),
+        EmployeeLeaveRequest.start_date <= date_str,
+        EmployeeLeaveRequest.end_date >= date_str,
+    ).all()
+
+    return jsonify([
+        {
+            "employeeId": r.employee_id,
+            "status": r.status,
+            "blocksScheduling": r.blocks_scheduling(),
+            "isPartialDay": bool(r.start_time),
+            "startTime": r.start_time or "",
+            "endTime": r.end_time or "",
+        }
+        for r in rows
+    ])
+
+
 @leave_bp.route("/<int:id>", methods=["GET"])
 @require_role(*VIEW_ROLES)
 def get_leave_request(id):

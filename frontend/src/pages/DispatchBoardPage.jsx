@@ -547,8 +547,17 @@ export default function DispatchBoardPage() {
     setCrewSaving(true);
     try {
       const payload = buildUnitPayload();
-      if (editingUnitId) { await updateCrewUnit(editingUnitId, payload); toast.success("Unit updated"); }
-      else { await createCrewUnit(payload); toast.success("Unit created"); }
+      const saved = editingUnitId
+        ? await updateCrewUnit(editingUnitId, payload)
+        : await createCrewUnit(payload);
+      toast.success(editingUnitId ? "Unit updated" : "Unit created");
+
+      // The backend reports crew members who are on leave over this shift. It
+      // says who and how serious, never why — surface it as it arrived.
+      (saved?.leaveConflicts || []).forEach((conflict) => {
+        if (conflict.severity === "critical") toast.error("Crew unavailable", conflict.message);
+        else toast.warning("Check crew availability", conflict.message);
+      });
       resetUnitForm();
       await loadBoard(date);
     } catch (err) {

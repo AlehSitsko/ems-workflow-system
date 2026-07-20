@@ -226,3 +226,60 @@ export function describeShiftRole(role) {
   if (!label) return { known: false, label: "—", value: null, title: "No shift role" };
   return { known: true, value: key, label, title: `Shift role: ${label}` };
 }
+
+// ── Employee leave / absence (roadmap Phase 4d) ─────────────────────────────
+//
+// Mirrors backend utils/taxonomy.py for display only. The privacy rule itself is
+// enforced server-side: sensitive types never reach a client that may not see
+// them, and arrive as the synthetic value "unavailable" instead.
+
+export const LEAVE_TYPE_LABELS = {
+  vacation: "Vacation / PTO",
+  sick: "Sick",
+  unpaid: "Unpaid",
+  personal: "Personal",
+  medical: "Medical",
+  bereavement: "Bereavement",
+  training: "Training",
+  administrative: "Administrative",
+  other: "Other",
+  // What a scheduling role receives in place of a sensitive type.
+  unavailable: "Unavailable",
+};
+
+export const LEAVE_TYPES = [
+  "vacation", "sick", "unpaid", "personal", "medical",
+  "bereavement", "training", "administrative", "other",
+];
+
+export const LEAVE_STATUS_META = {
+  draft: { label: "Draft", tone: "neutral" },
+  pending: { label: "Pending", tone: "warning" },
+  approved: { label: "Approved", tone: "success" },
+  denied: { label: "Denied", tone: "danger" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+};
+
+/** Presentation for a leave type, including the server's "unavailable" stand-in. */
+export function describeLeaveType(value) {
+  const key = aliasKey(value);
+  const label = LEAVE_TYPE_LABELS[key];
+  if (!label) return { known: false, value: null, label: "—", title: "No leave type" };
+  return {
+    known: true,
+    value: key,
+    label,
+    // Say why the label is vague, so it does not read as missing data.
+    title: key === "unavailable"
+      ? "Unavailable — the type is not shown for this role"
+      : `Leave type: ${label}`,
+  };
+}
+
+/** Presentation for a leave status. */
+export function describeLeaveStatus(value) {
+  const key = aliasKey(value);
+  const meta = LEAVE_STATUS_META[key];
+  if (!meta) return { known: false, value: null, label: "—", tone: "neutral", title: "No status" };
+  return { known: true, value: key, ...meta, title: `Status: ${meta.label}` };
+}

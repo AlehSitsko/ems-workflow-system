@@ -17,9 +17,11 @@ from datetime import datetime, date, timedelta
 from flask import Blueprint, jsonify, request
 from sqlalchemy.orm import joinedload
 
-from models import db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, Vehicle, Task, User
+from models import (db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, Vehicle, Task, User,
+                    EmployeeLeaveRequest)
 from utils.auth_utils import get_request_role, get_request_user_id, ALL_ROLES
 from routes.task_routes import _visible_tasks_query
+from utils.taxonomy import LEAVE_TYPE_LABELS, is_sensitive_leave_type
 
 calendar_bp = Blueprint("calendar", __name__, url_prefix="/api/calendar")
 
@@ -34,6 +36,9 @@ _OPERATIONAL_ROLES = {"admin", "supervisor", "dispatcher"}
 # Roles allowed to see employee names on certification events. Dispatcher sees
 # certification events for crew-readiness but without the employee's name (PII).
 _CERT_NAME_ROLES = {"admin", "supervisor", "hr"}
+# Roles allowed to see what kind of leave it is. Everyone else gets the fact of
+# unavailability — see EmployeeLeaveRequest.to_dict for the same rule on the API.
+_LEAVE_DETAIL_ROLES = {"admin", "hr"}
 
 
 def _birthday_occurrences(dob_str, start_date, end_date):
@@ -76,6 +81,27 @@ def _month_days_in_range(start_date, end_date):
         days.add(cursor.strftime("-%m-%d"))
         cursor += timedelta(days=1)
     return days
+
+
+def _dates_in_range(range_start, range_end, window_start, window_end):
+    """ISO days of [range_start, range_end] that fall inside the query window.
+
+    A leave request is stored as one range but has to appear on every day it
+    covers for the month grid to show it, so the range is expanded here rather
+    than stored per day.
+    """
+    first = _parse_iso_date(range_start)
+    last = _parse_iso_date(range_end)
+    if not first or not last:
+        return []
+
+    cursor = max(first, window_start)
+    stop = min(last, window_end)
+    out = []
+    while cursor <= stop:
+        out.append(cursor.isoformat())
+        cursor += timedelta(days=1)
+    return out
 
 
 def _expiry_severity(iso_date, today):
@@ -608,6 +634,63 @@ def get_calendar_events():
                 "link": f"/employees?employee={e.id}",
                 "metadata": {"employeeName": name},
             })
+
+    # Employee leave — one event per covered day so it lands in the month grid,
+    # derived from the single stored range. Approved leave means the person is
+    # unavailable; a pending request is a soft warning because it may still be
+    # denied. Denied and cancelled leave produces nothing at all.
+    #
+    # The same privacy rule as the leave API applies, and for the same reason:
+    # scheduling needs to know someone is away, not why. Sensitive types read as
+    # "Unavailable" and no reason or note ever reaches this payload.
+    leave_rows = (
+        EmployeeLeaveRequest.query
+        .filter(
+            EmployeeLeaveRequest.status.in_(["approved", "pending"]),
+            EmployeeLeaveRequest.start_date <= end_str,
+            EmployeeLeaveRequest.end_date >= start_str,
+        )
+        .all()
+    )
+    if leave_rows:
+        leave_employees = {
+            e.id: e for e in Employee.query
+            .filter(Employee.id.in_({r.employee_id for r in leave_rows}))
+            .all()
+        }
+        show_leave_detail = role in _LEAVE_DETAIL_ROLES
+
+        for leave in leave_rows:
+            employee = leave_employees.get(leave.employee_id)
+            name = f"{employee.first_name} {employee.last_name}".strip() if employee else "Employee"
+
+            if show_leave_detail or not is_sensitive_leave_type(leave.leave_type):
+                label = LEAVE_TYPE_LABELS.get(leave.leave_type, "Leave")
+            else:
+                label = "Unavailable"
+
+            approved = leave.blocks_scheduling()
+            for iso in _dates_in_range(leave.start_date, leave.end_date, start, end):
+                _add_overlay({
+                    "id": f"employee_leave:{leave.id}:{iso}",
+                    "type": "employee_leave",
+                    "title": f"{name} — {label}" + ("" if approved else " (requested)"),
+                    "date": iso, "start": None, "end": None, "allDay": not leave.start_time,
+                    "status": leave.status,
+                    "severity": "warning" if approved else "normal",
+                    "source": "employee_leave_request", "sourceId": leave.id,
+                    "assignedUnitId": None, "assignedUnitNumber": None,
+                    "link": f"/employees/{leave.employee_id}",
+                    "metadata": {
+                        "employeeName": name,
+                        "employeeId": leave.employee_id,
+                        "leaveLabel": label,
+                        "blocksScheduling": approved,
+                        "isPartialDay": bool(leave.start_time),
+                        "startTime": leave.start_time or "",
+                        "endTime": leave.end_time or "",
+                    },
+                })
 
     # Certification expirations — admin/supervisor/hr see the employee name;
     # dispatcher sees the fact only (no name/link/id) for crew-readiness.
