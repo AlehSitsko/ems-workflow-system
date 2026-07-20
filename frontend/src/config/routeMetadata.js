@@ -203,6 +203,15 @@ export const ROUTE_METADATA = [
     parent: "/calls",
   },
   {
+    path: "/confirmation-round",
+    title: "Confirmation round",
+    subtitle: "Ring through a day's trips",
+    icon: FaPhoneAlt,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
+  },
+  {
     path: "/scheduling-inbox",
     title: "Scheduling inbox",
     subtitle: "Calls waiting for a trip date",

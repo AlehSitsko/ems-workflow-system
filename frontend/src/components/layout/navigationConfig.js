@@ -66,6 +66,12 @@ export const navigationGroups = [
         canAccess: hasPatientAccess,
       },
       {
+        label: "Confirmation Round",
+        path: "/confirmation-round",
+        icon: FaPhoneAlt,
+        canAccess: hasDispatchAccess,
+      },
+      {
         label: "Scheduling Inbox",
         path: "/scheduling-inbox",
         icon: FaInbox,

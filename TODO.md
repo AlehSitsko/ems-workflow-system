@@ -248,7 +248,11 @@ The day-before ring-round that checks tomorrow's trips are still on.
   buttons. Reachable from the scheduling inbox and the board
 - [x] CONF / NO ANS badge on the Dispatch Board call card
 - [x] `tests/test_call_confirmation.py` (15) + frontend `confirmation.test.js` (5)
-- [ ] Bulk "confirmation round" view for a whole day (one screen, call after call)
+- [x] `/confirmation-round` — a whole day as a call list in pickup order, with a
+  running tally of what is left. Trips with no time sort last (establishing the
+  time is often the point of ringing). Confirmed / No answer / Declined are
+  recorded inline; a no-answer deliberately stays in the "still to ring" count.
+  `GET /api/calls/confirmation-round?date=`
 
 ## P4 — Later production hardening (planned)
 
