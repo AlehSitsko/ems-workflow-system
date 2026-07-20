@@ -831,6 +831,16 @@ class Call(db.Model):
     cancelled_at = db.Column(db.String(50))
     cancelled_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
+    # Confirmation call — dispatchers ring patients the day before to check the
+    # trip is still on. Four states rather than a flag: "nobody answered" and
+    # "not called yet" look the same on a board but mean opposite things to the
+    # person working the list. Canonical values in utils.taxonomy.
+    confirmation_status = db.Column(db.String(20), default="not_called", index=True)
+    confirmation_note = db.Column(db.Text)
+    confirmed_at = db.Column(db.String(50))
+    confirmed_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    confirmed_by_name = db.Column(db.String(150))
+
     # Dispatch lifecycle timestamps — set automatically by unit status transitions.
     dispatched_at      = db.Column(db.String(50))  # unit → en_route
     arrived_pickup_at  = db.Column(db.String(50))  # unit → on_scene
@@ -876,6 +886,12 @@ class Call(db.Model):
             "notes": self.notes,
 
             "cancel_reason": self.cancel_reason,
+
+            "confirmation_status": self.confirmation_status or "not_called",
+            "confirmation_note": self.confirmation_note or "",
+            "confirmed_at": self.confirmed_at or "",
+            "confirmed_by": self.confirmed_by,
+            "confirmed_by_name": self.confirmed_by_name or "",
             "cancelled_at": self.cancelled_at,
             "cancelled_by": self.cancelled_by,
 

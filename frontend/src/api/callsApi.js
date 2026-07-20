@@ -92,6 +92,52 @@ export async function uncancelCall(callId, headers = {}) {
   return data;
 }
 
+// One call with its patient label — backs the call detail page.
+export async function getCall(callId, headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, { headers });
+  const data = await response.json();
+  if (!response.ok) {
+    const error = new Error(data.error || "Failed to load call");
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+// Record the outcome of a confirmation call. A "declined" outcome cancels the
+// call server-side and says so in the response.
+export async function setCallConfirmation(callId, status, note = "", headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/confirmation`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ confirmation_status: status, confirmation_note: note }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to record the confirmation");
+  return data;
+}
+
+// The scheduling inbox: calls taken without a trip date. They appear on no
+// board and in no calendar until they get one, which is the point of the queue.
+export async function getUnscheduledCalls(headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/unscheduled`, { headers });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load the scheduling inbox");
+  return data;
+}
+
+// Give an inbox call its trip date (and optionally a pickup time).
+export async function scheduleCall(callId, tripDate, pickupTime = "", headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/schedule`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ trip_date: tripDate, pickup_time: pickupTime }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to schedule call");
+  return data;
+}
+
 // Fetch dispatcher analytics for supervisor reporting.
 export async function getDispatcherAnalytics() {
   const response = await fetch(`${API_BASE_URL}/api/analytics/dispatchers`);

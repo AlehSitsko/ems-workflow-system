@@ -10,7 +10,11 @@ from audit_utils import log_action
 from utils.validation_utils import check_length, is_valid_time
 from utils.auth_utils import require_role
 from utils.operational_dates import prohibit_historical_mutation
-from utils.taxonomy import canonicalize_or_keep, normalize_service_level
+from utils.taxonomy import (
+    canonicalize_or_keep, normalize_service_level,
+    normalize_confirmation_status, CONFIRMATION_STATUSES,
+    CANCELLING_CONFIRMATION_STATUSES, CONFIRMATION_STATUS_LABELS,
+)
 
 
 def _user_name_from_request():
@@ -335,3 +339,186 @@ def update_pickup_time(call_id):
     call.pickup_time = new_time
     db.session.commit()
     return jsonify(call.to_dict())
+
+
+# ── Scheduling Inbox ────────────────────────────────────────────────────────
+#
+# A call taken without a trip date used to be invisible: the calendar filters by
+# date and the Dispatch Board loads one day at a time, so an intake with "we'll
+# call you back with the day" fell out of both and was only found by chance.
+# These two routes make that queue explicit — list what has no date, then give it
+# one, at which point it leaves the inbox and appears on the board like any
+# other call.
+
+# Calls that are finished or called off are not waiting for a date.
+_INBOX_EXCLUDED_STATUSES = ("cancelled", "completed")
+
+
+def _unscheduled_filter():
+    """A call is unscheduled when it has no trip date at all.
+
+    Both NULL and "" occur in practice — the column has been written by several
+    generations of the intake form — so both count as missing rather than
+    normalising the data underneath a read path.
+    """
+    return db.and_(
+        db.or_(Call.trip_date.is_(None), Call.trip_date == ""),
+        Call.status.notin_(_INBOX_EXCLUDED_STATUSES),
+    )
+
+
+@call_bp.route("/unscheduled", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
+def list_unscheduled_calls():
+    """The scheduling inbox: calls waiting for a trip date, oldest intake first.
+
+    Oldest first on purpose — this is a backlog, and the one that has been
+    waiting longest is the one most at risk of being forgotten.
+    """
+    calls = (
+        Call.query
+        .filter(_unscheduled_filter())
+        .options(joinedload(Call.patient))
+        .order_by(Call.date_of_call.asc(), Call.id.asc())
+        .all()
+    )
+
+    return jsonify([_call_with_patient_summary(c) for c in calls])
+
+
+@call_bp.route("/<int:call_id>/schedule", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
+def schedule_call(call_id):
+    """Give an inbox call its trip date, and optionally a pickup time."""
+    call = Call.query.get_or_404(call_id)
+
+    data = request.get_json() or {}
+    trip_date = (data.get("trip_date") or "").strip()
+    pickup_time = (data.get("pickup_time") or "").strip()
+
+    if not trip_date:
+        return jsonify({"error": "trip_date is required"}), 400
+
+    # Scheduling into the past would produce a call no one can act on: the board
+    # is read-only there. Same guard the rest of the dispatch surface uses.
+    historical = prohibit_historical_mutation(trip_date, "Scheduling a call")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
+    try:
+        _validate_time_field(pickup_time, "pickup_time")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if call.status in _INBOX_EXCLUDED_STATUSES:
+        return jsonify({
+            "error": f"Call #{call_id} is {call.status} and cannot be scheduled.",
+            "status": call.status,
+        }), 409
+
+    call.trip_date = trip_date
+    if pickup_time:
+        call.pickup_time = pickup_time
+
+    log_action("call.scheduled", "call", call_id, f"Call #{call_id}",
+               {"trip_date": trip_date, "pickup_time": pickup_time or None},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
+    db.session.commit()
+
+    return jsonify(call.to_dict())
+
+
+def _call_with_patient_summary(call):
+    """Call plus the minimized patient label the inbox needs to be readable."""
+    data = call.to_dict()
+    patient = call.patient
+    if patient:
+        last = (patient.last_name or "").strip()
+        data["patientLabel"] = f"{(patient.first_name or '').strip()} {last[0]}." if last             else (patient.first_name or "").strip()
+    else:
+        data["patientLabel"] = None
+    return data
+
+
+# ── Confirmation calls ──────────────────────────────────────────────────────
+#
+# Dispatchers ring patients the day before to check tomorrow's trips are still
+# on. Recording the outcome here — rather than in a note nobody can filter by —
+# is what lets the board show which trips are actually confirmed.
+
+
+@call_bp.route("/<int:call_id>", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
+def get_call(call_id):
+    """One call with its patient label — backs the call detail page."""
+    call = Call.query.options(joinedload(Call.patient)).get_or_404(call_id)
+    return jsonify(_call_with_patient_summary(call))
+
+
+@call_bp.route("/<int:call_id>/confirmation", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
+def set_call_confirmation(call_id):
+    """Record the outcome of a confirmation call.
+
+    A declined trip is not happening, so it cancels the call outright instead of
+    sitting on the board looking scheduled. The record stays in history with the
+    reason, exactly as a manual cancellation would.
+    """
+    call = Call.query.get_or_404(call_id)
+
+    data = request.get_json() or {}
+    status = normalize_confirmation_status(data.get("confirmation_status"))
+    if not status:
+        return jsonify({
+            "error": f"confirmation_status must be one of: {', '.join(CONFIRMATION_STATUSES)}",
+        }), 400
+
+    try:
+        check_length(data.get("confirmation_note"), 1000, "confirmation_note")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if call.status == "cancelled" and status != "declined":
+        return jsonify({
+            "error": f"Call #{call_id} is cancelled. Uncancel it before recording a confirmation.",
+            "status": call.status,
+        }), 409
+
+    note = (data.get("confirmation_note") or "").strip()
+    now = datetime.now().isoformat(timespec="seconds")
+
+    call.confirmation_status = status
+    call.confirmation_note = note or None
+    # "Not called" is the absence of a confirmation call, so it clears the trail
+    # rather than recording that someone did nothing at a particular time.
+    if status == "not_called":
+        call.confirmed_at = None
+        call.confirmed_by = None
+        call.confirmed_by_name = None
+    else:
+        call.confirmed_at = now
+        call.confirmed_by = _user_id_from_request()
+        call.confirmed_by_name = _user_name_from_request()
+
+    cancelled_now = False
+    if status in CANCELLING_CONFIRMATION_STATUSES and call.status != "cancelled":
+        call.status = "cancelled"
+        call.cancel_reason = note or "Patient declined during the confirmation call"
+        call.cancelled_at = now
+        call.cancelled_by = _user_id_from_request()
+        cancelled_now = True
+
+    log_action("call.confirmation_recorded", "call", call_id, f"Call #{call_id}",
+               {"confirmation_status": status, "cancelled": cancelled_now},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
+    db.session.commit()
+
+    body = call.to_dict()
+    # Say plainly that a decline cancelled the trip — the caller should not have
+    # to infer it from a status field changing underneath them.
+    if cancelled_now:
+        body["cancelledByConfirmation"] = True
+        body["message"] = (f"{CONFIRMATION_STATUS_LABELS[status]} — call #{call_id} "
+                           f"has been cancelled and kept in history.")
+
+    return jsonify(body)

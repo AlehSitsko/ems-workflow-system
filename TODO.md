@@ -104,7 +104,12 @@ Later Calendar phases (see [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4). Not 
 be implemented before the current Calendar slice is complete:
 
 - [ ] Recurring patient transportation; linked outbound/return trips
-- [ ] Scheduling Inbox for calls without a date/time
+- [x] Scheduling Inbox for calls without a trip date — `GET /api/calls/unscheduled`
+  and `PATCH /api/calls/<id>/schedule`, plus the `/scheduling-inbox` page
+  (Operations → Scheduling Inbox). Such calls were previously invisible: the
+  calendar filters by date and the board loads one day at a time, so they existed
+  in the database and nowhere in the product. Oldest intake first; scheduling into
+  the past or onto a finished call is refused. `tests/test_scheduling_inbox.py` (20)
 - [ ] Estimated trip duration + planned end time
 - [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
 - [ ] Day handoff summary; "Close Operational Day" workflow
@@ -225,6 +230,25 @@ Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
   withholds the detail, so the page simply has nothing to hide
 - [ ] Leave balances / PTO accrual / holiday policy — still deferred until the
   business rules are agreed
+
+## P4c — Confirmation calls + call detail page (done)
+
+The day-before ring-round that checks tomorrow's trips are still on.
+
+- [x] `Call.confirmation_status` (not_called / no_answer / confirmed / declined)
+  plus note and who/when trail — migration `f3a81c05d7e2`, FK created in the same
+  migration so it does not add to the drift that `c9e4a7b21d38` had to clean up
+- [x] Four states, not a yes/no flag: "no answer" and "not called yet" look the
+  same on a board and mean opposite things to whoever is working the list
+- [x] `PATCH /api/calls/<id>/confirmation` — a **declined** outcome cancels the
+  call outright and keeps it in history with the reason, rather than leaving a
+  confirmed-looking trip nobody will run
+- [x] `GET /api/calls/<id>` + `/calls/:callId` page: full trip detail, inline
+  correction of what the patient changes on the phone, and the confirmation
+  buttons. Reachable from the scheduling inbox and the board
+- [x] CONF / NO ANS badge on the Dispatch Board call card
+- [x] `tests/test_call_confirmation.py` (15) + frontend `confirmation.test.js` (5)
+- [ ] Bulk "confirmation round" view for a whole day (one screen, call after call)
 
 ## P4 — Later production hardening (planned)
 

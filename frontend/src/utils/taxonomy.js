@@ -283,3 +283,38 @@ export function describeLeaveStatus(value) {
   if (!meta) return { known: false, value: null, label: "—", tone: "neutral", title: "No status" };
   return { known: true, value: key, ...meta, title: `Status: ${meta.label}` };
 }
+
+
+// ── Confirmation calls (roadmap Phase 4) ────────────────────────────────────
+//
+// Dispatchers ring patients the day before. Four states, because "no answer" and
+// "not called yet" mean opposite things to whoever is working the list.
+
+export const CONFIRMATION_STATUSES = ["not_called", "no_answer", "confirmed", "declined"];
+
+export const CONFIRMATION_STATUS_META = {
+  not_called: { label: "Not called", tone: "neutral" },
+  no_answer: { label: "No answer", tone: "warning" },
+  confirmed: { label: "Confirmed", tone: "success" },
+  declined: { label: "Declined", tone: "danger" },
+};
+
+/** Presentation for a call's confirmation state. */
+export function describeConfirmation(value) {
+  const key = aliasKey(value) === "notcalled" ? "not_called"
+    : aliasKey(value) === "noanswer" ? "no_answer"
+      : aliasKey(value);
+  const meta = CONFIRMATION_STATUS_META[key];
+  if (!meta) {
+    return { known: false, value: null, label: "Not called", tone: "neutral",
+             title: "No confirmation call recorded" };
+  }
+  return {
+    known: true,
+    value: key,
+    ...meta,
+    title: key === "declined"
+      ? "Patient declined — the call was cancelled"
+      : `Confirmation: ${meta.label}`,
+  };
+}
