@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import Sidebar from "./Sidebar";
+import { useAttentionCounts } from "../../hooks/useAttentionCounts";
 import AppHeader from "./AppHeader";
 import PageContainer from "./PageContainer";
 import PushNotificationBanner from "./PushNotificationBanner";
@@ -60,6 +61,10 @@ function AppShell({ currentUser, onLogout, children }) {
     if (!isMobile) setMobileNavOpen(false);
   }, [isMobile]);
 
+  // Work sitting in queues that appear on no board — surfaced as badges so it
+  // cannot accumulate unnoticed.
+  const { counts: attentionCounts } = useAttentionCounts(currentUser);
+
   return (
     <div className={`app-shell${collapsed && !isMobile ? " sidebar-collapsed" : ""}`}>
       <Sidebar
@@ -70,6 +75,7 @@ function AppShell({ currentUser, onLogout, children }) {
         isMobile={isMobile}
         mobileOpen={mobileNavOpen}
         onCloseMobile={closeMobileNav}
+        attentionCounts={attentionCounts}
       />
 
       <div className="app-main">

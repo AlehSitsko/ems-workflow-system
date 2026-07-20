@@ -213,6 +213,7 @@ export const ROUTE_METADATA = [
   },
   {
     path: "/day-closeout",
+    badgeKey: "dayCloseout",
     title: "Day closeout",
     subtitle: "Review and sign off an operational day",
     icon: FaClipboardCheck,
@@ -222,6 +223,7 @@ export const ROUTE_METADATA = [
   },
   {
     path: "/confirmation-round",
+    badgeKey: "confirmationRound",
     title: "Confirmation round",
     subtitle: "Ring through a day's trips",
     icon: FaPhoneAlt,
@@ -231,6 +233,7 @@ export const ROUTE_METADATA = [
   },
   {
     path: "/scheduling-inbox",
+    badgeKey: "schedulingInbox",
     title: "Scheduling inbox",
     subtitle: "Calls waiting for a trip date",
     icon: FaInbox,
@@ -240,6 +243,7 @@ export const ROUTE_METADATA = [
   },
   {
     path: "/leave",
+    badgeKey: "leaveReview",
     title: "Leave review",
     subtitle: "Approve, deny and track employee absence",
     icon: FaUmbrellaBeach,

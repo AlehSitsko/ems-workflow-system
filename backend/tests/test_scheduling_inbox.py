@@ -177,3 +177,33 @@ def test_the_inbox_route_is_not_parsed_as_a_call_id(client, roles):
 
 def test_anonymous_access_is_rejected(client):
     assert client.get("/api/calls/unscheduled").status_code in (401, 403)
+
+
+# ── The badge counts ────────────────────────────────────────────────────────
+
+def test_the_inbox_count_is_published_for_the_navigation_badge(client, roles):
+    """A queue nobody is reminded about is a queue that grows."""
+    mk_call(trip_date=None)
+    mk_call(trip_date="")
+    mk_call(trip_date=FUTURE)                       # scheduled: not waiting
+    mk_call(trip_date=None, status="cancelled")     # not waiting either
+
+    counts = client.get("/api/operations/attention", headers=roles["dispatcher"]).get_json()
+    assert counts["schedulingInbox"] == 2
+
+
+def test_scheduling_a_call_lowers_the_badge(client, roles):
+    call = mk_call(trip_date=None)
+    client.patch(f"/api/calls/{call.id}/schedule", headers=roles["dispatcher"],
+                 json={"trip_date": FUTURE})
+
+    counts = client.get("/api/operations/attention", headers=roles["dispatcher"]).get_json()
+    assert counts["schedulingInbox"] == 0
+
+
+def test_hr_is_not_nagged_about_queues_it_cannot_open(client, roles):
+    """HR has no dispatch access, so a dispatch badge would be noise it cannot act on."""
+    mk_call(trip_date=None)
+
+    counts = client.get("/api/operations/attention", headers=roles["hr"]).get_json()
+    assert "schedulingInbox" not in counts
