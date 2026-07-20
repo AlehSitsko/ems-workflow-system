@@ -103,3 +103,30 @@ describe("DayOperationsDrawer without Dispatch access", () => {
     expect(screen.queryAllByRole("button").filter((b) => /John D\.|Unit 12/.test(b.textContent))).toHaveLength(0);
   });
 });
+
+describe("vehicle availability issues", () => {
+  const unitWithBadTruck = (issue, severity) => ({
+    id: "crew_unit:7", type: "crew_shift", title: "Unit 12 — BLS", date: "2026-07-16",
+    start: "2026-07-16T08:00:00", end: "2026-07-16T20:00:00", status: "planned",
+    severity, sourceId: 7, assignedUnitNumber: "12",
+    metadata: { unitType: "BLS", crewCount: 2, minCrew: 2, crewComplete: true, vehicleIssue: issue },
+  });
+
+  it("lists an out-of-service truck as a critical issue", () => {
+    renderDrawer({ events: [unitWithBadTruck("out of service", "critical")] });
+    const issue = screen.getByText("Unit 12: vehicle out of service");
+    expect(issue).toBeInTheDocument();
+    expect(issue).toHaveClass("crit");
+  });
+
+  it("lists planned maintenance as a warning, not a critical issue", () => {
+    renderDrawer({ events: [unitWithBadTruck("in maintenance", "warning")] });
+    const issue = screen.getByText("Unit 12: vehicle in maintenance");
+    expect(issue).toHaveClass("warn");
+  });
+
+  it("says nothing about the truck when there is no issue", () => {
+    renderDrawer({ events: [unitWithBadTruck(null, "normal")] });
+    expect(screen.getByText("No operational issues detected.")).toBeInTheDocument();
+  });
+});

@@ -71,6 +71,25 @@ const DayOperationsDrawer = ({
     if (!u.metadata?.crewComplete) {
       issues.push({ key: `crew-${u.sourceId}`, text: `Unit ${u.assignedUnitNumber} crew incomplete (${u.metadata?.crewCount}/${u.metadata?.minCrew})` });
     }
+    // The backend decides whether an unavailable truck is critical (cannot roll)
+    // or a warning (planned maintenance); mirror that rather than re-deciding.
+    if (u.metadata?.vehicleIssue) {
+      issues.push({
+        key: `vehicle-${u.sourceId}`,
+        text: `Unit ${u.assignedUnitNumber}: vehicle ${u.metadata.vehicleIssue}`,
+        critical: u.severity === "critical",
+      });
+    }
+    // Overlaps are reported on both shifts; list each pair once.
+    (u.metadata?.conflicts || []).forEach((c) => {
+      if (c.withUnitId < u.sourceId) return;
+      const what = c.type === "vehicle_double_booked" ? "same vehicle" : "same crew member";
+      issues.push({
+        key: `conflict-${u.sourceId}-${c.withUnitId}`,
+        text: `Unit ${u.assignedUnitNumber} and Unit ${c.withUnitNumber} overlap in time (${what})`,
+        critical: true,
+      });
+    });
   });
 
   const readiness = summary?.readiness || "empty";

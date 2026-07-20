@@ -12,7 +12,7 @@ utils/auth_utils); replacing it with real auth is a separate hardening phase.
 """
 
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy.orm import joinedload
@@ -126,6 +126,62 @@ def _crew_ids(unit):
     ]
 
 
+# Shifts that no longer hold a person or a vehicle: they cannot conflict with
+# anything, so they are excluded from every overlap check below.
+_INERT_SHIFT_STATUSES = ("cancelled", "completed")
+
+
+def _shift_interval(unit):
+    """A shift's absolute [start, end) as naive local datetimes, or None.
+
+    A shift without an end time has no measurable span, so it cannot be proven
+    to overlap anything — the caller treats that as "no conflict" rather than
+    guessing a duration. Night shifts crossing midnight are handled: an explicit
+    end_date wins, otherwise an end earlier than the start means the next day.
+    """
+    if not unit.shift_date or not unit.start_time or not unit.end_time:
+        return None
+
+    try:
+        start = datetime.strptime(f"{unit.shift_date} {unit.start_time}", "%Y-%m-%d %H:%M")
+        end_day = unit.end_date or unit.shift_date
+        end = datetime.strptime(f"{end_day} {unit.end_time}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        return None
+
+    if not unit.end_date and unit.end_time < unit.start_time:
+        end += timedelta(days=1)
+
+    return (start, end) if end > start else None
+
+
+def _intervals_overlap(a, b):
+    """Half-open overlap: touching ends (20:00–08:00 after 08:00–20:00) do not
+    count, which is exactly how back-to-back shifts are meant to work."""
+    return a[0] < b[1] and b[0] < a[1]
+
+
+def _vehicle_readiness(vehicle):
+    """(severity, reason) for running a shift on this vehicle, or (None, None).
+
+    Retired/inactive/out-of-service means the truck cannot roll — critical.
+    Maintenance is planned downtime that often still ends in time, so it warns.
+    """
+    if vehicle is None:
+        return None, None
+    if vehicle.is_retired:
+        return "critical", "retired"
+    if not vehicle.is_active:
+        return "critical", "inactive"
+
+    status = vehicle.operational_status or "in_service"
+    if status == "out_of_service":
+        return "critical", "out of service"
+    if status == "maintenance":
+        return "warning", "in maintenance"
+    return None, None
+
+
 def _call_status(call, is_assigned):
     """Derive a stable calendar status from the call's own state + assignment."""
     if call.status == "cancelled":
@@ -207,11 +263,16 @@ def _build_call_event(call, unit, include_phi):
     }
 
 
-def _build_crew_event(unit):
+def _build_crew_event(unit, vehicle=None):
     """One crew_shift event derived from a DailyCrewUnit (no PHI)."""
     crew_count = len(_crew_ids(unit))
     min_crew = _min_crew_for_type(unit.unit_type)
     incomplete = crew_count < min_crew and unit.shift_status not in ("completed", "cancelled")
+
+    # A shift already finished or called off is not made unready by its truck.
+    vehicle_severity, vehicle_reason = (None, None)
+    if unit.shift_status not in _INERT_SHIFT_STATUSES:
+        vehicle_severity, vehicle_reason = _vehicle_readiness(vehicle)
 
     start = f"{unit.shift_date}T{unit.start_time}:00" if unit.start_time else None
     end = None
@@ -231,7 +292,7 @@ def _build_crew_event(unit):
         "end": end,
         "allDay": start is None,
         "status": status,
-        "severity": "warning" if incomplete else "normal",
+        "severity": vehicle_severity or ("warning" if incomplete else "normal"),
         "source": "daily_crew_unit",
         "sourceId": unit.id,
         "assignedUnitId": unit.id,
@@ -244,6 +305,11 @@ def _build_crew_event(unit):
             "crewComplete": not incomplete,
             "shiftType": unit.shift_type or "day",
             "dispatchStatus": unit.dispatch_status or "available",
+            # Null when the shift runs a healthy truck, or carries only a legacy
+            # free-text number with no fleet record to check.
+            "vehicleIssue": vehicle_reason,
+            # Filled in by the overlap pass below, once every shift is known.
+            "conflicts": [],
         },
     }
 
@@ -307,13 +373,33 @@ def get_calendar_events():
     # ── Bounded queries (no N+1) ───────────────────────────────────────────
     # YYYY-MM-DD sorts lexicographically, so string range filtering is correct
     # and uses the existing trip_date / shift_date indexes.
+    # Shifts are fetched one day wider than the range: a night shift starting the
+    # evening before runs into the first requested day and must be considered
+    # when looking for overlaps. Only shifts inside the range become events.
+    requested_days = set()
+    day_cursor = start
+    while day_cursor <= end:
+        requested_days.add(day_cursor.isoformat())
+        day_cursor += timedelta(days=1)
+
     units = (
         DailyCrewUnit.query
-        .filter(DailyCrewUnit.shift_date >= start_str, DailyCrewUnit.shift_date <= end_str)
+        .filter(
+            DailyCrewUnit.shift_date >= (start - timedelta(days=1)).isoformat(),
+            DailyCrewUnit.shift_date <= end_str,
+        )
         .order_by(DailyCrewUnit.shift_date, DailyCrewUnit.truck_number)
         .all()
     )
     unit_by_id = {u.id: u for u in units}
+
+    # Vehicles behind those shifts, batched — an out-of-service or retired truck
+    # makes its shift unready, and that must not cost one query per shift.
+    vehicle_ids = {u.vehicle_id for u in units if u.vehicle_id}
+    vehicle_by_id = (
+        {v.id: v for v in Vehicle.query.filter(Vehicle.id.in_(vehicle_ids)).all()}
+        if vehicle_ids else {}
+    )
 
     calls = []
     assign_unit_by_call = {}
@@ -375,29 +461,72 @@ def get_calendar_events():
         if event["metadata"]["missingPickupTime"] and event["status"] in ("assigned", "unassigned"):
             summary["warningCount"] += 1
 
-    # Employee double-booking (same person in 2+ units on a day) is a reliable
-    # critical conflict independent of call data, so it is computed for all roles.
-    emp_seen_by_day = {}
+    # Double-booking is a reliable conflict independent of call data, so it is
+    # computed for all roles. It is measured by overlapping time, not by sharing
+    # a date: a day shift followed by a night shift is normal operations, and
+    # counting it as a conflict trained dispatchers to ignore the indicator.
+    emp_shifts = {}      # employee id -> [(interval, unit)]
+    vehicle_shifts = {}  # vehicle id  -> [(interval, unit)]
+    crew_event_by_unit = {}
+
     for unit in units:
-        event = _build_crew_event(unit)
-        events.append(event)
+        event = _build_crew_event(unit, vehicle_by_id.get(unit.vehicle_id))
+        if unit.shift_date in requested_days:
+            events.append(event)
+            crew_event_by_unit[unit.id] = event
 
-        summary = _day(unit.shift_date)
-        summary["unitsTotal"] += 1
-        if event["metadata"]["crewComplete"]:
-            summary["unitsReady"] += 1
-        else:
-            summary["unitsIncomplete"] += 1
-            summary["warningCount"] += 1
+            summary = _day(unit.shift_date)
+            summary["unitsTotal"] += 1
+            if event["metadata"]["crewComplete"]:
+                summary["unitsReady"] += 1
+            else:
+                summary["unitsIncomplete"] += 1
+                summary["warningCount"] += 1
 
-        seen = emp_seen_by_day.setdefault(unit.shift_date, {})
+            # An unavailable truck makes the whole shift unready.
+            if event["metadata"]["vehicleIssue"]:
+                key = "criticalCount" if event["severity"] == "critical" else "warningCount"
+                summary[key] += 1
+
+        if unit.shift_status in _INERT_SHIFT_STATUSES:
+            continue
+
+        interval = _shift_interval(unit)
+        if not interval:
+            continue
         for eid in _crew_ids(unit):
-            seen[eid] = seen.get(eid, 0) + 1
+            emp_shifts.setdefault(eid, []).append((interval, unit))
+        if unit.vehicle_id:
+            vehicle_shifts.setdefault(unit.vehicle_id, []).append((interval, unit))
 
-    for date_str, seen in emp_seen_by_day.items():
-        double_booked = sum(1 for count in seen.values() if count > 1)
-        if double_booked:
-            _day(date_str)["criticalCount"] += double_booked
+    # Each overlapping pair is charged once, to the day the later shift starts —
+    # the day a dispatcher looking at the board would have to resolve it. Both
+    # shifts also carry the conflict so the day drawer can name it: a readiness
+    # count nobody can explain is worse than no count at all.
+    def _count_overlaps(by_resource, what):
+        for entries in by_resource.values():
+            entries.sort(key=lambda e: e[0][0])
+            for i, (interval_a, unit_a) in enumerate(entries):
+                for interval_b, unit_b in entries[i + 1:]:
+                    if not _intervals_overlap(interval_a, interval_b):
+                        continue
+
+                    conflict_day = max(interval_a[0], interval_b[0]).date().isoformat()
+                    if conflict_day not in requested_days:
+                        continue
+                    _day(conflict_day)["criticalCount"] += 1
+
+                    for this_unit, other in ((unit_a, unit_b), (unit_b, unit_a)):
+                        event = crew_event_by_unit.get(this_unit.id)
+                        if event:
+                            event["metadata"]["conflicts"].append({
+                                "type": what,
+                                "withUnitId": other.id,
+                                "withUnitNumber": other.truck_number,
+                            })
+
+    _count_overlaps(emp_shifts, "crew_double_booked")
+    _count_overlaps(vehicle_shifts, "vehicle_double_booked")
 
     # ── Overlay sources (birthdays, certifications, tasks, vehicles) ─────────
     # Informational events that do NOT affect operational readiness. Each source
