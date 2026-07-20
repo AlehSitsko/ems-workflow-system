@@ -268,6 +268,13 @@ def update_call(call_id):
                 setattr(call, field, new_val)
 
     if changed:
+        # A generated call a human has edited stops following its template:
+        # otherwise the next schedule change would quietly overwrite the
+        # correction just made by hand, which is the one thing recurrence must
+        # never do.
+        if call.recurring_trip_id:
+            call.recurrence_locked = True
+
         log_action("call.updated", "call", call_id,
                    f"Call #{call_id}",
                    {"changed_fields": ", ".join(changed.keys()),
@@ -419,6 +426,8 @@ def schedule_call(call_id):
     call.trip_date = trip_date
     if pickup_time:
         call.pickup_time = pickup_time
+    if call.recurring_trip_id:
+        call.recurrence_locked = True
 
     log_action("call.scheduled", "call", call_id, f"Call #{call_id}",
                {"trip_date": trip_date, "pickup_time": pickup_time or None},

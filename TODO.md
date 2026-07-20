@@ -103,7 +103,13 @@ P4). Detailed phase notes in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 3.
 Later Calendar phases (see [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4). Not to
 be implemented before the current Calendar slice is complete:
 
-- [ ] Recurring patient transportation; linked outbound/return trips
+- [x] Recurring patient transportation + linked outbound/return trips —
+  `RecurringTrip` (migration `b8e17d3c94af`), `/api/recurring-trips`, and the
+  `/recurring-trips` page. A standing order materialises ordinary Call rows a few
+  weeks ahead, so the board, calendar, inbox and confirmation round need no
+  knowledge of recurrence. Regeneration is idempotent; a trip a human has touched
+  (confirmed, assigned, cancelled or hand-edited) is never rewritten or withdrawn
+  unless the editor explicitly asks to re-sync. `tests/test_recurring_trips.py` (25)
 - [x] Scheduling Inbox for calls without a trip date — `GET /api/calls/unscheduled`
   and `PATCH /api/calls/<id>/schedule`, plus the `/scheduling-inbox` page
   (Operations → Scheduling Inbox). Such calls were previously invisible: the

@@ -29,6 +29,7 @@ const SchedulingInboxPage = lazy(() => import("./pages/SchedulingInboxPage"));
 const CallWorkspacePage = lazy(() => import("./pages/calls/CallWorkspacePage"));
 const ConfirmationRoundPage = lazy(() => import("./pages/calls/ConfirmationRoundPage"));
 const DayCloseoutPage = lazy(() => import("./pages/operations/DayCloseoutPage"));
+const RecurringTripsPage = lazy(() => import("./pages/calls/RecurringTripsPage"));
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const PatientWorkspacePage = lazy(() => import("./pages/patients/PatientWorkspacePage"));
 const PatientFormPage = lazy(() => import("./pages/patients/PatientFormPage"));
@@ -293,6 +294,7 @@ function App() {
         { path: "/crew-planner", element: <CrewPlannerRoute><CrewPlannerPage /></CrewPlannerRoute> },
         { path: "/dispatch", element: <DispatchRoute><DispatchBoardPage /></DispatchRoute> },
         { path: "/scheduling-inbox", element: <DispatchRoute><SchedulingInboxPage currentUser={currentUser} /></DispatchRoute> },
+        { path: "/recurring-trips", element: <DispatchRoute><RecurringTripsPage /></DispatchRoute> },
         { path: "/day-closeout", element: <DispatchRoute><DayCloseoutPage currentUser={currentUser} /></DispatchRoute> },
         { path: "/confirmation-round", element: <DispatchRoute><ConfirmationRoundPage currentUser={currentUser} /></DispatchRoute> },
         { path: "/calls/:callId", element: <DispatchRoute><CallWorkspacePage currentUser={currentUser} /></DispatchRoute> },

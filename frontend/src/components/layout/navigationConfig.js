@@ -20,6 +20,7 @@ import {
   FaUmbrellaBeach,
   FaInbox,
   FaClipboardCheck,
+  FaSyncAlt,
 } from "react-icons/fa";
 
 import {
@@ -65,6 +66,12 @@ export const navigationGroups = [
         path: "/call-form",
         icon: FaPhoneAlt,
         canAccess: hasPatientAccess,
+      },
+      {
+        label: "Recurring Trips",
+        path: "/recurring-trips",
+        icon: FaSyncAlt,
+        canAccess: hasDispatchAccess,
       },
       {
         label: "Day Closeout",
