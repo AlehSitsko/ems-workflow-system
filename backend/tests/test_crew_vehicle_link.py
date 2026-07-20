@@ -142,3 +142,70 @@ def test_night_copy_carries_the_vehicle_link(client, dispatcher, vehicles):
 
     night = DailyCrewUnit.query.filter_by(shift_type="night").one()
     assert night.vehicle_id == vehicles["active"].id
+
+
+# ── Deleting a shift that still holds calls ─────────────────────────────────
+
+def _mk_call_on(client, headers, trip_date):
+    from models import Call
+    call = Call(trip_date=trip_date, status="new", service_level="BLS",
+                pickup_time="10:00", call_type="Appointment")
+    db.session.add(call)
+    db.session.commit()
+    return call
+
+
+def test_deleting_a_shift_with_assigned_calls_is_refused_not_a_500(client, dispatcher, vehicles):
+    """It used to raise a raw IntegrityError and leak the SQL in a 500."""
+    unit = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+    call = _mk_call_on(client, dispatcher, "2099-01-01")
+
+    assert client.post("/api/dispatch/assign", headers=dispatcher,
+                       json={"call_id": call.id, "unit_id": unit["id"]}).status_code == 201
+
+    resp = client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher)
+    assert resp.status_code == 409
+
+    body = resp.get_json()
+    assert body["assignedCalls"] == 1
+    assert "Unassign them" in body["error"]
+    # The refusal must not expose internals.
+    assert "IntegrityError" not in body["error"] and "SQL" not in body["error"]
+
+    # And the shift is still there.
+    assert client.get("/api/crew-units?shift_date=2099-01-01", headers=dispatcher).get_json()
+
+
+def test_a_shift_deletes_once_its_calls_are_unassigned(client, dispatcher, vehicles):
+    unit = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+    call = _mk_call_on(client, dispatcher, "2099-01-01")
+    assign = client.post("/api/dispatch/assign", headers=dispatcher,
+                         json={"call_id": call.id, "unit_id": unit["id"]}).get_json()
+
+    client.delete(f"/api/dispatch/assign/{assign['id']}", headers=dispatcher)
+
+    assert client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher).status_code == 200
+
+
+def test_an_empty_shift_still_deletes(client, dispatcher, vehicles):
+    unit = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+
+    assert client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher).status_code == 200
+
+
+def test_deleting_a_shift_leaves_its_calls_alone(client, dispatcher, vehicles):
+    """The shift goes; the call stays and is simply unassigned again."""
+    from models import Call
+
+    unit = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+    call = _mk_call_on(client, dispatcher, "2099-01-01")
+    assign = client.post("/api/dispatch/assign", headers=dispatcher,
+                         json={"call_id": call.id, "unit_id": unit["id"]}).get_json()
+    client.delete(f"/api/dispatch/assign/{assign['id']}", headers=dispatcher)
+
+    assert client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher).status_code == 200
+    assert db.session.get(Call, call.id) is not None

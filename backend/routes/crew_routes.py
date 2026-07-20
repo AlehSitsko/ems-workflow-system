@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 
-from models import db, DailyCrewUnit, Vehicle
+from models import db, DailyCrewUnit, Vehicle, CallAssignment
 from utils.employee_utils import parse_optional_employee_id
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
 from utils.auth_utils import require_role
@@ -305,12 +305,31 @@ def delete_daily_crew_unit(id):
     if historical:
         return jsonify(historical[0]), historical[1]
 
-    try:
-        db.session.delete(unit)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    # A shift still holding calls is refused rather than cascaded: unassigning
+    # silently would drop those calls back into the open queue with no trace of
+    # who did it, and mid-shift that is how a trip gets lost. Same reasoning as
+    # re-assigning a completed call, which also demands an explicit step first.
+    assigned = (
+        CallAssignment.query
+        .filter_by(unit_id=unit.id, is_active=True)
+        .count()
+    )
+    if assigned:
+        return jsonify({
+            "error": f"Unit {unit.truck_number} still has {assigned} assigned "
+                     f"{'call' if assigned == 1 else 'calls'}. "
+                     f"Unassign them before deleting the shift.",
+            "assignedCalls": assigned,
+        }), 409
+
+    # Unassigning only deactivates the row, so the shift still has inactive
+    # assignment history pointing at it. That history describes a shift that is
+    # about to stop existing, and the foreign key would block the delete, so it
+    # goes with it. The calls themselves are untouched.
+    CallAssignment.query.filter_by(unit_id=unit.id).delete(synchronize_session=False)
+
+    db.session.delete(unit)
+    db.session.commit()
     return jsonify({"message": "Crew unit deleted"})
 
 
