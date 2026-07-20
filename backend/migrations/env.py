@@ -97,6 +97,27 @@ def run_migrations_online():
     connectable = get_engine()
 
     with connectable.connect() as connection:
+        # SQLite cannot ALTER a constraint, so Alembic's batch mode rebuilds the
+        # table: copy into _alembic_tmp_<table>, drop the original, rename. That
+        # DROP fails the moment another table references the one being rebuilt,
+        # because extensions.py turns on PRAGMA foreign_keys for every
+        # connection — including this one. The failure leaves the half-built
+        # _alembic_tmp_* table behind, which then blocks every later attempt.
+        #
+        # Enforcement is therefore off for the duration of a migration. The
+        # constraints themselves are still created, the app's own connections
+        # still enforce them, and each migration is responsible for checking its
+        # own data (see c9e4a7b21d38, which refuses to run on orphan rows).
+        # The pragma is issued on the raw DBAPI connection on purpose. Running it
+        # through SQLAlchemy would open a transaction around it, and SQLite
+        # silently ignores the setting inside a transaction — the migration then
+        # rolls back at the end of the block, reporting success while changing
+        # nothing.
+        if connection.dialect.name == "sqlite":
+            cursor = connection.connection.dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=OFF")
+            cursor.close()
+
         context.configure(
             connection=connection,
             target_metadata=get_metadata(),
