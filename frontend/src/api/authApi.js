@@ -109,6 +109,20 @@ export function hasEmployeeAccess(user) {
   );
 }
 
+// Leave review: HR and admin decide; a supervisor gets the read-only overview
+// (they may file a request but not approve one, matching the backend).
+export function hasLeaveReviewAccess(user) {
+  if (!user) {
+    return false;
+  }
+
+  return (
+    user.role === "admin" ||
+    user.role === "hr" ||
+    user.role === "supervisor"
+  );
+}
+
 // Check whether a user can access crew planning features.
 // Crew Planner shows the day's crew units, which carry the patient order (PHI).
 // HR is excluded to match the backend gate on /api/crew-units — leaving HR in
