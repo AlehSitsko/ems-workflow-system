@@ -50,29 +50,11 @@ import {
 import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
 import { useUserSettings } from "../context/useUserSettings";
+import VehicleSelect from "../components/dispatch/VehicleSelect";
+import { findVehicleOverlaps, getVehicleWarnings } from "../utils/vehicleAssignment";
 import { formatTimeForDisplay } from "../utils/timeUtils";
 
 const UNIT_TYPES = ["BLS", "ALS", "ASSIST"];
-
-/*
-  Computes a unit's absolute time range as epoch-ms { start, end }, or null when
-  the end can't be determined (no end time). Handles night shifts that cross
-  midnight: an explicit endDate wins; otherwise an end earlier than the start is
-  treated as the next day. Used for the same-vehicle overlap warning.
-*/
-function getUnitTimeRange(shiftDate, startTime, endTime, endDate) {
-  if (!shiftDate || !startTime || !endTime) return null;
-  const start = new Date(`${shiftDate}T${startTime}:00`);
-  let endDay = endDate || shiftDate;
-  if (!endDate && endTime < startTime) {
-    const d = new Date(`${shiftDate}T00:00:00`);
-    d.setDate(d.getDate() + 1);
-    endDay = d.toISOString().slice(0, 10);
-  }
-  const end = new Date(`${endDay}T${endTime}:00`);
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return null;
-  return { start: start.getTime(), end: end.getTime() };
-}
 
 /*
   Default empty crew object.
@@ -91,6 +73,7 @@ const initialCrew = {
 const initialUnitForm = {
   shiftDate: getTodayDate(),
   unitType: "BLS",
+  vehicleId: null,
   truckNumber: "",
   startTime: "",
   endTime: "",
@@ -294,13 +277,15 @@ function CrewPlannerPage() {
   };
 
   /*
-    Selecting a registered vehicle auto-fills truck number + unit type.
+    Picking a vehicle stores the fleet link and snapshots its number; the unit
+    type follows the vehicle's own classification as a starting point.
   */
-  const handleVehicleSelect = (unitNumber) => {
-    const vehicle = vehicles.find((v) => v.unitNumber === unitNumber);
+  const handleVehicleSelect = ({ vehicleId, truckNumber }) => {
+    const vehicle = vehicles.find((v) => String(v.id) === String(vehicleId));
     setUnitForm((prev) => ({
       ...prev,
-      truckNumber: unitNumber,
+      vehicleId,
+      truckNumber,
       unitType: vehicle ? vehicle.unitType : prev.unitType,
     }));
   };
@@ -731,6 +716,7 @@ function CrewPlannerPage() {
     setUnitForm({
       shiftDate: unit.shiftDate || selectedDate,
       unitType: unit.unitType || "BLS",
+      vehicleId: unit.vehicleId ?? null,
       truckNumber: unit.truckNumber || "",
       startTime: unit.startTime || "",
       endTime: unit.endTime || "",
@@ -782,7 +768,7 @@ function CrewPlannerPage() {
     }
 
     if (!unitForm.truckNumber.trim()) {
-      errors.push("Truck Number is required.");
+      errors.push("Vehicle is required.");
     }
 
     if (!unitForm.startTime.trim()) {
@@ -844,43 +830,25 @@ function CrewPlannerPage() {
   }, [unitForm, timeFormat, getEmployeeById, getEmployeeAssignmentsInOtherUnits]);
 
   /*
-    Soft warnings for the current form's time range overlapping another active
-    unit on the SAME vehicle/truck. Non-blocking — the dispatcher can still save
-    (consistent with the other crew warnings). Cancelled/completed units and the
-    unit being edited are excluded.
+    Soft warnings about the chosen vehicle: not ready for service, not capable
+    of this unit type, or already out on an overlapping shift. Non-blocking —
+    consistent with the crew warnings alongside them. Shared with the Dispatch
+    Board so both forms judge a vehicle by the same rules.
   */
-  const overlapWarnings = useMemo(() => {
-    const truck = unitForm.truckNumber.trim().toLowerCase();
-    if (!truck) return [];
-    const formRange = getUnitTimeRange(
-      unitForm.shiftDate, unitForm.startTime, unitForm.endTime, unitForm.endDate
-    );
-    if (!formRange) return [];
-
-    const warnings = [];
-    units.forEach((unit) => {
-      if (editingUnitId && String(unit.id) === String(editingUnitId)) return;
-      if (["cancelled", "completed"].includes(unit.shiftStatus)) return;
-      if ((unit.truckNumber || "").trim().toLowerCase() !== truck) return;
-
-      const otherRange = getUnitTimeRange(
-        unit.shiftDate, unit.startTime, unit.endTime, unit.endDate
-      );
-      if (!otherRange) return;
-      // Half-open overlap: start < otherEnd && otherStart < end.
-      if (formRange.start < otherRange.end && otherRange.start < formRange.end) {
-        warnings.push(
-          `Time overlaps Truck ${unit.truckNumber} (${unit.unitType}, ${formatTimeForDisplay(unit.startTime, timeFormat)}–${formatTimeForDisplay(unit.endTime, timeFormat)}) on the same vehicle.`
-        );
-      }
-    });
-    return warnings;
-  }, [unitForm, units, editingUnitId, timeFormat]);
+  const vehicleWarnings = useMemo(() => {
+    const vehicle = vehicles.find((v) => String(v.id) === String(unitForm.vehicleId));
+    const overlappingUnits = findVehicleOverlaps({ form: unitForm, units, editingUnitId })
+      .map((u) => ({
+        label: `${u.unitType} ${formatTimeForDisplay(u.startTime, timeFormat)}`
+          + `${u.endTime ? `–${formatTimeForDisplay(u.endTime, timeFormat)}` : ""}`,
+      }));
+    return getVehicleWarnings({ vehicle, unitType: unitForm.unitType, overlappingUnits });
+  }, [unitForm, units, editingUnitId, vehicles, timeFormat]);
 
   // All non-blocking warnings shown in the form's "Unit Warnings" box.
   const allUnitWarnings = useMemo(
-    () => [...unitWarningMessages, ...overlapWarnings],
-    [unitWarningMessages, overlapWarnings]
+    () => [...unitWarningMessages, ...vehicleWarnings],
+    [unitWarningMessages, vehicleWarnings]
   );
 
   /*
@@ -934,6 +902,7 @@ function CrewPlannerPage() {
     return {
       shiftDate: unitForm.shiftDate,
       unitType: unitForm.unitType,
+      vehicleId: unitForm.vehicleId,
       truckNumber: unitForm.truckNumber.trim(),
       startTime: unitForm.startTime,
       endTime: unitForm.endTime || null,
@@ -1379,45 +1348,19 @@ function CrewPlannerPage() {
 
                         <div className="col-md-6">
                           <label
-                            htmlFor="truckNumber"
+                            htmlFor="vehicleId"
                             className="form-label fw-semibold"
                           >
-                            Truck Number
+                            Vehicle
                           </label>
 
-                          {vehicles.filter((v) => v.isActive).length > 0 ? (
-                            <select
-                              id="truckNumber"
-                              name="truckNumber"
-                              className="form-select"
-                              value={unitForm.truckNumber}
-                              onChange={(e) => handleVehicleSelect(e.target.value)}
-                              disabled={unitsLoading}
-                            >
-                              <option value="">Select vehicle...</option>
-                              {vehicles.filter((v) => v.isActive).map((v) => (
-                                <option key={v.id} value={v.unitNumber}>
-                                  {v.unitName} (#{v.unitNumber}) — {v.unitType}
-                                </option>
-                              ))}
-                              {unitForm.truckNumber &&
-                                !vehicles.some((v) => v.unitNumber === unitForm.truckNumber) && (
-                                  <option value={unitForm.truckNumber}>
-                                    {unitForm.truckNumber} (not in registry)
-                                  </option>
-                              )}
-                            </select>
-                          ) : (
-                            <input
-                              id="truckNumber"
-                              name="truckNumber"
-                              type="text"
-                              className="form-control"
-                              value={unitForm.truckNumber}
-                              onChange={handleUnitFieldChange}
-                              disabled={unitsLoading}
-                            />
-                          )}
+                          <VehicleSelect
+                            vehicles={vehicles}
+                            vehicleId={unitForm.vehicleId}
+                            truckNumber={unitForm.truckNumber}
+                            disabled={unitsLoading}
+                            onChange={handleVehicleSelect}
+                          />
                         </div>
 
                         <div className="col-md-6">

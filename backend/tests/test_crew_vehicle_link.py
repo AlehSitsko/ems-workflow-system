@@ -1,0 +1,144 @@
+"""Crew shifts run a real fleet vehicle, not a typed-in truck number.
+
+DailyCrewUnit.vehicle_id is the link Fleet reporting depends on (a vehicle's
+shift history is driven by the FK, never by matching truck_number strings).
+These tests pin that the write path actually fills it, that the stored
+truck_number is a snapshot of the vehicle, and that clients predating the link
+keep working.
+"""
+
+import pytest
+from werkzeug.security import generate_password_hash
+
+from models import db, User, Vehicle, DailyCrewUnit
+
+
+@pytest.fixture()
+def dispatcher(app):
+    user = User(
+        username="crew_dispatcher",
+        password_hash=generate_password_hash("pw"),
+        display_name="Crew Dispatcher",
+        role="dispatcher",
+        is_active=True,
+    )
+    db.session.add(user)
+    db.session.commit()
+    return {"X-User-Id": str(user.id), "X-User-Role": "dispatcher", "X-User-Name": user.display_name}
+
+
+@pytest.fixture()
+def vehicles(app):
+    made = {}
+    for key, kwargs in {
+        "active": dict(unit_name="Ambu-1", unit_number="101", unit_type="BLS"),
+        "oos": dict(unit_name="Ambu-2", unit_number="102", unit_type="BLS",
+                    operational_status="out_of_service"),
+        "inactive": dict(unit_name="Ambu-3", unit_number="103", unit_type="BLS", is_active=False),
+        "retired": dict(unit_name="Ambu-4", unit_number="104", unit_type="BLS", is_retired=True),
+    }.items():
+        v = Vehicle(**kwargs)
+        db.session.add(v)
+        made[key] = v
+    db.session.commit()
+    return made
+
+
+def unit_payload(**overrides):
+    data = {
+        "shiftDate": "2099-01-01",   # future: the board rejects historical writes
+        "startTime": "08:00",
+        "unitType": "BLS",
+        "crew": {},
+    }
+    data.update(overrides)
+    return data
+
+
+def test_create_links_vehicle_and_snapshots_its_number(client, dispatcher, vehicles):
+    resp = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["active"].id))
+    assert resp.status_code == 201, resp.get_json()
+
+    body = resp.get_json()
+    assert body["vehicleId"] == vehicles["active"].id
+    # The number is taken from the vehicle, not from whatever the client typed.
+    assert body["truckNumber"] == "101"
+
+
+def test_client_supplied_truck_number_never_overrides_the_vehicle(client, dispatcher, vehicles):
+    resp = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["active"].id, truckNumber="999"))
+    assert resp.status_code == 201
+    assert resp.get_json()["truckNumber"] == "101"
+
+
+def test_out_of_service_vehicle_is_allowed_as_a_warning_not_an_error(client, dispatcher, vehicles):
+    # Planning ahead of a repair is legitimate; the UI warns, the API allows.
+    resp = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles["oos"].id))
+    assert resp.status_code == 201
+    assert resp.get_json()["vehicleId"] == vehicles["oos"].id
+
+
+@pytest.mark.parametrize("key", ["retired", "inactive"])
+def test_retired_and_inactive_vehicles_are_rejected(client, dispatcher, vehicles, key):
+    resp = client.post("/api/crew-units", headers=dispatcher,
+                       json=unit_payload(vehicleId=vehicles[key].id))
+    assert resp.status_code == 400
+    assert "cannot be assigned" in resp.get_json()["error"]
+
+
+def test_unknown_vehicle_is_rejected(client, dispatcher, vehicles):
+    resp = client.post("/api/crew-units", headers=dispatcher, json=unit_payload(vehicleId=999999))
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Selected vehicle does not exist"
+
+
+def test_legacy_client_sending_only_a_truck_number_still_works(client, dispatcher, vehicles):
+    resp = client.post("/api/crew-units", headers=dispatcher, json=unit_payload(truckNumber="77"))
+    assert resp.status_code == 201
+
+    body = resp.get_json()
+    assert body["truckNumber"] == "77"
+    assert body["vehicleId"] is None
+
+
+def test_a_unit_needs_either_a_vehicle_or_a_truck_number(client, dispatcher):
+    resp = client.post("/api/crew-units", headers=dispatcher, json=unit_payload())
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Truck Number is required"
+
+
+def test_update_without_vehicle_id_keeps_the_existing_link(client, dispatcher, vehicles):
+    created = client.post("/api/crew-units", headers=dispatcher,
+                          json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+
+    # A partial save (e.g. an older client, or a crew-only edit) must not
+    # silently unlink the vehicle.
+    resp = client.put(f"/api/crew-units/{created['id']}", headers=dispatcher,
+                      json=unit_payload(truckNumber="101", startTime="09:00"))
+    assert resp.status_code == 200
+    assert resp.get_json()["vehicleId"] == vehicles["active"].id
+
+
+def test_update_can_clear_the_link_back_to_free_text(client, dispatcher, vehicles):
+    created = client.post("/api/crew-units", headers=dispatcher,
+                          json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+
+    resp = client.put(f"/api/crew-units/{created['id']}", headers=dispatcher,
+                      json=unit_payload(vehicleId=None, truckNumber="rental van"))
+    assert resp.status_code == 200
+    assert resp.get_json()["vehicleId"] is None
+    assert resp.get_json()["truckNumber"] == "rental van"
+
+
+def test_night_copy_carries_the_vehicle_link(client, dispatcher, vehicles):
+    created = client.post("/api/crew-units", headers=dispatcher,
+                          json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
+
+    resp = client.post(f"/api/crew-units/{created['id']}/make-night", headers=dispatcher, json={})
+    assert resp.status_code == 201, resp.get_json()
+
+    night = DailyCrewUnit.query.filter_by(shift_type="night").one()
+    assert night.vehicle_id == vehicles["active"].id
