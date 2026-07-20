@@ -51,3 +51,14 @@ export async function reopenOperationalDay(day, headers = {}) {
   });
   return handle(response, "Failed to reopen the day");
 }
+
+/**
+ * Counts of work waiting in queues that appear on no board.
+ *
+ * Scoped server-side to the roles that can act on each queue, so a badge never
+ * nags someone about a page they cannot open.
+ */
+export async function getAttentionCounts(headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/operations/attention`, { headers });
+  return handle(response, "Failed to load attention counts");
+}

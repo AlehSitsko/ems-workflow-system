@@ -16,7 +16,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models import db, Call, DailyCrewUnit, CallAssignment, OperationalDayClosure
-from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
+from utils.auth_utils import require_role, get_request_role, get_request_user_id, get_request_user_name
 from utils.validation_utils import is_valid_date, check_length
 from utils.operational_dates import operational_mode, HISTORY, LIVE
 from audit_utils import log_action
@@ -103,6 +103,64 @@ def _day_report(day):
             "units": unfinished_units,
         },
     }
+
+
+@operations_bp.route("/attention", methods=["GET"])
+@require_role("admin", "supervisor", "dispatcher", "hr")
+def attention_counts():
+    """What is quietly waiting for someone, as counts for the navigation badges.
+
+    Queues that nobody is reminded about are queues that grow. Each of these is a
+    place work can sit indefinitely without appearing on any board: a call with
+    no trip date, a day of trips nobody has rung about, yesterday still unsigned,
+    a leave request nobody has decided.
+
+    Counts only — cheap enough to poll, and it discloses nothing a badge should
+    not carry. Each is scoped to the roles that can act on it, so nobody is
+    nagged about a queue they cannot open.
+    """
+    from models import EmployeeLeaveRequest
+    from utils.operational_dates import local_today
+    from datetime import timedelta
+
+    role = get_request_role()
+    counts = {}
+
+    if role in VIEW_ROLES:            # admin / supervisor / dispatcher
+        counts["schedulingInbox"] = (
+            Call.query
+            .filter(db.or_(Call.trip_date.is_(None), Call.trip_date == ""),
+                    Call.status.notin_(("cancelled", "completed")))
+            .count()
+        )
+
+        # Tomorrow's trips still to ring: not called yet, or nobody picked up.
+        tomorrow = (local_today() + timedelta(days=1)).isoformat()
+        counts["confirmationRound"] = (
+            Call.query
+            .filter(Call.trip_date == tomorrow,
+                    Call.status.notin_(("cancelled", "completed")),
+                    db.or_(Call.confirmation_status.is_(None),
+                           Call.confirmation_status.in_(("not_called", "no_answer"))))
+            .count()
+        )
+
+        # Yesterday, if it was never signed off. Only ever 0 or 1 — the badge is
+        # a reminder, not a backlog count.
+        yesterday = (local_today() - timedelta(days=1)).isoformat()
+        already_closed = OperationalDayClosure.query.filter_by(day=yesterday).first()
+        has_activity = (
+            Call.query.filter(Call.trip_date == yesterday).first() is not None
+            or DailyCrewUnit.query.filter(DailyCrewUnit.shift_date == yesterday).first() is not None
+        )
+        counts["dayCloseout"] = 0 if (already_closed or not has_activity) else 1
+
+    if role in ("admin", "hr", "supervisor"):
+        counts["leaveReview"] = (
+            EmployeeLeaveRequest.query.filter(EmployeeLeaveRequest.status == "pending").count()
+        )
+
+    return jsonify(counts)
 
 
 @operations_bp.route("/days/<day>", methods=["GET"])

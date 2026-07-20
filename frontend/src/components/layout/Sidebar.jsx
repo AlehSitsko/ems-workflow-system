@@ -26,6 +26,7 @@ function Sidebar({
   isMobile = false,
   mobileOpen = false,
   onCloseMobile,
+  attentionCounts = {},
   id = "app-sidebar",
 }) {
   const asideRef = useRef(null);
@@ -126,6 +127,8 @@ function Sidebar({
 
               {group.items.map((item) => {
                 const Icon = item.icon;
+                // Only ever shown when there is something to act on.
+                const waiting = item.badgeKey ? attentionCounts[item.badgeKey] || 0 : 0;
                 return (
                   <NavLink
                     key={item.path}
@@ -133,14 +136,24 @@ function Sidebar({
                     className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
                     // Collapsed shows icons only, so the label has to survive as
                     // a tooltip and as the accessible name.
-                    title={isCollapsed ? item.title : undefined}
-                    aria-label={isCollapsed ? item.title : undefined}
+                    title={isCollapsed
+                      ? `${item.title}${waiting ? ` — ${waiting} waiting` : ""}`
+                      : undefined}
+                    aria-label={waiting
+                      ? `${item.title}, ${waiting} waiting`
+                      : (isCollapsed ? item.title : undefined)}
                     onClick={isMobile ? onCloseMobile : undefined}
                   >
                     <span className="sidebar-link-icon">
                       <Icon />
+                      {/* Collapsed hides the label, so the count becomes a dot —
+                          the point still lands: something is waiting here. */}
+                      {waiting > 0 && isCollapsed && <span className="sidebar-badge-dot" />}
                     </span>
                     <span className="sidebar-link-label">{item.title}</span>
+                    {waiting > 0 && !isCollapsed && (
+                      <span className="sidebar-badge">{waiting > 99 ? "99+" : waiting}</span>
+                    )}
                   </NavLink>
                 );
               })}

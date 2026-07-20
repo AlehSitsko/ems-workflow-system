@@ -117,6 +117,41 @@ textarea.form-control {
   padding: 0;
 }
 
+
+/* Waiting-work badges in the sidebar.
+   Deliberately not animated: this navigation is on screen all day, and a
+   blinking element in the corner of the eye stops being information and becomes
+   something people learn to tune out. A steady danger-toned count is read once
+   and understood. */
+.sidebar-badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  color: #fff;
+  background: var(--color-danger);
+}
+
+/* Collapsed rail: no room for a number, so a dot carries the same signal. */
+.sidebar-badge-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  border: 2px solid var(--color-sidebar);
+}
+
+.sidebar-link-icon {
+  position: relative;
+}
+
 /* =========================
    Sidebar (navy in both themes)
    ========================= */
