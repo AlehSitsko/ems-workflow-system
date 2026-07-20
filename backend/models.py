@@ -292,7 +292,7 @@ class VehicleOdometerEntry(db.Model):
     __tablename__ = "vehicle_odometer_entry"
 
     id = db.Column(db.Integer, primary_key=True)
-    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False, index=True)
 
     reading = db.Column(db.Integer, nullable=False)
     unit = db.Column(db.String(5), default="mi")          # mi | km
@@ -323,12 +323,12 @@ class VehicleMaintenanceRecord(db.Model):
     __tablename__ = "vehicle_maintenance_record"
 
     id = db.Column(db.Integer, primary_key=True)
-    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False, index=True)
 
     maintenance_type = db.Column(db.String(50), nullable=False)   # oil_change | inspection | tires | repair | other
     status = db.Column(db.String(20), nullable=False, default="scheduled")  # scheduled | in_progress | completed | cancelled
 
-    scheduled_date = db.Column(db.String(20))
+    scheduled_date = db.Column(db.String(20), index=True)
     completed_date = db.Column(db.String(20))
     odometer_at_service = db.Column(db.Integer)
 
@@ -367,7 +367,7 @@ class DailyCrewUnit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Shift date.
-    shift_date = db.Column(db.String(20), nullable=False)
+    shift_date = db.Column(db.String(20), nullable=False, index=True)
 
     # Unit information.
     unit_type = db.Column(db.String(50), nullable=False)
@@ -580,8 +580,8 @@ class Patient(db.Model):
 
     # Basic patient information.
     first_name = db.Column(db.String(100))
-    last_name = db.Column(db.String(100))
-    dob = db.Column(db.String(20))
+    last_name = db.Column(db.String(100), index=True)
+    dob = db.Column(db.String(20), index=True)
     gender = db.Column(db.String(50))
 
     # Contact information.
@@ -790,7 +790,7 @@ class Call(db.Model):
     patient_id = db.Column(
         db.Integer,
         db.ForeignKey("patient.id"),
-        nullable=True
+        nullable=True, index=True
     )
     patient = db.relationship("Patient", foreign_keys=[patient_id], lazy="select")
 
@@ -800,10 +800,10 @@ class Call(db.Model):
     received_at = db.Column(db.String(50))
 
     # Initial operational status for future dispatch lifecycle tracking.
-    status = db.Column(db.String(50), default="new")
+    status = db.Column(db.String(50), default="new", index=True)
 
     date_of_call = db.Column(db.String(20))
-    trip_date = db.Column(db.String(20))
+    trip_date = db.Column(db.String(20), index=True)
     pickup_time = db.Column(db.String(20))
     appointment_time = db.Column(db.String(20))
 
@@ -909,7 +909,7 @@ class NotificationEvent(db.Model):
     body = db.Column(db.Text)
     entity_type = db.Column(db.String(50))   # call | unit | employee
     entity_id = db.Column(db.Integer)
-    created_at = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.String(50), nullable=False, index=True)
     expires_at = db.Column(db.String(50))
 
     # Multi-tenancy foundation.
@@ -932,8 +932,8 @@ class NotificationEvent(db.Model):
 class UserNotification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey("notification_event.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    is_read = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    is_read = db.Column(db.Boolean, default=False, index=True)
     created_at = db.Column(db.String(50), nullable=False)
 
     def to_dict(self, event=None):
@@ -961,19 +961,19 @@ class CallAssignment(db.Model):
     call_id = db.Column(
         db.Integer,
         db.ForeignKey("call.id"),
-        nullable=False,
+        nullable=False, index=True,
     )
 
     unit_id = db.Column(
         db.Integer,
         db.ForeignKey("daily_crew_unit.id"),
-        nullable=False,
+        nullable=False, index=True,
     )
 
     assigned_at = db.Column(db.String(50))
     assigned_by = db.Column(db.String(150))
 
-    is_active = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, index=True)
 
     def to_dict(self):
         return {
@@ -988,7 +988,7 @@ class CallAssignment(db.Model):
 
 class TimeEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False, index=True)
 
     clock_in = db.Column(db.String(50), nullable=False)   # ISO datetime
     clock_out = db.Column(db.String(50))                  # ISO datetime, null if still clocked in
@@ -1118,7 +1118,7 @@ class EmployeeDocument(db.Model):
     __tablename__ = "employee_document"
 
     id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False, index=True)
     employee = db.relationship("Employee", foreign_keys=[employee_id], lazy="joined")
 
     doc_type = db.Column(db.String(50), nullable=False)
@@ -1132,7 +1132,7 @@ class EmployeeDocument(db.Model):
     document_number = db.Column(db.String(100))
     issuing_body = db.Column(db.String(200))
     issued_date = db.Column(db.String(20))   # YYYY-MM-DD
-    expiry_date = db.Column(db.String(20))   # YYYY-MM-DD, nullable
+    expiry_date = db.Column(db.String(20), index=True)   # YYYY-MM-DD, nullable
 
     notes = db.Column(db.Text)
     uploaded_by = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -1188,11 +1188,11 @@ class AuditLog(db.Model):
     __tablename__ = "audit_log"
 
     id            = db.Column(db.Integer, primary_key=True)
-    timestamp     = db.Column(db.String(50), nullable=False)
+    timestamp     = db.Column(db.String(50), nullable=False, index=True)
     user_id       = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     user_name     = db.Column(db.String(150))        # denormalized for display after user deletion
     action        = db.Column(db.String(100), nullable=False)   # e.g. "call.assigned"
-    entity_type   = db.Column(db.String(50))         # "call", "patient", "unit", "time_entry"
+    entity_type   = db.Column(db.String(50), index=True)         # "call", "patient", "unit", "time_entry"
     entity_id     = db.Column(db.Integer)
     entity_label  = db.Column(db.String(255))        # human-readable: "Call #42", "John Doe"
     details       = db.Column(db.Text)               # JSON string with old/new values or extra context
@@ -1222,11 +1222,11 @@ class Task(db.Model):
     description = db.Column(db.Text, nullable=True)
 
     task_type = db.Column(db.String(50), nullable=False, default="General Task")
-    status = db.Column(db.String(30), nullable=False, default="New")
+    status = db.Column(db.String(30), nullable=False, default="New", index=True)
     priority = db.Column(db.String(20), nullable=False, default="Normal")
 
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    assigned_to_employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+    assigned_to_employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True, index=True)
     assigned_by_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
     # Polymorphic link to another module's record (call/patient/employee/crew/vehicle).
@@ -1234,7 +1234,7 @@ class Task(db.Model):
     related_module = db.Column(db.String(50), nullable=True)
     related_entity_id = db.Column(db.Integer, nullable=True)
 
-    due_date = db.Column(db.String(20), nullable=True)  # YYYY-MM-DD, date-only
+    due_date = db.Column(db.String(20), nullable=True, index=True)  # YYYY-MM-DD, date-only
     completed_at = db.Column(db.String(50), nullable=True)
 
     created_at = db.Column(db.String(50), nullable=False)
@@ -1315,7 +1315,7 @@ class TaskComment(db.Model):
     __tablename__ = "task_comment"
 
     id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey("task.id"), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey("task.id"), nullable=False, index=True)
     author_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     author_name = db.Column(db.String(150), nullable=True)  # denormalized for display after user deletion
 
@@ -1340,7 +1340,7 @@ class TaskActivityLog(db.Model):
     __tablename__ = "task_activity_log"
 
     id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey("task.id"), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey("task.id"), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     user_name = db.Column(db.String(150), nullable=True)  # denormalized for display after user deletion
 
