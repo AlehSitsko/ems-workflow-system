@@ -15,6 +15,7 @@ import {
 import { cancelCall, uncancelCall, getCalls } from "../api/callsApi";
 import { getCurrentUser } from "../api/authApi";
 import { getEmployees } from "../api/employeesApi";
+import { getVehicles } from "../api/vehiclesApi";
 import { createCrewUnit, updateCrewUnit, deleteCrewUnit, makeNightCrew } from "../api/crewApi";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import TimeInput from "../components/ui/TimeInput";
@@ -27,6 +28,7 @@ import BoardToolbar from "../components/dispatch/BoardToolbar";
 import OpenCallsPanel from "../components/dispatch/OpenCallsPanel";
 import UnitTable from "../components/dispatch/UnitTable";
 import UnitDetailPanel from "../components/dispatch/UnitDetailPanel";
+import VehicleSelect from "../components/dispatch/VehicleSelect";
 import { useUserSettings } from "../context/useUserSettings";
 import { isEmployeeEligibleForRole } from "../utils/licenseUtils";
 import {
@@ -61,6 +63,7 @@ const initialCrew = { driver: "", medical: "", assist1: "", assist2: "" };
 const initialUnitForm = {
   shiftDate: todayStr(),
   unitType: "BLS",
+  vehicleId: null,
   truckNumber: "",
   startTime: "",
   endTime: "",
@@ -144,6 +147,7 @@ export default function DispatchBoardPage() {
   // Crew planner state (embedded)
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [vehicles, setVehicles] = useState([]);
   const [crewOpenCalls, setCrewOpenCalls] = useState([]);
   const [unitForm, setUnitForm] = useState({ ...initialUnitForm });
   const [editingUnitId, setEditingUnitId] = useState(null);
@@ -397,6 +401,19 @@ export default function DispatchBoardPage() {
 
   useEffect(() => { loadEmployees(); }, [loadEmployees]);
 
+  // The fleet backs the unit form's vehicle picker. A failure is not fatal for
+  // the board itself, so it surfaces as a toast and leaves the picker empty.
+  const loadVehicles = useCallback(async () => {
+    try {
+      setVehicles(await getVehicles());
+    } catch (e) {
+      toast.error("Failed to load vehicles", e.message);
+      setVehicles([]);
+    }
+  }, [toast]);
+
+  useEffect(() => { loadVehicles(); }, [loadVehicles]);
+
   // When date changes, reload open calls for patient picker
   useEffect(() => {
     getCalls({ trip_date: date }, 1, 100)
@@ -444,13 +461,17 @@ export default function DispatchBoardPage() {
   );
 
   const { errors: unitValidationErrors, warnings: unitWarningMessages } =
-    useUnitFormValidation({ unitForm, getEmployeeById, getEmployeeAssignmentsInOtherUnits });
+    useUnitFormValidation({
+      unitForm, getEmployeeById, getEmployeeAssignmentsInOtherUnits,
+      vehicles, units: board.units, editingUnitId,
+    });
 
   const buildUnitPayload = () => {
     const dur = parseFloat(unitForm.shiftDurationHours);
     return {
       shiftDate: unitForm.shiftDate,
       unitType: unitForm.unitType,
+      vehicleId: unitForm.vehicleId,
       truckNumber: unitForm.truckNumber.trim(),
       startTime: unitForm.startTime,
       endTime: unitForm.endTime || null,
@@ -503,6 +524,7 @@ export default function DispatchBoardPage() {
     setUnitForm({
       shiftDate: unit.shiftDate || date,
       unitType: unit.unitType || "BLS",
+      vehicleId: unit.vehicleId ?? null,
       truckNumber: unit.truckNumber || "",
       startTime: unit.startTime || "",
       endTime: unit.endTime || "",
@@ -788,10 +810,16 @@ export default function DispatchBoardPage() {
                 {UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            {/* Truck Number */}
+            {/* Vehicle — a shift runs a real fleet vehicle, not a typed number. */}
             <div className="col-md-6">
-              <label className="form-label fw-semibold">Truck Number <span className="badge text-bg-danger ms-1" style={{ fontSize: 10 }}>Required</span></label>
-              <input type="text" className="form-control" value={unitForm.truckNumber} onChange={e => setUnitForm(p => ({ ...p, truckNumber: e.target.value }))} disabled={crewSaving} />
+              <label className="form-label fw-semibold" htmlFor="vehicleId">Vehicle <span className="badge text-bg-danger ms-1" style={{ fontSize: 10 }}>Required</span></label>
+              <VehicleSelect
+                vehicles={vehicles}
+                vehicleId={unitForm.vehicleId}
+                truckNumber={unitForm.truckNumber}
+                disabled={crewSaving}
+                onChange={({ vehicleId, truckNumber }) => setUnitForm(p => ({ ...p, vehicleId, truckNumber }))}
+              />
             </div>
             {/* Shift Type */}
             <div className="col-md-6">

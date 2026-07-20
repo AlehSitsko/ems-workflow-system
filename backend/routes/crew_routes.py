@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 
-from models import db, DailyCrewUnit
+from models import db, DailyCrewUnit, Vehicle
 from utils.employee_utils import parse_optional_employee_id
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
 from utils.auth_utils import require_role
@@ -31,6 +31,45 @@ def _validate_shift_datetimes(shift_date, start_time, end_time, end_date):
     if end_date and not is_valid_date(end_date):
         return "Invalid endDate. Expected YYYY-MM-DD."
     return None
+
+
+def _resolve_vehicle(data, current_vehicle_id=None):
+    """Resolve the fleet vehicle a shift runs on.
+
+    Returns (vehicle_id, truck_number, error). `truck_number` is a snapshot of
+    the vehicle's unit number so historical shifts keep reading correctly even
+    if the vehicle is later renumbered.
+
+    Clients that predate the fleet link send only `truckNumber`; that path is
+    still accepted (the unit simply carries no vehicle_id) so the API does not
+    break for them. Re-saving an existing unit without `vehicleId` keeps the
+    link it already has rather than silently dropping it.
+    """
+    raw = data.get("vehicleId", "__absent__")
+
+    if raw == "__absent__":
+        return current_vehicle_id, (data.get("truckNumber") or "").strip(), None
+
+    # An explicit null/empty clears the link (back to a free-text truck number).
+    if raw is None or raw == "":
+        return None, (data.get("truckNumber") or "").strip(), None
+
+    try:
+        vehicle_id = int(raw)
+    except (TypeError, ValueError):
+        return None, None, "vehicleId must be an integer"
+
+    vehicle = Vehicle.query.get(vehicle_id)
+    if not vehicle:
+        return None, None, "Selected vehicle does not exist"
+    if vehicle.is_retired:
+        return None, None, f"{vehicle.unit_name} is retired and cannot be assigned to a shift"
+    if not vehicle.is_active:
+        return None, None, f"{vehicle.unit_name} is inactive and cannot be assigned to a shift"
+
+    # An out-of-service vehicle is only a warning, not an error: the frontend
+    # surfaces it, and dispatch may legitimately plan ahead of a repair.
+    return vehicle.id, vehicle.unit_number, None
 
 
 def _parse_duration(value):
@@ -88,8 +127,11 @@ def create_daily_crew_unit():
         return jsonify({"error": "Request body must be JSON"}), 400
 
     shift_date = data.get("shiftDate", "").strip()
-    truck_number = data.get("truckNumber", "").strip()
     start_time = data.get("startTime", "").strip()
+
+    vehicle_id, truck_number, vehicle_error = _resolve_vehicle(data)
+    if vehicle_error:
+        return jsonify({"error": vehicle_error}), 400
 
     if not shift_date:
         return jsonify({"error": "Shift date is required"}), 400
@@ -129,6 +171,7 @@ def create_daily_crew_unit():
     unit = DailyCrewUnit(
         shift_date=shift_date,
         unit_type=canonicalize_or_keep(data.get("unitType", "BLS"), normalize_unit_type),
+        vehicle_id=vehicle_id,
         truck_number=truck_number,
         start_time=start_time,
         end_time=end_time,
@@ -178,8 +221,11 @@ def update_daily_crew_unit(id):
         return jsonify({"error": "Request body must be JSON"}), 400
 
     shift_date = data.get("shiftDate", "").strip()
-    truck_number = data.get("truckNumber", "").strip()
     start_time = data.get("startTime", "").strip()
+
+    vehicle_id, truck_number, vehicle_error = _resolve_vehicle(data, unit.vehicle_id)
+    if vehicle_error:
+        return jsonify({"error": vehicle_error}), 400
 
     if not shift_date:
         return jsonify({"error": "Shift date is required"}), 400
@@ -218,6 +264,7 @@ def update_daily_crew_unit(id):
 
     unit.shift_date = shift_date
     unit.unit_type = canonicalize_or_keep(data.get("unitType", "BLS"), normalize_unit_type)
+    unit.vehicle_id = vehicle_id
     unit.truck_number = truck_number
     unit.start_time = start_time
     unit.end_time = end_time
@@ -292,6 +339,7 @@ def make_night_crew(id):
         shift_date=source.shift_date,
         shift_type="night",
         unit_type=source.unit_type,
+        vehicle_id=source.vehicle_id,
         truck_number=source.truck_number,
         start_time=data.get("startTime", source.start_time),
         end_time=end_time,
