@@ -184,7 +184,7 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   Inactive assignment history is deleted with the shift it describes, which the FK
   used to block even after a clean unassign. Calls themselves are never touched.
 
-## P4d — Employee leave / absence (done; HR review screen pending)
+## P4d — Employee leave / absence (done)
 
 Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
 
@@ -218,8 +218,11 @@ Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
   (HR/admin/supervisor), approve, deny or cancel (HR/admin). It renders only the
   fields the API sent, so it cannot widen what the server narrowed
   (`EmployeeLeaveTab.test.jsx`, 6 tests)
-- [ ] A dedicated HR review screen listing pending requests across all employees
-  (today they are reviewed from the employee's own workspace)
+- [x] Dedicated review screen at `/leave` (Staff → Leave): pending requests across
+  every employee, status filter, approve / deny / cancel with confirmation, and a
+  jump into the employee's own workspace. Approving surfaces the shifts it just
+  left short-handed. Supervisors get the same screen read-only — the API already
+  withholds the detail, so the page simply has nothing to hide
 - [ ] Leave balances / PTO accrual / holiday policy — still deferred until the
   business rules are agreed
 

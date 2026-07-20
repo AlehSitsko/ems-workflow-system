@@ -17,12 +17,14 @@ import {
   FaTasks,
   FaCalendarAlt,
   FaTruck,
+  FaUmbrellaBeach,
 } from "react-icons/fa";
 
 import {
   hasPatientAccess,
   hasDispatchAccess,
   hasEmployeeAccess,
+  hasLeaveReviewAccess,
   hasCrewPlannerAccess,
   hasSupervisorAccess,
   hasAdminAccess,
@@ -107,6 +109,12 @@ export const navigationGroups = [
         path: "/employees",
         icon: FaUsers,
         canAccess: hasEmployeeAccess,
+      },
+      {
+        label: "Leave",
+        path: "/leave",
+        icon: FaUmbrellaBeach,
+        canAccess: hasLeaveReviewAccess,
       },
       {
         label: "Crew Planner",

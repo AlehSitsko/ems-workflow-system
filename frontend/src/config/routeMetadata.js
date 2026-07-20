@@ -1,11 +1,12 @@
 import {
   FaHome, FaTh, FaPhoneAlt, FaUserInjured, FaClipboardList, FaCalendarAlt,
-  FaTruck, FaTasks, FaUsers, FaAmbulance, FaMoneyBillWave, FaShieldAlt,
+  FaTruck, FaTasks, FaUsers, FaAmbulance, FaMoneyBillWave, FaShieldAlt, FaUmbrellaBeach,
   FaChartBar, FaUserCog, FaHistory, FaCog, FaBookOpen, FaClock,
 } from "react-icons/fa";
 
 import {
   hasPatientAccess, hasDispatchAccess, hasEmployeeAccess, hasCrewPlannerAccess,
+  hasLeaveReviewAccess,
   hasSupervisorAccess, hasAdminAccess, hasFleetAccess, hasFleetEditAccess,
 } from "../api/authApi";
 
@@ -188,6 +189,15 @@ export const ROUTE_METADATA = [
     icon: FaTasks,
     group: "Staff",
     canAccess: hasTaskAccess,
+    width: "standard",
+  },
+  {
+    path: "/leave",
+    title: "Leave review",
+    subtitle: "Approve, deny and track employee absence",
+    icon: FaUmbrellaBeach,
+    group: "Staff",
+    canAccess: hasLeaveReviewAccess,
     width: "standard",
   },
   {

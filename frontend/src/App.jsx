@@ -24,6 +24,7 @@ import AuditLogPage from "./pages/AuditLogPage";
 // Lazy-loaded: the heaviest pages, split into their own chunks so the initial
 // bundle stays smaller. AppLayout/sidebar render immediately either way —
 // only the page content area shows the fallback while the chunk loads.
+const LeaveReviewPage = lazy(() => import("./pages/LeaveReviewPage"));
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const PatientWorkspacePage = lazy(() => import("./pages/patients/PatientWorkspacePage"));
 const PatientFormPage = lazy(() => import("./pages/patients/PatientFormPage"));
@@ -49,6 +50,7 @@ import {
   hasSupervisorAccess,
   hasPatientAccess,
   hasEmployeeAccess,
+  hasLeaveReviewAccess,
   hasCrewPlannerAccess,
   hasAdminAccess,
   hasDispatchAccess,
@@ -115,6 +117,23 @@ function App() {
     }
 
     if (!hasEmployeeAccess(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+
+    return (
+      <AppShell currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </AppShell>
+    );
+  };
+
+  // Leave review: HR and admin decide, a supervisor gets the read-only overview.
+  const LeaveRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+
+    if (!hasLeaveReviewAccess(currentUser)) {
       return <Navigate to="/home" replace />;
     }
 
@@ -260,6 +279,7 @@ function App() {
         { path: "/manual", element: <ProtectedLayout><UserManualPage currentUser={currentUser} /></ProtectedLayout> },
 
         { path: "/employees", element: <EmployeeRoute><EmployeesPage /></EmployeeRoute> },
+        { path: "/leave", element: <LeaveRoute><LeaveReviewPage currentUser={currentUser} /></LeaveRoute> },
         // "new" and ":employeeId/edit" must precede ":employeeId".
         { path: "/employees/new", element: <EmployeeRoute><EmployeeFormPage currentUser={currentUser} /></EmployeeRoute> },
         { path: "/employees/:employeeId/edit", element: <EmployeeRoute><EmployeeFormPage currentUser={currentUser} /></EmployeeRoute> },
