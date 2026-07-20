@@ -1362,3 +1362,121 @@ class TaskActivityLog(db.Model):
             "new_value": self.new_value,
             "created_at": self.created_at,
         }
+
+
+# ── Employee leave / absence (roadmap Phase 4d) ─────────────────────────────
+
+class EmployeeLeaveRequest(db.Model):
+    """A period an employee is unavailable, as one row per request.
+
+    A multi-day absence is a single row with a date range, never one row per day:
+    the request is the thing being approved, and per-day rows would make an
+    approval or a cancellation a multi-row edit that can half-fail.
+
+    Privacy is structural, not cosmetic. `reason` and `private_notes` and — for
+    the sensitive types — the type itself are only ever emitted by `to_dict` at
+    the "hr" visibility level. Scheduling roles receive an entry that says the
+    person is unavailable and nothing more, so a dispatcher looking at staffing
+    physically cannot learn that a colleague is on medical leave.
+    """
+    __tablename__ = "employee_leave_request"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False, index=True)
+
+    # Canonical value from utils.taxonomy.LEAVE_TYPES.
+    leave_type = db.Column(db.String(30), nullable=False)
+
+    # Inclusive YYYY-MM-DD range; a single day has start == end.
+    start_date = db.Column(db.String(20), nullable=False, index=True)
+    end_date = db.Column(db.String(20), nullable=False, index=True)
+
+    # Partial day: HH:MM window inside the range. Only meaningful on a
+    # single-day request, which the API enforces.
+    start_time = db.Column(db.String(20))
+    end_time = db.Column(db.String(20))
+
+    # Canonical value from utils.taxonomy.LEAVE_STATUSES.
+    status = db.Column(db.String(20), nullable=False, default="pending", index=True)
+
+    # HR-visible only. `reason` is what the employee gave; `private_notes` is
+    # what HR wrote about it.
+    reason = db.Column(db.Text)
+    private_notes = db.Column(db.Text)
+
+    # Submission / review trail. Names are denormalized so the record still reads
+    # correctly after a user account is removed.
+    submitted_at = db.Column(db.String(50))
+    submitted_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    submitted_by_name = db.Column(db.String(150))
+    reviewed_at = db.Column(db.String(50))
+    reviewed_by = db.Column(db.Integer, db.ForeignKey("user.id"))
+    reviewed_by_name = db.Column(db.String(150))
+    review_note = db.Column(db.Text)
+
+    created_at = db.Column(db.String(50))
+    updated_at = db.Column(db.String(50))
+
+    # Multi-tenancy foundation.
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    employee = db.relationship("Employee", foreign_keys=[employee_id])
+
+    def blocks_scheduling(self):
+        """Approved leave makes the employee unavailable."""
+        from utils.taxonomy import BLOCKING_LEAVE_STATUSES
+        return self.status in BLOCKING_LEAVE_STATUSES
+
+    def warns_scheduling(self):
+        """A pending request is a soft warning — it may still be denied."""
+        from utils.taxonomy import WARNING_LEAVE_STATUSES
+        return self.status in WARNING_LEAVE_STATUSES
+
+    def covers(self, date_str):
+        """True when the given YYYY-MM-DD falls inside the inclusive range."""
+        return bool(date_str) and self.start_date <= date_str <= self.end_date
+
+    def to_dict(self, visibility="scheduling"):
+        """Serialize at one of two levels.
+
+        "hr"         — everything, for admin/HR.
+        "scheduling" — who is away and when, and nothing else. Sensitive types
+                       collapse to "unavailable"; reason, notes and the review
+                       trail are omitted entirely rather than blanked, so they
+                       cannot be recovered from the shape of the response.
+        """
+        from utils.taxonomy import is_sensitive_leave_type
+
+        data = {
+            "id": self.id,
+            "employeeId": self.employee_id,
+            "startDate": self.start_date,
+            "endDate": self.end_date,
+            "startTime": self.start_time or "",
+            "endTime": self.end_time or "",
+            "isPartialDay": bool(self.start_time or self.end_time),
+            "status": self.status,
+            "blocksScheduling": self.blocks_scheduling(),
+        }
+
+        if visibility == "hr":
+            data.update({
+                "leaveType": self.leave_type,
+                "reason": self.reason or "",
+                "privateNotes": self.private_notes or "",
+                "submittedAt": self.submitted_at or "",
+                "submittedBy": self.submitted_by,
+                "submittedByName": self.submitted_by_name or "",
+                "reviewedAt": self.reviewed_at or "",
+                "reviewedBy": self.reviewed_by,
+                "reviewedByName": self.reviewed_by_name or "",
+                "reviewNote": self.review_note or "",
+                "createdAt": self.created_at,
+                "updatedAt": self.updated_at,
+            })
+        else:
+            # A non-sensitive type is safe to name (Vacation, Training); anything
+            # touching health or bereavement is reported as plain unavailability.
+            data["leaveType"] = "unavailable" if is_sensitive_leave_type(self.leave_type) else self.leave_type
+
+        return data

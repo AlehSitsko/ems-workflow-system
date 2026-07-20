@@ -184,6 +184,36 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   Inactive assignment history is deleted with the shift it describes, which the FK
   used to block even after a clean unassign. Calls themselves are never touched.
 
+## P4d — Employee leave / absence (backend done, UI next)
+
+Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
+
+- [x] `EmployeeLeaveRequest` model + migration `e7c2a94f16bd` — one row per
+  request holding an inclusive date range, never one row per day
+- [x] Canonical `LEAVE_TYPES` / `LEAVE_STATUSES` in `utils/taxonomy.py` (with
+  aliases: PTO → vacation, rejected → denied) and published via `GET /api/taxonomy`
+- [x] `/api/leave-requests` — list (filter by employee/status/overlapping range),
+  read, create, edit, approve/deny, cancel, delete
+- [x] **Structural privacy**: sick / medical / bereavement report as
+  `unavailable` to supervisor and dispatcher, and the HR-only fields (reason,
+  private notes, review trail) are omitted from the payload rather than blanked
+- [x] Permissions: HR + admin manage and decide; supervisor may file a request
+  (lands in `pending`) but cannot approve or edit; dispatcher is read-only;
+  hard delete is admin-only (cancelling is the normal path)
+- [x] Overlapping requests for one employee refused with `409`; denied/cancelled
+  leave frees the dates; partial day allowed on single-day requests only
+- [x] Approving reports the shifts the employee is already rostered on, instead
+  of leaving the staffing hole to be found on the day
+- [x] `tests/test_leave.py` (35), including tests that fail if the sensitive type
+  leaks or an HR-only field is blanked instead of omitted
+- [ ] Calendar integration: approved leave as a derived range event; pending as a
+  soft warning for permitted roles only
+- [ ] Crew Planner conflict: rostering someone on approved leave
+- [ ] UI: Employee Workspace "Leave" tab (currently honestly disabled) + an HR
+  review screen
+- [ ] Leave balances / PTO accrual / holiday policy — still deferred until the
+  business rules are agreed
+
 ## P4 — Later production hardening (planned)
 
 - [ ] Production authentication (replace header-based `X-User-*` with JWT/session)
