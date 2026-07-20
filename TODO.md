@@ -156,9 +156,11 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   withholds the open handlers for roles without Dispatch access, so rows and the
   drawer footer render as a read-only day summary instead of a dead link.
 
-- [ ] `DELETE /api/crew-units/<id>` returns **500** (raw `IntegrityError`) when the
-  shift still has assigned calls. Decide: reject with `409` and an explanation, or
-  deactivate the assignments along with the shift.
+- [x] `DELETE /api/crew-units/<id>` no longer returns a raw `IntegrityError` 500 when
+  the shift still holds calls: it refuses with `409` and says how many to unassign
+  first (cascading silently would drop trips back into the open queue untraceably).
+  Inactive assignment history is deleted with the shift it describes, which the FK
+  used to block even after a clean unassign. Calls themselves are never touched.
 
 ## P4 — Later production hardening (planned)
 
