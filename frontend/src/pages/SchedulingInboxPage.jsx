@@ -129,7 +129,14 @@ export default function SchedulingInboxPage({ currentUser }) {
                 <div key={call.id} className="cert-row flex-wrap">
                   <div className="cert-row-body">
                     <div className="d-flex align-items-center gap-2 flex-wrap">
-                      <strong>{call.patientLabel || `Call #${call.id}`}</strong>
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 fw-bold text-start"
+                        onClick={() => navigate(`/calls/${call.id}`)}
+                        title="Open the full call"
+                      >
+                        {call.patientLabel || `Call #${call.id}`}
+                      </button>
                       <span className="badge text-bg-secondary" title={level.title}>
                         {level.label}
                       </span>

@@ -92,6 +92,31 @@ export async function uncancelCall(callId, headers = {}) {
   return data;
 }
 
+// One call with its patient label — backs the call detail page.
+export async function getCall(callId, headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, { headers });
+  const data = await response.json();
+  if (!response.ok) {
+    const error = new Error(data.error || "Failed to load call");
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+// Record the outcome of a confirmation call. A "declined" outcome cancels the
+// call server-side and says so in the response.
+export async function setCallConfirmation(callId, status, note = "", headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/confirmation`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ confirmation_status: status, confirmation_note: note }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to record the confirmation");
+  return data;
+}
+
 // The scheduling inbox: calls taken without a trip date. They appear on no
 // board and in no calendar until they get one, which is the point of the queue.
 export async function getUnscheduledCalls(headers = {}) {

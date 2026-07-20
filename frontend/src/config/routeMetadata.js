@@ -192,6 +192,17 @@ export const ROUTE_METADATA = [
     width: "standard",
   },
   {
+    path: "/calls/:callId",
+    title: "Call",
+    subtitle: "Trip details and confirmation",
+    icon: FaPhoneAlt,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/calls",
+  },
+  {
     path: "/scheduling-inbox",
     title: "Scheduling inbox",
     subtitle: "Calls waiting for a trip date",

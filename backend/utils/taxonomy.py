@@ -106,6 +106,26 @@ BLOCKING_LEAVE_STATUSES = {"approved"}
 WARNING_LEAVE_STATUSES = {"pending"}
 
 
+# ── Confirmation calls (roadmap Phase 4) ────────────────────────────────────
+#
+# Dispatchers ring patients the day before to confirm tomorrow's trips. Four
+# states rather than a yes/no flag: "nobody answered" and "not called yet" look
+# identical on a board but mean opposite things to the person working the list.
+
+CONFIRMATION_STATUSES = ["not_called", "no_answer", "confirmed", "declined"]
+
+CONFIRMATION_STATUS_LABELS = {
+    "not_called": "Not called",
+    "no_answer": "No answer",
+    "confirmed": "Confirmed",
+    "declined": "Declined",
+}
+
+# A declined trip is not happening, so it cancels the call outright rather than
+# sitting on the board as a confirmed-looking job nobody will run.
+CANCELLING_CONFIRMATION_STATUSES = {"declined"}
+
+
 def _alias_key(value):
     """Lowercase, trimmed, separators stripped: 'BLS-4' / 'bls 4' / 'BLS4' all match."""
     return "".join(ch for ch in str(value or "").strip().lower() if ch.isalnum())
@@ -153,6 +173,17 @@ _LEAVE_STATUS_ALIASES = _build_alias_map(LEAVE_STATUSES, {
     "declined": "denied",
     "canceled": "cancelled",   # US spelling
     "submitted": "pending",
+})
+
+_CONFIRMATION_ALIASES = _build_alias_map(CONFIRMATION_STATUSES, {
+    "notcalled": "not_called",
+    "pending": "not_called",
+    "noanswer": "no_answer",
+    "unreachable": "no_answer",
+    "voicemail": "no_answer",
+    "ok": "confirmed",
+    "refused": "declined",
+    "cancelledbypatient": "declined",
 })
 
 _QUALIFICATION_ALIASES = {
@@ -230,6 +261,12 @@ def is_sensitive_leave_type(value):
     return normalize_leave_type(value) in SENSITIVE_LEAVE_TYPES
 
 
+def normalize_confirmation_status(value):
+    """Canonical confirmation status, or None if unrecognised."""
+    key = _alias_key(value)
+    return _CONFIRMATION_ALIASES.get(key) if key else None
+
+
 def is_administrative_role(value):
     """True for organisational roles that are not clinical qualifications."""
     return _alias_key(value) in ADMINISTRATIVE_ROLES
@@ -284,5 +321,9 @@ def as_contract():
         ],
         "leaveStatuses": [
             {"value": s, "label": LEAVE_STATUS_LABELS[s]} for s in LEAVE_STATUSES
+        ],
+        "confirmationStatuses": [
+            {"value": c, "label": CONFIRMATION_STATUS_LABELS[c]}
+            for c in CONFIRMATION_STATUSES
         ],
     }

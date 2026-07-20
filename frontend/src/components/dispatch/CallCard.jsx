@@ -3,6 +3,7 @@ import { useUserSettings } from "../../context/useUserSettings";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
 import { isEmergencyCall, isWillCall, ALERT_SEVERITY_STYLE } from "../../utils/dispatchBoardUtils";
 import { ServiceLevelBadge } from "../taxonomy/TaxonomyBadges";
+import { describeConfirmation } from "../../utils/taxonomy";
 
 export default function CallCard({ call, onDragStart, onCardClick, statusOverride }) {
   const { settings } = useUserSettings();
@@ -13,6 +14,10 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
   const status = statusOverride || call.status || "new";
   const isCancelled = status === "cancelled";
   const isCompleted = status === "completed";
+  // Whether the patient has been reached about tomorrow's trip. Only worth
+  // showing on a live trip — a finished or cancelled one is not being confirmed.
+  const confirmation = describeConfirmation(call.confirmation_status);
+  const showConfirmation = !isCancelled && !isCompleted && confirmation.value !== "not_called";
 
   const accentColor = isCancelled ? "var(--color-text-muted)"
     : isCompleted   ? "var(--color-success)"
@@ -53,6 +58,19 @@ export default function CallCard({ call, onDragStart, onCardClick, statusOverrid
         <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
           {isCancelled && <span style={{ fontSize: 9, color: "var(--color-text-muted)", background: "rgba(var(--ems-tax-unknown-rgb),0.15)", border: "1px solid rgba(var(--ems-tax-unknown-rgb),0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>CNCL</span>}
           {isCompleted && <span style={{ fontSize: 9, color: "var(--color-success)", background: "rgba(var(--color-success-rgb),0.12)", border: "1px solid rgba(var(--color-success-rgb),0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>DONE</span>}
+          {showConfirmation && (
+            <span
+              title={confirmation.title}
+              style={{
+                fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "1px 5px",
+                color: `var(--color-${confirmation.tone === "success" ? "success" : "warning"})`,
+                background: `rgba(var(--color-${confirmation.tone === "success" ? "success" : "warning"}-rgb),0.15)`,
+                border: `1px solid rgba(var(--color-${confirmation.tone === "success" ? "success" : "warning"}-rgb),0.3)`,
+              }}
+            >
+              {confirmation.value === "confirmed" ? "CONF" : "NO ANS"}
+            </span>
+          )}
           {emergency && !isCancelled && <span style={{ fontSize: 9, color: "var(--color-danger)", background: "rgba(var(--color-danger-rgb),0.15)", border: "1px solid rgba(var(--color-danger-rgb),0.25)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>EMRG</span>}
           {call.patient_alert_severity && (
             <span

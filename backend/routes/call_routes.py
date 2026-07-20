@@ -10,7 +10,11 @@ from audit_utils import log_action
 from utils.validation_utils import check_length, is_valid_time
 from utils.auth_utils import require_role
 from utils.operational_dates import prohibit_historical_mutation
-from utils.taxonomy import canonicalize_or_keep, normalize_service_level
+from utils.taxonomy import (
+    canonicalize_or_keep, normalize_service_level,
+    normalize_confirmation_status, CONFIRMATION_STATUSES,
+    CANCELLING_CONFIRMATION_STATUSES, CONFIRMATION_STATUS_LABELS,
+)
 
 
 def _user_name_from_request():
@@ -434,3 +438,87 @@ def _call_with_patient_summary(call):
     else:
         data["patientLabel"] = None
     return data
+
+
+# ── Confirmation calls ──────────────────────────────────────────────────────
+#
+# Dispatchers ring patients the day before to check tomorrow's trips are still
+# on. Recording the outcome here — rather than in a note nobody can filter by —
+# is what lets the board show which trips are actually confirmed.
+
+
+@call_bp.route("/<int:call_id>", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
+def get_call(call_id):
+    """One call with its patient label — backs the call detail page."""
+    call = Call.query.options(joinedload(Call.patient)).get_or_404(call_id)
+    return jsonify(_call_with_patient_summary(call))
+
+
+@call_bp.route("/<int:call_id>/confirmation", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
+def set_call_confirmation(call_id):
+    """Record the outcome of a confirmation call.
+
+    A declined trip is not happening, so it cancels the call outright instead of
+    sitting on the board looking scheduled. The record stays in history with the
+    reason, exactly as a manual cancellation would.
+    """
+    call = Call.query.get_or_404(call_id)
+
+    data = request.get_json() or {}
+    status = normalize_confirmation_status(data.get("confirmation_status"))
+    if not status:
+        return jsonify({
+            "error": f"confirmation_status must be one of: {', '.join(CONFIRMATION_STATUSES)}",
+        }), 400
+
+    try:
+        check_length(data.get("confirmation_note"), 1000, "confirmation_note")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if call.status == "cancelled" and status != "declined":
+        return jsonify({
+            "error": f"Call #{call_id} is cancelled. Uncancel it before recording a confirmation.",
+            "status": call.status,
+        }), 409
+
+    note = (data.get("confirmation_note") or "").strip()
+    now = datetime.now().isoformat(timespec="seconds")
+
+    call.confirmation_status = status
+    call.confirmation_note = note or None
+    # "Not called" is the absence of a confirmation call, so it clears the trail
+    # rather than recording that someone did nothing at a particular time.
+    if status == "not_called":
+        call.confirmed_at = None
+        call.confirmed_by = None
+        call.confirmed_by_name = None
+    else:
+        call.confirmed_at = now
+        call.confirmed_by = _user_id_from_request()
+        call.confirmed_by_name = _user_name_from_request()
+
+    cancelled_now = False
+    if status in CANCELLING_CONFIRMATION_STATUSES and call.status != "cancelled":
+        call.status = "cancelled"
+        call.cancel_reason = note or "Patient declined during the confirmation call"
+        call.cancelled_at = now
+        call.cancelled_by = _user_id_from_request()
+        cancelled_now = True
+
+    log_action("call.confirmation_recorded", "call", call_id, f"Call #{call_id}",
+               {"confirmation_status": status, "cancelled": cancelled_now},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
+    db.session.commit()
+
+    body = call.to_dict()
+    # Say plainly that a decline cancelled the trip — the caller should not have
+    # to infer it from a status field changing underneath them.
+    if cancelled_now:
+        body["cancelledByConfirmation"] = True
+        body["message"] = (f"{CONFIRMATION_STATUS_LABELS[status]} — call #{call_id} "
+                           f"has been cancelled and kept in history.")
+
+    return jsonify(body)

@@ -26,6 +26,7 @@ import AuditLogPage from "./pages/AuditLogPage";
 // only the page content area shows the fallback while the chunk loads.
 const LeaveReviewPage = lazy(() => import("./pages/LeaveReviewPage"));
 const SchedulingInboxPage = lazy(() => import("./pages/SchedulingInboxPage"));
+const CallWorkspacePage = lazy(() => import("./pages/calls/CallWorkspacePage"));
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
 const PatientWorkspacePage = lazy(() => import("./pages/patients/PatientWorkspacePage"));
 const PatientFormPage = lazy(() => import("./pages/patients/PatientFormPage"));
@@ -290,6 +291,7 @@ function App() {
         { path: "/crew-planner", element: <CrewPlannerRoute><CrewPlannerPage /></CrewPlannerRoute> },
         { path: "/dispatch", element: <DispatchRoute><DispatchBoardPage /></DispatchRoute> },
         { path: "/scheduling-inbox", element: <DispatchRoute><SchedulingInboxPage currentUser={currentUser} /></DispatchRoute> },
+        { path: "/calls/:callId", element: <DispatchRoute><CallWorkspacePage currentUser={currentUser} /></DispatchRoute> },
         { path: "/notifications", element: <ProtectedLayout><NotificationSettingsPage currentUser={currentUser} /></ProtectedLayout> },
         { path: "/payroll", element: <EmployeeRoute><PayrollPage /></EmployeeRoute> },
         { path: "/compliance", element: <EmployeeRoute><ComplianceDashboardPage currentUser={currentUser} /></EmployeeRoute> },
