@@ -1,6 +1,6 @@
 import {
   FaHome, FaTh, FaPhoneAlt, FaUserInjured, FaClipboardList, FaCalendarAlt,
-  FaTruck, FaTasks, FaUsers, FaAmbulance, FaMoneyBillWave, FaShieldAlt, FaUmbrellaBeach,
+  FaTruck, FaTasks, FaUsers, FaAmbulance, FaMoneyBillWave, FaShieldAlt, FaUmbrellaBeach, FaInbox,
   FaChartBar, FaUserCog, FaHistory, FaCog, FaBookOpen, FaClock,
 } from "react-icons/fa";
 
@@ -189,6 +189,15 @@ export const ROUTE_METADATA = [
     icon: FaTasks,
     group: "Staff",
     canAccess: hasTaskAccess,
+    width: "standard",
+  },
+  {
+    path: "/scheduling-inbox",
+    title: "Scheduling inbox",
+    subtitle: "Calls waiting for a trip date",
+    icon: FaInbox,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
     width: "standard",
   },
   {

@@ -104,7 +104,12 @@ Later Calendar phases (see [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4). Not 
 be implemented before the current Calendar slice is complete:
 
 - [ ] Recurring patient transportation; linked outbound/return trips
-- [ ] Scheduling Inbox for calls without a date/time
+- [x] Scheduling Inbox for calls without a trip date — `GET /api/calls/unscheduled`
+  and `PATCH /api/calls/<id>/schedule`, plus the `/scheduling-inbox` page
+  (Operations → Scheduling Inbox). Such calls were previously invisible: the
+  calendar filters by date and the board loads one day at a time, so they existed
+  in the database and nowhere in the product. Oldest intake first; scheduling into
+  the past or onto a finished call is refused. `tests/test_scheduling_inbox.py` (20)
 - [ ] Estimated trip duration + planned end time
 - [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
 - [ ] Day handoff summary; "Close Operational Day" workflow

@@ -335,3 +335,102 @@ def update_pickup_time(call_id):
     call.pickup_time = new_time
     db.session.commit()
     return jsonify(call.to_dict())
+
+
+# ── Scheduling Inbox ────────────────────────────────────────────────────────
+#
+# A call taken without a trip date used to be invisible: the calendar filters by
+# date and the Dispatch Board loads one day at a time, so an intake with "we'll
+# call you back with the day" fell out of both and was only found by chance.
+# These two routes make that queue explicit — list what has no date, then give it
+# one, at which point it leaves the inbox and appears on the board like any
+# other call.
+
+# Calls that are finished or called off are not waiting for a date.
+_INBOX_EXCLUDED_STATUSES = ("cancelled", "completed")
+
+
+def _unscheduled_filter():
+    """A call is unscheduled when it has no trip date at all.
+
+    Both NULL and "" occur in practice — the column has been written by several
+    generations of the intake form — so both count as missing rather than
+    normalising the data underneath a read path.
+    """
+    return db.and_(
+        db.or_(Call.trip_date.is_(None), Call.trip_date == ""),
+        Call.status.notin_(_INBOX_EXCLUDED_STATUSES),
+    )
+
+
+@call_bp.route("/unscheduled", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
+def list_unscheduled_calls():
+    """The scheduling inbox: calls waiting for a trip date, oldest intake first.
+
+    Oldest first on purpose — this is a backlog, and the one that has been
+    waiting longest is the one most at risk of being forgotten.
+    """
+    calls = (
+        Call.query
+        .filter(_unscheduled_filter())
+        .options(joinedload(Call.patient))
+        .order_by(Call.date_of_call.asc(), Call.id.asc())
+        .all()
+    )
+
+    return jsonify([_call_with_patient_summary(c) for c in calls])
+
+
+@call_bp.route("/<int:call_id>/schedule", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
+def schedule_call(call_id):
+    """Give an inbox call its trip date, and optionally a pickup time."""
+    call = Call.query.get_or_404(call_id)
+
+    data = request.get_json() or {}
+    trip_date = (data.get("trip_date") or "").strip()
+    pickup_time = (data.get("pickup_time") or "").strip()
+
+    if not trip_date:
+        return jsonify({"error": "trip_date is required"}), 400
+
+    # Scheduling into the past would produce a call no one can act on: the board
+    # is read-only there. Same guard the rest of the dispatch surface uses.
+    historical = prohibit_historical_mutation(trip_date, "Scheduling a call")
+    if historical:
+        return jsonify(historical[0]), historical[1]
+
+    try:
+        _validate_time_field(pickup_time, "pickup_time")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if call.status in _INBOX_EXCLUDED_STATUSES:
+        return jsonify({
+            "error": f"Call #{call_id} is {call.status} and cannot be scheduled.",
+            "status": call.status,
+        }), 409
+
+    call.trip_date = trip_date
+    if pickup_time:
+        call.pickup_time = pickup_time
+
+    log_action("call.scheduled", "call", call_id, f"Call #{call_id}",
+               {"trip_date": trip_date, "pickup_time": pickup_time or None},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
+    db.session.commit()
+
+    return jsonify(call.to_dict())
+
+
+def _call_with_patient_summary(call):
+    """Call plus the minimized patient label the inbox needs to be readable."""
+    data = call.to_dict()
+    patient = call.patient
+    if patient:
+        last = (patient.last_name or "").strip()
+        data["patientLabel"] = f"{(patient.first_name or '').strip()} {last[0]}." if last             else (patient.first_name or "").strip()
+    else:
+        data["patientLabel"] = None
+    return data

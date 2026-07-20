@@ -18,6 +18,7 @@ import {
   FaCalendarAlt,
   FaTruck,
   FaUmbrellaBeach,
+  FaInbox,
 } from "react-icons/fa";
 
 import {
@@ -63,6 +64,12 @@ export const navigationGroups = [
         path: "/call-form",
         icon: FaPhoneAlt,
         canAccess: hasPatientAccess,
+      },
+      {
+        label: "Scheduling Inbox",
+        path: "/scheduling-inbox",
+        icon: FaInbox,
+        canAccess: hasDispatchAccess,
       },
       {
         label: "Patients",
