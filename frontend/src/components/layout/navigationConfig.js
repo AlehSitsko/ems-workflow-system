@@ -19,6 +19,7 @@ import {
   FaTruck,
   FaUmbrellaBeach,
   FaInbox,
+  FaClipboardCheck,
 } from "react-icons/fa";
 
 import {
@@ -64,6 +65,12 @@ export const navigationGroups = [
         path: "/call-form",
         icon: FaPhoneAlt,
         canAccess: hasPatientAccess,
+      },
+      {
+        label: "Day Closeout",
+        path: "/day-closeout",
+        icon: FaClipboardCheck,
+        canAccess: hasDispatchAccess,
       },
       {
         label: "Confirmation Round",

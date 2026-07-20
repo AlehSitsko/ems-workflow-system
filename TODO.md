@@ -112,7 +112,14 @@ be implemented before the current Calendar slice is complete:
   the past or onto a finished call is refused. `tests/test_scheduling_inbox.py` (20)
 - [ ] Estimated trip duration + planned end time
 - [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
-- [ ] Day handoff summary; "Close Operational Day" workflow
+- [x] Day handoff summary + "Close Operational Day" — `/day-closeout` and
+  `/api/operations/days/<day>`. Past dates were already read-only, so closing is
+  not a lock: it is the review of what the day ended up as, the loose ends nobody
+  tidied (a call left assigned, a shift with no actual end time — neither visible
+  on a board that only shows today), and a name against the sign-off. Closing
+  over loose ends requires explicit acknowledgement; the stored snapshot keeps
+  saying what was true at sign-off even if a call is edited later. Supervisor and
+  admin close, dispatcher reads, admin alone reopens. `tests/test_day_closure.py` (20)
 - [ ] `CalendarEvent` model for manual events (visibility scopes: company /
   operations / management / HR / patient-operations / private)
 - [ ] Participants, reminders, notification integration, saved views
