@@ -99,9 +99,12 @@ P4). Detailed notes in [docs/DOCKER.md](docs/DOCKER.md).
 - [x] Healthcheck reuses the existing `/api/health` — no route added for Docker
 - [x] `docs/DOCKER.md` + a `docker` CI job that builds both images and validates
   the compose file
-- [ ] **Not yet built on a developer machine.** The environment this was written
-  in had no Docker; CI is the first place the images are actually built. Worth a
-  local `docker compose up --build` before relying on it
+- [x] Both images build in CI (run #101 on `main`) — the Dockerfiles and the
+  compose file are known-good
+- [ ] **The stack has never been started.** CI builds the images and validates
+  compose but does not `docker compose up`, so migrations-on-start, the
+  healthcheck gate and hot reload are verified by construction, not observation.
+  One local `docker compose up --build` would close this
 - Out of scope, deliberately: PostgreSQL, Redis, Celery, Nginx, Kubernetes,
   production secrets, cloud deployment.
 
