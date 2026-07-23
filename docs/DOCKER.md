@@ -77,6 +77,11 @@ not yet have.
 
 The compose file and both Dockerfiles are covered by the `docker` job in
 `.github/workflows/ci.yml`, which builds each image and validates the compose
-file on every push. **They have not been built on a developer machine** — the
-environment this was written in had no Docker installed, so CI is the first
-place they actually run.
+file on every push. Both images built successfully on the first CI run (run #101
+on `main`), so the Dockerfiles and the compose file are known-good.
+
+Still worth knowing: **the stack has not been brought up end to end** — CI builds
+the images and validates the compose file but does not run `docker compose up`,
+so the runtime wiring (migrations on start, the healthcheck gate, hot reload
+through the bind mounts) is verified by construction rather than by observation.
+A local `docker compose up --build` is the check that would close that gap.
