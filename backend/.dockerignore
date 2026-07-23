@@ -1,0 +1,16 @@
+# The host's virtualenv holds platform-specific binaries that would break inside
+# the image, and it is the single biggest thing in this directory.
+venv/
+__pycache__/
+*.pyc
+
+# Never copy a developer's database or its backups into an image.
+instance/
+*.db
+*.db-journal
+
+.pytest_cache/
+.env
+
+# Signing key for web push — belongs on the host, never in an image layer.
+vapid_private.pem
