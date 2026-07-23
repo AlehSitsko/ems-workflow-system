@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FaClock } from "react-icons/fa";
+import { FaClock, FaPhoneAlt, FaArrowRight } from "react-icons/fa";
 
 import { kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
 import { getTaskSummary } from "../api/tasksApi";
-import { getNavigationGroups } from "../config/routeMetadata";
+import { hasCallIntakeAccess, hasDispatchAccess } from "../api/authApi";
+import { getNavigationItems } from "../config/routeMetadata";
+import { useAttentionCounts } from "../hooks/useAttentionCounts";
 import { StatCard } from "../components/ui/Entity";
 import { PageSection } from "../components/ui/Page";
+import AttentionWidget from "../components/dashboard/AttentionWidget";
+import TodayBoardWidget from "../components/dashboard/TodayBoardWidget";
 
 const hasTaskAccess = (user) =>
   !!user && ["admin", "supervisor", "hr", "dispatcher"].includes(user.role);
@@ -148,7 +152,7 @@ function ClockWidget({ currentUser }) {
   );
 }
 
-/** One navigable destination. Fixed height so a row of tiles stays aligned. */
+/** One quick link. Fixed height so a row stays aligned. */
 function QuickTile({ title, description, path, icon: Icon }) {
   return (
     <Link to={path} className="quick-tile">
@@ -161,12 +165,62 @@ function QuickTile({ title, description, path, icon: Icon }) {
   );
 }
 
+/**
+ * The handful of places a role goes most, in priority order.
+ *
+ * Paths only — the label, icon and permission still come from the navigation
+ * tree, so a link here can never point somewhere the sidebar would hide, and a
+ * renamed page renames itself here too.
+ */
+const QUICK_LINKS_BY_ROLE = {
+  admin:      ["/dispatch", "/scheduling-inbox", "/confirmation-round", "/calendar", "/employees"],
+  supervisor: ["/dispatch", "/day-closeout", "/crew-planner", "/compliance", "/supervisor"],
+  dispatcher: ["/dispatch", "/scheduling-inbox", "/confirmation-round", "/crew-planner", "/calendar"],
+  hr:         ["/employees", "/compliance", "/leave", "/payroll", "/tasks"],
+};
+
+function QuickLinks({ currentUser }) {
+  const allowed = getNavigationItems(currentUser);
+  const wanted = QUICK_LINKS_BY_ROLE[currentUser?.role] || [];
+
+  // Intersect with what this user may actually open, keeping the role's order.
+  const links = wanted
+    .map((path) => allowed.find((item) => item.path === path))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (!links.length) return null;
+
+  return (
+    <PageSection title="Go to">
+      <div className="quick-tile-grid">
+        {links.map((item) => (
+          <QuickTile
+            key={item.path}
+            title={item.title}
+            description={item.subtitle}
+            path={item.path}
+            icon={item.icon}
+          />
+        ))}
+      </div>
+    </PageSection>
+  );
+}
+
+/**
+ * The dashboard answers one question: what do I need to do today?
+ *
+ * It used to answer a different one — "what pages exist?" — by rendering the
+ * whole sidebar again as tiles. The sidebar already does that, and a catalogue
+ * cannot tell anyone what is urgent. Every number below comes from an endpoint
+ * that is already role-scoped server-side; nothing here is estimated, and a
+ * widget with no data renders nothing rather than a zero.
+ */
 function HomePage({ currentUser }) {
-  // Quick navigation is derived from the same route metadata the sidebar uses,
-  // so a tile can never point somewhere the user is not allowed to go, and a new
-  // route shows up here without being hand-copied (it previously was, and the
-  // copy had drifted: Dispatch had lost its permission check entirely).
-  const groups = getNavigationGroups(currentUser).filter((g) => g.title !== "Main");
+  const { counts, loading: countsLoading } = useAttentionCounts(currentUser);
+  const canTakeCalls = hasCallIntakeAccess(currentUser);
+  const canSeeBoard = hasDispatchAccess(currentUser);
 
   return (
     <div className="dashboard-page">
@@ -178,29 +232,27 @@ function HomePage({ currentUser }) {
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </p>
         </div>
-        {/* No "Start Taking Call" here: the header already carries that CTA on
-            every page, and two identical dominant buttons on one screen is a
-            choice the user should not have to make. */}
-        <ClockWidget currentUser={currentUser} />
+
+        <div className="dashboard-welcome-actions">
+          {/* The header carries a compact version of this on every page; here it
+              is the primary call to action, which is what a dashboard is for. */}
+          {canTakeCalls && (
+            <Link to="/call-form" className="btn dashboard-call-cta">
+              <FaPhoneAlt aria-hidden="true" />
+              Start Taking Call
+            </Link>
+          )}
+          <ClockWidget currentUser={currentUser} />
+        </div>
       </section>
+
+      <AttentionWidget counts={counts} loading={countsLoading} />
+
+      {canSeeBoard && <TodayBoardWidget currentUser={currentUser} />}
 
       <TaskSummaryWidget currentUser={currentUser} />
 
-      {groups.map((group) => (
-        <PageSection key={group.title} title={group.title}>
-          <div className="quick-tile-grid">
-            {group.items.map((item) => (
-              <QuickTile
-                key={item.path}
-                title={item.title}
-                description={item.subtitle}
-                path={item.path}
-                icon={item.icon}
-              />
-            ))}
-          </div>
-        </PageSection>
-      ))}
+      <QuickLinks currentUser={currentUser} />
     </div>
   );
 }

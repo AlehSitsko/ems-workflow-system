@@ -32,6 +32,7 @@ const AppHeader = forwardRef(function AppHeader(
     mobileNavOpen,
     onToggleMobileNav,
     sidebarId,
+    breadcrumb,
   },
   hamburgerRef,
 ) {
@@ -53,6 +54,19 @@ const AppHeader = forwardRef(function AppHeader(
         )}
 
         <div className="app-header-titles">
+          {/* Only for pages nested inside a hub — on a top-level page it would
+              be a line of chrome restating the title. It never replaces the
+              title, it says where the title sits. */}
+          {breadcrumb && (
+            <p className="app-header-breadcrumb">
+              {breadcrumb.map((crumb, i) => (
+                <span key={crumb}>
+                  {i > 0 && <span className="app-header-breadcrumb-sep" aria-hidden="true"> / </span>}
+                  {crumb}
+                </span>
+              ))}
+            </p>
+          )}
           <h1 className="app-header-title">{meta.title}</h1>
           {meta.subtitle && <p className="app-header-subtitle">{meta.subtitle}</p>}
         </div>

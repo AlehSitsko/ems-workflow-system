@@ -267,6 +267,36 @@ The day-before ring-round that checks tomorrow's trips are still on.
   recorded inline; a no-answer deliberately stays in the "still to ring" count.
   `GET /api/calls/confirmation-round?date=`
 
+## Navigation / IA follow-ups (planned)
+
+The two-level navigation, the Calls & Scheduling / Fleet & Crews / Employees hubs
+and the role-aware dashboard shipped. These are the deliberately-deferred parts:
+
+- [ ] **Employee profile — Employment tab.** The workspace covers Overview,
+  Qualifications, Documents, Time & Pay, Tasks, Schedule, Activity and Leave.
+  A dedicated Employment tab (hire/termination history, position changes) needs
+  an HR module that does not exist yet; the fields live under Overview for now
+- [ ] **Employee profile — Warnings/disciplinary tab.** No such module exists.
+  Not stubbed: an empty tab implies a feature that isn't there
+- [ ] **Reports / Analytics section.** Supervisor Dashboard is the only analytics
+  surface today (`/api/analytics/dispatchers`). A separate Reports module would
+  need its own endpoints — no placeholder menu entry until then
+- [ ] **Dashboard customization** — user-chosen widgets and quick links. The
+  quick links are role-defaults today (`QUICK_LINKS_BY_ROLE` in HomePage)
+- [ ] **Badges beyond the four queues.** Scheduling Inbox, Confirmations, Day
+  Closeout and Leave Review are badged from `/api/operations/attention`. Tasks
+  and Compliance would each need a count the endpoint does not yet return
+- [ ] **Employee portal.** No `employee` role exists in the app — the roles are
+  admin / supervisor / dispatcher / hr. Self-service shifts, tasks and hours are
+  a separate module, so no menu entry pretends otherwise
+- [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
+  expands the sidebar and opens it. A hover/focus flyout would need its own
+  touch, keyboard and screen-reader handling for little gain
+- [ ] **Day Closeout permission review.** The target IA in the brief lists Day
+  Closeout as a supervisor function; the shipped guard is `hasDispatchAccess`
+  (admin/supervisor/dispatcher). Kept as-is — narrowing it would remove a
+  capability dispatchers already have. **Needs a decision from the project owner**
+
 ## P4 — Later production hardening (planned)
 
 - [ ] Production authentication (replace header-based `X-User-*` with JWT/session)

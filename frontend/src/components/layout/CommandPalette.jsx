@@ -4,7 +4,7 @@ import {
   FaSearch, FaArrowRight, FaUserInjured, FaTruck, FaUsers,
 } from "react-icons/fa";
 
-import { getNavigationGroups } from "../../config/routeMetadata";
+import { getNavigationItems } from "../../config/routeMetadata";
 import {
   hasPatientAccess, hasFleetAccess, hasEmployeeAccess,
 } from "../../api/authApi";
@@ -79,8 +79,9 @@ export default function CommandPalette({ currentUser }) {
 
   // ── Navigation results (synchronous, permission-filtered) ───────────────────
   const navItems = useMemo(() => {
-    const groups = getNavigationGroups(currentUser);
-    const flat = groups.flatMap((g) => g.items.map((it) => ({ ...it, group: g.title })));
+    // Same navigation source as the sidebar, flattened: the palette searches
+    // pages rather than browsing them, so hubs are transparent here.
+    const flat = getNavigationItems(currentUser);
     const q = query.trim().toLowerCase();
     const matched = q
       ? flat.filter((it) => it.title.toLowerCase().includes(q) || it.group.toLowerCase().includes(q))

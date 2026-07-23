@@ -58,7 +58,9 @@
   --shadow-overlay: 0 12px 32px rgba(17, 33, 59, 0.18);
 
   /* ── Layout ───────────────────────────────────────────────────────────── */
-  --sidebar-width: 240px;
+  /* Wide enough for a two-level menu: at 240px the longest parent labels
+     ("Calls & Scheduling", "Supervisor Dashboard") were being ellipsised. */
+  --sidebar-width: 264px;
   --sidebar-width-collapsed: 64px;
   --header-height: 64px;
   --page-max-width: 1440px;

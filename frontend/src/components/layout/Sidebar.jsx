@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { FaChevronLeft, FaStarOfLife, FaTimes } from "react-icons/fa";
 
-import { getNavigationGroups } from "../../config/routeMetadata";
+import { getNavigationTree, getRouteMetadata } from "../../config/routeMetadata";
+import { SidebarSection, SidebarLink, SidebarHub } from "./SidebarNav";
 import { APP_VERSION } from "../../config/appInfo";
 
 /**
@@ -16,8 +17,13 @@ import { APP_VERSION } from "../../config/appInfo";
  * Escape / outside click / Close / route change, and hands focus back to the
  * hamburger that opened it.
  *
- * Groups and permissions come from routeMetadata, so navigation cannot drift
+ * Structure and permissions come from routeMetadata, so navigation cannot drift
  * from the router or from the header's titles.
+ *
+ * Two levels: sections hold links and hubs, and a hub holds the pages of one
+ * job. Only one hub is open at a time, and the hub containing the current page
+ * opens itself — so after a reload the sidebar shows where you are rather than
+ * where you last clicked.
  */
 function Sidebar({
   currentUser,
@@ -32,7 +38,45 @@ function Sidebar({
   const asideRef = useRef(null);
   const closeButtonRef = useRef(null);
 
-  const groups = getNavigationGroups(currentUser);
+  const location = useLocation();
+  // Collapsed only applies on desktop; an off-canvas panel is always full width.
+  const isCollapsed = collapsed && !isMobile;
+  const sections = useMemo(() => getNavigationTree(currentUser), [currentUser]);
+
+  // Which hub the current page belongs to. Detail routes resolve through their
+  // parent, so /calls/42 still counts as being inside Calls & Scheduling.
+  const activeHubId = useMemo(() => {
+    const meta = getRouteMetadata(location.pathname);
+    const navPath = meta.parent || meta.path;
+    const hub = sections
+      .flatMap((s) => s.items)
+      .find((item) => item.type === "hub" && item.paths.includes(navPath));
+    return hub ? hub.id : null;
+  }, [location.pathname, sections]);
+
+  const [openHubId, setOpenHubId] = useState(activeHubId);
+
+  // The active route always wins over whatever was open before: landing on a
+  // page whose section is closed would leave the user unable to see where they
+  // are. Submenu state is deliberately not persisted — it is derived from the
+  // route, so there is nothing stale to restore for the next user or role.
+  useEffect(() => {
+    if (activeHubId) setOpenHubId(activeHubId);
+  }, [activeHubId]);
+
+  const toggleHub = (hubId) => {
+    // Collapsed to a rail there is no room for a submenu, so opening a hub
+    // expands the sidebar first. One predictable behaviour beats a flyout that
+    // has to be re-solved for touch and keyboard.
+    if (isCollapsed) {
+      onToggleCollapse?.();
+      setOpenHubId(hubId);
+      return;
+    }
+    setOpenHubId((current) => (current === hubId ? null : hubId));
+  };
+
+  const badgeFor = (item) => (item.badgeKey ? attentionCounts[item.badgeKey] || 0 : 0);
 
   // Mobile only: Escape closes, focus is trapped inside, and the page behind
   // must not scroll.
@@ -72,9 +116,6 @@ function Sidebar({
       document.body.style.overflow = previousOverflow;
     };
   }, [isMobile, mobileOpen, onCloseMobile]);
-
-  // Collapsed only applies on desktop; an off-canvas panel is always full width.
-  const isCollapsed = collapsed && !isMobile;
 
   const classes = [
     "app-sidebar",
@@ -121,43 +162,31 @@ function Sidebar({
         </div>
 
         <nav className="sidebar-nav">
-          {groups.map((group) => (
-            <div className="sidebar-group" key={group.title}>
-              {!isCollapsed && <div className="sidebar-group-title">{group.title}</div>}
-
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                // Only ever shown when there is something to act on.
-                const waiting = item.badgeKey ? attentionCounts[item.badgeKey] || 0 : 0;
-                return (
-                  <NavLink
+          {sections.map((section, index) => (
+            <SidebarSection key={section.title || `section-${index}`} section={section}>
+              {section.items.map((item) => (
+                item.type === "hub" ? (
+                  <SidebarHub
+                    key={item.id}
+                    hub={item}
+                    collapsed={isCollapsed}
+                    expanded={openHubId === item.id}
+                    containsActive={activeHubId === item.id}
+                    badgeFor={badgeFor}
+                    onToggle={toggleHub}
+                    onNavigate={isMobile ? onCloseMobile : undefined}
+                  />
+                ) : (
+                  <SidebarLink
                     key={item.path}
-                    to={item.path}
-                    className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
-                    // Collapsed shows icons only, so the label has to survive as
-                    // a tooltip and as the accessible name.
-                    title={isCollapsed
-                      ? `${item.title}${waiting ? ` — ${waiting} waiting` : ""}`
-                      : undefined}
-                    aria-label={waiting
-                      ? `${item.title}, ${waiting} waiting`
-                      : (isCollapsed ? item.title : undefined)}
-                    onClick={isMobile ? onCloseMobile : undefined}
-                  >
-                    <span className="sidebar-link-icon">
-                      <Icon />
-                      {/* Collapsed hides the label, so the count becomes a dot —
-                          the point still lands: something is waiting here. */}
-                      {waiting > 0 && isCollapsed && <span className="sidebar-badge-dot" />}
-                    </span>
-                    <span className="sidebar-link-label">{item.title}</span>
-                    {waiting > 0 && !isCollapsed && (
-                      <span className="sidebar-badge">{waiting > 99 ? "99+" : waiting}</span>
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
+                    item={item}
+                    collapsed={isCollapsed}
+                    badge={badgeFor(item)}
+                    onNavigate={isMobile ? onCloseMobile : undefined}
+                  />
+                )
+              ))}
+            </SidebarSection>
           ))}
         </nav>
 
