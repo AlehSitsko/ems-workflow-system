@@ -155,3 +155,73 @@ index/fragmentation checks.
 **This is a local smoke test, not a production load benchmark.** It runs against
 the Flask development server and SQLite on a single machine; the throughput and
 latency numbers are useful for catching regressions, not for capacity planning.
+
+## Navigation & role matrix
+
+The sidebar, the dashboard quick links, the module tabs and the command palette
+all read one config (`frontend/src/config/routeMetadata.js`), so the tests below
+cover every navigation surface at once.
+
+**`src/config/routeMetadata.test.js`** — the config itself:
+
+* every nav node points at a real route (a typo fails here, not in front of a user);
+* no page appears in two places;
+* every visible route is reachable from the menu — this is what would catch a
+  page being lost in a future regrouping;
+* `/call-form` is deliberately out of the menu while keeping its route and permission;
+* the top level stays short and keeps its hubs;
+* role scoping, including `/audit` matching its route guard rather than the old
+  wider menu entry;
+* hubs and sections disappear when a role may open none of their children;
+* a single-permitted-child hub collapses into a link — asserted for all four roles,
+  so the rule cannot be applied inconsistently;
+* `getActiveHub` resolves detail routes (`/calls/42`) through their parent.
+
+**`src/components/layout/Sidebar.test.jsx`** — behaviour:
+
+* sections render, and a section with nothing in it is dropped;
+* a hub is a `<button>` with `aria-expanded` / `aria-controls`, not a hovered div;
+* click and keyboard both open it; only one hub is open at a time;
+* the hub containing the current page opens itself, including for detail routes;
+* a closed hub holding the current page is marked (`contains-active`);
+* collapsed rail: no `aria-expanded` for a submenu that isn't rendered — pressing
+  the parent expands the sidebar instead;
+* mobile drawer closes after picking a page inside a hub;
+* badges: shown only where work is waiting, rolled up onto a closed hub, and
+  never rendered for a queue the role cannot open.
+
+**`src/components/layout/ModuleTabs.test.jsx`** — local navigation: tabs list the
+hub's pages, each keeping its own route; the current page is marked; counts sit
+on the tab that owns them; nothing renders outside a hub.
+
+**`src/pages/HomePage.test.jsx`** — the dashboard: it is an overview rather than a
+copy of the menu; counts come from the API and match it; empty queues render
+nothing; today's board is counted the way the board counts it; **no board request
+is made for a role without dispatch access**; the call CTA and quick links follow
+the role.
+
+### Role matrix as shipped
+
+| Role | Sections | Top-level entries |
+|---|---|---|
+| admin | Operations, Resources, Workforce, Management, Administration, Help | 15 |
+| supervisor | same, without Users | 14 |
+| dispatcher | Operations, Resources, Workforce, Administration, Help | 11 |
+| hr | Operations, Workforce, Administration, Help | 8 |
+
+HR sees no Resources section at all (Patients, Crew Planner and Vehicles are
+operational); dispatcher sees no Payroll, Compliance, Leave or Users.
+
+### Route compatibility
+
+The refactor changed **no route**. Hubs are grouping in the navigation config, so
+every existing URL, query parameter and bookmark keeps working and no redirects
+were needed. `routeMetadata.test.js` reads `App.jsx` directly and fails if the
+router and the metadata drift apart in either direction.
+
+### Accessibility checks covered by tests
+
+`aria-expanded`, `aria-controls`, `role="group"` on submenus, accessible names for
+icon-only controls (including waiting counts, e.g. "Scheduling Inbox, 3 waiting"),
+keyboard operation of hub toggles, and the mobile drawer's dialog semantics and
+focus handling.

@@ -12,6 +12,9 @@ const REFRESH_MS = 60_000;
 
 export function useAttentionCounts(currentUser) {
   const [counts, setCounts] = useState({});
+  // The dashboard needs to tell "nothing waiting" apart from "not asked yet":
+  // the first renders as no cards, the second as skeletons.
+  const [loading, setLoading] = useState(true);
 
   const role = currentUser?.role;
   const userId = currentUser?.id;
@@ -25,12 +28,14 @@ export function useAttentionCounts(currentUser) {
       .then(setCounts)
       // A failed badge refresh must never interrupt the page: the counts simply
       // stay as they were.
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [role, userId]);
 
   useEffect(() => {
     if (!role) {
       setCounts({});
+      setLoading(false);
       return undefined;
     }
     load();
@@ -38,5 +43,5 @@ export function useAttentionCounts(currentUser) {
     return () => clearInterval(timer);
   }, [load, role]);
 
-  return { counts, refresh: load };
+  return { counts, loading, refresh: load };
 }

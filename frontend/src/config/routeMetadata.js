@@ -30,7 +30,12 @@ import {
 const anyUser = () => true;
 const hasTaskAccess = (user) =>
   !!user && ["admin", "supervisor", "hr", "dispatcher"].includes(user.role);
-const hasAuditAccess = hasTaskAccess;
+// The /audit route is guarded by EmployeeRoute in App.jsx (admin/supervisor/hr).
+// This used to allow dispatcher, which put a link in the sidebar that bounced
+// the user straight back to the dashboard. Aligned to the guard — the narrower
+// of the two — rather than widening the guard to match the menu.
+const hasAuditAccess = (user) =>
+  !!user && ["admin", "supervisor", "hr"].includes(user.role);
 const hasPayrollAccess = (user) =>
   !!user && ["admin", "supervisor", "hr"].includes(user.role);
 
@@ -61,6 +66,10 @@ export const ROUTE_METADATA = [
     width: "wide",
   },
   {
+    // Taking a call is an action, not a place: it is reached from the header's
+    // "Start Taking Call" and from New Call inside Calls & Scheduling, so it is
+    // deliberately absent from the menu. The route and its permission are
+    // unchanged — `quickAction` records why it has no menu entry.
     path: "/call-form",
     title: "Call Form",
     subtitle: "Create a new EMS call record",
@@ -68,6 +77,9 @@ export const ROUTE_METADATA = [
     group: "Operations",
     canAccess: hasPatientAccess,
     width: "standard",
+    hidden: true,
+    quickAction: true,
+    parent: "/calls",
   },
   {
     path: "/patients",
@@ -391,6 +403,93 @@ export const GROUP_ORDER = [
   "Main", "Operations", "Fleet", "Staff", "Management", "Administration", "Help",
 ];
 
+/**
+ * The sidebar's two-level shape.
+ *
+ * This declares *structure only*. Every node points at a path in ROUTE_METADATA
+ * above, and its label, icon, badge and permission are read from there — so a
+ * route cannot appear in the menu with a different name or a looser permission
+ * than the rest of the app gives it. There is deliberately no second list of
+ * pages and no second permission check.
+ *
+ * A `children` node is a hub: a grouping of pages that belong to one job. Hubs
+ * are disclosure controls, not routes, which is why every existing URL keeps
+ * working untouched.
+ */
+export const NAV_SECTIONS = [
+  // Dashboard stands alone above the sections — it is the entry point, not a
+  // member of a category.
+  { title: null, items: [{ path: "/home" }] },
+
+  {
+    title: "Operations",
+    items: [
+      { path: "/dispatch" },
+      {
+        id: "calls-scheduling",
+        label: "Calls & Scheduling",
+        icon: FaClipboardList,
+        children: [
+          { path: "/calls", label: "All Calls" },
+          { path: "/scheduling-inbox", label: "Scheduling Inbox" },
+          { path: "/recurring-trips", label: "Recurring Trips" },
+          { path: "/confirmation-round", label: "Confirmations" },
+        ],
+      },
+      { path: "/day-closeout" },
+      { path: "/calendar" },
+    ],
+  },
+
+  {
+    title: "Resources",
+    items: [
+      { path: "/patients" },
+      {
+        id: "fleet-crews",
+        label: "Fleet & Crews",
+        icon: FaTruck,
+        children: [
+          { path: "/crew-planner", label: "Crew Planner" },
+          { path: "/fleet/vehicles", label: "Vehicles" },
+        ],
+      },
+    ],
+  },
+
+  {
+    title: "Workforce",
+    items: [
+      {
+        id: "workforce-employees",
+        label: "Employees",
+        icon: FaUsers,
+        children: [
+          { path: "/employees", label: "Directory" },
+          { path: "/compliance", label: "Compliance" },
+          { path: "/leave", label: "Leave" },
+          { path: "/payroll", label: "Payroll" },
+        ],
+      },
+      // Tasks stays top-level: a task can belong to any employee, module or
+      // project, so filing it under Employees would misdescribe it.
+      { path: "/tasks" },
+    ],
+  },
+
+  // Supervisor Dashboard is this project's analytics surface (it is backed by
+  // /api/analytics/dispatchers). There is no separate Reports module, so none is
+  // listed — see docs/ROADMAP.md for the planned one.
+  { title: "Management", items: [{ path: "/supervisor" }] },
+
+  {
+    title: "Administration",
+    items: [{ path: "/users" }, { path: "/audit" }, { path: "/notifications" }],
+  },
+
+  { title: "Help", items: [{ path: "/kiosk" }, { path: "/manual" }] },
+];
+
 const FALLBACK = {
   title: "EMS Workflow System",
   subtitle: "",
@@ -419,17 +518,100 @@ export function getRouteMetadata(pathname) {
   return param || FALLBACK;
 }
 
-/** Sidebar groups the user may see, in GROUP_ORDER, with empty groups dropped. */
-export function getNavigationGroups(user) {
-  const visible = ROUTE_METADATA.filter((r) => !r.hidden && r.canAccess(user));
-  const groups = [];
-  const ordered = [
-    ...GROUP_ORDER,
-    ...[...new Set(visible.map((r) => r.group))].filter((g) => !GROUP_ORDER.includes(g)),
-  ];
-  ordered.forEach((name) => {
-    const items = visible.filter((r) => r.group === name);
-    if (items.length) groups.push({ title: name, items });
+/** Resolve one leaf node against ROUTE_METADATA, or null if the user may not see it. */
+function resolveLeaf(node, user) {
+  const meta = ROUTE_METADATA.find((r) => r.path === node.path);
+  // A nav node pointing at a path with no metadata is a bug, not something to
+  // render blind — routeMetadata.test.js fails on it.
+  if (!meta || !meta.canAccess(user)) return null;
+  return {
+    type: "link",
+    path: meta.path,
+    // The nav may shorten a label inside a hub ("Directory" under Employees)
+    // without renaming the page itself.
+    label: node.label || meta.title,
+    title: meta.title,
+    subtitle: meta.subtitle,
+    icon: meta.icon,
+    badgeKey: meta.badgeKey,
+  };
+}
+
+/**
+ * The sidebar tree for a user: sections → items → children.
+ *
+ * Filtering is by permission only, and it cascades: a hub whose children are all
+ * denied disappears, and a section left with no items disappears with it, so
+ * nobody is shown a category header over nothing.
+ *
+ * A hub reduced to a single child collapses into a plain link to that child —
+ * consistently for every hub and every role, since a disclosure control that
+ * opens one thing is just a link wearing a costume.
+ */
+export function getNavigationTree(user) {
+  const sections = [];
+
+  NAV_SECTIONS.forEach((section) => {
+    const items = [];
+
+    section.items.forEach((item) => {
+      if (!item.children) {
+        const leaf = resolveLeaf(item, user);
+        if (leaf) items.push(leaf);
+        return;
+      }
+
+      const children = item.children
+        .map((child) => resolveLeaf(child, user))
+        .filter(Boolean);
+
+      if (children.length === 0) return;
+      if (children.length === 1) {
+        items.push(children[0]);
+        return;
+      }
+
+      items.push({
+        type: "hub",
+        id: item.id,
+        label: item.label,
+        icon: item.icon,
+        children,
+        // Child paths are what decides "is this hub the active one".
+        paths: children.map((c) => c.path),
+        badgeKeys: children.map((c) => c.badgeKey).filter(Boolean),
+      });
+    });
+
+    if (items.length) sections.push({ title: section.title, items });
   });
-  return groups;
+
+  return sections;
+}
+
+/**
+ * Every navigable page the user may open, flattened — for the command palette,
+ * which searches pages rather than browsing them. Same source, same filtering.
+ */
+export function getNavigationItems(user) {
+  return getNavigationTree(user).flatMap((section) =>
+    section.items.flatMap((item) =>
+      (item.type === "hub" ? item.children : [item]).map((leaf) => ({
+        ...leaf,
+        group: item.type === "hub" ? item.label : (section.title || "Main"),
+      })),
+    ),
+  );
+}
+
+/**
+ * The hub a pathname sits in, or null. Detail routes resolve through their
+ * `parent`, so /calls/42 is still inside Calls & Scheduling.
+ */
+export function getActiveHub(pathname, user) {
+  const meta = getRouteMetadata(pathname);
+  const navPath = meta.parent || meta.path;
+  return getNavigationTree(user)
+    .flatMap((s) => s.items)
+    .find((item) => item.type === "hub" && item.paths.includes(navPath)) || null;
 }

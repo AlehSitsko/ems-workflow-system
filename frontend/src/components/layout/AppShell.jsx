@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { FaPlus } from "react-icons/fa";
 
 import Sidebar from "./Sidebar";
+import ModuleTabs from "./ModuleTabs";
 import { useAttentionCounts } from "../../hooks/useAttentionCounts";
 import AppHeader from "./AppHeader";
 import PageContainer from "./PageContainer";
@@ -10,7 +12,8 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { useIsMobileNav } from "../../hooks/useMediaQuery";
 import { useUserSettings } from "../../context/useUserSettings";
-import { getRouteMetadata } from "../../config/routeMetadata";
+import { getRouteMetadata, getActiveHub, NAV_SECTIONS } from "../../config/routeMetadata";
+import { hasCallIntakeAccess } from "../../api/authApi";
 
 const SIDEBAR_ID = "app-sidebar";
 
@@ -64,6 +67,34 @@ function AppShell({ currentUser, onLogout, children }) {
   // Work sitting in queues that appear on no board — surfaced as badges so it
   // cannot accumulate unnoticed.
   const { counts: attentionCounts } = useAttentionCounts(currentUser);
+  const badgeFor = useCallback(
+    (item) => (item.badgeKey ? attentionCounts[item.badgeKey] || 0 : 0),
+    [attentionCounts],
+  );
+
+  // The hub the current page belongs to, if any. It drives both the local tabs
+  // and the breadcrumb, so the two can never disagree.
+  const activeHub = useMemo(
+    () => getActiveHub(location.pathname, currentUser),
+    [location.pathname, currentUser],
+  );
+
+  const breadcrumb = useMemo(() => {
+    if (!activeHub) return null;
+    const section = NAV_SECTIONS.find((s) =>
+      s.items.some((item) => item.id === activeHub.id));
+    return [section?.title, activeHub.label].filter(Boolean);
+  }, [activeHub]);
+
+  // Taking a call is an action rather than a menu entry, so the hub that owns
+  // call work carries the button. The header keeps the always-available one.
+  const hubActions = activeHub?.id === "calls-scheduling" && hasCallIntakeAccess(currentUser)
+    ? (
+      <Link to="/call-form" className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2">
+        <FaPlus aria-hidden="true" /> New Call
+      </Link>
+    )
+    : null;
 
   return (
     <div className={`app-shell${collapsed && !isMobile ? " sidebar-collapsed" : ""}`}>
@@ -92,10 +123,14 @@ function AppShell({ currentUser, onLogout, children }) {
           mobileNavOpen={mobileNavOpen}
           onToggleMobileNav={() => setMobileNavOpen((v) => !v)}
           sidebarId={SIDEBAR_ID}
+          breadcrumb={breadcrumb}
         />
 
         <main className="app-content" id="main-content">
-          <PageContainer width={meta.width}>{children}</PageContainer>
+          <PageContainer width={meta.width}>
+            <ModuleTabs hub={activeHub} badgeFor={badgeFor} actions={hubActions} />
+            {children}
+          </PageContainer>
         </main>
       </div>
 

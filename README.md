@@ -68,15 +68,61 @@ It is not intended to replace primary dispatch software, CAD systems, EMR system
 * **Patients** — operational records, dispatch comments, transport instructions, alerts, contacts, soft archive
 * **Crew Planner** — daily units, day/night shifts, shift duration & delay alerts, certification-checked crew validation
 * **Fleet** — the physical vehicles, separate from the daily crew units that use them: `/fleet/vehicles` list plus a full Vehicle Workspace (`/fleet/vehicles/:id`) with Overview, Compliance and Activity. Admin/supervisor manage, dispatchers get read-only availability, HR has no access
-* **Employees / HR** — records, certifications, document management with expiry tracking, compliance dashboard
+* **Employees / HR** — the Employees hub gathers the Directory, Compliance, Leave and Payroll; an employee's own page is a workspace with Overview, Qualifications, Documents, Time & Pay, Tasks, Schedule, Activity and Leave tabs, each backed by a real endpoint and deep-linkable via `?tab=`
 * **Time / Payroll** — kiosk clock-in/out, time entries, pay periods, FLSA overtime, CSV/Gusto/ADP export
 * **Tasks** — staff task assignment, comments, activity log, role-scoped permissions, creator/assigner-only closing
 * **Notifications** — in-app bell, per-user preferences, browser push (VAPID)
 * **Audit Log** — global action logging across every module
 * **Settings** — server-side per-user preferences (time format, notification prefs, dispatch thresholds, panel layout)
-* **UI System** — consistent sidebar/topbar layout, dark/light theme tokens, standardized drawer/modal/toast patterns (see [docs/UI_STANDARD.md](docs/UI_STANDARD.md))
+* **UI System** — two-level role-filtered navigation from one config, consistent sidebar/topbar layout, dark/light theme tokens, standardized drawer/modal/toast patterns (see [docs/UI_STANDARD.md](docs/UI_STANDARD.md) and Navigation & Information Architecture below)
 
 For the full history of what shipped and when, see [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
+
+## Navigation & Information Architecture
+
+The sidebar is two levels deep. Related pages are grouped into **hubs** — a hub is
+a disclosure control, not a route, so every page keeps its own URL and can still
+be opened directly or bookmarked.
+
+```text
+Dashboard
+OPERATIONS      Dispatch Board · Calls & Scheduling ▾ · Day Closeout · Calendar
+RESOURCES       Patients · Fleet & Crews ▾
+WORKFORCE       Employees ▾ · Tasks
+MANAGEMENT      Supervisor Dashboard
+ADMINISTRATION  Users · Audit Log · Settings
+HELP            Kiosk · User Manual
+```
+
+Hubs and their pages:
+
+| Hub | Pages | Routes |
+|---|---|---|
+| **Calls & Scheduling** | All Calls, Scheduling Inbox, Recurring Trips, Confirmations | `/calls`, `/scheduling-inbox`, `/recurring-trips`, `/confirmation-round` |
+| **Fleet & Crews** | Crew Planner, Vehicles | `/crew-planner`, `/fleet/vehicles` |
+| **Employees** | Directory, Compliance, Leave, Payroll | `/employees`, `/compliance`, `/leave`, `/payroll` |
+
+**One source of truth.** `frontend/src/config/routeMetadata.js` holds both the
+per-route metadata (title, subtitle, icon, permission, width) and `NAV_SECTIONS`,
+the menu's shape. The shape references routes by path only — labels, icons and
+permissions are always read back from the route entry, so the sidebar, the
+dashboard's quick links, the module tabs and the command palette cannot disagree
+about what a page is called or who may open it.
+
+**Filtering cascades.** A hub whose every child is denied disappears; a section
+left with no items disappears with it, so no role sees a heading over nothing. A
+hub reduced to a single permitted child collapses into a plain link — the same
+rule for every hub and every role.
+
+**Global quick actions.** Taking a call is an action rather than a place: it has
+no menu entry. **Start Taking Call** sits in the header on every page, the
+dashboard carries the same action as its primary CTA, and **New Call** appears
+beside the Calls & Scheduling tabs. The route (`/call-form`) and its permission
+are unchanged, and both Classic and Guided intake modes are untouched.
+
+**Menu visibility is not security.** `canAccess` decides what is *shown*. Route
+guards in `App.jsx` and the API's own role checks are the boundary — see
+`backend/utils/auth_utils.py` and `backend/tests/test_security.py`.
 
 ## Screenshots
 
