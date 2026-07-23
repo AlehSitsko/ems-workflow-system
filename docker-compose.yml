@@ -1,0 +1,57 @@
+# Reproducible development environment.
+#
+# Development and demo only. This is not a production deployment: it runs both
+# development servers, keeps SQLite, and has no reverse proxy, no TLS and no
+# secret management. See docs/PRODUCTION_READINESS.md for what production needs.
+#
+#   docker compose up --build      start both services
+#   docker compose down            stop them (the database volume survives)
+#   docker compose down -v         stop and discard the database
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5050:5050"
+    environment:
+      # Bind inside the container; the host still reaches it only through the
+      # published port above.
+      FLASK_RUN_HOST: 0.0.0.0
+      FLASK_DEBUG: "1"
+      # Absolute path so it lands on the named volume rather than in the
+      # instance folder inside the image layer.
+      DATABASE_URL: sqlite:////app/instance/database.db
+    volumes:
+      # Source is mounted for reload; the database is a named volume so a
+      # rebuild does not wipe it and the host's own dev database is untouched.
+      - ./backend:/app
+      - backend_instance:/app/instance
+    healthcheck:
+      # The endpoint the app already exposes — no health route was invented for
+      # Docker's benefit.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5050/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # The browser resolves this, not the container, so it is the host's
+      # published port rather than the compose service name.
+      VITE_API_BASE_URL: http://127.0.0.1:5050
+    volumes:
+      - ./frontend:/app
+      # Keeps the image's node_modules: the bind mount above would otherwise
+      # hide them behind the host directory, which may hold a different
+      # platform's binaries or none at all.
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend_instance:

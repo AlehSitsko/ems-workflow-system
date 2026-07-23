@@ -49,3 +49,17 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+
+  docker:
+    name: Docker (build both dev images)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t ems-backend-dev ./backend
+      - name: Build frontend image
+        run: docker build -t ems-frontend-dev ./frontend
+      # Compose is validated rather than started: bringing the stack up would
+      # need a database and a wait loop, which belongs in local use, not CI.
+      - name: Validate compose file
+        run: docker compose config --quiet

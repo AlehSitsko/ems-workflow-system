@@ -122,4 +122,12 @@ def create_app(config_overrides=None):
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="127.0.0.1", port=5050, debug=os.environ.get("FLASK_DEBUG") == "1")
+    # Loopback by default: a development server should not be reachable from the
+    # network unless that is asked for. A container has to bind 0.0.0.0 to be
+    # reachable from the host at all, so it sets FLASK_RUN_HOST — the default
+    # stays unchanged for everyone running this directly.
+    app.run(
+        host=os.environ.get("FLASK_RUN_HOST", "127.0.0.1"),
+        port=int(os.environ.get("FLASK_RUN_PORT", "5050")),
+        debug=os.environ.get("FLASK_DEBUG") == "1",
+    )

@@ -140,6 +140,20 @@ Full module map and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Quick Start
 
+### Docker (everything at once)
+
+```bash
+docker compose up --build
+```
+
+Frontend on <http://127.0.0.1:5173/ems-workflow-system/>, backend on
+<http://127.0.0.1:5050>. Migrations run on startup; demo users are seeded only
+when you ask (`docker compose exec backend flask --app app seed-demo`).
+Development environment only — see [docs/DOCKER.md](docs/DOCKER.md).
+
+To run the two services directly instead:
+
+
 ### Backend
 
 ```powershell
@@ -207,7 +221,8 @@ skipped). **Not** seeded on normal startup. For local/demo use only:
 ems-workflow-system/
 ├── backend/       Flask app, models, Alembic migrations, one blueprint per module
 ├── frontend/      React + Vite app — pages, components, api/ wrappers, context, hooks
-├── docs/          Architecture, API reference, roadmap, testing, production readiness, UI standard
+├── docs/          Architecture, API reference, roadmap, testing, Docker, production readiness, UI standard
+├── docker-compose.yml  Reproducible dev environment (development only)
 ├── qa_test.py     Functional/integration test script
 ├── stress_test.py Load test script
 └── TODO.md        Actionable near-term backlog

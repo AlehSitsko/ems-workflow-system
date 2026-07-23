@@ -1,0 +1,7 @@
+# Installed inside the image by `npm ci`; copying the host's copy would drag in
+# binaries built for a different platform.
+node_modules/
+dist/
+
+.env
+.env.local

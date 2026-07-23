@@ -81,22 +81,29 @@ COMPLETED_BLOCKS.md → "Calendar"). Full spec in
   identical output. (Limiting to recently-active patients was the original idea
   and is not needed — it would also have silently dropped real birthdays.)
 
-## P2 — Docker development environment (planned, not started)
+## P2 — Docker development environment (done)
 
 Reproducible local dev/demo via containers. **Development only — this does not
 make the project production-ready** (no PostgreSQL, real auth, or hardening; see
-P4). Detailed phase notes in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 3.
+P4). Detailed notes in [docs/DOCKER.md](docs/DOCKER.md).
 
-- [ ] `backend/Dockerfile` (Python slim, Flask dev server, `flask db upgrade` on start)
-- [ ] `frontend/Dockerfile` (Node, Vite dev server with hot reload; API URL via env)
-- [ ] `docker-compose.yml` (backend + frontend, ports, depends_on)
-- [ ] `.dockerignore` + `.env.example` (document `DATABASE_URL`, `VITE_API_BASE_URL`, VAPID)
-- [ ] Named volume for the SQLite database file (persist across rebuilds)
-- [ ] Optional explicit demo seed step (`flask --app app seed-demo`) — never automatic
-- [ ] Reuse existing `/api/health` for a compose healthcheck
-- [ ] Docker setup guide (`docs/`), and a CI job that builds both images
-- Out of scope for P1: PostgreSQL, Redis, Celery, Nginx, Kubernetes, production
-  secrets, cloud deployment.
+- [x] `backend/Dockerfile` (Python 3.13 slim, `flask db upgrade` on start)
+- [x] `frontend/Dockerfile` (Node 22, Vite dev server with hot reload)
+- [x] `docker-compose.yml` — both services, published ports, `depends_on` gated
+  on the backend's healthcheck so the UI never loads against a migrating server
+- [x] `.dockerignore` for both (keeps the host venv, node_modules, any developer
+  database and the VAPID private key out of image layers) + `.env.example`
+- [x] Named volume for the SQLite file — survives rebuilds, and is separate from
+  the host's `backend/instance/database.db` so Docker cannot damage local data
+- [x] Demo seed stays an explicit command, never automatic
+- [x] Healthcheck reuses the existing `/api/health` — no route added for Docker
+- [x] `docs/DOCKER.md` + a `docker` CI job that builds both images and validates
+  the compose file
+- [ ] **Not yet built on a developer machine.** The environment this was written
+  in had no Docker; CI is the first place the images are actually built. Worth a
+  local `docker compose up --build` before relying on it
+- Out of scope, deliberately: PostgreSQL, Redis, Celery, Nginx, Kubernetes,
+  production secrets, cloud deployment.
 
 ## P3 — Calendar operations & extensions (planned)
 
@@ -292,10 +299,12 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
   expands the sidebar and opens it. A hover/focus flyout would need its own
   touch, keyboard and screen-reader handling for little gain
-- [ ] **Day Closeout permission review.** The target IA in the brief lists Day
-  Closeout as a supervisor function; the shipped guard is `hasDispatchAccess`
-  (admin/supervisor/dispatcher). Kept as-is — narrowing it would remove a
-  capability dispatchers already have. **Needs a decision from the project owner**
+- [x] **Day Closeout permission — decided.** Closing the operational day stays
+  open to dispatchers (`hasDispatchAccess`: admin/supervisor/dispatcher). The
+  dispatcher runs the day, so signing it off is part of that job; restricting it
+  to supervisors would have removed a capability they already use and left the
+  handoff waiting on someone who was not there. Decided by the project owner,
+  2026-07-23 — no code change needed, the guard already matched.
 
 ## P4 — Later production hardening (planned)
 
