@@ -42,6 +42,16 @@ def db_session(app):
 
 TEST_PASSWORD = "test-password"
 
+# Password hashing is deliberately slow — that is the point of it in production.
+# In tests it is pure overhead: what is under test is the session mechanism, not
+# the KDF's work factor. At the default cost each user costs ~83ms to create and
+# ~83ms to sign in, and a four-role fixture pays that eight times, which doubled
+# the suite's runtime. One PBKDF2 iteration keeps the same code path — the same
+# hash format, the same check_password_hash call in the login route — at a
+# fraction of the cost. Production is untouched: this constant is only ever read
+# from here.
+TEST_HASH_METHOD = "pbkdf2:sha256:1"
+
 
 def make_user(role, username=None, display_name=None, **extra):
     """Create an active user with a known password, for signing in."""
@@ -50,7 +60,7 @@ def make_user(role, username=None, display_name=None, **extra):
 
     user = User(
         username=username or f"test_{role}",
-        password_hash=generate_password_hash(TEST_PASSWORD),
+        password_hash=generate_password_hash(TEST_PASSWORD, method=TEST_HASH_METHOD),
         display_name=display_name or f"Test {role.title()}",
         role=role,
         is_active=True,
