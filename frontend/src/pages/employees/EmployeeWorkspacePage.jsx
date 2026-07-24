@@ -127,7 +127,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     if (tabData.activity === null && tabState.activity === undefined) {
       loadTab("activity", () => getAuditLog(
         { entity_type: "employee", entity_id: employeeId, per_page: 50 },
-        { "X-User-Role": currentUser?.role || "", "X-User-Id": String(currentUser?.id || "") },
+        {},
       ).then((d) => d.entries || d.items || (Array.isArray(d) ? d : [])));
     }
     if (tabData.shifts === null && tabState.shifts === undefined) {

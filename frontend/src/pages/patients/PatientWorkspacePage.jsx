@@ -113,7 +113,7 @@ export default function PatientWorkspacePage({ currentUser }) {
     if (tabData.activity === null && tabState.activity === undefined) {
       loadTab("activity", () => getAuditLog(
         { entity_type: "patient", entity_id: patient.id, per_page: 50 },
-        { "X-User-Role": currentUser?.role || "", "X-User-Id": String(currentUser?.id || "") },
+        {},
       ).then((d) => d.entries || d.items || (Array.isArray(d) ? d : [])));
     }
   }, [patient, currentUser, loadTab, tabData, tabState]);

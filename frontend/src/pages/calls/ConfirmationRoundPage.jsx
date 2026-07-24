@@ -17,12 +17,10 @@ import { useUserSettings } from "../../context/useUserSettings";
 // individually is fine for one correction and hopeless for twenty, so this shows
 // the day in the order it would be rung and keeps count of what is left.
 
-function authHeaders(currentUser) {
-  return {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id": String(currentUser?.id || ""),
-    "X-User-Name": currentUser?.display_name || "",
-  };
+// Identity travels in the session cookie, sent by `credentials: "include"`.
+// The caller no longer asserts a role — the server would ignore it.
+function authHeaders() {
+  return {};
 }
 
 function tomorrowStr() {

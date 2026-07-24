@@ -23,22 +23,23 @@ def employees(app):
 
 
 @pytest.fixture()
-def roles(app):
-    """One User per role → ready-to-send auth header dicts."""
-    headers = {}
+def roles(app, request):
+    """A signed-in client per role.
+
+    Identity is a session cookie now, so a test signs in for real rather than
+    asserting a role in a header — which means these tests also exercise the
+    authentication path itself.
+    """
+    from conftest import make_user, login
+
+    out = {}
+    prefix = request.node.module.__name__.rsplit(".", 1)[-1]
     for role in ("admin", "supervisor", "dispatcher", "hr"):
-        user = User(
-            username=f"test_{role}",
-            password_hash=generate_password_hash("pw"),
-            display_name=f"Test {role.title()}",
-            role=role,
-            is_active=True,
-        )
-        db.session.add(user)
-        db.session.flush()
-        headers[role] = {"X-User-Id": str(user.id), "X-User-Role": role, "X-User-Name": user.display_name}
-    db.session.commit()
-    return headers
+        user = make_user(role, username=f"{prefix}_{role}")
+        c = app.test_client()
+        login(c, user.username)
+        out[role] = c
+    return out
 
 
 TODAY = date.today().isoformat()
@@ -86,28 +87,28 @@ def events_of_type(payload, type_):
 # ── Range validation ─────────────────────────────────────────────────────────
 
 def test_missing_range_returns_400(client, roles):
-    assert client.get("/api/calendar/events", headers=roles["admin"]).status_code == 400
-    assert client.get(f"/api/calendar/events?start={TODAY}", headers=roles["admin"]).status_code == 400
+    assert roles["admin"].get("/api/calendar/events").status_code == 400
+    assert roles["admin"].get(f"/api/calendar/events?start={TODAY}").status_code == 400
 
 
 def test_invalid_dates_return_400(client, roles):
-    resp = client.get("/api/calendar/events?start=2026-13-40&end=2026-13-41", headers=roles["admin"])
+    resp = roles["admin"].get("/api/calendar/events?start=2026-13-40&end=2026-13-41")
     assert resp.status_code == 400
 
 
 def test_reversed_range_returns_400(client, roles):
-    resp = client.get(f"/api/calendar/events?start={FUTURE}&end={TODAY}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={FUTURE}&end={TODAY}")
     assert resp.status_code == 400
 
 
 def test_excessive_range_returns_400(client, roles):
     far = (date.today() + timedelta(days=200)).isoformat()
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={far}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={far}")
     assert resp.status_code == 400
 
 
 def test_empty_range_returns_empty_payload(client, roles):
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={TODAY}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={TODAY}")
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["events"] == []
@@ -119,7 +120,7 @@ def test_empty_range_returns_empty_payload(client, roles):
 def test_calls_in_range_returned_outside_excluded(client, roles):
     mk_call(trip_date=FUTURE)
     mk_call(trip_date=(date.today() + timedelta(days=60)).isoformat())  # outside a tight window
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}")
     calls = events_of_type(resp.get_json(), "scheduled_call")
     assert len(calls) == 1
     assert calls[0]["date"] == FUTURE
@@ -127,7 +128,7 @@ def test_calls_in_range_returned_outside_excluded(client, roles):
 
 def test_crew_units_returned(client, roles, employees):
     mk_unit(shift_date=FUTURE, crew=employees[:2])
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}")
     crew = events_of_type(resp.get_json(), "crew_shift")
     assert len(crew) == 1
     assert crew[0]["title"].startswith("Unit 12")
@@ -137,7 +138,7 @@ def test_crew_units_returned(client, roles, employees):
 def test_cancelled_and_completed_statuses(client, roles):
     mk_call(trip_date=FUTURE, status="cancelled")
     mk_call(trip_date=FUTURE, status="completed")
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}")
     statuses = {e["status"] for e in events_of_type(resp.get_json(), "scheduled_call")}
     assert statuses == {"cancelled", "completed"}
 
@@ -147,7 +148,7 @@ def test_assignment_information_present(client, roles):
     unit = mk_unit(shift_date=FUTURE, truck_number="7")
     db.session.add(CallAssignment(call_id=call.id, unit_id=unit.id, is_active=True))
     db.session.commit()
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"])
+    resp = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}")
     ev = events_of_type(resp.get_json(), "scheduled_call")[0]
     assert ev["status"] == "assigned"
     assert ev["assignedUnitId"] == unit.id
@@ -163,7 +164,7 @@ def test_day_summary_counts(client, roles):
     db.session.add(CallAssignment(call_id=call.id, unit_id=unit.id, is_active=True))
     mk_call(trip_date=FUTURE, status="new")  # unassigned
     db.session.commit()
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     day = body["days"][FUTURE]
     assert day["callsTotal"] == 2
     assert day["callsAssigned"] == 1
@@ -173,7 +174,7 @@ def test_day_summary_counts(client, roles):
 
 def test_unassigned_call_marks_day_warning(client, roles):
     mk_call(trip_date=FUTURE, status="new")
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     day = body["days"][FUTURE]
     assert day["callsUnassigned"] == 1
     assert day["warningCount"] >= 1
@@ -182,7 +183,7 @@ def test_unassigned_call_marks_day_warning(client, roles):
 
 def test_incomplete_unit_marks_day_warning(client, roles, employees):
     mk_unit(shift_date=FUTURE, crew=employees[:1])  # only 1 of 2 required
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     day = body["days"][FUTURE]
     assert day["unitsIncomplete"] == 1
     assert day["readiness"] == "warning"
@@ -193,7 +194,7 @@ def test_als_call_on_bls_unit_is_critical(client, roles):
     unit = mk_unit(shift_date=FUTURE, unit_type="BLS")
     db.session.add(CallAssignment(call_id=call.id, unit_id=unit.id, is_active=True))
     db.session.commit()
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     day = body["days"][FUTURE]
     assert day["criticalCount"] >= 1
     assert day["readiness"] == "critical"
@@ -204,22 +205,29 @@ def test_ready_day_has_ready_readiness(client, roles, employees):
     unit = mk_unit(shift_date=FUTURE, crew=employees[:2])
     db.session.add(CallAssignment(call_id=call.id, unit_id=unit.id, is_active=True))
     db.session.commit()
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     assert body["days"][FUTURE]["readiness"] == "ready"
 
 
 # ── Role filtering ───────────────────────────────────────────────────────────
 
-def test_unknown_role_is_forbidden(client):
-    resp = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers={"X-User-Role": "ghost"})
-    assert resp.status_code == 403
+def test_unknown_role_is_forbidden(app):
+    """A signed-in user whose role the app does not recognise is identified but
+    allowed nowhere — 403, not 401. (A header cannot claim a role at all now.)"""
+    from conftest import make_user, login
+
+    user = make_user("ghost", username="calendar_ghost")
+    c = app.test_client()
+    login(c, user.username)
+
+    assert c.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").status_code == 403
 
 
 def test_hr_gets_no_call_events_or_phi(client, roles, employees):
     p = mk_patient("Jane", "Smith")
     mk_call(trip_date=FUTURE, status="new", patient_id=p.id)
     mk_unit(shift_date=FUTURE, crew=employees[:2])
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["hr"]).get_json()
+    body = roles["hr"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     assert events_of_type(body, "scheduled_call") == []          # no operational calls
     assert len(events_of_type(body, "crew_shift")) == 1          # crew visible
     day = body["days"][FUTURE]
@@ -232,14 +240,14 @@ def test_hr_gets_no_call_events_or_phi(client, roles, employees):
 def test_dispatcher_gets_minimized_patient_label(client, roles):
     p = mk_patient("John", "Doe")
     mk_call(trip_date=FUTURE, status="new", patient_id=p.id)
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["dispatcher"]).get_json()
+    body = roles["dispatcher"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     ev = events_of_type(body, "scheduled_call")[0]
     assert ev["metadata"]["patientLabel"] == "John D."   # minimized, never full last name
 
 
 def test_call_event_contract_is_stable(client, roles):
     mk_call(trip_date=FUTURE, status="new")
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     ev = events_of_type(body, "scheduled_call")[0]
     for key in ("id", "type", "title", "date", "start", "end", "allDay", "status",
                 "severity", "source", "sourceId", "assignedUnitId", "assignedUnitNumber",
@@ -258,40 +266,39 @@ def _mk_today_unit(truck="99"):
 def test_future_date_allows_planning_assignment(client, roles):
     call = mk_call(trip_date=FUTURE, status="new")
     unit = mk_unit(shift_date=FUTURE, truck_number="21")
-    resp = client.post("/api/dispatch/assign",
-                       json={"call_id": call.id, "unit_id": unit.id},
-                       headers=roles["dispatcher"])
+    resp = roles["dispatcher"].post("/api/dispatch/assign",
+                       json={"call_id": call.id, "unit_id": unit.id})
     assert resp.status_code == 201
     assert db.session.get(Call, call.id).status == "assigned"
 
 
 def test_future_date_rejects_live_status_transition(client, roles):
     unit = mk_unit(shift_date=FUTURE, truck_number="22")
-    resp = client.patch(f"/api/dispatch/units/{unit.id}/status",
-                        json={"status": "en_route"}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/status",
+                        json={"status": "en_route"})
     assert resp.status_code == 409
     assert db.session.get(DailyCrewUnit, unit.id).dispatch_status == "available"
 
 
 def test_today_allows_live_status_transition(client, roles):
     unit = _mk_today_unit()
-    resp = client.patch(f"/api/dispatch/units/{unit.id}/status",
-                        json={"status": "en_route"}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/status",
+                        json={"status": "en_route"})
     assert resp.status_code == 200
     assert db.session.get(DailyCrewUnit, unit.id).dispatch_status == "en_route"
 
 
 def test_past_date_rejects_status_transition(client, roles):
     unit = mk_unit(shift_date=PAST, truck_number="23")
-    resp = client.patch(f"/api/dispatch/units/{unit.id}/status",
-                        json={"status": "en_route"}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/status",
+                        json={"status": "en_route"})
     assert resp.status_code == 409
 
 
 def test_existing_board_endpoint_unchanged(client, roles):
     mk_call(trip_date=TODAY, status="new")
     _mk_today_unit(truck="50")
-    body = client.get(f"/api/dispatch/board?date={TODAY}", headers=roles["dispatcher"]).get_json()
+    body = roles["dispatcher"].get(f"/api/dispatch/board?date={TODAY}").get_json()
     assert "openCalls" in body and "units" in body
     assert body["date"] == TODAY
     assert len(body["units"]) == 1
@@ -312,8 +319,8 @@ def mk_employee(first="Cal", last="Endar", dob=None, active=True, **certs):
     return e
 
 
-def types_for(client, headers, type_, start=TODAY, end=FUTURE):
-    body = client.get(f"/api/calendar/events?start={start}&end={end}", headers=headers).get_json()
+def types_for(api, type_, start=TODAY, end=FUTURE):
+    body = api.get(f"/api/calendar/events?start={start}&end={end}").get_json()
     return [e for e in body["events"] if e["type"] == type_]
 
 
@@ -321,31 +328,31 @@ def test_patient_birthday_visible_to_ops_not_hr(client, roles):
     mk_patient("Birthday", "Person")
     db.session.query(Patient).update({Patient.dob: BIRTHDAY_DOB})
     db.session.commit()
-    disp = types_for(client, roles["dispatcher"], "patient_birthday")
+    disp = types_for(roles["dispatcher"], "patient_birthday")
     assert len(disp) == 1
     assert disp[0]["metadata"]["patientLabel"] == "Birthday P."  # minimized
-    assert types_for(client, roles["hr"], "patient_birthday") == []  # HR: no patient PHI
+    assert types_for(roles["hr"], "patient_birthday") == []  # HR: no patient PHI
 
 
 def test_employee_birthday_visible_to_all_roles(client, roles):
     mk_employee("Emp", "Loyee", dob=BIRTHDAY_DOB)
     for role in ("admin", "dispatcher", "hr"):
-        evs = types_for(client, roles[role], "employee_birthday")
+        evs = types_for(roles[role], "employee_birthday")
         assert len(evs) == 1, role
 
 
 def test_birthday_recurs_regardless_of_birth_year(client, roles):
     # dob in 1975 still produces an occurrence in the current-year range.
     mk_employee("Old", "Timer", dob=f"1975-{FUTURE[5:7]}-{FUTURE[8:10]}")
-    assert len(types_for(client, roles["admin"], "employee_birthday")) == 1
+    assert len(types_for(roles["admin"], "employee_birthday")) == 1
 
 
 def test_certification_event_hides_name_from_dispatcher(client, roles):
     mk_employee("Cert", "Holder", emt_has_license=True, emt_expiration_date=FUTURE)
-    admin_ev = types_for(client, roles["admin"], "certification")
+    admin_ev = types_for(roles["admin"], "certification")
     assert len(admin_ev) == 1
     assert admin_ev[0]["metadata"].get("employeeName") == "Cert Holder"
-    disp_ev = types_for(client, roles["dispatcher"], "certification")
+    disp_ev = types_for(roles["dispatcher"], "certification")
     assert len(disp_ev) == 1                                   # dispatcher sees the fact
     assert "employeeName" not in disp_ev[0]["metadata"]        # but not the name
     assert disp_ev[0]["sourceId"] is None
@@ -357,22 +364,22 @@ def test_task_event_follows_task_visibility(client, roles):
              due_date=FUTURE, created_at="2026-01-01", updated_at="2026-01-01")
     db.session.add(t)
     db.session.commit()
-    assert len(types_for(client, roles["admin"], "task")) == 1        # admin sees all
-    assert types_for(client, roles["dispatcher"], "task") == []       # unrelated dispatcher: none
+    assert len(types_for(roles["admin"], "task")) == 1        # admin sees all
+    assert types_for(roles["dispatcher"], "task") == []       # unrelated dispatcher: none
     t.visible_to_all = True
     db.session.commit()
-    assert len(types_for(client, roles["dispatcher"], "task")) == 1   # announcement visible
+    assert len(types_for(roles["dispatcher"], "task")) == 1   # announcement visible
 
 
 def test_vehicle_event_visible_to_ops_not_hr(client, roles):
     v = Vehicle(unit_name="Ambu-1", unit_number="77", unit_type="BLS", inspection_expiry=FUTURE)
     db.session.add(v)
     db.session.commit()
-    assert len(types_for(client, roles["dispatcher"], "vehicle")) == 1
-    assert types_for(client, roles["hr"], "vehicle") == []
+    assert len(types_for(roles["dispatcher"], "vehicle")) == 1
+    assert types_for(roles["hr"], "vehicle") == []
 
 
 def test_overlay_events_counted_in_day_summary(client, roles):
     mk_employee("Emp", "Loyee", dob=BIRTHDAY_DOB)
-    body = client.get(f"/api/calendar/events?start={TODAY}&end={FUTURE}", headers=roles["admin"]).get_json()
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
     assert body["days"][FUTURE]["otherEventsCount"] >= 1

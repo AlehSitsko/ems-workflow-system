@@ -1,15 +1,20 @@
 """Shared request-auth helpers.
 
-**These headers are not production authentication.** The caller sends
-`X-User-Id` / `X-User-Name` / `X-User-Role` and the server believes them, so
-anyone who can reach the API can claim any role. That is acceptable only for
-local development and demos; replacing it with real JWT/session auth is the
-deferred hardening phase (see docs/PRODUCTION_READINESS.md).
+Identity comes from the **server-side session cookie** set at login. The cookie
+is signed with SECRET_KEY, HttpOnly and SameSite=Lax, so a client cannot state
+its own role and a cross-site scripting bug cannot read the session out of
+JavaScript the way it could a token in localStorage.
 
-What this module *does* guarantee is that every gated route fails closed:
+This replaced `X-User-Id` / `X-User-Role` / `X-User-Name` headers, which the
+server used to believe: anyone who could reach the API could claim `admin` with
+a single curl flag. Those headers are now ignored entirely — trusting them again
+would silently undo this, so there is no fallback path to leave switched on by
+accident.
 
-  * no identity at all            -> 401 Authentication required
-  * identity present, wrong role  -> 403 Insufficient permissions
+Every gated route still fails closed, and the two failure modes stay distinct:
+
+  * no session at all              -> 401 Authentication required
+  * session present, wrong role    -> 403 Insufficient permissions
 
 An unauthenticated request must never fall through to a handler. Frontend
 visibility is a convenience, never a security boundary.
@@ -17,37 +22,61 @@ visibility is a convenience, never a security boundary.
 
 from functools import wraps
 
-from flask import request, jsonify
+from flask import request, jsonify, session
 
 # Every valid system role. Individual routes still narrow this to the subset
 # they allow via `require_role(...)`.
 ALL_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 
+# Session keys. Named once so a typo cannot silently create an anonymous
+# request that still looks logged in.
+SESSION_USER_ID = "user_id"
+SESSION_ROLE = "role"
+SESSION_NAME = "display_name"
+
+
+def start_session(user):
+    """Record a signed-in user. Called only after the password is verified."""
+    # A fresh session id per login: reusing the pre-login one would leave the
+    # app open to session fixation, where an attacker plants a known id and
+    # inherits the session once the victim signs in.
+    session.clear()
+    session[SESSION_USER_ID] = user.id
+    session[SESSION_ROLE] = user.role
+    session[SESSION_NAME] = user.display_name
+    session.permanent = True
+
+
+def end_session():
+    """Drop the signed-in user. Safe to call when nobody is signed in."""
+    session.clear()
+
 
 def get_request_role():
-    """The caller's role from the X-User-Role header ('' when absent)."""
-    return request.headers.get("X-User-Role", "")
+    """The caller's role from the session ('' when not signed in)."""
+    return session.get(SESSION_ROLE, "")
 
 
 def get_request_user_id():
-    """The caller's user id from X-User-Id, or None when absent/invalid."""
+    """The caller's user id from the session, or None."""
+    user_id = session.get(SESSION_USER_ID)
     try:
-        return int(request.headers.get("X-User-Id", 0)) or None
+        return int(user_id) or None
     except (ValueError, TypeError):
         return None
 
 
 def get_request_user_name():
-    """The caller's display name from X-User-Name, or None when absent."""
-    return request.headers.get("X-User-Name") or None
+    """The caller's display name from the session, or None."""
+    return session.get(SESSION_NAME) or None
 
 
 def is_authenticated():
-    """True when the request carries some caller identity.
+    """True when the request carries a signed-in session.
 
-    A claimed-but-unknown role still counts as "identified" — it is simply not
-    allowed anywhere, so it gets a 403. Only a request with no identity at all
-    is anonymous.
+    A role the app no longer recognises still counts as "identified" — it is
+    simply allowed nowhere, so it gets a 403. Only a request with no session at
+    all is anonymous.
     """
     return bool(get_request_role())
 
@@ -88,3 +117,63 @@ def require_role(*allowed_roles):
         return wrapper
 
     return decorator
+
+
+# ── Default-deny for the whole API ──────────────────────────────────────────
+#
+# Per-route decorators protect a route only if someone remembers to add one. An
+# audit found 74 registered routes with no gate, including `/api/patients` and
+# `/api/calls` — both of which returned patient data to an anonymous caller.
+#
+# So authentication is the default and exposure is the exception: anything under
+# /api/ requires a session unless it is named below. A new route is protected by
+# omission rather than exposed by it, which is the property the production plan
+# in docs/PRODUCTION_READINESS.md asked for.
+#
+# Role-level checks still live on the individual routes — this only establishes
+# "somebody is signed in".
+
+# Endpoints reachable without a session, by Flask endpoint name.
+PUBLIC_ENDPOINTS = {
+    # Signing in, and ending a session that may already be gone.
+    "auth.login",
+    "auth.logout",
+    # Liveness — used by container healthchecks before anyone can log in.
+    "health_check",
+    "home",
+    # The kiosk is a shared wall-mounted clock-in device with no user session by
+    # design; it authenticates an employee by PIN per action instead. Narrow and
+    # deliberate — see routes/time_routes.py.
+    "time.kiosk_employee_list",
+    "time.kiosk_verify_pin",
+    "time.kiosk_clock_in",
+    "time.kiosk_clock_out",
+    "time.kiosk_status",
+    # Push notifications need this before a subscription exists.
+    "notif.vapid_public_key",
+}
+
+
+def register_api_auth_guard(app):
+    """Require a session for every /api/ route except PUBLIC_ENDPOINTS."""
+
+    @app.before_request
+    def _require_session_for_api():
+        from flask import request, jsonify
+
+        # CORS preflight carries no cookies by design; rejecting it would break
+        # the real request that follows.
+        if request.method == "OPTIONS":
+            return None
+
+        if not request.path.startswith("/api/"):
+            return None
+
+        endpoint = request.endpoint or ""
+        if endpoint in PUBLIC_ENDPOINTS:
+            return None
+
+        if not is_authenticated():
+            return jsonify({"error": "Authentication required"}), 401
+
+        return None

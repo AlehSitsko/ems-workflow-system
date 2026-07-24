@@ -1,16 +1,30 @@
 import API_BASE from "./config.js";
 const API_BASE_URL = API_BASE;
 
+// The signed-in user is cached here only so the UI can render a name and scope
+// its menus without waiting for a round trip. It is **not** the identity: the
+// server reads that from an HttpOnly session cookie the page cannot see. Editing
+// this key buys nothing — the API ignores it entirely.
 const CURRENT_USER_STORAGE_KEY = "ems_current_user";
 
 // =========================
 // AUTH FUNCTIONS
 // =========================
 
-// Send login credentials to the backend.
+/**
+ * Every authenticated request needs this.
+ *
+ * `credentials: "include"` sends the session cookie cross-origin — the dev
+ * frontend is on :5173 and the API on :5050, so without it the browser omits
+ * the cookie and every call comes back 401.
+ */
+export const withCredentials = { credentials: "include" };
+
+// Send login credentials to the backend. The response sets the session cookie.
 export async function loginUser(username, password) {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -29,12 +43,31 @@ export async function loginUser(username, password) {
   return data.user;
 }
 
-// Save current user to localStorage.
+/**
+ * Who the session cookie belongs to, or null.
+ *
+ * The cookie outlives a page reload but is unreadable from JavaScript, so the
+ * app asks the server on startup instead of trusting its own cached copy.
+ */
+export async function fetchCurrentUser() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.user || null;
+  } catch {
+    // Offline or the API is down — treated as signed out rather than crashing
+    // the shell before it renders.
+    return null;
+  }
+}
+
+// Cache the user for rendering. See the note on CURRENT_USER_STORAGE_KEY.
 export function saveCurrentUser(user) {
   localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user));
 }
 
-// Read current user from localStorage.
+// The cached user, for a first paint before /api/auth/me answers.
 export function getCurrentUser() {
   const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
 
@@ -51,8 +84,17 @@ export function getCurrentUser() {
   }
 }
 
-// Remove current user from localStorage.
-export function logoutUser() {
+// End the session server-side, then drop the local cache. The cookie is
+// HttpOnly, so only the server can clear it.
+export async function logoutUser() {
+  try {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // Even if the call fails, clear locally: the user asked to sign out.
+  }
   localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
 }
 
@@ -189,7 +231,7 @@ export function hasAdminAccess(user) {
 
 // Get all application users.
 export async function getUsers() {
-  const response = await fetch(`${API_BASE_URL}/api/auth/users`);
+  const response = await fetch(`${API_BASE_URL}/api/auth/users`, { credentials: "include" });
 
   const data = await response.json();
 
@@ -203,6 +245,7 @@ export async function getUsers() {
 // Create a new application user.
 export async function createUser(userData) {
   const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
+    credentials: "include",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -224,6 +267,7 @@ export async function updateUser(userId, userData) {
   const response = await fetch(
     `${API_BASE_URL}/api/auth/users/${userId}`,
     {
+    credentials: "include",
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -246,6 +290,7 @@ export async function toggleUserActive(userId, isActive) {
   const response = await fetch(
     `${API_BASE_URL}/api/auth/users/${userId}/toggle-active`,
     {
+    credentials: "include",
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",

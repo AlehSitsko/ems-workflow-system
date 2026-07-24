@@ -1,14 +1,14 @@
 import API_BASE from "./config.js";
 
-function authHeaders(currentUser) {
-  return {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id": String(currentUser?.id || ""),
-  };
+// Identity travels in the session cookie, sent by `credentials: "include"`.
+// The caller no longer asserts a role — the server would ignore it.
+function authHeaders() {
+  return {};
 }
 
 export async function getDocuments(employeeId, currentUser) {
   const res = await fetch(`${API_BASE}/api/employees/${employeeId}/documents`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   if (!res.ok) throw new Error("Failed to load documents");
@@ -17,6 +17,7 @@ export async function getDocuments(employeeId, currentUser) {
 
 export async function uploadDocument(employeeId, formData, currentUser) {
   const res = await fetch(`${API_BASE}/api/employees/${employeeId}/documents`, {
+    credentials: "include",
     method: "POST",
     headers: authHeaders(currentUser),
     body: formData,
@@ -28,6 +29,7 @@ export async function uploadDocument(employeeId, formData, currentUser) {
 
 export async function updateDocument(docId, updates, currentUser) {
   const res = await fetch(`${API_BASE}/api/documents/${docId}`, {
+    credentials: "include",
     method: "PATCH",
     headers: { ...authHeaders(currentUser), "Content-Type": "application/json" },
     body: JSON.stringify(updates),
@@ -39,6 +41,7 @@ export async function updateDocument(docId, updates, currentUser) {
 
 export async function deleteDocument(docId, currentUser) {
   const res = await fetch(`${API_BASE}/api/documents/${docId}`, {
+    credentials: "include",
     method: "DELETE",
     headers: authHeaders(currentUser),
   });
@@ -48,6 +51,7 @@ export async function deleteDocument(docId, currentUser) {
 
 export async function fetchDocumentBlob(docId, currentUser) {
   const res = await fetch(`${API_BASE}/api/documents/${docId}/file`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   if (!res.ok) throw new Error("Failed to fetch file");
@@ -57,6 +61,7 @@ export async function fetchDocumentBlob(docId, currentUser) {
 
 export async function getComplianceSummary(currentUser) {
   const res = await fetch(`${API_BASE}/api/documents/compliance`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   if (!res.ok) throw new Error("Failed to load compliance summary");

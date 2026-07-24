@@ -3,12 +3,10 @@ import API_BASE from "./config.js";
 // Unlike most API modules, Tasks needs caller identity on every request —
 // the backend scopes list/detail results per role (dispatcher sees only
 // their own tasks, hr sees only HR-typed tasks), not just a binary route gate.
-function authHeaders(currentUser) {
-  return {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id": String(currentUser?.id || ""),
-    "X-User-Name": currentUser?.display_name || "",
-  };
+// Identity travels in the session cookie, sent by `credentials: "include"`.
+// The caller no longer asserts a role — the server would ignore it.
+function authHeaders() {
+  return {};
 }
 
 function jsonHeaders(currentUser) {
@@ -28,6 +26,7 @@ function buildQuery(params) {
 
 export async function getTasks(filters, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks${buildQuery(filters)}`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   const data = await res.json();
@@ -37,6 +36,7 @@ export async function getTasks(filters, currentUser) {
 
 export async function getTaskSummary(currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/summary`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   const data = await res.json();
@@ -46,6 +46,7 @@ export async function getTaskSummary(currentUser) {
 
 export async function createTask(taskData, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(currentUser),
     body: JSON.stringify(taskData),
@@ -57,6 +58,7 @@ export async function createTask(taskData, currentUser) {
 
 export async function updateTask(taskId, taskData, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    credentials: "include",
     method: "PUT",
     headers: jsonHeaders(currentUser),
     body: JSON.stringify(taskData),
@@ -68,6 +70,7 @@ export async function updateTask(taskId, taskData, currentUser) {
 
 export async function updateTaskStatus(taskId, status, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}/status`, {
+    credentials: "include",
     method: "PATCH",
     headers: jsonHeaders(currentUser),
     body: JSON.stringify({ status }),
@@ -79,6 +82,7 @@ export async function updateTaskStatus(taskId, status, currentUser) {
 
 export async function assignTask(taskId, assignedToEmployeeId, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}/assign`, {
+    credentials: "include",
     method: "PATCH",
     headers: jsonHeaders(currentUser),
     body: JSON.stringify({ assigned_to_employee_id: assignedToEmployeeId }),
@@ -90,6 +94,7 @@ export async function assignTask(taskId, assignedToEmployeeId, currentUser) {
 
 export async function archiveTask(taskId, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    credentials: "include",
     method: "DELETE",
     headers: authHeaders(currentUser),
   });
@@ -100,6 +105,7 @@ export async function archiveTask(taskId, currentUser) {
 
 export async function getTaskComments(taskId, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   const data = await res.json();
@@ -109,6 +115,7 @@ export async function getTaskComments(taskId, currentUser) {
 
 export async function createTaskComment(taskId, commentText, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}/comments`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(currentUser),
     body: JSON.stringify({ comment_text: commentText }),
@@ -120,6 +127,7 @@ export async function createTaskComment(taskId, commentText, currentUser) {
 
 export async function getTaskActivity(taskId, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}/activity`, {
+    credentials: "include",
     headers: authHeaders(currentUser),
   });
   const data = await res.json();

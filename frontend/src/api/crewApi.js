@@ -1,16 +1,13 @@
 import API_BASE from "./config.js";
-import { getCurrentUser } from "./authApi";
 
 // The backend fails closed on these routes: anonymous gets 401, a forbidden role
 // gets 403. Every request must therefore carry caller identity. Read it from the
 // stored session rather than threading currentUser through every call site.
+// Identity travels in the session cookie (see api/authApi.js), which every
+// request sends via `credentials: "include"`. Nothing about the caller is
+// asserted here — the server would ignore it if it were.
 function authHeaders() {
-  const user = getCurrentUser();
-  return {
-    "X-User-Role": user?.role || "",
-    "X-User-Id": String(user?.id || ""),
-    "X-User-Name": user?.display_name || "",
-  };
+  return {};
 }
 
 function jsonHeaders() {
@@ -23,7 +20,8 @@ const API_BASE_URL = API_BASE;
 export async function getShiftAlerts(date) {
   const response = await fetch(
     `${API_BASE_URL}/api/crew-units/alerts?date=${date}`,
-    { headers: authHeaders() },
+    {
+    credentials: "include", headers: authHeaders() },
   );
   const data = await response.json();
 
@@ -49,7 +47,8 @@ export async function getCrewUnits(shiftDate = "") {
     ? `${API_BASE_URL}/api/crew-units?${queryString}`
     : `${API_BASE_URL}/api/crew-units`;
 
-  const response = await fetch(url, { headers: authHeaders() });
+  const response = await fetch(url, {
+    credentials: "include", headers: authHeaders() });
   const data = await response.json();
 
   if (!response.ok) {
@@ -62,6 +61,7 @@ export async function getCrewUnits(shiftDate = "") {
 // Create a new crew unit.
 export async function createCrewUnit(unitData) {
   const response = await fetch(`${API_BASE_URL}/api/crew-units`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(unitData),
@@ -79,6 +79,7 @@ export async function createCrewUnit(unitData) {
 // Update an existing crew unit.
 export async function updateCrewUnit(unitId, unitData) {
   const response = await fetch(`${API_BASE_URL}/api/crew-units/${unitId}`, {
+    credentials: "include",
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(unitData),
@@ -96,6 +97,7 @@ export async function updateCrewUnit(unitId, unitData) {
 // Convert a day unit to night crew.
 export async function makeNightCrew(unitId, payload) {
   const response = await fetch(`${API_BASE_URL}/api/crew-units/${unitId}/make-night`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(payload),
@@ -108,6 +110,7 @@ export async function makeNightCrew(unitId, payload) {
 // Delete an existing crew unit.
 export async function deleteCrewUnit(unitId) {
   const response = await fetch(`${API_BASE_URL}/api/crew-units/${unitId}`, {
+    credentials: "include",
     method: "DELETE",
     headers: authHeaders(),
   });

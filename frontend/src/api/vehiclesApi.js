@@ -1,5 +1,4 @@
 import API_BASE from "./config.js";
-import { getCurrentUser } from "./authApi";
 
 const API_BASE_URL = API_BASE;
 
@@ -7,13 +6,11 @@ const API_BASE_URL = API_BASE;
 // read-only, HR no access), so every request must carry caller identity.
 // Read from the stored session here rather than threading currentUser through
 // every call site.
+// Identity travels in the session cookie (see api/authApi.js), which every
+// request sends via `credentials: "include"`. Nothing about the caller is
+// asserted here — the server would ignore it if it were.
 function authHeaders() {
-  const user = getCurrentUser();
-  return {
-    "X-User-Role": user?.role || "",
-    "X-User-Id": String(user?.id || ""),
-    "X-User-Name": user?.display_name || "",
-  };
+  return {};
 }
 
 function jsonHeaders() {
@@ -23,6 +20,7 @@ function jsonHeaders() {
 // Fetch a single vehicle (backs the Vehicle Workspace deep link).
 export async function getVehicle(vehicleId) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}`, {
+    credentials: "include",
     headers: authHeaders(),
   });
   const data = await response.json();
@@ -42,7 +40,8 @@ export async function getVehicles(activeOnly = false) {
     ? `${API_BASE_URL}/api/vehicles?active=1`
     : `${API_BASE_URL}/api/vehicles`;
 
-  const response = await fetch(url, { headers: authHeaders() });
+  const response = await fetch(url, {
+    credentials: "include", headers: authHeaders() });
   const data = await response.json();
 
   if (!response.ok) {
@@ -55,6 +54,7 @@ export async function getVehicles(activeOnly = false) {
 // Create a new vehicle.
 export async function createVehicle(vehicleData) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(vehicleData),
@@ -73,6 +73,7 @@ export async function createVehicle(vehicleData) {
 // Toggle a vehicle's active status.
 export async function toggleVehicleActive(vehicleId) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/toggle-active`, {
+    credentials: "include",
     method: "PATCH",
     headers: authHeaders(),
   });
@@ -89,6 +90,7 @@ export async function toggleVehicleActive(vehicleId) {
 // Delete a vehicle.
 export async function deleteVehicle(vehicleId) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}`, {
+    credentials: "include",
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -105,6 +107,7 @@ export async function deleteVehicle(vehicleId) {
 // Update an existing vehicle (admin/supervisor — the API enforces it).
 export async function updateVehicle(vehicleId, vehicleData) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}`, {
+    credentials: "include",
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(vehicleData),
@@ -118,6 +121,7 @@ export async function updateVehicle(vehicleId, vehicleData) {
 
 export async function getOdometerHistory(vehicleId) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/odometer`, {
+    credentials: "include",
     headers: authHeaders(),
   });
   const data = await response.json();
@@ -129,6 +133,7 @@ export async function getOdometerHistory(vehicleId) {
 // correction; without it the API rejects a backwards reading.
 export async function addOdometerReading(vehicleId, reading) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/odometer`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(reading),
@@ -147,6 +152,7 @@ export async function addOdometerReading(vehicleId, reading) {
 
 export async function getMaintenanceRecords(vehicleId) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/maintenance`, {
+    credentials: "include",
     headers: authHeaders(),
   });
   const data = await response.json();
@@ -156,6 +162,7 @@ export async function getMaintenanceRecords(vehicleId) {
 
 export async function createMaintenanceRecord(vehicleId, record) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/maintenance`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(record),
@@ -167,6 +174,7 @@ export async function createMaintenanceRecord(vehicleId, record) {
 
 export async function updateMaintenanceRecord(recordId, patch) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/maintenance/${recordId}`, {
+    credentials: "include",
     method: "PATCH",
     headers: jsonHeaders(),
     body: JSON.stringify(patch),
@@ -181,6 +189,7 @@ export async function updateMaintenanceRecord(recordId, patch) {
 // Shifts this vehicle actually worked, via the real vehicle_id link.
 export async function getVehicleShifts(vehicleId, limit = 50) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/shifts?limit=${limit}`, {
+    credentials: "include",
     headers: authHeaders(),
   });
   const data = await response.json();
@@ -194,6 +203,7 @@ export async function getVehicleShifts(vehicleId, limit = 50) {
 // a valid vehicle reference.
 export async function retireVehicle(vehicleId, reason) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/retire`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify({ reason }),
@@ -205,6 +215,7 @@ export async function retireVehicle(vehicleId, reason) {
 
 export async function unretireVehicle(vehicleId) {
   const response = await fetch(`${API_BASE_URL}/api/vehicles/${vehicleId}/unretire`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
   });

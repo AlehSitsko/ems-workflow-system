@@ -1,18 +1,15 @@
 import API_BASE from "./config.js";
-import { getCurrentUser } from "./authApi";
 
 const API_BASE_URL = API_BASE;
 
 // Standing transport orders. The template materialises real calls a few weeks
 // ahead; the backend decides what may be rewritten, this only carries the answer.
 
+// Identity travels in the session cookie (see api/authApi.js), which every
+// request sends via `credentials: "include"`. Nothing about the caller is
+// asserted here — the server would ignore it if it were.
 function authHeaders() {
-  const user = getCurrentUser();
-  return {
-    "X-User-Role": user?.role || "",
-    "X-User-Id": String(user?.id || ""),
-    "X-User-Name": user?.display_name || "",
-  };
+  return {};
 }
 
 function jsonHeaders() {
@@ -36,17 +33,20 @@ export async function getRecurringTrips({ patientId, activeOnly } = {}) {
   const query = params.toString();
   return handle(
     await fetch(`${API_BASE_URL}/api/recurring-trips${query ? `?${query}` : ""}`,
-      { headers: authHeaders() }),
+      {
+    credentials: "include", headers: authHeaders() }),
     "Failed to load recurring trips");
 }
 
 export async function getRecurringTrip(id) {
-  return handle(await fetch(`${API_BASE_URL}/api/recurring-trips/${id}`, { headers: authHeaders() }),
+  return handle(await fetch(`${API_BASE_URL}/api/recurring-trips/${id}`, {
+    credentials: "include", headers: authHeaders() }),
     "Failed to load the standing order");
 }
 
 export async function createRecurringTrip(payload) {
   return handle(await fetch(`${API_BASE_URL}/api/recurring-trips`, {
+    credentials: "include",
     method: "POST", headers: jsonHeaders(), body: JSON.stringify(payload),
   }), "Failed to create the standing order");
 }
@@ -54,18 +54,21 @@ export async function createRecurringTrip(payload) {
 /** `applyToTouched` re-syncs trips a human already worked — never the default. */
 export async function updateRecurringTrip(id, payload) {
   return handle(await fetch(`${API_BASE_URL}/api/recurring-trips/${id}`, {
+    credentials: "include",
     method: "PUT", headers: jsonHeaders(), body: JSON.stringify(payload),
   }), "Failed to update the standing order");
 }
 
 export async function regenerateRecurringTrip(id) {
   return handle(await fetch(`${API_BASE_URL}/api/recurring-trips/${id}/generate`, {
+    credentials: "include",
     method: "POST", headers: jsonHeaders(), body: JSON.stringify({}),
   }), "Failed to extend the schedule");
 }
 
 export async function stopRecurringTrip(id) {
   return handle(await fetch(`${API_BASE_URL}/api/recurring-trips/${id}`, {
+    credentials: "include",
     method: "DELETE", headers: authHeaders(),
   }), "Failed to stop the standing order");
 }

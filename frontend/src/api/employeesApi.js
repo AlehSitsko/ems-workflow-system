@@ -3,7 +3,7 @@ const API_BASE_URL = API_BASE;
 
 // Fetch all employees from the backend.
 export async function getEmployees() {
-  const response = await fetch(`${API_BASE_URL}/api/employees`);
+  const response = await fetch(`${API_BASE_URL}/api/employees`, { credentials: "include" });
   const data = await response.json();
 
   if (!response.ok) {
@@ -15,7 +15,7 @@ export async function getEmployees() {
 
 // A single employee by id — backs the Employee Workspace.
 export async function getEmployee(employeeId) {
-  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}`);
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}`, { credentials: "include" });
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -29,7 +29,7 @@ export async function getEmployee(employeeId) {
 
 // Shifts this employee has been rostered on (newest first), with the role held.
 export async function getEmployeeShifts(employeeId, limit = 50) {
-  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/shifts?limit=${limit}`);
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/shifts?limit=${limit}`, { credentials: "include" });
   const data = await response.json().catch(() => ([]));
 
   if (!response.ok) {
@@ -42,6 +42,7 @@ export async function getEmployeeShifts(employeeId, limit = 50) {
 // Create a new employee record.
 export async function createEmployee(employeeData) {
   const response = await fetch(`${API_BASE_URL}/api/employees`, {
+    credentials: "include",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -61,6 +62,7 @@ export async function createEmployee(employeeData) {
 // Update an existing employee record.
 export async function updateEmployee(employeeId, employeeData) {
   const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}`, {
+    credentials: "include",
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -80,6 +82,7 @@ export async function updateEmployee(employeeId, employeeData) {
 // Delete an employee record.
 export async function deleteEmployee(employeeId) {
   const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}`, {
+    credentials: "include",
     method: "DELETE",
   });
 

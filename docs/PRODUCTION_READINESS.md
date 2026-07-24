@@ -8,39 +8,58 @@ None of the items below are urgent today. They become urgent the moment there's 
 
 ## Authentication
 
-**Current state:** header-based pseudo-auth (`X-User-Id`/`X-User-Role`/`X-User-Name`), backed by a `localStorage`-persisted login. See [ARCHITECTURE.md](ARCHITECTURE.md#authentication) for the full mechanism and why it's structured this way.
+**Current state: server-side session cookies.** Signing in at `/api/auth/login`
+starts a session; the cookie is signed with `SECRET_KEY`, `HttpOnly`,
+`SameSite=Lax`, and `Secure` when `EMS_ENV=production`. `utils/auth_utils.py`
+reads identity from that session and nowhere else.
 
-> **This is not authentication — it is identification the server takes on trust.**
-> The caller states their own role in a request header, so anyone who can reach
-> the API can claim `admin` with a single `curl` flag. It is acceptable **only**
-> because this runs locally against demo data. Do not expose this API to an
-> untrusted network in its current state.
+**What this replaced.** Identity used to be the `X-User-Id` / `X-User-Role` /
+`X-User-Name` headers, which the server believed — anyone who could reach the
+API could claim `admin` with a single curl flag. Those headers are now inert,
+pinned by `tests/test_security.py::test_forged_identity_headers_are_ignored`.
 
-**What the current scheme does guarantee.** Every gated route fails closed, and
-the two failure modes are distinct (`utils/auth_utils.py`):
+**Default-deny.** Every route under `/api/` requires a session unless it is
+named in `PUBLIC_ENDPOINTS` (login, logout, health, the kiosk, and the VAPID
+public key). A new route is therefore protected by omission rather than exposed
+by it — the property this document previously listed as the plan.
+
+> **Two serious exposures were found and closed while doing this**, both
+> predating it:
+>
+> * **User administration was completely ungated.** An anonymous `POST
+>   /api/auth/users` created an admin account; anyone could list, edit or
+>   disable users. The frontend hid the page behind an admin-only route, which
+>   was never protection.
+> * **74 routes had no gate at all.** Probing them anonymously returned ~22KB of
+>   patient records and ~22KB of call records — PHI, to a caller who had never
+>   logged in. `/api/employees`, `/api/payroll/*` and `/api/analytics/*` were
+>   likewise open. Two tests had even been written to *document* the missing
+>   gate as accepted behaviour; they now assert the opposite.
+
+**Failure modes stay distinct** (`utils/auth_utils.py`):
 
 | Request | Result |
 |---|---|
-| No identity at all | `401 Authentication required` |
-| Identity present, role not permitted | `403 Insufficient permissions` |
+| No session | `401 Authentication required` |
+| Session present, role not permitted | `403 Insufficient permissions` |
 | Permitted role | Handler runs |
 
-So the *gate* is real and regression-tested (`tests/test_security.py`); the
-*identity behind it* is not trustworthy. Those are separate problems, and only
-the second one is still open.
+**Session cookies vs tokens.** Cookies were chosen over JWT in localStorage: the
+cookie is unreadable from JavaScript, so a cross-site scripting bug cannot walk
+off with the session, and ending a session is a server-side act rather than a
+revocation list. `SameSite=Lax` means the browser will not attach it to
+cross-site POSTs, which removes the common CSRF shape without a token scheme.
 
-**History — why this is called out so bluntly.** An audit found the operational
-routes had no gate at all: an anonymous `GET /api/dispatch/board` returned the
-full board **including patient names**, and an anonymous `POST /api/crew-units`
-created a crew unit. Both are fixed and pinned by negative tests per role. The
-lesson is that "the frontend doesn't show it" was never protection, and no route
-should be added without a gate.
-
-**Production plan:**
-- Replace headers with JWT (access + refresh tokens) or server-side session auth. Until then the trust boundary is the network, not the app
-- Transparent to users — no UI changes beyond login mechanics
-- Fail closed by default: prefer an explicit allowlist per blueprint over per-route opt-in, so a new route is protected by omission rather than exposed by it
-- Audit every route for correct auth requirements before calling this phase done
+**Still open before this can face an untrusted network:**
+- CSRF tokens for state-changing requests. `SameSite=Lax` covers the common
+  case, not every case (e.g. a same-site subdomain compromise)
+- Password policy, lockout after repeated failures, and rotation. Login is rate
+  limited (10/min) but passwords have no complexity or expiry rules
+- Session storage is the signed cookie itself; server-side revocation of a
+  specific live session is not possible without a session store
+- An audit of *role* correctness on every route. Authentication is now
+  guaranteed; whether each route allows exactly the right roles is a separate
+  review
 
 ## Database
 

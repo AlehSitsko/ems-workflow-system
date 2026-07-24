@@ -20,6 +20,21 @@ from models import Patient, PatientAlert, PatientContact, AuditLog
 ADMIN = {"X-User-Name": "Admin", "X-User-Role": "admin"}
 
 
+@pytest.fixture(autouse=True)
+def _signed_in(client, app):
+    """Sign the shared client in.
+
+    Every /api/ route now requires a session, so these tests need one. Applied
+    per module rather than in conftest so `client` stays anonymous where that is
+    the point — test_security.py asserts what an unauthenticated caller gets.
+    """
+    from conftest import make_user, login
+
+    user = make_user("admin", username="patients_admin")
+    login(client, user.username)
+    return client
+
+
 def _create(client, **over):
     body = {"first_name": "John", "last_name": "Doe", "dob": "1980-05-01"}
     body.update(over)
@@ -260,14 +275,15 @@ def test_patient_call_history_empty(client):
 
 # ── Access / audit (documents current behavior) ─────────────────────────────
 
-def test_patient_create_has_no_role_gate(client):
-    # NOTE: patient routes currently do NOT enforce a role. Creating with a
-    # dispatcher role (or none) still succeeds. Locking current behavior; real
-    # auth hardening is the deferred production-auth phase.
-    r = client.post("/api/patients",
-                    json={"first_name": "No", "last_name": "Gate", "dob": "2000-01-01"},
-                    headers={"X-User-Role": "dispatcher"})
-    assert r.status_code == 201
+def test_patient_create_requires_a_session(app):
+    """This test used to assert the opposite — that patient routes had no gate
+    at all — as "current behaviour pending the auth phase". That phase landed:
+    an anonymous caller could create patient records, and could read 22KB of
+    existing ones. Both are closed now."""
+    anon = app.test_client()
+    r = anon.post("/api/patients",
+                  json={"first_name": "No", "last_name": "Gate", "dob": "2000-01-01"})
+    assert r.status_code == 401
 
 
 def test_create_writes_audit_log(client):

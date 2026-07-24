@@ -17,12 +17,10 @@ import { describeLevel } from "../utils/taxonomy";
 // is that queue, and giving a call a date is the only way out of it — after
 // which it behaves like any other call.
 
-function authHeaders(currentUser) {
-  return {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id": String(currentUser?.id || ""),
-    "X-User-Name": currentUser?.display_name || "",
-  };
+// Identity travels in the session cookie, sent by `credentials: "include"`.
+// The caller no longer asserts a role — the server would ignore it.
+function authHeaders() {
+  return {};
 }
 
 export default function SchedulingInboxPage({ currentUser }) {

@@ -6,6 +6,7 @@ from models import db, Task, TaskComment, TaskActivityLog, TaskParticipant, User
 from audit_utils import log_action
 from notification_utils import notify_user
 from utils.validation_utils import check_length, is_valid_date
+from utils.auth_utils import get_request_role, get_request_user_id, get_request_user_name
 
 task_bp = Blueprint("task", __name__, url_prefix="/api")
 
@@ -38,21 +39,17 @@ TASK_FIELD_LIMITS = {
 
 
 def _role_from_request():
-    return request.headers.get("X-User-Role", "")
+    return get_request_role()
 
 
 def _user_id_from_request():
-    try:
-        return int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        return None
+    return get_request_user_id()
 
 
 def _verified_user_id(uid):
-    """Only use a header-supplied user id for a FK column (created_by,
-    assigned_by, activity log, comment author) if that user actually exists.
-    Headers are trusted for role/identity elsewhere in this file, but an
-    invalid or stale X-User-Id must never be written into a FK column —
+    """Only write a session user id into a FK column (created_by, assigned_by,
+    activity log, comment author) if that user actually exists. A session can
+    outlive the account it names, and a stale id must never reach a FK column —
     that raises sqlite3.IntegrityError instead of failing cleanly."""
     if not uid:
         return None
@@ -60,7 +57,7 @@ def _verified_user_id(uid):
 
 
 def _user_name_from_request():
-    return request.headers.get("X-User-Name") or None
+    return get_request_user_name()
 
 
 def _now():

@@ -1,4 +1,20 @@
 from models import db, Employee, DailyCrewUnit
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _signed_in(client, app):
+    """Sign the shared client in.
+
+    Every /api/ route now requires a session, so these tests need one. Applied
+    per module rather than in conftest so `client` stays anonymous where that is
+    the point — test_security.py asserts what an unauthenticated caller gets.
+    """
+    from conftest import make_user, login
+
+    user = make_user("admin", username="employees_admin")
+    login(client, user.username)
+    return client
 
 
 def _make(app, **kw):

@@ -25,6 +25,21 @@ ADMIN = {"X-User-Name": "Admin", "X-User-Role": "admin"}
 
 # ── fixtures / helpers ──────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _signed_in(client, app):
+    """Sign the shared client in.
+
+    Every /api/ route now requires a session, so these tests need one. Applied
+    per module rather than in conftest so `client` stays anonymous where that is
+    the point — test_security.py asserts what an unauthenticated caller gets.
+    """
+    from conftest import make_user, login
+
+    user = make_user("admin", username="payroll_admin")
+    login(client, user.username)
+    return client
+
+
 def _employee(is_active=True, number="E1"):
     emp = Employee(first_name="Pat", last_name="Worker", employee_number=number, is_active=is_active)
     db.session.add(emp)
@@ -248,10 +263,10 @@ def test_create_period_requires_dates(client):
     assert client.post("/api/payroll/periods", json={}, headers=ADMIN).status_code == 400
 
 
-def test_payroll_has_no_role_gate(client):
-    # NOTE: payroll routes currently do not enforce a role. Documenting behavior.
-    emp = _employee(); _pay_config(emp.id)
-    _entry(emp.id, "2026-06-01")
+def test_payroll_requires_a_session(app):
+    """Previously asserted that payroll had no gate. It does now — pay data was
+    readable by anyone who could reach the API."""
     period = _period()
-    r = client.get(f"/api/payroll/periods/{period.id}/summary", headers={"X-User-Role": "dispatcher"})
-    assert r.status_code == 200
+    anon = app.test_client()
+    r = anon.get(f"/api/payroll/periods/{period.id}/summary")
+    assert r.status_code == 401

@@ -25,6 +25,7 @@ from config import Config
 from extensions import init_extensions
 from models import db
 from cli import register_cli_commands
+from utils.auth_utils import register_api_auth_guard
 
 from routes.auth_routes import auth_bp
 from routes.employee_routes import employee_bp
@@ -116,6 +117,11 @@ def create_app(config_overrides=None):
     register_error_handlers(app)
     register_core_routes(app)
     register_cli_commands(app)
+
+    # Authentication is the default for /api/: a route is protected unless it is
+    # named in PUBLIC_ENDPOINTS. Registered after the blueprints so it covers
+    # every route they added.
+    register_api_auth_guard(app)
 
     return app
 

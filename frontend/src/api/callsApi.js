@@ -16,7 +16,7 @@ export async function getCalls(filters = {}, page = 1, per_page = 25) {
   params.append("page", page);
   params.append("per_page", per_page);
 
-  const response = await fetch(`${API_BASE_URL}/api/calls?${params.toString()}`);
+  const response = await fetch(`${API_BASE_URL}/api/calls?${params.toString()}`, { credentials: "include" });
   const data = await response.json();
 
   if (!response.ok) {
@@ -29,6 +29,7 @@ export async function getCalls(filters = {}, page = 1, per_page = 25) {
 // Create a new call record in the backend database.
 export async function createCall(callData) {
   const response = await fetch(`${API_BASE_URL}/api/calls`, {
+    credentials: "include",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,7 +50,7 @@ export async function createCall(callData) {
 export async function getPatientCalls(patientId) {
   const response = await fetch(
     `${API_BASE_URL}/api/patient/${patientId}/calls`
-  );
+  , { credentials: "include" });
 
   const data = await response.json();
 
@@ -62,6 +63,7 @@ export async function getPatientCalls(patientId) {
 
 export async function updateCall(callId, callData, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, {
+    credentials: "include",
     method: "PUT",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(callData),
@@ -73,6 +75,7 @@ export async function updateCall(callId, callData, headers = {}) {
 
 export async function cancelCall(callId, cancelReason, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/cancel`, {
+    credentials: "include",
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify({ cancel_reason: cancelReason }),
@@ -84,6 +87,7 @@ export async function cancelCall(callId, cancelReason, headers = {}) {
 
 export async function uncancelCall(callId, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/uncancel`, {
+    credentials: "include",
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...headers },
   });
@@ -94,7 +98,8 @@ export async function uncancelCall(callId, headers = {}) {
 
 // One call with its patient label — backs the call detail page.
 export async function getCall(callId, headers = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, { headers });
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, {
+    credentials: "include", headers });
   const data = await response.json();
   if (!response.ok) {
     const error = new Error(data.error || "Failed to load call");
@@ -108,6 +113,7 @@ export async function getCall(callId, headers = {}) {
 // call server-side and says so in the response.
 export async function setCallConfirmation(callId, status, note = "", headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/confirmation`, {
+    credentials: "include",
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify({ confirmation_status: status, confirmation_note: note }),
@@ -121,7 +127,8 @@ export async function setCallConfirmation(callId, status, note = "", headers = {
 export async function getConfirmationRound(dateIso, headers = {}) {
   const response = await fetch(
     `${API_BASE_URL}/api/calls/confirmation-round?date=${encodeURIComponent(dateIso)}`,
-    { headers },
+    {
+    credentials: "include", headers },
   );
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Failed to load the confirmation round");
@@ -131,7 +138,8 @@ export async function getConfirmationRound(dateIso, headers = {}) {
 // The scheduling inbox: calls taken without a trip date. They appear on no
 // board and in no calendar until they get one, which is the point of the queue.
 export async function getUnscheduledCalls(headers = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/calls/unscheduled`, { headers });
+  const response = await fetch(`${API_BASE_URL}/api/calls/unscheduled`, {
+    credentials: "include", headers });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Failed to load the scheduling inbox");
   return data;
@@ -140,6 +148,7 @@ export async function getUnscheduledCalls(headers = {}) {
 // Give an inbox call its trip date (and optionally a pickup time).
 export async function scheduleCall(callId, tripDate, pickupTime = "", headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/schedule`, {
+    credentials: "include",
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify({ trip_date: tripDate, pickup_time: pickupTime }),
@@ -151,7 +160,7 @@ export async function scheduleCall(callId, tripDate, pickupTime = "", headers = 
 
 // Fetch dispatcher analytics for supervisor reporting.
 export async function getDispatcherAnalytics() {
-  const response = await fetch(`${API_BASE_URL}/api/analytics/dispatchers`);
+  const response = await fetch(`${API_BASE_URL}/api/analytics/dispatchers`, { credentials: "include" });
   const data = await response.json();
 
   if (!response.ok) {

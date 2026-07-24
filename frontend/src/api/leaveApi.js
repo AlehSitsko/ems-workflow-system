@@ -1,5 +1,4 @@
 import API_BASE from "./config.js";
-import { getCurrentUser } from "./authApi";
 
 // Employee leave / absence. The backend decides how much of each record the
 // caller may see — HR and admin get the full record, scheduling roles get who is
@@ -8,13 +7,11 @@ import { getCurrentUser } from "./authApi";
 
 const API_BASE_URL = API_BASE;
 
+// Identity travels in the session cookie (see api/authApi.js), which every
+// request sends via `credentials: "include"`. Nothing about the caller is
+// asserted here — the server would ignore it if it were.
 function authHeaders() {
-  const user = getCurrentUser();
-  return {
-    "X-User-Role": user?.role || "",
-    "X-User-Id": String(user?.id || ""),
-    "X-User-Name": user?.display_name || "",
-  };
+  return {};
 }
 
 function jsonHeaders() {
@@ -44,7 +41,8 @@ export async function getLeaveRequests({ employeeId, status, start, end } = {}) 
   const query = params.toString();
   const response = await fetch(
     `${API_BASE_URL}/api/leave-requests${query ? `?${query}` : ""}`,
-    { headers: authHeaders() },
+    {
+    credentials: "include", headers: authHeaders() },
   );
   return handle(response, "Failed to load leave requests");
 }
@@ -53,13 +51,15 @@ export async function getLeaveRequests({ employeeId, status, start, end } = {}) 
 export async function getUnavailableOn(dateIso) {
   const response = await fetch(
     `${API_BASE_URL}/api/leave-requests/unavailable?date=${encodeURIComponent(dateIso)}`,
-    { headers: authHeaders() },
+    {
+    credentials: "include", headers: authHeaders() },
   );
   return handle(response, "Failed to load availability");
 }
 
 export async function createLeaveRequest(payload) {
   const response = await fetch(`${API_BASE_URL}/api/leave-requests`, {
+    credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
     body: JSON.stringify(payload),
@@ -69,6 +69,7 @@ export async function createLeaveRequest(payload) {
 
 export async function updateLeaveRequest(id, payload) {
   const response = await fetch(`${API_BASE_URL}/api/leave-requests/${id}`, {
+    credentials: "include",
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(payload),
@@ -79,6 +80,7 @@ export async function updateLeaveRequest(id, payload) {
 /** Approve or deny. Separate from editing because it has staffing consequences. */
 export async function decideLeaveRequest(id, status, reviewNote = "") {
   const response = await fetch(`${API_BASE_URL}/api/leave-requests/${id}/decision`, {
+    credentials: "include",
     method: "PATCH",
     headers: jsonHeaders(),
     body: JSON.stringify({ status, reviewNote }),
@@ -88,6 +90,7 @@ export async function decideLeaveRequest(id, status, reviewNote = "") {
 
 export async function cancelLeaveRequest(id) {
   const response = await fetch(`${API_BASE_URL}/api/leave-requests/${id}/cancel`, {
+    credentials: "include",
     method: "PATCH",
     headers: jsonHeaders(),
   });

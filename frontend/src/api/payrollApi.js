@@ -2,7 +2,8 @@ import API_BASE from "./config.js";
 const BASE = `${API_BASE}/api/payroll`;
 
 async function req(url, opts = {}) {
-  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opts });
+  const res = await fetch(url, {
+    credentials: "include", headers: { "Content-Type": "application/json" }, ...opts });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);

@@ -13,7 +13,7 @@ export function UserSettingsProvider({ currentUser, children }) {
       return;
     }
     setSettingsLoaded(false);
-    getSettings(currentUser.id)
+    getSettings()
       .then((data) => { setSettings(data); setSettingsLoaded(true); })
       .catch(() => setSettingsLoaded(true));
   }, [currentUser?.id]);
@@ -25,7 +25,7 @@ export function UserSettingsProvider({ currentUser, children }) {
   const updateSettings = useCallback(
     async (patch) => {
       if (!currentUser?.id) return settings;
-      const merged = await patchSettings(currentUser.id, patch);
+      const merged = await patchSettings(patch);
       setSettings(merged);
       return merged;
     },

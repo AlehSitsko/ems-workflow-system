@@ -229,9 +229,7 @@ const CallsPage = ({ currentUser }) => {
     if (!selectedCall) return;
     setEditSaving(true);
     const headers = {
-      "X-User-Role": currentUser?.role || "",
-      "X-User-Id":   String(currentUser?.id || ""),
-      "X-User-Name": currentUser?.display_name || "",
+  // Identity is the session cookie; nothing is asserted here.
     };
     try {
       // Save main call changes (strip return ride fields — they're not columns on Call)
@@ -280,8 +278,7 @@ const CallsPage = ({ currentUser }) => {
 
   const handleUncancel = async (callId) => {
     const headers = {
-      "X-User-Role": currentUser?.role || "",
-      "X-User-Id":   String(currentUser?.id || ""),
+  // Identity is the session cookie; nothing is asserted here.
     };
     try {
       await uncancelCall(callId, headers);

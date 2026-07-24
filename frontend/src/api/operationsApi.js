@@ -20,7 +20,8 @@ async function handle(response, fallback) {
 
 /** The day's closing report: totals, loose ends, and the sign-off if it exists. */
 export async function getOperationalDay(day, headers = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/operations/days/${day}`, { headers });
+  const response = await fetch(`${API_BASE_URL}/api/operations/days/${day}`, {
+    credentials: "include", headers });
   return handle(response, "Failed to load the operational day");
 }
 
@@ -31,12 +32,14 @@ export async function getClosedDays({ start, end } = {}, headers = {}) {
   if (end) params.set("end", end);
   const query = params.toString();
   const response = await fetch(
-    `${API_BASE_URL}/api/operations/days${query ? `?${query}` : ""}`, { headers });
+    `${API_BASE_URL}/api/operations/days${query ? `?${query}` : ""}`, {
+    credentials: "include", headers });
   return handle(response, "Failed to load closed days");
 }
 
 export async function closeOperationalDay(day, body, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/operations/days/${day}/close`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
@@ -46,6 +49,7 @@ export async function closeOperationalDay(day, body, headers = {}) {
 
 export async function reopenOperationalDay(day, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/operations/days/${day}/close`, {
+    credentials: "include",
     method: "DELETE",
     headers,
   });
@@ -59,6 +63,7 @@ export async function reopenOperationalDay(day, headers = {}) {
  * nags someone about a page they cannot open.
  */
 export async function getAttentionCounts(headers = {}) {
-  const response = await fetch(`${API_BASE_URL}/api/operations/attention`, { headers });
+  const response = await fetch(`${API_BASE_URL}/api/operations/attention`, {
+    credentials: "include", headers });
   return handle(response, "Failed to load attention counts");
 }
