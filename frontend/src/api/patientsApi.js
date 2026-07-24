@@ -17,7 +17,7 @@ export async function getPatients(filters = {}, page = 1, per_page = 25) {
   params.append("page", page);
   params.append("per_page", per_page);
 
-  const response = await fetch(`${API_BASE_URL}/api/patients?${params.toString()}`);
+  const response = await fetch(`${API_BASE_URL}/api/patients?${params.toString()}`, { credentials: "include" });
 
   if (!response.ok) {
     throw new Error("Failed to fetch patients");
@@ -57,7 +57,7 @@ export async function findDuplicatePatient(patientData) {
 
 // Fetch a single patient record by ID.
 export async function getPatient(id) {
-  const response = await fetch(`${API_BASE_URL}/api/patient/${id}`);
+  const response = await fetch(`${API_BASE_URL}/api/patient/${id}`, { credentials: "include" });
 
   if (!response.ok) {
     const err = new Error("Failed to fetch patient");
@@ -73,6 +73,7 @@ export async function getPatient(id) {
 // caller can offer "Restore existing patient" when that record is archived.
 export async function createPatient(patientData) {
   const response = await fetch(`${API_BASE_URL}/api/patients`, {
+    credentials: "include",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -95,6 +96,7 @@ export async function createPatient(patientData) {
 // Update an existing patient record in the backend database.
 export async function updatePatient(id, patientData) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}`, {
+    credentials: "include",
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -114,6 +116,7 @@ export async function updatePatient(id, patientData) {
 // Archive a patient (soft delete — call history keeps a valid reference).
 export async function archivePatient(id, reason = "") {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}`, {
+    credentials: "include",
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reason }),
@@ -131,6 +134,7 @@ export async function archivePatient(id, reason = "") {
 // Restore a previously archived patient.
 export async function restorePatient(id) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/restore`, {
+    credentials: "include",
     method: "POST",
   });
 
@@ -145,7 +149,7 @@ export async function restorePatient(id) {
 
 // Prefill a new call from a patient's most recent trip (pickup/dropoff/service level only).
 export async function getLastTripTemplate(id) {
-  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/last-trip-template`);
+  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/last-trip-template`, { credentials: "include" });
 
   if (!response.ok) {
     throw new Error("Failed to fetch last trip template");
@@ -158,7 +162,7 @@ export async function getLastTripTemplate(id) {
 
 export async function getPatientAlerts(id, { showAll = false } = {}) {
   const qs = showAll ? "?show_all=1" : "";
-  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/alerts${qs}`);
+  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/alerts${qs}`, { credentials: "include" });
 
   if (!response.ok) {
     throw new Error("Failed to fetch patient alerts");
@@ -169,6 +173,7 @@ export async function getPatientAlerts(id, { showAll = false } = {}) {
 
 export async function createPatientAlert(id, alertData) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/alerts`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(alertData),
@@ -185,6 +190,7 @@ export async function createPatientAlert(id, alertData) {
 
 export async function resolvePatientAlert(id, alertId, reason = "") {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/alerts/${alertId}/resolve`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reason }),
@@ -202,7 +208,7 @@ export async function resolvePatientAlert(id, alertId, reason = "") {
 // ── Patient contacts ─────────────────────────────────────────────────────────
 
 export async function getPatientContacts(id) {
-  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/contacts`);
+  const response = await fetch(`${API_BASE_URL}/api/patient/${id}/contacts`, { credentials: "include" });
 
   if (!response.ok) {
     throw new Error("Failed to fetch patient contacts");
@@ -213,6 +219,7 @@ export async function getPatientContacts(id) {
 
 export async function createPatientContact(id, contactData) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/contacts`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(contactData),
@@ -229,6 +236,7 @@ export async function createPatientContact(id, contactData) {
 
 export async function updatePatientContact(id, contactId, contactData) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/contacts/${contactId}`, {
+    credentials: "include",
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(contactData),
@@ -245,6 +253,7 @@ export async function updatePatientContact(id, contactId, contactData) {
 
 export async function deletePatientContact(id, contactId) {
   const response = await fetch(`${API_BASE_URL}/api/patient/${id}/contacts/${contactId}`, {
+    credentials: "include",
     method: "DELETE",
   });
 

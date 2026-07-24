@@ -15,16 +15,13 @@ from models import db, User, Vehicle, DailyCrewUnit
 
 @pytest.fixture()
 def dispatcher(app):
-    user = User(
-        username="crew_dispatcher",
-        password_hash=generate_password_hash("pw"),
-        display_name="Crew Dispatcher",
-        role="dispatcher",
-        is_active=True,
-    )
-    db.session.add(user)
-    db.session.commit()
-    return {"X-User-Id": str(user.id), "X-User-Role": "dispatcher", "X-User-Name": user.display_name}
+    """A signed-in dispatcher client — identity is a session cookie, not a header."""
+    from conftest import make_user, login
+
+    user = make_user("dispatcher", username="crew_link_dispatcher")
+    c = app.test_client()
+    login(c, user.username)
+    return c
 
 
 @pytest.fixture()
@@ -56,7 +53,7 @@ def unit_payload(**overrides):
 
 
 def test_create_links_vehicle_and_snapshots_its_number(client, dispatcher, vehicles):
-    resp = client.post("/api/crew-units", headers=dispatcher,
+    resp = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["active"].id))
     assert resp.status_code == 201, resp.get_json()
 
@@ -67,7 +64,7 @@ def test_create_links_vehicle_and_snapshots_its_number(client, dispatcher, vehic
 
 
 def test_client_supplied_truck_number_never_overrides_the_vehicle(client, dispatcher, vehicles):
-    resp = client.post("/api/crew-units", headers=dispatcher,
+    resp = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["active"].id, truckNumber="999"))
     assert resp.status_code == 201
     assert resp.get_json()["truckNumber"] == "101"
@@ -75,7 +72,7 @@ def test_client_supplied_truck_number_never_overrides_the_vehicle(client, dispat
 
 def test_out_of_service_vehicle_is_allowed_as_a_warning_not_an_error(client, dispatcher, vehicles):
     # Planning ahead of a repair is legitimate; the UI warns, the API allows.
-    resp = client.post("/api/crew-units", headers=dispatcher,
+    resp = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["oos"].id))
     assert resp.status_code == 201
     assert resp.get_json()["vehicleId"] == vehicles["oos"].id
@@ -83,20 +80,20 @@ def test_out_of_service_vehicle_is_allowed_as_a_warning_not_an_error(client, dis
 
 @pytest.mark.parametrize("key", ["retired", "inactive"])
 def test_retired_and_inactive_vehicles_are_rejected(client, dispatcher, vehicles, key):
-    resp = client.post("/api/crew-units", headers=dispatcher,
+    resp = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles[key].id))
     assert resp.status_code == 400
     assert "cannot be assigned" in resp.get_json()["error"]
 
 
 def test_unknown_vehicle_is_rejected(client, dispatcher, vehicles):
-    resp = client.post("/api/crew-units", headers=dispatcher, json=unit_payload(vehicleId=999999))
+    resp = dispatcher.post("/api/crew-units",  json=unit_payload(vehicleId=999999))
     assert resp.status_code == 400
     assert resp.get_json()["error"] == "Selected vehicle does not exist"
 
 
 def test_legacy_client_sending_only_a_truck_number_still_works(client, dispatcher, vehicles):
-    resp = client.post("/api/crew-units", headers=dispatcher, json=unit_payload(truckNumber="77"))
+    resp = dispatcher.post("/api/crew-units",  json=unit_payload(truckNumber="77"))
     assert resp.status_code == 201
 
     body = resp.get_json()
@@ -105,28 +102,28 @@ def test_legacy_client_sending_only_a_truck_number_still_works(client, dispatche
 
 
 def test_a_unit_needs_either_a_vehicle_or_a_truck_number(client, dispatcher):
-    resp = client.post("/api/crew-units", headers=dispatcher, json=unit_payload())
+    resp = dispatcher.post("/api/crew-units",  json=unit_payload())
     assert resp.status_code == 400
     assert resp.get_json()["error"] == "Truck Number is required"
 
 
 def test_update_without_vehicle_id_keeps_the_existing_link(client, dispatcher, vehicles):
-    created = client.post("/api/crew-units", headers=dispatcher,
+    created = dispatcher.post("/api/crew-units", 
                           json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
 
     # A partial save (e.g. an older client, or a crew-only edit) must not
     # silently unlink the vehicle.
-    resp = client.put(f"/api/crew-units/{created['id']}", headers=dispatcher,
+    resp = dispatcher.put(f"/api/crew-units/{created['id']}", 
                       json=unit_payload(truckNumber="101", startTime="09:00"))
     assert resp.status_code == 200
     assert resp.get_json()["vehicleId"] == vehicles["active"].id
 
 
 def test_update_can_clear_the_link_back_to_free_text(client, dispatcher, vehicles):
-    created = client.post("/api/crew-units", headers=dispatcher,
+    created = dispatcher.post("/api/crew-units", 
                           json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
 
-    resp = client.put(f"/api/crew-units/{created['id']}", headers=dispatcher,
+    resp = dispatcher.put(f"/api/crew-units/{created['id']}", 
                       json=unit_payload(vehicleId=None, truckNumber="rental van"))
     assert resp.status_code == 200
     assert resp.get_json()["vehicleId"] is None
@@ -134,10 +131,10 @@ def test_update_can_clear_the_link_back_to_free_text(client, dispatcher, vehicle
 
 
 def test_night_copy_carries_the_vehicle_link(client, dispatcher, vehicles):
-    created = client.post("/api/crew-units", headers=dispatcher,
+    created = dispatcher.post("/api/crew-units", 
                           json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
 
-    resp = client.post(f"/api/crew-units/{created['id']}/make-night", headers=dispatcher, json={})
+    resp = dispatcher.post(f"/api/crew-units/{created['id']}/make-night",  json={})
     assert resp.status_code == 201, resp.get_json()
 
     night = DailyCrewUnit.query.filter_by(shift_type="night").one()
@@ -146,7 +143,7 @@ def test_night_copy_carries_the_vehicle_link(client, dispatcher, vehicles):
 
 # ── Deleting a shift that still holds calls ─────────────────────────────────
 
-def _mk_call_on(client, headers, trip_date):
+def _mk_call_on(api, trip_date):
     from models import Call
     call = Call(trip_date=trip_date, status="new", service_level="BLS",
                 pickup_time="10:00", call_type="Appointment")
@@ -157,14 +154,14 @@ def _mk_call_on(client, headers, trip_date):
 
 def test_deleting_a_shift_with_assigned_calls_is_refused_not_a_500(client, dispatcher, vehicles):
     """It used to raise a raw IntegrityError and leak the SQL in a 500."""
-    unit = client.post("/api/crew-units", headers=dispatcher,
+    unit = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
-    call = _mk_call_on(client, dispatcher, "2099-01-01")
+    call = _mk_call_on(dispatcher, "2099-01-01")
 
-    assert client.post("/api/dispatch/assign", headers=dispatcher,
+    assert dispatcher.post("/api/dispatch/assign", 
                        json={"call_id": call.id, "unit_id": unit["id"]}).status_code == 201
 
-    resp = client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher)
+    resp = dispatcher.delete(f"/api/crew-units/{unit['id']}")
     assert resp.status_code == 409
 
     body = resp.get_json()
@@ -174,38 +171,38 @@ def test_deleting_a_shift_with_assigned_calls_is_refused_not_a_500(client, dispa
     assert "IntegrityError" not in body["error"] and "SQL" not in body["error"]
 
     # And the shift is still there.
-    assert client.get("/api/crew-units?shift_date=2099-01-01", headers=dispatcher).get_json()
+    assert dispatcher.get("/api/crew-units?shift_date=2099-01-01").get_json()
 
 
 def test_a_shift_deletes_once_its_calls_are_unassigned(client, dispatcher, vehicles):
-    unit = client.post("/api/crew-units", headers=dispatcher,
+    unit = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
-    call = _mk_call_on(client, dispatcher, "2099-01-01")
-    assign = client.post("/api/dispatch/assign", headers=dispatcher,
+    call = _mk_call_on(dispatcher, "2099-01-01")
+    assign = dispatcher.post("/api/dispatch/assign", 
                          json={"call_id": call.id, "unit_id": unit["id"]}).get_json()
 
-    client.delete(f"/api/dispatch/assign/{assign['id']}", headers=dispatcher)
+    dispatcher.delete(f"/api/dispatch/assign/{assign['id']}")
 
-    assert client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher).status_code == 200
+    assert dispatcher.delete(f"/api/crew-units/{unit['id']}").status_code == 200
 
 
 def test_an_empty_shift_still_deletes(client, dispatcher, vehicles):
-    unit = client.post("/api/crew-units", headers=dispatcher,
+    unit = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
 
-    assert client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher).status_code == 200
+    assert dispatcher.delete(f"/api/crew-units/{unit['id']}").status_code == 200
 
 
 def test_deleting_a_shift_leaves_its_calls_alone(client, dispatcher, vehicles):
     """The shift goes; the call stays and is simply unassigned again."""
     from models import Call
 
-    unit = client.post("/api/crew-units", headers=dispatcher,
+    unit = dispatcher.post("/api/crew-units", 
                        json=unit_payload(vehicleId=vehicles["active"].id)).get_json()
-    call = _mk_call_on(client, dispatcher, "2099-01-01")
-    assign = client.post("/api/dispatch/assign", headers=dispatcher,
+    call = _mk_call_on(dispatcher, "2099-01-01")
+    assign = dispatcher.post("/api/dispatch/assign", 
                          json={"call_id": call.id, "unit_id": unit["id"]}).get_json()
-    client.delete(f"/api/dispatch/assign/{assign['id']}", headers=dispatcher)
+    dispatcher.delete(f"/api/dispatch/assign/{assign['id']}")
 
-    assert client.delete(f"/api/crew-units/{unit['id']}", headers=dispatcher).status_code == 200
+    assert dispatcher.delete(f"/api/crew-units/{unit['id']}").status_code == 200
     assert db.session.get(Call, call.id) is not None

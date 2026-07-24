@@ -6,7 +6,7 @@ from models import db, EmployeeDocument, Employee, DOC_TYPES
 from storage import save_file, delete_file, get_file_response
 from notification_utils import create_notification
 from utils.validation_utils import check_length
-from utils.auth_utils import require_role
+from utils.auth_utils import get_request_user_id, require_role
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
 
@@ -21,10 +21,7 @@ MAX_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 def _user_id_from_request():
-    try:
-        return int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        return None
+    return get_request_user_id()
 
 
 # ── Document list + create ──────────────────────────────────────────────────

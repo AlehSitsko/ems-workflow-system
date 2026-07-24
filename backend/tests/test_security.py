@@ -23,21 +23,23 @@ from models import db, User, Call, DailyCrewUnit, CallAssignment, Patient
 
 
 @pytest.fixture()
-def roles(app):
-    headers = {}
+def roles(app, request):
+    """A signed-in client per role.
+
+    Identity is a session cookie now, so a test signs in for real rather than
+    asserting a role in a header — which means these tests also exercise the
+    authentication path itself.
+    """
+    from conftest import make_user, login
+
+    out = {}
+    prefix = request.node.module.__name__.rsplit(".", 1)[-1]
     for role in ("admin", "supervisor", "dispatcher", "hr"):
-        user = User(
-            username=f"sec_{role}",
-            password_hash=generate_password_hash("pw"),
-            display_name=f"Sec {role.title()}",
-            role=role,
-            is_active=True,
-        )
-        db.session.add(user)
-        db.session.flush()
-        headers[role] = {"X-User-Id": str(user.id), "X-User-Role": role, "X-User-Name": user.display_name}
-    db.session.commit()
-    return headers
+        user = make_user(role, username=f"{prefix}_{role}")
+        c = app.test_client()
+        login(c, user.username)
+        out[role] = c
+    return out
 
 
 @pytest.fixture()
@@ -93,21 +95,27 @@ def test_anonymous_cannot_read_the_dispatch_board(client, board_data):
 
 
 def test_hr_cannot_read_the_dispatch_board(client, roles, board_data):
-    resp = client.get("/api/dispatch/board?date=2026-07-15", headers=roles["hr"])
+    resp = roles["hr"].get("/api/dispatch/board?date=2026-07-15")
     assert resp.status_code == 403
     assert b"Confidential" not in resp.data
 
 
 @pytest.mark.parametrize("role", ["admin", "supervisor", "dispatcher"])
 def test_operational_roles_can_read_the_board(client, roles, board_data, role):
-    resp = client.get("/api/dispatch/board?date=2026-07-15", headers=roles[role])
+    resp = roles[role].get("/api/dispatch/board?date=2026-07-15")
     assert resp.status_code == 200
 
 
-def test_unknown_role_is_forbidden_not_unauthenticated(client, board_data):
-    # A claimed-but-invalid role is identified, just not allowed.
-    resp = client.get("/api/dispatch/board?date=2026-07-15", headers={"X-User-Role": "ghost"})
-    assert resp.status_code == 403
+def test_unknown_role_is_forbidden_not_unauthenticated(app, board_data):
+    """A signed-in user whose role the app no longer recognises is identified,
+    just not allowed anywhere — 403, not 401."""
+    from conftest import make_user, login
+
+    user = make_user("ghost", username="sec_ghost")
+    c = app.test_client()
+    login(c, user.username)
+
+    assert c.get("/api/dispatch/board?date=2026-07-15").status_code == 403
 
 
 # ── Dispatch mutations ──────────────────────────────────────────────────────
@@ -119,9 +127,9 @@ def test_dispatch_mutations_reject_anonymous(client, board_data, method, url, bo
 
 
 @pytest.mark.parametrize("method,url,body", DISPATCH_MUTATIONS)
-def test_dispatch_mutations_reject_hr(client, roles, board_data, method, url, body):
-    resp = getattr(client, method)(_resolve(url, board_data),
-                                   json=_body(body, board_data), headers=roles["hr"])
+def test_dispatch_mutations_reject_hr(roles, board_data, method, url, body):
+    resp = getattr(roles["hr"], method)(_resolve(url, board_data),
+                                        json=_body(body, board_data))
     assert resp.status_code == 403
 
 
@@ -142,15 +150,14 @@ def test_anonymous_cannot_create_a_crew_unit(client):
 
 
 def test_hr_cannot_create_a_crew_unit(client, roles):
-    resp = client.post("/api/crew-units", json=crew_payload(truckNumber="SEC-2"), headers=roles["hr"])
+    resp = roles["hr"].post("/api/crew-units", json=crew_payload(truckNumber="SEC-2"))
     assert resp.status_code == 403
     assert DailyCrewUnit.query.filter_by(truck_number="SEC-2").first() is None
 
 
 @pytest.mark.parametrize("role", ["admin", "supervisor", "dispatcher"])
 def test_operational_roles_can_create_a_crew_unit(client, roles, role):
-    resp = client.post("/api/crew-units", json=crew_payload(truckNumber=f"SEC-{role}"),
-                       headers=roles[role])
+    resp = roles[role].post("/api/crew-units", json=crew_payload(truckNumber=f"SEC-{role}"))
     assert resp.status_code == 201
 
 
@@ -160,7 +167,7 @@ def test_anonymous_cannot_read_crew_units(client, board_data):
 
 
 def test_hr_cannot_read_crew_units(client, roles, board_data):
-    assert client.get("/api/crew-units", headers=roles["hr"]).status_code == 403
+    assert roles["hr"].get("/api/crew-units").status_code == 403
 
 
 def test_anonymous_cannot_mutate_crew_units(client, board_data):
@@ -171,21 +178,145 @@ def test_anonymous_cannot_mutate_crew_units(client, board_data):
     assert client.get("/api/crew-units/alerts").status_code == 401
 
 
-def test_hr_cannot_mutate_crew_units(client, roles, board_data):
+def test_hr_cannot_mutate_crew_units(roles, board_data):
     unit_id = board_data["unit"].id
-    h = roles["hr"]
-    assert client.put(f"/api/crew-units/{unit_id}", json=crew_payload(), headers=h).status_code == 403
-    assert client.delete(f"/api/crew-units/{unit_id}", headers=h).status_code == 403
-    assert client.post(f"/api/crew-units/{unit_id}/make-night", json={}, headers=h).status_code == 403
+    hr = roles["hr"]
+    assert hr.put(f"/api/crew-units/{unit_id}", json=crew_payload()).status_code == 403
+    assert hr.delete(f"/api/crew-units/{unit_id}").status_code == 403
+    assert hr.post(f"/api/crew-units/{unit_id}/make-night", json={}).status_code == 403
 
 
-# ── The gate must not be bypassable by omitting only part of the identity ───
+# ── The old header scheme must stay dead ────────────────────────────────────
+#
+# Identity used to come from X-User-* headers the server believed, so anyone who
+# could reach the API could claim admin with a curl flag. These pin that the
+# headers are now inert: reintroducing that trust is the one regression that
+# would quietly undo session authentication.
 
-def test_user_id_without_role_is_still_anonymous(client, board_data):
-    resp = client.get("/api/dispatch/board?date=2026-07-15", headers={"X-User-Id": "1"})
+@pytest.mark.parametrize("headers", [
+    {"X-User-Id": "1", "X-User-Role": "admin", "X-User-Name": "Forged Admin"},
+    {"X-User-Role": "admin"},
+    {"X-User-Id": "1"},
+    {"X-User-Role": ""},
+])
+def test_forged_identity_headers_are_ignored(client, board_data, headers):
+    resp = client.get("/api/dispatch/board?date=2026-07-15", headers=headers)
+    assert resp.status_code == 401, "an X-User-* header authenticated the caller"
+
+
+def test_headers_cannot_escalate_a_real_session(roles, board_data):
+    """A signed-in HR user cannot promote themselves by adding a header."""
+    resp = roles["hr"].get("/api/dispatch/board?date=2026-07-15",
+                           headers={"X-User-Role": "admin", "X-User-Id": "1"})
+    assert resp.status_code == 403
+
+
+# ── User administration ─────────────────────────────────────────────────────
+#
+# These routes had no gate whatsoever: an anonymous POST created an admin
+# account, and anyone could list, edit or disable users. The frontend hid the
+# page behind an admin-only route, which was never protection. Found while
+# verifying session auth; these pin it shut.
+
+USER_ADMIN_ROUTES = [
+    ("get", "/api/auth/users", None),
+    ("post", "/api/auth/users",
+     {"username": "intruder", "password": "x", "display_name": "I", "role": "admin"}),
+    ("put", "/api/auth/users/1", {"display_name": "Renamed"}),
+    ("patch", "/api/auth/users/1/toggle-active", None),
+]
+
+
+@pytest.mark.parametrize("method,url,body", USER_ADMIN_ROUTES)
+def test_user_administration_rejects_anonymous(client, method, url, body):
+    resp = getattr(client, method)(url, json=body)
+    assert resp.status_code == 401, f"{method.upper()} {url} was open to anonymous callers"
+
+
+@pytest.mark.parametrize("method,url,body", USER_ADMIN_ROUTES)
+@pytest.mark.parametrize("role", ["dispatcher", "hr", "supervisor"])
+def test_user_administration_is_admin_only(roles, method, url, body, role):
+    resp = getattr(roles[role], method)(url, json=body)
+    assert resp.status_code == 403, f"{role} could reach {method.upper()} {url}"
+
+
+def test_anonymous_cannot_create_an_admin_account(client):
+    """The worst shape of the hole: self-service privilege escalation."""
+    from models import User
+
+    before = User.query.count()
+    resp = client.post("/api/auth/users", json={
+        "username": "intruder", "password": "x",
+        "display_name": "Intruder", "role": "admin",
+    })
     assert resp.status_code == 401
+    assert User.query.count() == before, "an account was created anyway"
 
 
-def test_empty_role_header_is_anonymous(client, board_data):
-    resp = client.get("/api/dispatch/board?date=2026-07-15", headers={"X-User-Role": ""})
-    assert resp.status_code == 401
+def test_an_admin_can_still_administer_users(roles):
+    assert roles["admin"].get("/api/auth/users").status_code == 200
+
+
+# ── Default-deny for the whole API ──────────────────────────────────────────
+#
+# An audit during the session-auth work found 74 registered routes with no gate.
+# Probing them anonymously returned 22KB of patient records and 22KB of call
+# records — PHI, to a caller who had never logged in. Authentication is now the
+# default for /api/ (see utils/auth_utils.register_api_auth_guard); these pin
+# both halves of that: the exposure is closed, and the exceptions stay narrow.
+
+ANONYMOUS_MUST_NOT_READ = [
+    "/api/patients",
+    "/api/calls",
+    "/api/employees",
+    "/api/payroll/periods",
+    "/api/analytics/dispatchers",
+    "/api/settings",
+    "/api/tasks",
+    "/api/taxonomy",
+]
+
+
+@pytest.mark.parametrize("path", ANONYMOUS_MUST_NOT_READ)
+def test_anonymous_reads_nothing(client, path):
+    resp = client.get(path)
+    assert resp.status_code == 401, f"{path} returned data to an anonymous caller"
+
+
+def test_a_new_route_is_protected_by_omission(app, client):
+    """The guard covers routes it has never heard of.
+
+    This is the property that makes it worth having: adding a route without a
+    decorator must fail closed rather than quietly publish whatever it returns.
+    """
+    @app.route("/api/some-future-endpoint")
+    def _future():
+        return {"secret": "should never be readable"}
+
+    assert client.get("/api/some-future-endpoint").status_code == 401
+
+
+def test_the_public_allowlist_stays_small_and_deliberate(app):
+    """Anything added here is a considered exception, not an oversight."""
+    from utils.auth_utils import PUBLIC_ENDPOINTS
+
+    expected = {
+        "auth.login", "auth.logout",          # signing in and out
+        "health_check", "home",               # liveness, used before login
+        "time.kiosk_employee_list", "time.kiosk_verify_pin",
+        "time.kiosk_clock_in", "time.kiosk_clock_out", "time.kiosk_status",
+        "notif.vapid_public_key",             # needed before a subscription
+    }
+    assert PUBLIC_ENDPOINTS == expected, (
+        "the set of unauthenticated endpoints changed — every entry here is "
+        "reachable with no session at all"
+    )
+
+
+def test_health_stays_reachable_for_container_checks(client):
+    assert client.get("/api/health").status_code == 200
+
+
+def test_the_kiosk_stays_reachable(client):
+    """A wall-mounted clock-in device has no user session by design."""
+    assert client.get("/api/kiosk/employees").status_code == 200

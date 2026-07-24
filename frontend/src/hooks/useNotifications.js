@@ -10,7 +10,7 @@ export function useNotifications(user) {
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`${API_BASE}/api/notifications?user_id=${user.id}`);
+      const res = await fetch(`${API_BASE}/api/notifications?user_id=${user.id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setUnreadCount(data.unread_count);
@@ -29,6 +29,7 @@ export function useNotifications(user) {
     if (!user?.id) return;
     try {
       await fetch(`${API_BASE}/api/notifications/read`, {
+    credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id, notification_id: notifId }),
@@ -42,6 +43,7 @@ export function useNotifications(user) {
     if (!user?.id) return;
     try {
       await fetch(`${API_BASE}/api/notifications/read-all`, {
+    credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id }),

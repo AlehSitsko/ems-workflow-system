@@ -309,15 +309,43 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   handoff waiting on someone who was not there. Decided by the project owner,
   2026-07-23 — no code change needed, the guard already matched.
 
-## P4 — Later production hardening (planned)
+## P4 — Production hardening (authentication done; rest planned)
 
-- [ ] Production authentication (replace header-based `X-User-*` with JWT/session)
+**Done — session authentication, CORS, secrets:**
+
+- [x] Server-side session cookies replace the `X-User-*` headers the server used
+  to believe. Signed with `SECRET_KEY`, `HttpOnly`, `SameSite=Lax`, `Secure`
+  under `EMS_ENV=production`. Headers are inert and a test pins that
+- [x] `/api/auth/login` starts a session, `/logout` ends it, `/me` restores it
+  after a reload. Session id is regenerated on login (session fixation)
+- [x] **Default-deny for `/api/`** — a route requires a session unless named in
+  `PUBLIC_ENDPOINTS`, so a new route is protected by omission
+- [x] **Closed: user administration was entirely ungated** — an anonymous POST
+  could create an admin account
+- [x] **Closed: 74 routes had no gate**, leaking ~22KB of patient records and
+  ~22KB of call records (PHI) to anonymous callers, plus employees and payroll
+- [x] CORS narrowed from "any origin" to an explicit allowlist with credentials
+- [x] `SECRET_KEY` from the environment; refuses to start under
+  `EMS_ENV=production` without one, and generates a per-process key in dev
+- [x] All 505 backend tests converted to sign in for real, so the auth path is
+  exercised rather than bypassed
+
+**Still open:**
+
+- [ ] CSRF tokens for state-changing requests (`SameSite=Lax` covers the common
+  case, not every case)
+- [ ] Password policy, lockout after repeated failures, rotation
+- [ ] Server-side session revocation (there is no session store; the cookie is
+  the session)
+- [ ] **Audit role correctness per route.** Authentication is guaranteed now;
+  whether each route allows exactly the right *roles* is a separate review
+- [ ] Secrets management
+- [ ] Full security review
+
 - [ ] PostgreSQL migration
 - [ ] Production Docker images (Gunicorn, Nginx, multi-stage frontend, non-root)
-- [ ] Restrict CORS to known origins; secrets management
 - [ ] Runtime tenant isolation (the `organization` schema exists but is inactive)
 - [ ] Backup strategy, structured logging, monitoring
-- [ ] Security review
 
 ---
 

@@ -21,16 +21,23 @@ PAST = (date.today() - timedelta(days=7)).isoformat()
 
 
 @pytest.fixture()
-def roles(app):
-    headers = {}
+def roles(app, request):
+    """A signed-in client per role.
+
+    Identity is a session cookie now, so a test signs in for real rather than
+    asserting a role in a header — which means these tests also exercise the
+    authentication path itself.
+    """
+    from conftest import make_user, login
+
+    out = {}
+    prefix = request.node.module.__name__.rsplit(".", 1)[-1]
     for role in ("admin", "supervisor", "dispatcher", "hr"):
-        user = User(username=f"dm_{role}", password_hash=generate_password_hash("pw"),
-                    display_name=f"DM {role}", role=role, is_active=True)
-        db.session.add(user)
-        db.session.flush()
-        headers[role] = {"X-User-Id": str(user.id), "X-User-Role": role, "X-User-Name": user.display_name}
-    db.session.commit()
-    return headers
+        user = make_user(role, username=f"{prefix}_{role}")
+        c = app.test_client()
+        login(c, user.username)
+        out[role] = c
+    return out
 
 
 def mk_call(trip_date, status="new", service_level="BLS", pickup_time="10:00"):
@@ -58,9 +65,8 @@ def mk_assignment(call, unit, active=True):
 
 
 def assign(client, roles, call, unit):
-    return client.post("/api/dispatch/assign",
-                       json={"call_id": call.id, "unit_id": unit.id},
-                       headers=roles["dispatcher"])
+    return roles["dispatcher"].post("/api/dispatch/assign",
+                       json={"call_id": call.id, "unit_id": unit.id})
 
 
 # ── Helper unit tests ────────────────────────────────────────────────────────
@@ -88,15 +94,15 @@ def test_operational_mode_classifies_relative_to_local_today():
 
 # ── Board date validation ────────────────────────────────────────────────────
 
-def test_invalid_board_date_rejected(client, roles):
-    h = roles["dispatcher"]
-    assert client.get("/api/dispatch/board?date=2026-99-99", headers=h).status_code == 400
-    assert client.get("/api/dispatch/board?date=2026-02-30", headers=h).status_code == 400
-    assert client.get("/api/dispatch/board?date=garbage", headers=h).status_code == 400
+def test_invalid_board_date_rejected(roles):
+    dispatcher = roles["dispatcher"]
+    assert dispatcher.get("/api/dispatch/board?date=2026-99-99").status_code == 400
+    assert dispatcher.get("/api/dispatch/board?date=2026-02-30").status_code == 400
+    assert dispatcher.get("/api/dispatch/board?date=garbage").status_code == 400
 
 
 def test_leap_day_board_accepted(client, roles):
-    resp = client.get("/api/dispatch/board?date=2028-02-29", headers=roles["dispatcher"])
+    resp = roles["dispatcher"].get("/api/dispatch/board?date=2028-02-29")
     assert resp.status_code == 200
     assert resp.get_json()["date"] == "2028-02-29"
 
@@ -135,49 +141,49 @@ def test_cancelled_call_cannot_be_assigned(client, roles):
 
 def test_future_completion_rejected(client, roles):
     aid = assign(client, roles, mk_call(FUTURE), mk_unit(FUTURE)).get_json()["id"]
-    resp = client.patch(f"/api/dispatch/assign/{aid}/complete", headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/assign/{aid}/complete")
     assert resp.status_code == 409
 
 
 def test_future_reopen_rejected(client, roles):
     aid = assign(client, roles, mk_call(FUTURE), mk_unit(FUTURE)).get_json()["id"]
-    resp = client.patch(f"/api/dispatch/assign/{aid}/reopen", headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/assign/{aid}/reopen")
     assert resp.status_code == 409
 
 
 def test_past_complete_reopen_unassign_rejected(client, roles):
     call, unit = mk_call(PAST), mk_unit(PAST)
     a = mk_assignment(call, unit)
-    assert client.patch(f"/api/dispatch/assign/{a.id}/complete", headers=roles["dispatcher"]).status_code == 409
-    assert client.patch(f"/api/dispatch/assign/{a.id}/reopen", headers=roles["dispatcher"]).status_code == 409
-    assert client.delete(f"/api/dispatch/assign/{a.id}", headers=roles["dispatcher"]).status_code == 409
+    assert roles["dispatcher"].patch(f"/api/dispatch/assign/{a.id}/complete").status_code == 409
+    assert roles["dispatcher"].patch(f"/api/dispatch/assign/{a.id}/reopen").status_code == 409
+    assert roles["dispatcher"].delete(f"/api/dispatch/assign/{a.id}").status_code == 409
 
 
 def test_past_queue_update_rejected(client, roles):
     unit = mk_unit(PAST)
-    resp = client.patch(f"/api/dispatch/units/{unit.id}/call-order",
-                        json={"callIds": [1, 2]}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/call-order",
+                        json={"callIds": [1, 2]})
     assert resp.status_code == 409
 
 
 def test_past_unit_status_rejected(client, roles):
     unit = mk_unit(PAST)
-    resp = client.patch(f"/api/dispatch/units/{unit.id}/status",
-                        json={"status": "en_route"}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/status",
+                        json={"status": "en_route"})
     assert resp.status_code == 409
 
 
 def test_future_unit_status_rejected(client, roles):
     unit = mk_unit(FUTURE)
-    resp = client.patch(f"/api/dispatch/units/{unit.id}/status",
-                        json={"status": "en_route"}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/status",
+                        json={"status": "en_route"})
     assert resp.status_code == 409
 
 
 # ── Crew shifts + pickup time ────────────────────────────────────────────────
 
 def test_past_crew_shift_create_rejected(client, roles):
-    resp = client.post("/api/crew-units", headers=roles["dispatcher"], json={
+    resp = roles["dispatcher"].post("/api/crew-units",  json={
         "shiftDate": PAST, "unitType": "BLS", "truckNumber": "77", "startTime": "08:00",
     })
     assert resp.status_code == 409
@@ -185,28 +191,28 @@ def test_past_crew_shift_create_rejected(client, roles):
 
 def test_past_crew_shift_update_and_delete_rejected(client, roles):
     unit = mk_unit(PAST, truck_number="78")
-    upd = client.put(f"/api/crew-units/{unit.id}", headers=roles["dispatcher"], json={
+    upd = roles["dispatcher"].put(f"/api/crew-units/{unit.id}",  json={
         "shiftDate": PAST, "unitType": "BLS", "truckNumber": "78", "startTime": "09:00",
     })
     assert upd.status_code == 409
-    assert client.delete(f"/api/crew-units/{unit.id}", headers=roles["dispatcher"]).status_code == 409
+    assert roles["dispatcher"].delete(f"/api/crew-units/{unit.id}").status_code == 409
 
 
 def test_past_make_night_rejected(client, roles):
     unit = mk_unit(PAST, truck_number="79")
-    resp = client.post(f"/api/crew-units/{unit.id}/make-night", headers=roles["dispatcher"], json={})
+    resp = roles["dispatcher"].post(f"/api/crew-units/{unit.id}/make-night",  json={})
     assert resp.status_code == 409
 
 
 def test_past_pickup_time_change_rejected(client, roles):
     call = mk_call(PAST)
-    resp = client.patch(f"/api/calls/{call.id}/pickup-time",
-                        json={"pickup_time": "11:00"}, headers=roles["dispatcher"])
+    resp = roles["dispatcher"].patch(f"/api/calls/{call.id}/pickup-time",
+                        json={"pickup_time": "11:00"})
     assert resp.status_code == 409
 
 
 def test_future_crew_shift_create_allowed(client, roles):
-    resp = client.post("/api/crew-units", headers=roles["dispatcher"], json={
+    resp = roles["dispatcher"].post("/api/crew-units",  json={
         "shiftDate": FUTURE, "unitType": "BLS", "truckNumber": "80", "startTime": "08:00",
     })
     assert resp.status_code == 201
@@ -221,13 +227,13 @@ def test_live_workflow_unchanged(client, roles):
     assert created.status_code == 201
     aid = created.get_json()["id"]
 
-    assert client.patch(f"/api/dispatch/units/{unit.id}/status",
-                        json={"status": "en_route"}, headers=roles["dispatcher"]).status_code == 200
-    assert client.patch(f"/api/dispatch/units/{unit.id}/call-order",
-                        json={"callIds": [call.id]}, headers=roles["dispatcher"]).status_code == 200
-    assert client.patch(f"/api/calls/{call.id}/pickup-time",
-                        json={"pickup_time": "11:30"}, headers=roles["dispatcher"]).status_code == 200
-    assert client.patch(f"/api/dispatch/assign/{aid}/complete", headers=roles["dispatcher"]).status_code == 200
+    assert roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/status",
+                        json={"status": "en_route"}).status_code == 200
+    assert roles["dispatcher"].patch(f"/api/dispatch/units/{unit.id}/call-order",
+                        json={"callIds": [call.id]}).status_code == 200
+    assert roles["dispatcher"].patch(f"/api/calls/{call.id}/pickup-time",
+                        json={"pickup_time": "11:30"}).status_code == 200
+    assert roles["dispatcher"].patch(f"/api/dispatch/assign/{aid}/complete").status_code == 200
     assert db.session.get(Call, call.id).status == "completed"
-    assert client.patch(f"/api/dispatch/assign/{aid}/reopen", headers=roles["dispatcher"]).status_code == 200
-    assert client.delete(f"/api/dispatch/assign/{aid}", headers=roles["dispatcher"]).status_code == 200
+    assert roles["dispatcher"].patch(f"/api/dispatch/assign/{aid}/reopen").status_code == 200
+    assert roles["dispatcher"].delete(f"/api/dispatch/assign/{aid}").status_code == 200

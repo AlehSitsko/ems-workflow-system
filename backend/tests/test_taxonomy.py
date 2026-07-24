@@ -14,6 +14,21 @@ from utils.taxonomy import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _signed_in(client, app):
+    """Sign the shared client in.
+
+    Every /api/ route now requires a session, so these tests need one. Applied
+    per module rather than in conftest so `client` stays anonymous where that is
+    the point — test_security.py asserts what an unauthenticated caller gets.
+    """
+    from conftest import make_user, login
+
+    user = make_user("admin", username="taxonomy_admin")
+    login(client, user.username)
+    return client
+
+
 # ── Service level ───────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("raw,expected", [
@@ -32,6 +47,7 @@ from utils.taxonomy import (
     ("Bariatric", "Bariatric"),
     ("cct", "CCT"),
 ])
+
 def test_normalize_service_level_canonicalizes(raw, expected):
     assert normalize_service_level(raw) == expected
 

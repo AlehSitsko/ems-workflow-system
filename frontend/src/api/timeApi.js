@@ -4,13 +4,14 @@ export async function getTimeEntries(employeeId, { dateFrom, dateTo } = {}) {
   const params = new URLSearchParams();
   if (dateFrom) params.set("date_from", dateFrom);
   if (dateTo) params.set("date_to", dateTo);
-  const res = await fetch(`${API_BASE}/api/employees/${employeeId}/time-entries?${params}`);
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}/time-entries?${params}`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to load time entries");
   return res.json();
 }
 
 export async function createTimeEntry(employeeId, data) {
   const res = await fetch(`${API_BASE}/api/employees/${employeeId}/time-entries`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -21,6 +22,7 @@ export async function createTimeEntry(employeeId, data) {
 
 export async function updateTimeEntry(entryId, data) {
   const res = await fetch(`${API_BASE}/api/time-entries/${entryId}`, {
+    credentials: "include",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -30,19 +32,21 @@ export async function updateTimeEntry(entryId, data) {
 }
 
 export async function deleteTimeEntry(entryId) {
-  const res = await fetch(`${API_BASE}/api/time-entries/${entryId}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/api/time-entries/${entryId}`, {
+    credentials: "include", method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete time entry");
   return res.json();
 }
 
 export async function getPayConfig(employeeId) {
-  const res = await fetch(`${API_BASE}/api/employees/${employeeId}/pay-config`);
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}/pay-config`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to load pay config");
   return res.json();
 }
 
 export async function savePayConfig(employeeId, data) {
   const res = await fetch(`${API_BASE}/api/employees/${employeeId}/pay-config`, {
+    credentials: "include",
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -53,17 +57,18 @@ export async function savePayConfig(employeeId, data) {
 
 // Kiosk
 export async function kioskEmployees() {
-  const res = await fetch(`${API_BASE}/api/kiosk/employees`);
+  const res = await fetch(`${API_BASE}/api/kiosk/employees`, { credentials: "include" });
   return res.json();
 }
 
 export async function kioskStatus(employeeId) {
-  const res = await fetch(`${API_BASE}/api/kiosk/status/${employeeId}`);
+  const res = await fetch(`${API_BASE}/api/kiosk/status/${employeeId}`, { credentials: "include" });
   return res.json();
 }
 
 export async function kioskVerifyPin(employeeId, pin) {
   const res = await fetch(`${API_BASE}/api/kiosk/verify-pin`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ employee_id: employeeId, pin }),
@@ -77,6 +82,7 @@ export async function kioskVerifyPin(employeeId, pin) {
 
 export async function kioskClockIn(employeeId, pin = null) {
   const res = await fetch(`${API_BASE}/api/kiosk/clock-in`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ employee_id: employeeId, pin }),
@@ -90,6 +96,7 @@ export async function kioskClockIn(employeeId, pin = null) {
 
 export async function kioskClockOut(employeeId, pin = null) {
   const res = await fetch(`${API_BASE}/api/kiosk/clock-out`, {
+    credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ employee_id: employeeId, pin }),

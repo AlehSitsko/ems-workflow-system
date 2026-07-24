@@ -8,7 +8,7 @@ from models import db, Call, Patient
 from notification_utils import create_notification
 from audit_utils import log_action
 from utils.validation_utils import check_length, is_valid_time, is_valid_date
-from utils.auth_utils import require_role
+from utils.auth_utils import get_request_role, get_request_user_id, get_request_user_name, require_role
 from utils.operational_dates import prohibit_historical_mutation
 from utils.taxonomy import (
     canonicalize_or_keep, normalize_service_level,
@@ -18,7 +18,7 @@ from utils.taxonomy import (
 
 
 def _user_name_from_request():
-    return request.headers.get("X-User-Name") or None
+    return get_request_user_name()
 
 ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 
@@ -46,14 +46,11 @@ def _validate_quality_score(value):
 
 
 def _role_from_request():
-    return request.headers.get("X-User-Role", "")
+    return get_request_role()
 
 
 def _user_id_from_request():
-    try:
-        return int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        return None
+    return get_request_user_id()
 
 
 # Blueprint for call history and call intake routes.

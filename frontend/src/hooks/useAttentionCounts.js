@@ -16,21 +16,18 @@ export function useAttentionCounts(currentUser) {
   // the first renders as no cards, the second as skeletons.
   const [loading, setLoading] = useState(true);
 
+  // Only the role matters for whether to ask at all; the session says who.
   const role = currentUser?.role;
-  const userId = currentUser?.id;
 
   const load = useCallback(() => {
     if (!role) return Promise.resolve();
-    return getAttentionCounts({
-      "X-User-Role": role,
-      "X-User-Id": String(userId || ""),
-    })
+    return getAttentionCounts({})
       .then(setCounts)
       // A failed badge refresh must never interrupt the page: the counts simply
       // stay as they were.
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [role, userId]);
+  }, [role]);
 
   useEffect(() => {
     if (!role) {

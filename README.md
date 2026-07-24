@@ -270,7 +270,24 @@ development environment does not make the project production-ready.*
 
 ## Security Note
 
-Current authentication is intentionally simplified for local development and demo testing. Production-ready authentication is planned as a final hardening phase and will include JWT or session-based authentication, backend role enforcement, tenant-safe queries, refresh/session handling, and protected API routes. See [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) for the full plan.
+Authentication is **server-side session cookies**: signing in starts a session,
+the cookie is signed with `SECRET_KEY`, `HttpOnly` and `SameSite=Lax`, and the
+API reads identity from it alone. This replaced `X-User-*` headers that the
+server used to trust — anyone who could reach the API could previously claim
+`admin` with a curl flag. Every `/api/` route now requires a session unless it
+is on a short, tested allowlist (login, health, the kiosk), so a new route is
+protected by omission rather than exposed by it.
+
+Two serious exposures were found and closed while doing this: user
+administration had no gate at all (an anonymous POST could create an admin
+account), and 74 routes were reachable anonymously — including patient and call
+records. Both are pinned by regression tests.
+
+**Still not production-ready:** no CSRF tokens (SameSite covers the common case,
+not every case), no password policy or lockout, no server-side session
+revocation, and role-per-route correctness has not yet been audited. SQLite and
+the Flask development server remain in place. See
+[docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## Documentation
 

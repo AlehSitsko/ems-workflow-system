@@ -10,7 +10,8 @@ export async function getAuditLog(params = {}, headers = {}) {
   if (params.page)        qs.set("page",         params.page);
   if (params.per_page)    qs.set("per_page",     params.per_page);
 
-  const res = await fetch(`${API_BASE}/api/audit?${qs}`, { headers });
+  const res = await fetch(`${API_BASE}/api/audit?${qs}`, {
+    credentials: "include", headers });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to load audit log");
   return data;

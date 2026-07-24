@@ -22,12 +22,10 @@ import {
 // Declining is deliberately not a plain status change: the server cancels the
 // call, so the button says that and asks first.
 
-function authHeaders(currentUser) {
-  return {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id": String(currentUser?.id || ""),
-    "X-User-Name": currentUser?.display_name || "",
-  };
+// Identity travels in the session cookie, sent by `credentials: "include"`.
+// The caller no longer asserts a role — the server would ignore it.
+function authHeaders() {
+  return {};
 }
 
 const EDITABLE = ["pickup_time", "pickup_address", "dropoff_address", "caller_phone", "notes"];

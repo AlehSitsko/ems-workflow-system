@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient, PatientAlert, Employee
 from notification_utils import create_notification
 from audit_utils import log_action
-from utils.auth_utils import require_role
+from utils.auth_utils import get_request_user_id, get_request_user_name, require_role
 from utils.operational_dates import (
     require_valid_date,
     require_live_date,
@@ -18,11 +18,8 @@ from utils.operational_dates import (
 
 
 def _audit_user():
-    try:
-        uid = int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        uid = None
-    name = request.headers.get("X-User-Name") or None
+    uid = get_request_user_id()
+    name = get_request_user_name()
     return uid, name
 
 

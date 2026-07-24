@@ -136,7 +136,7 @@ export default function VehicleWorkspacePage({ currentUser }) {
     if (tabData.activity === null && tabState.activity === undefined) {
       loadTab("activity", () => getAuditLog(
         { entity_type: "vehicle", entity_id: vehicleId, per_page: 50 },
-        { "X-User-Role": currentUser?.role || "", "X-User-Id": String(currentUser?.id || "") },
+        {},
       ).then((d) => d.entries || d.items || (Array.isArray(d) ? d : [])));
     }
   }, [vehicle, vehicleId, currentUser, loadTab, tabData, tabState]);
@@ -151,7 +151,7 @@ export default function VehicleWorkspacePage({ currentUser }) {
       loadTab("odometer", () => getOdometerHistory(vehicleId));
       loadTab("activity", () => getAuditLog(
         { entity_type: "vehicle", entity_id: vehicleId, per_page: 50 },
-        { "X-User-Role": currentUser?.role || "", "X-User-Id": String(currentUser?.id || "") },
+        {},
       ).then((d) => d.entries || d.items || (Array.isArray(d) ? d : [])));
     } catch (err) {
       // The API rejects a backwards reading unless it is flagged a correction.

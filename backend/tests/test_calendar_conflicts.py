@@ -20,11 +20,13 @@ NEXT_DAY = (date.today() + timedelta(days=4)).isoformat()
 
 @pytest.fixture()
 def admin(app):
-    user = User(username="cal_admin", password_hash=generate_password_hash("pw"),
-                display_name="Cal Admin", role="admin", is_active=True)
-    db.session.add(user)
-    db.session.commit()
-    return {"X-User-Id": str(user.id), "X-User-Role": "admin", "X-User-Name": user.display_name}
+    """A signed-in admin client — identity is a session cookie, not a header."""
+    from conftest import make_user, login
+
+    user = make_user("admin", username="cal_conflicts_admin")
+    c = app.test_client()
+    login(c, user.username)
+    return c
 
 
 @pytest.fixture()
@@ -51,7 +53,7 @@ def mk_unit(shift_date=DAY, start="08:00", end="20:00", end_date=None,
 
 
 def day_summary(client, admin, day=DAY, start=None, end=None):
-    resp = client.get(f"/api/calendar/events?start={start or day}&end={end or day}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={start or day}&end={end or day}")
     assert resp.status_code == 200, resp.get_json()
     return resp.get_json()["days"].get(day, {})
 
@@ -145,7 +147,7 @@ def test_unavailable_vehicle_marks_the_shift(client, admin, crew, kwargs, expect
 
     mk_unit(driver=crew[0], medical=crew[1], vehicle_id=v.id)
 
-    resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={DAY}&end={DAY}")
     event = next(e for e in resp.get_json()["events"] if e["type"] == "crew_shift")
     assert event["severity"] == expected_severity
     assert event["metadata"]["vehicleIssue"] == reason
@@ -171,7 +173,7 @@ def test_legacy_shift_without_a_vehicle_link_reports_no_issue(client, admin, cre
     """Free-text truck numbers have no fleet record to check — never invent one."""
     mk_unit(driver=crew[0], medical=crew[1], vehicle_id=None, truck="rental van")
 
-    resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={DAY}&end={DAY}")
     event = next(e for e in resp.get_json()["events"] if e["type"] == "crew_shift")
     assert event["metadata"]["vehicleIssue"] is None
     assert resp.get_json()["days"][DAY]["criticalCount"] == 0
@@ -185,7 +187,7 @@ def test_a_finished_shift_is_not_dragged_down_by_its_truck(client, admin, crew):
 
     mk_unit(driver=crew[0], medical=crew[1], vehicle_id=v.id, status="completed")
 
-    resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={DAY}&end={DAY}")
     event = next(e for e in resp.get_json()["events"] if e["type"] == "crew_shift")
     assert event["metadata"]["vehicleIssue"] is None
     assert resp.get_json()["days"][DAY]["criticalCount"] == 0
@@ -198,7 +200,7 @@ def test_an_overlap_is_reported_on_both_shifts(client, admin, crew):
     a = mk_unit(start="08:00", end="20:00", driver=crew[0], medical=crew[1])
     b = mk_unit(start="18:00", end="23:00", driver=crew[0], medical=crew[2], truck="102")
 
-    resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={DAY}&end={DAY}")
     shifts = {e["sourceId"]: e for e in resp.get_json()["events"] if e["type"] == "crew_shift"}
 
     for unit, other in ((a, b), (b, a)):
@@ -217,7 +219,7 @@ def test_a_vehicle_overlap_is_labelled_as_such(client, admin, crew):
     a = mk_unit(start="08:00", end="20:00", driver=crew[0], medical=crew[1], vehicle_id=v.id)
     mk_unit(start="12:00", end="22:00", driver=crew[2], medical=crew[3], vehicle_id=v.id)
 
-    resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={DAY}&end={DAY}")
     shifts = {e["sourceId"]: e for e in resp.get_json()["events"] if e["type"] == "crew_shift"}
     assert shifts[a.id]["metadata"]["conflicts"][0]["type"] == "vehicle_double_booked"
 
@@ -225,7 +227,7 @@ def test_a_vehicle_overlap_is_labelled_as_such(client, admin, crew):
 def test_shifts_without_conflicts_report_an_empty_list(client, admin, crew):
     u = mk_unit(driver=crew[0], medical=crew[1])
 
-    resp = client.get(f"/api/calendar/events?start={DAY}&end={DAY}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={DAY}&end={DAY}")
     shifts = {e["sourceId"]: e for e in resp.get_json()["events"] if e["type"] == "crew_shift"}
     assert shifts[u.id]["metadata"]["conflicts"] == []
 
@@ -250,7 +252,7 @@ def test_birthday_range_filtering_matches_the_naive_scan(client, admin):
         if _birthday_occurrences(p.dob, start, end)
     }
 
-    resp = client.get(f"/api/calendar/events?start={start}&end={end}", headers=admin)
+    resp = admin.get(f"/api/calendar/events?start={start}&end={end}")
     got = {e["sourceId"] for e in resp.get_json()["events"] if e["type"] == "patient_birthday"}
     assert got == expected
 
@@ -261,7 +263,7 @@ def test_a_leap_day_birthday_appears_only_when_the_range_holds_a_feb_29(client, 
     db.session.commit()
 
     def birthdays(start, end):
-        resp = client.get(f"/api/calendar/events?start={start}&end={end}", headers=admin)
+        resp = admin.get(f"/api/calendar/events?start={start}&end={end}")
         return [e for e in resp.get_json()["events"] if e["type"] == "patient_birthday"]
 
     assert birthdays("2028-02-01", "2028-02-29")   # 2028 is a leap year
@@ -273,5 +275,5 @@ def test_archived_patients_still_stay_out(client, admin):
     db.session.add(Patient(first_name="Gone", last_name="Away", dob="1980-07-04", is_archived=True))
     db.session.commit()
 
-    resp = client.get("/api/calendar/events?start=2026-07-01&end=2026-07-31", headers=admin)
+    resp = admin.get("/api/calendar/events?start=2026-07-01&end=2026-07-31")
     assert not [e for e in resp.get_json()["events"] if e["type"] == "patient_birthday"]

@@ -315,8 +315,7 @@ export default function DispatchBoardPage() {
 
   async function handleCancelCall(callId, reason) {
     const headers = {
-      "X-User-Role": currentUser?.role || "",
-      "X-User-Id": String(currentUser?.id || ""),
+  // Identity is the session cookie; nothing is asserted here.
     };
     await cancelCall(callId, reason, headers);
     await loadBoard(date);
@@ -324,8 +323,7 @@ export default function DispatchBoardPage() {
 
   async function handleUncancelCall(callId) {
     const headers = {
-      "X-User-Role": currentUser?.role || "",
-      "X-User-Id": String(currentUser?.id || ""),
+  // Identity is the session cookie; nothing is asserted here.
     };
     try {
       await uncancelCall(callId, headers);
@@ -337,6 +335,7 @@ export default function DispatchBoardPage() {
     if (!pickupTime) return;
     try {
       const res = await fetch(`${API_BASE}/api/calls/${callId}/pickup-time`, {
+    credentials: "include",
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pickup_time: pickupTime }),

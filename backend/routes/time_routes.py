@@ -4,14 +4,11 @@ from flask import Blueprint, jsonify, request
 
 from models import db, TimeEntry, EmployeePayConfig, Employee
 from audit_utils import log_action
+from utils.auth_utils import get_request_user_id, get_request_user_name
 
 
 def _audit_user():
-    try:
-        uid = int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        uid = None
-    return uid, request.headers.get("X-User-Name") or None
+    return get_request_user_id(), get_request_user_name()
 
 time_bp = Blueprint("time", __name__, url_prefix="/api")
 

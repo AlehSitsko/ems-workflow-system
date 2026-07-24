@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createHashRouter, RouterProvider, Outlet, Navigate } from "react-router-dom";
 
 import "./App.css";
@@ -51,6 +51,8 @@ function PageFallback() {
 
 import {
   getCurrentUser,
+  fetchCurrentUser,
+  saveCurrentUser,
   logoutUser,
   hasSupervisorAccess,
   hasPatientAccess,
@@ -63,16 +65,37 @@ import {
 } from "./api/authApi";
 
 function App() {
+  // The cached user gives the shell something to render immediately; the
+  // session cookie is the actual identity, so it is confirmed with the server
+  // below. A cached entry that no longer has a session behind it is discarded.
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCurrentUser().then((user) => {
+      if (cancelled) return;
+      if (user) {
+        saveCurrentUser(user);
+        setCurrentUser(user);
+      } else {
+        // No live session — clear the cache so the UI cannot show a signed-in
+        // shell whose every request would come back 401.
+        logoutUser();
+        setCurrentUser(null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Save logged-in user in application state.
   const handleLogin = (user) => {
     setCurrentUser(user);
   };
 
-  // Clear logged-in user from localStorage and application state.
-  const handleLogout = () => {
-    logoutUser();
+  // End the session server-side (the cookie is HttpOnly, so only the server can
+  // clear it), then drop local state.
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
   };
 

@@ -20,12 +20,10 @@ import { buildDispatchLink } from "../../utils/calendarLinks";
 // actual end time cannot be paid accurately — neither shows up on a board that
 // only displays today.
 
-function authHeaders(currentUser) {
-  return {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id": String(currentUser?.id || ""),
-    "X-User-Name": currentUser?.display_name || "",
-  };
+// Identity travels in the session cookie, sent by `credentials: "include"`.
+// The caller no longer asserts a role — the server would ignore it.
+function authHeaders() {
+  return {};
 }
 
 function yesterdayStr() {

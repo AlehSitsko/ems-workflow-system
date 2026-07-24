@@ -1,16 +1,16 @@
 from flask import Blueprint, jsonify, request
 from models import User
 from settings_utils import load_user_settings, save_user_settings, DEFAULT_SETTINGS
+from utils.auth_utils import get_request_user_id
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/api/settings")
 
 
-def _get_user(req):
-    try:
-        uid = int(req.headers.get("X-User-Id", 0))
-        return User.query.get(uid) if uid else None
-    except (TypeError, ValueError):
-        return None
+def _get_user(_req=None):
+    """The signed-in user, or None. Settings are per-user, so reading the id
+    from the session is also what stops one user editing another's."""
+    uid = get_request_user_id()
+    return User.query.get(uid) if uid else None
 
 
 @settings_bp.route("", methods=["GET"])

@@ -4,6 +4,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, Employee
 from limiter import limiter
 from audit_utils import log_action
+from utils.auth_utils import (
+    start_session, end_session, require_auth, require_role,
+    get_request_user_id, get_request_user_name,
+)
 
 
 # Blueprint for authentication and user management routes.
@@ -15,11 +19,8 @@ ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr"]
 
 
 def _audit_user():
-    try:
-        uid = int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        uid = None
-    return uid, request.headers.get("X-User-Name") or None
+    """Who is acting, from the session — never from a client-supplied header."""
+    return get_request_user_id(), get_request_user_name()
 
 
 # Handle user login and return authenticated user data.
@@ -48,14 +49,53 @@ def login():
     if not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid username or password"}), 401
 
+    # Identity now lives in a signed, HttpOnly cookie. The user object is still
+    # returned so the client can render a name and scope its UI, but nothing the
+    # client sends back is trusted for authorisation.
+    start_session(user)
+
     return jsonify({
         "message": "Login successful",
         "user": user.to_dict()
     })
 
 
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    """Drop the session. Deliberately succeeds even when nobody is signed in —
+    a client clearing its state should never have to handle an error."""
+    end_session()
+    return jsonify({"message": "Logged out"})
+
+
+@auth_bp.route("/me", methods=["GET"])
+@require_auth
+def current_user():
+    """The signed-in user, for restoring a session after a page reload.
+
+    The client used to keep the user in localStorage and send the role back on
+    every request. Now the cookie is the identity and this is how the UI learns
+    who it belongs to — a stale or forged localStorage entry buys nothing.
+    """
+    user = User.query.get(get_request_user_id())
+    if not user or not user.is_active:
+        # The account was removed or disabled while the cookie was still valid.
+        end_session()
+        return jsonify({"error": "Authentication required"}), 401
+
+    return jsonify({"user": user.to_dict()})
+
+
 # Return all system users ordered by ID.
+# ── User administration — admin only ────────────────────────────────────────
+#
+# These four routes had no gate at all: an anonymous POST could create an admin
+# account, and anyone could list, edit or disable users. The frontend hid the
+# page behind an admin route, which was never protection — the API is the
+# boundary. Pinned by tests/test_security.py.
+
 @auth_bp.route("/users", methods=["GET"])
+@require_role("admin")
 def get_users():
     users = User.query.order_by(User.id.asc()).all()
     return jsonify([user.to_dict() for user in users])
@@ -63,6 +103,7 @@ def get_users():
 
 # Create a new system user.
 @auth_bp.route("/users", methods=["POST"])
+@require_role("admin")
 def create_user():
     data = request.get_json()
 
@@ -114,6 +155,7 @@ def create_user():
 
 # Update an existing system user.
 @auth_bp.route("/users/<int:id>", methods=["PUT"])
+@require_role("admin")
 def update_user(id):
     data = request.get_json()
 
@@ -194,6 +236,7 @@ def update_user(id):
 
 # Toggle user active status or set it explicitly.
 @auth_bp.route("/users/<int:id>/toggle-active", methods=["PATCH"])
+@require_role("admin")
 def toggle_user_active(id):
     user = User.query.get(id)
 

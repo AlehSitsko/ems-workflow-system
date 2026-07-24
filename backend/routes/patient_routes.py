@@ -6,14 +6,11 @@ from models import db, Patient, Call, PatientAlert, PatientContact
 from audit_utils import log_action
 from utils.validation_utils import check_length
 from utils.taxonomy import canonicalize_or_keep, normalize_service_level
+from utils.auth_utils import get_request_user_id, get_request_user_name
 
 
 def _audit_user():
-    try:
-        uid = int(request.headers.get("X-User-Id", 0)) or None
-    except (ValueError, TypeError):
-        uid = None
-    return uid, request.headers.get("X-User-Name") or None
+    return get_request_user_id(), get_request_user_name()
 
 
 def _now():

@@ -65,7 +65,7 @@ export function usePushNotifications(user) {
   // Check server-side push configuration once, independent of browser permission.
   useEffect(() => {
     if (!supported) { setVapidConfigured(false); return; }
-    fetch(`${API_BASE}/api/notifications/vapid-public-key`)
+    fetch(`${API_BASE}/api/notifications/vapid-public-key`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => setVapidConfigured(!!data.publicKey))
       .catch(() => setVapidConfigured(false));
@@ -91,7 +91,7 @@ export function usePushNotifications(user) {
 
     // Step 2: fetch VAPID public key and subscribe.
     try {
-      const res = await fetch(`${API_BASE}/api/notifications/vapid-public-key`);
+      const res = await fetch(`${API_BASE}/api/notifications/vapid-public-key`, { credentials: "include" });
       const { publicKey } = await res.json();
       if (!publicKey) throw new Error("No VAPID key");
 
@@ -102,6 +102,7 @@ export function usePushNotifications(user) {
       });
 
       await fetch(`${API_BASE}/api/notifications/push-subscribe`, {
+    credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() }),
@@ -121,6 +122,7 @@ export function usePushNotifications(user) {
   const sendTestPush = useCallback(async () => {
     if (!user?.id) throw new Error("Not logged in");
     const res = await fetch(`${API_BASE}/api/notifications/test-push`, {
+    credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user.id }),

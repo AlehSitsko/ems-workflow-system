@@ -190,8 +190,7 @@ export default function AuditLogPage({ currentUser }) {
   const [filterDateTo, setFilterDateTo] = useState("");
 
   const headers = {
-    "X-User-Role": currentUser?.role || "",
-    "X-User-Id":   String(currentUser?.id || ""),
+  // Identity is the session cookie; nothing is asserted here.
   };
 
   const load = useCallback(async () => {
