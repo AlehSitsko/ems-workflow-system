@@ -176,4 +176,22 @@ def register_api_auth_guard(app):
         if not is_authenticated():
             return jsonify({"error": "Authentication required"}), 401
 
+        # Re-validate the signed-in user against the database on every request,
+        # not just at login. This is the app's server-side revocation: disabling
+        # a user (a departure, a compromised account) takes effect on their very
+        # next request rather than lingering until the 12-hour cookie expires,
+        # and a role change is honoured immediately instead of staying stale in
+        # the cookie until the user signs in again. One primary-key lookup per
+        # request — cheap, and the alternative is a stale credential.
+        from models import User
+
+        user = User.query.get(get_request_user_id())
+        if user is None or not user.is_active:
+            end_session()
+            return jsonify({"error": "Authentication required"}), 401
+
+        if session.get(SESSION_ROLE) != user.role or session.get(SESSION_NAME) != user.display_name:
+            session[SESSION_ROLE] = user.role
+            session[SESSION_NAME] = user.display_name
+
         return None
