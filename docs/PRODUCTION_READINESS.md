@@ -112,6 +112,23 @@ documented policy, each after checking no excluded-role flow depended on it:
 - `nginx` as a reverse proxy for static files and TLS termination
 - Consider `gunicorn --worker-class gevent` for I/O-bound workloads (this app is mostly I/O-bound — DB queries, not CPU work)
 
+## Observability
+
+**Logging is structured** (`logging_config.py`). One format is chosen by
+environment: JSON — one object per line on stdout — when `EMS_ENV=production`, so
+a log aggregator can index the fields; a compact human-readable line otherwise.
+An access log records every API request with method, path, status, duration and
+the acting `user_id`, and deliberately never the request body, since a call or
+patient payload is PHI. Health checks and CORS preflight are excluded as noise.
+No third-party logging dependency — the JSON formatter is stdlib.
+
+**Still open:**
+- Ship the JSON logs somewhere (a file, or stdout to a collector) and set
+  retention — the app writes them; where they go is a deployment concern
+- Metrics and tracing (request rate, error rate, latency percentiles); a
+  `/metrics` endpoint or an APM agent would be the usual next step
+- Alerting on error-rate or latency thresholds
+
 ## Real-time updates
 
 **Current state:** the notification bell polls `/api/notifications` every 10 seconds per user. With the existing index on `user_notification.user_id`, this is acceptable up to roughly 50 concurrent users (at 15 users today: ~90 requests/minute on that one endpoint).

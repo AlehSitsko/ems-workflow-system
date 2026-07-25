@@ -1,7 +1,10 @@
 import json
+import logging
 import os
 
 from flask import Blueprint, jsonify, request
+
+logger = logging.getLogger(__name__)
 
 from models import db, User, UserNotification, NotificationEvent, UserNotificationPrefs
 from notification_utils import ROLE_EVENT_TYPES, NOTIFICATION_LABELS, run_temporal_checks
@@ -38,9 +41,9 @@ def get_notifications():
     # Run temporal checks on every poll.
     try:
         run_temporal_checks()
-    except Exception as e:
-        import sys
-        print(f"[WARN] temporal check error: {e}", file=sys.stderr)
+    except Exception:
+        # A failed temporal check must not break the notification poll.
+        logger.warning("temporal check failed during notification poll", exc_info=True)
 
     allowed_types = ROLE_EVENT_TYPES.get(user.role, set())
     prefs = _get_prefs_dict(user.id)
