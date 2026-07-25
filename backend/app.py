@@ -26,6 +26,7 @@ from extensions import init_extensions
 from models import db
 from cli import register_cli_commands
 from utils.auth_utils import register_api_auth_guard
+from logging_config import configure_logging
 
 from routes.auth_routes import auth_bp
 from routes.employee_routes import employee_bp
@@ -111,6 +112,10 @@ def create_app(config_overrides=None):
     app.config.from_object(Config)
     if config_overrides:
         app.config.update(config_overrides)
+
+    # Logging first, so anything the rest of setup logs is already formatted and
+    # the request access log is in place before the first request.
+    configure_logging(app)
 
     init_extensions(app)
     register_blueprints(app)

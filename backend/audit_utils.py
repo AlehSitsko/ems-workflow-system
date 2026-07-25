@@ -1,7 +1,10 @@
 import json
+import logging
 from datetime import datetime, timezone
 
 from models import db, AuditLog
+
+logger = logging.getLogger(__name__)
 
 
 def log_action(
@@ -27,6 +30,6 @@ def log_action(
         )
         db.session.add(entry)
         db.session.flush()   # write within current transaction; caller commits
-    except Exception as e:
-        import sys
-        print(f"[AUDIT ERROR] {e}", file=sys.stderr)
+    except Exception:
+        # Auditing must never break the action it records; log and move on.
+        logger.exception("failed to write audit log entry")

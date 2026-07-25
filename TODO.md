@@ -359,7 +359,8 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [ ] PostgreSQL migration
 - [ ] Production Docker images (Gunicorn, Nginx, multi-stage frontend, non-root)
 - [ ] Runtime tenant isolation (the `organization` schema exists but is inactive)
-- [ ] Backup strategy, structured logging, monitoring
+- [x] Structured logging — JSON in production / human-readable in dev, plus a PHI-safe request access log (method, path, status, duration, actor). `logging_config.py`, `test_logging.py` (7 tests)
+- [ ] Backup strategy, monitoring (metrics/tracing/alerting), log shipping
 
 ---
 
