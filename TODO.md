@@ -101,10 +101,7 @@ P4). Detailed notes in [docs/DOCKER.md](docs/DOCKER.md).
   the compose file
 - [x] Both images build in CI (run #101 on `main`) — the Dockerfiles and the
   compose file are known-good
-- [ ] **The stack has never been started.** CI builds the images and validates
-  compose but does not `docker compose up`, so migrations-on-start, the
-  healthcheck gate and hot reload are verified by construction, not observation.
-  One local `docker compose up --build` would close this
+- [x] The stack was run end to end on Docker Desktop (WSL2): images build, migrations reach head on a fresh volume, the healthcheck gate holds (frontend waits for backend healthy), /api/health is 200, seed-demo + login work, the app is served under its base path, and the named volume survives a down/up cycle.
 - Out of scope, deliberately: PostgreSQL, Redis, Celery, Nginx, Kubernetes,
   production secrets, cloud deployment.
 
@@ -196,10 +193,8 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   `b7d3f8c1a2e4`, backfilled from the legacy value). `role` stays as a derived
   legacy mirror for backward compatibility; the form has two selects, crew
   eligibility reads `qualification`, and the workspace shows both axes.
-- [ ] **Call #27** still has `service_level='emergency'` with `call_type='return'` —
-  the cleanup deliberately refused to overwrite a real call_type. Needs a decision.
-- [ ] 3 calls / 3 patients hold an empty-string service level (`''`) — decide
-  whether to normalize to NULL.
+- [x] **Call #27** resolved: `service_level='emergency'` (the last orphaned emergency-as-service-level) set to NULL, matching its outbound pair #26. The emergency nature stays on #26 (`call_type='emergency'`) and in the note.
+- [x] Empty-string service levels normalized to NULL — 3 calls (ids 1, 7, 8) and 3 patients (1, 5, 12). The column now has one 'empty' form (NULL), matching the 62 patients already on NULL. Dev-DB only (not in the repo); backup taken.
 - [ ] `Vehicle.unit_type` is a single value; real multi-capability support lands
   with Fleet Management.
 - [x] HR no longer gets Calendar links into `/dispatch` it cannot open: the page

@@ -80,8 +80,12 @@ The compose file and both Dockerfiles are covered by the `docker` job in
 file on every push. Both images built successfully on the first CI run (run #101
 on `main`), so the Dockerfiles and the compose file are known-good.
 
-Still worth knowing: **the stack has not been brought up end to end** — CI builds
-the images and validates the compose file but does not run `docker compose up`,
-so the runtime wiring (migrations on start, the healthcheck gate, hot reload
-through the bind mounts) is verified by construction rather than by observation.
-A local `docker compose up --build` is the check that would close that gap.
+The stack has been **run end to end** on Docker Desktop (engine 29.6.2, WSL2
+linux containers): both images build, `docker compose config` validates, the
+backend applies every migration to head on a fresh volume, its `/api/health`
+healthcheck passes, and the frontend starts only after the backend reports
+healthy (the `service_healthy` dependency). `/api/health` answers 200, an
+explicit `flask --app app seed-demo` creates the demo users, login then
+succeeds, and the app HTML is served under the `/ems-workflow-system/` base
+path. A `down` / `up` cycle keeps the seeded database, confirming the named
+volume persists it across restarts.
