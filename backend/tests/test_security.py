@@ -479,3 +479,59 @@ def test_payroll_roles_can_read_time_entries(roles):
 def test_kiosk_clock_in_stays_reachable_after_time_entry_lockdown(client):
     """Tightening the management routes must not touch the public kiosk."""
     assert client.get("/api/kiosk/employees").status_code == 200
+
+
+# ── Server-side revocation: the DB is authoritative every request ───────────
+#
+# Identity used to be re-checked only at login and on /me. These pin that
+# disabling a user or changing their role takes effect on the very next request,
+# without waiting for the cookie to expire — the app's revocation mechanism.
+
+def test_disabling_a_user_ends_their_session_on_the_next_request(app, roles):
+    from models import User
+    # The dispatcher is signed in and working.
+    assert roles["dispatcher"].get("/api/patients").status_code == 200
+
+    # An admin disables the account mid-session.
+    user = User.query.filter_by(username="test_security_dispatcher").first()
+    user.is_active = False
+    db.session.commit()
+
+    # Their very next request is rejected — not honoured until expiry.
+    resp = roles["dispatcher"].get("/api/patients")
+    assert resp.status_code == 401
+
+
+def test_a_role_change_takes_effect_on_the_next_request(app, roles):
+    from models import User
+    # A dispatcher cannot administer users.
+    assert roles["dispatcher"].get("/api/auth/users").status_code == 403
+
+    # An admin promotes them.
+    user = User.query.filter_by(username="test_security_dispatcher").first()
+    user.role = "admin"
+    db.session.commit()
+
+    # The new role is honoured immediately, from the database — not the stale
+    # role baked into the cookie at login.
+    assert roles["dispatcher"].get("/api/auth/users").status_code == 200
+
+
+def test_a_demotion_also_takes_effect_immediately(app, roles):
+    from models import User
+    assert roles["admin"].get("/api/auth/users").status_code == 200
+
+    user = User.query.filter_by(username="test_security_admin").first()
+    user.role = "dispatcher"
+    db.session.commit()
+
+    assert roles["admin"].get("/api/auth/users").status_code == 403
+
+
+def test_deleting_the_user_behind_a_live_session_ends_it(app, roles):
+    from models import User
+    user = User.query.filter_by(username="test_security_hr").first()
+    db.session.delete(user)
+    db.session.commit()
+
+    assert roles["hr"].get("/api/employees").status_code == 401

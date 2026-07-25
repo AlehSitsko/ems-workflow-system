@@ -86,8 +86,13 @@ documented policy, each after checking no excluded-role flow depended on it:
   rate limited (10/min). Still missing: expiry/rotation, and a breach-corpus
   check. Enforced on the management routes only, so existing and demo accounts
   are unaffected
-- Session storage is the signed cookie itself; server-side revocation of a
-  specific live session is not possible without a session store
+- **Revocation** works for the case that matters: the signed-in user is
+  re-validated against the database on every request, so disabling or deleting an
+  account, or changing its role, takes effect on that account's very next request
+  rather than lingering until the 12-hour cookie expires (`register_api_auth_guard`,
+  tests in `test_security.py`). What still needs a session store is revoking *one*
+  specific device's session while the user stays active elsewhere — the cookie
+  carries no per-session id to target
 
 ## Database
 
