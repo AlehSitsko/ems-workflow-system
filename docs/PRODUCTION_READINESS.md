@@ -50,6 +50,32 @@ off with the session, and ending a session is a server-side act rather than a
 revocation list. `SameSite=Lax` means the browser will not attach it to
 cross-site POSTs, which removes the common CSRF shape without a token scheme.
 
+**Role-correctness audit (done).** Every one of the 142 API routes was
+enumerated against its guard, and the ones relying only on the default-deny
+(i.e. "any signed-in user") were checked against the documented policy —
+*"Dispatcher never sees payroll/salary/HR-private data; HR never sees patient
+data"* (ROADMAP.md). Several were more permissive than that policy, empirically
+reachable by the wrong role, and were tightened (`tests/test_security.py`):
+
+| Route(s) | Was | Now | Why |
+|---|---|---|---|
+| `/api/patient(s)/*` (16) | any signed-in | admin/supervisor/dispatcher | PHI — HR excluded |
+| `/api/payroll/*` (7) | any signed-in | admin/supervisor/hr | salary — dispatcher excluded |
+| `/api/employees/<id>/pay-config` | any signed-in | admin/supervisor/hr | salary config |
+| employee detail + create/edit/delete | any signed-in | admin/supervisor/hr | HR record; the **list** stays open — the board/planner need it, and it carries no salary |
+| `GET /employees/<id>/documents` | any signed-in | admin/supervisor/hr | matched the rest of its blueprint |
+| `/api/analytics/dispatchers` | any signed-in | admin/supervisor | supervisor analytics |
+| employee **kiosk PIN** | in every roster payload | HR-gated detail only | a clock-in credential was readable by every signed-in user |
+
+**Residual findings left for an owner decision (not silently changed):**
+- **Calls and HR.** The policy line says "HR never sees calls", but the call
+  blueprint's own `ALLOWED_ROLES` deliberately includes `hr`, so HR can read
+  `/api/calls`. That is a contradiction between the doc and the code, not an
+  accident to fix unilaterally — resolve which is intended.
+- **Time-entries** (`/employees/<id>/time-entries`) are any-signed-in; they feed
+  payroll, so dispatcher arguably should not manage them. Lower severity — no
+  UI reaches them from a dispatcher context — but worth a policy call.
+
 **Still open before this can face an untrusted network:**
 - CSRF tokens for state-changing requests. `SameSite=Lax` covers the common
   case, not every case (e.g. a same-site subdomain compromise)
@@ -57,9 +83,6 @@ cross-site POSTs, which removes the common CSRF shape without a token scheme.
   limited (10/min) but passwords have no complexity or expiry rules
 - Session storage is the signed cookie itself; server-side revocation of a
   specific live session is not possible without a session store
-- An audit of *role* correctness on every route. Authentication is now
-  guaranteed; whether each route allows exactly the right roles is a separate
-  review
 
 ## Database
 

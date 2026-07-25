@@ -6,7 +6,10 @@ from models import db, Patient, Call, PatientAlert, PatientContact
 from audit_utils import log_action
 from utils.validation_utils import check_length
 from utils.taxonomy import canonicalize_or_keep, normalize_service_level
-from utils.auth_utils import get_request_user_id, get_request_user_name
+from utils.auth_utils import get_request_user_id, get_request_user_name, require_role
+
+# Patients are PHI: admin, supervisor and dispatcher only — never HR.
+PATIENT_ROLES = ("admin", "supervisor", "dispatcher")
 
 
 def _audit_user():
@@ -77,6 +80,7 @@ def _find_duplicate(first_name, last_name, dob, exclude_id=None):
 
 # Return patients with optional name and date of birth filters.
 @patient_bp.route("/api/patients", methods=["GET"])
+@require_role(*PATIENT_ROLES)
 def get_patients():
     name = request.args.get("name", "").strip()
     dob = request.args.get("dob", "").strip()
@@ -141,6 +145,7 @@ def get_patients():
 
 # Create a new patient record.
 @patient_bp.route("/api/patients", methods=["POST"])
+@require_role(*PATIENT_ROLES)
 def create_patient():
     data = request.get_json()
 
@@ -221,6 +226,7 @@ def create_patient():
 
 # Return a single patient by ID.
 @patient_bp.route("/api/patient/<int:id>", methods=["GET"])
+@require_role(*PATIENT_ROLES)
 def get_patient(id):
     patient = Patient.query.get(id)
 
@@ -232,6 +238,7 @@ def get_patient(id):
 
 # Update an existing patient by ID.
 @patient_bp.route("/api/patient/<int:id>", methods=["PUT"])
+@require_role(*PATIENT_ROLES)
 def update_patient(id):
     patient = Patient.query.get(id)
 
@@ -299,6 +306,7 @@ def update_patient(id):
 
 # Archive an existing patient by ID (soft delete — history stays intact).
 @patient_bp.route("/api/patient/<int:id>", methods=["DELETE"])
+@require_role(*PATIENT_ROLES)
 def delete_patient(id):
     patient = Patient.query.get(id)
 
@@ -332,6 +340,7 @@ def delete_patient(id):
 
 # Restore a previously archived patient.
 @patient_bp.route("/api/patient/<int:id>/restore", methods=["POST"])
+@require_role(*PATIENT_ROLES)
 def restore_patient(id):
     patient = Patient.query.get(id)
 
@@ -357,6 +366,7 @@ def restore_patient(id):
 
 # Return all calls linked to a specific patient.
 @patient_bp.route("/api/patient/<int:id>/calls", methods=["GET"])
+@require_role(*PATIENT_ROLES)
 def get_patient_calls(id):
     patient = Patient.query.get(id)
 
@@ -376,6 +386,7 @@ def get_patient_calls(id):
 # Return the most recent call for a patient, shaped as a template for a new call.
 # Excludes date/time/status/assignment/dispatch-timestamp fields that should never be blindly copied.
 @patient_bp.route("/api/patient/<int:id>/last-trip-template", methods=["GET"])
+@require_role(*PATIENT_ROLES)
 def get_last_trip_template(id):
     patient = Patient.query.get(id)
 
@@ -412,6 +423,7 @@ ALERT_SEVERITIES = {"info", "warning", "critical"}
 
 
 @patient_bp.route("/api/patient/<int:id>/alerts", methods=["GET"])
+@require_role(*PATIENT_ROLES)
 def get_patient_alerts(id):
     Patient.query.get_or_404(id)
     show_all = request.args.get("show_all", "").strip() == "1"
@@ -425,6 +437,7 @@ def get_patient_alerts(id):
 
 
 @patient_bp.route("/api/patient/<int:id>/alerts", methods=["POST"])
+@require_role(*PATIENT_ROLES)
 def create_patient_alert(id):
     Patient.query.get_or_404(id)
     data = request.get_json()
@@ -477,6 +490,7 @@ def create_patient_alert(id):
 
 
 @patient_bp.route("/api/patient/<int:id>/alerts/<int:alert_id>", methods=["PUT"])
+@require_role(*PATIENT_ROLES)
 def update_patient_alert(id, alert_id):
     alert = PatientAlert.query.filter_by(id=alert_id, patient_id=id).first()
     if not alert:
@@ -533,6 +547,7 @@ def update_patient_alert(id, alert_id):
 
 
 @patient_bp.route("/api/patient/<int:id>/alerts/<int:alert_id>/resolve", methods=["POST"])
+@require_role(*PATIENT_ROLES)
 def resolve_patient_alert(id, alert_id):
     alert = PatientAlert.query.filter_by(id=alert_id, patient_id=id).first()
     if not alert:
@@ -565,6 +580,7 @@ def resolve_patient_alert(id, alert_id):
 # ── Patient contacts ─────────────────────────────────────────────────────────
 
 @patient_bp.route("/api/patient/<int:id>/contacts", methods=["GET"])
+@require_role(*PATIENT_ROLES)
 def get_patient_contacts(id):
     Patient.query.get_or_404(id)
     contacts = (
@@ -577,6 +593,7 @@ def get_patient_contacts(id):
 
 
 @patient_bp.route("/api/patient/<int:id>/contacts", methods=["POST"])
+@require_role(*PATIENT_ROLES)
 def create_patient_contact(id):
     Patient.query.get_or_404(id)
     data = request.get_json()
@@ -617,6 +634,7 @@ def create_patient_contact(id):
 
 
 @patient_bp.route("/api/patient/<int:id>/contacts/<int:contact_id>", methods=["PUT"])
+@require_role(*PATIENT_ROLES)
 def update_patient_contact(id, contact_id):
     contact = PatientContact.query.filter_by(id=contact_id, patient_id=id).first()
     if not contact:
@@ -659,6 +677,7 @@ def update_patient_contact(id, contact_id):
 
 
 @patient_bp.route("/api/patient/<int:id>/contacts/<int:contact_id>", methods=["DELETE"])
+@require_role(*PATIENT_ROLES)
 def delete_patient_contact(id, contact_id):
     contact = PatientContact.query.filter_by(id=contact_id, patient_id=id).first()
     if not contact:

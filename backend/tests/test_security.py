@@ -320,3 +320,124 @@ def test_health_stays_reachable_for_container_checks(client):
 def test_the_kiosk_stays_reachable(client):
     """A wall-mounted clock-in device has no user session by design."""
     assert client.get("/api/kiosk/employees").status_code == 200
+
+
+# ── Data-boundary authorization (role-correctness audit) ────────────────────
+#
+# The global guard makes every /api/ route require *a* session. These pin the
+# separate question the audit asked: is "any signed-in user" too permissive for
+# routes touching data the documented policy restricts by role —
+#   "Dispatcher never sees payroll/salary/HR-private data;
+#    HR never sees patient data."
+# (docs/ROADMAP.md). Each was empirically reachable by the wrong role before the
+# guards were added.
+
+def _make_patient():
+    p = Patient(first_name="Priv", last_name="Ate", dob="1980-01-01")
+    db.session.add(p); db.session.commit()
+    return p
+
+
+def _make_employee():
+    from models import Employee
+    e = Employee(first_name="Ed", last_name="Medic", role="EMT")
+    db.session.add(e); db.session.commit()
+    return e
+
+
+# Patients are PHI — HR must not reach them.
+@pytest.mark.parametrize("path", ["/api/patients", "/api/patient/{pid}"])
+def test_hr_cannot_read_patient_data(roles, path):
+    p = _make_patient()
+    resp = roles["hr"].get(path.format(pid=p.id))
+    assert resp.status_code == 403, "HR reached patient PHI"
+
+
+@pytest.mark.parametrize("role", ["admin", "supervisor", "dispatcher"])
+def test_operational_roles_can_read_patients(roles, role):
+    p = _make_patient()
+    assert roles[role].get(f"/api/patient/{p.id}").status_code == 200
+
+
+# Payroll is salary — dispatcher must not reach it.
+@pytest.mark.parametrize("path", ["/api/payroll/periods", "/api/payroll/export"])
+def test_dispatcher_cannot_read_payroll(roles, path):
+    assert roles["dispatcher"].get(path).status_code == 403
+
+
+def test_payroll_roles_can_read_payroll(roles):
+    assert roles["hr"].get("/api/payroll/periods").status_code == 200
+    assert roles["supervisor"].get("/api/payroll/periods").status_code == 200
+
+
+# Pay configuration is salary — dispatcher must not read or set it.
+def test_dispatcher_cannot_touch_pay_config(roles):
+    e = _make_employee()
+    assert roles["dispatcher"].get(f"/api/employees/{e.id}/pay-config").status_code == 403
+    assert roles["dispatcher"].put(f"/api/employees/{e.id}/pay-config",
+                                   json={"hourlyRate": 99}).status_code == 403
+
+
+# Employee records are HR data. The LIST stays open — the Dispatch Board and
+# Crew Planner need it for crew dropdowns — but detail and mutations do not.
+def test_dispatcher_can_list_employees_for_crew_dropdowns(roles):
+    _make_employee()
+    assert roles["dispatcher"].get("/api/employees").status_code == 200
+
+
+def test_dispatcher_cannot_open_or_change_an_employee_record(roles):
+    e = _make_employee()
+    assert roles["dispatcher"].get(f"/api/employees/{e.id}").status_code == 403
+    assert roles["dispatcher"].get(f"/api/employees/{e.id}/shifts").status_code == 403
+    assert roles["dispatcher"].delete(f"/api/employees/{e.id}").status_code == 403
+    assert roles["dispatcher"].put(f"/api/employees/{e.id}",
+                                   json={"firstName": "X"}).status_code == 403
+
+
+def test_hr_and_supervisor_can_open_an_employee_record(roles):
+    e = _make_employee()
+    assert roles["hr"].get(f"/api/employees/{e.id}").status_code == 200
+    assert roles["supervisor"].get(f"/api/employees/{e.id}").status_code == 200
+
+
+# Employee documents (certs) are HR — the list was the one open endpoint.
+def test_dispatcher_cannot_list_employee_documents(roles):
+    e = _make_employee()
+    assert roles["dispatcher"].get(f"/api/employees/{e.id}/documents").status_code == 403
+
+
+# Supervisor analytics — not for dispatcher or HR.
+@pytest.mark.parametrize("role", ["dispatcher", "hr"])
+def test_analytics_is_supervisor_only(roles, role):
+    assert roles[role].get("/api/analytics/dispatchers").status_code == 403
+
+
+def test_supervisor_can_read_analytics(roles):
+    assert roles["supervisor"].get("/api/analytics/dispatchers").status_code == 200
+
+
+# ── Kiosk PIN is a credential, not roster data ──────────────────────────────
+#
+# The clock-in PIN lets you clock a colleague in or out at the shared kiosk.
+# Employee.to_dict() used to include it, so every signed-in user could read
+# every PIN from the employee list. It now travels only in the HR-gated detail
+# payload that backs the edit form.
+
+def test_the_employee_list_never_carries_kiosk_pins(roles):
+    from models import Employee
+    db.session.add(Employee(first_name="Pin", last_name="Holder", role="EMT", kiosk_pin="4321"))
+    db.session.commit()
+
+    body = roles["admin"].get("/api/employees").get_json()
+    assert body, "no employees returned"
+    for emp in body:
+        assert "kioskPin" not in emp, "the roster payload leaked a kiosk PIN"
+
+
+def test_the_hr_detail_endpoint_still_carries_the_pin_for_the_edit_form(roles):
+    from models import Employee
+    e = Employee(first_name="Pin", last_name="Holder", role="EMT", kiosk_pin="4321")
+    db.session.add(e); db.session.commit()
+
+    body = roles["hr"].get(f"/api/employees/{e.id}").get_json()
+    assert body["kioskPin"] == "4321", "the edit form can no longer prefill the PIN"

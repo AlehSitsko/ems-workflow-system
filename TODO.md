@@ -337,8 +337,20 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [ ] Password policy, lockout after repeated failures, rotation
 - [ ] Server-side session revocation (there is no session store; the cookie is
   the session)
-- [ ] **Audit role correctness per route.** Authentication is guaranteed now;
-  whether each route allows exactly the right *roles* is a separate review
+- [x] **Audit role correctness per route.** All 142 routes enumerated against
+  their guard; the "any signed-in" ones checked against the documented policy.
+  Tightened patients (HR out), payroll + pay-config (dispatcher out), employee
+  detail/mutations (dispatcher out; list stays open for crew dropdowns),
+  employee-document list, and analytics; and stopped the kiosk PIN travelling in
+  roster payloads. 17 new boundary tests in `tests/test_security.py`. See
+  `docs/PRODUCTION_READINESS.md` → Authentication for the table and the two
+  residual findings below.
+- [ ] **Residual: calls vs HR.** Policy says "HR never sees calls" but the call
+  blueprint's `ALLOWED_ROLES` includes `hr`. Doc/code contradiction — needs an
+  owner decision on which is intended, not a silent change.
+- [ ] **Residual: time-entries** are any-signed-in; they feed payroll, so
+  dispatcher arguably should not manage them. No UI reaches them from a
+  dispatcher context — low severity, but a policy call.
 - [ ] Secrets management
 - [ ] Full security review
 
