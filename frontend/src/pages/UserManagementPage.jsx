@@ -289,6 +289,11 @@ function UserManagementPage() {
                 disabled={saving}
                 placeholder={editingUser ? "Leave blank to keep current password" : ""}
               />
+              {/* The backend is the boundary (it rejects a weak password with a
+                  400 the form already surfaces); this states the rule upfront. */}
+              <div className="form-text">
+                At least 10 characters, including a letter and a number.
+              </div>
             </div>
 
             <div className="col-md-6">
