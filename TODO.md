@@ -347,12 +347,13 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   roster payloads. 17 new boundary tests in `tests/test_security.py`. See
   `docs/PRODUCTION_READINESS.md` → Authentication for the table and the two
   residual findings below.
-- [ ] **Residual: calls vs HR.** Policy says "HR never sees calls" but the call
-  blueprint's `ALLOWED_ROLES` includes `hr`. Doc/code contradiction — needs an
-  owner decision on which is intended, not a silent change.
-- [ ] **Residual: time-entries** are any-signed-in; they feed payroll, so
-  dispatcher arguably should not manage them. No UI reaches them from a
-  dispatcher context — low severity, but a policy call.
+- [x] **Resolved: calls exclude HR.** The blueprint constant had included `hr`,
+  contradicting the policy and the `/calls` guard. Removed; the three routes that
+  relied only on the global guard are now gated too. HR gets 403 on all call
+  routes; no HR flow used them.
+- [x] **Resolved: time-entry management excludes dispatcher** (admin/supervisor/
+  hr, matching payroll). Only the Employee Workspace Time & Pay tab reaches them;
+  kiosk clock-in stays public. 9 new tests in `test_security.py`.
 - [ ] Secrets management
 - [ ] Full security review
 

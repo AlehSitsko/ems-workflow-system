@@ -20,7 +20,10 @@ from utils.taxonomy import (
 def _user_name_from_request():
     return get_request_user_name()
 
-ALLOWED_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
+# Calls are patient-operational data: admin, supervisor and dispatcher only.
+# HR was included here historically, which contradicted the documented policy
+# ("HR never sees calls") and the /calls route guard. Removed.
+ALLOWED_ROLES = {"admin", "supervisor", "dispatcher"}
 
 
 def _validate_time_field(value, field_name):
@@ -59,6 +62,7 @@ call_bp = Blueprint("call", __name__, url_prefix="/api/calls")
 
 # Return calls with optional filters.
 @call_bp.route("", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
 def get_calls():
     date_of_call = request.args.get("date_of_call", "").strip()
     trip_date = request.args.get("trip_date", "").strip()
@@ -121,6 +125,7 @@ def get_calls():
 
 # Create a new call record.
 @call_bp.route("", methods=["POST"])
+@require_role(*ALLOWED_ROLES)
 def create_call():
     data = request.get_json()
 
@@ -326,6 +331,7 @@ def uncancel_call(call_id):
 
 # Update pickup_time on a specific call (used for Will Call dispatching).
 @call_bp.route("/<int:call_id>/pickup-time", methods=["PATCH"])
+@require_role(*ALLOWED_ROLES)
 def update_pickup_time(call_id):
     call = Call.query.get_or_404(call_id)
     data = request.get_json() or {}

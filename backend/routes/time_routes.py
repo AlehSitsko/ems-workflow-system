@@ -6,6 +6,10 @@ from models import db, TimeEntry, EmployeePayConfig, Employee
 from audit_utils import log_action
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
 
+# Managing time entries is payroll-adjacent: never dispatcher. Kiosk clock-in
+# routes below are separate and stay public (PIN-gated per action).
+_TIME_MGMT_ROLES = ("admin", "supervisor", "hr")
+
 
 def _audit_user():
     return get_request_user_id(), get_request_user_name()
@@ -16,6 +20,7 @@ time_bp = Blueprint("time", __name__, url_prefix="/api")
 # ── Time Entries ───────────────────────────────────────────────────────────
 
 @time_bp.route("/employees/<int:employee_id>/time-entries", methods=["GET"])
+@require_role(*_TIME_MGMT_ROLES)
 def get_time_entries(employee_id):
     Employee.query.get_or_404(employee_id)
     date_from = request.args.get("date_from", "").strip()
@@ -32,6 +37,7 @@ def get_time_entries(employee_id):
 
 
 @time_bp.route("/employees/<int:employee_id>/time-entries", methods=["POST"])
+@require_role(*_TIME_MGMT_ROLES)
 def create_time_entry(employee_id):
     Employee.query.get_or_404(employee_id)
     data = request.get_json() or {}
@@ -59,6 +65,7 @@ def create_time_entry(employee_id):
 
 
 @time_bp.route("/time-entries/<int:entry_id>", methods=["PATCH"])
+@require_role(*_TIME_MGMT_ROLES)
 def update_time_entry(entry_id):
     entry = TimeEntry.query.get_or_404(entry_id)
     data = request.get_json() or {}
@@ -81,6 +88,7 @@ def update_time_entry(entry_id):
 
 
 @time_bp.route("/time-entries/<int:entry_id>", methods=["DELETE"])
+@require_role(*_TIME_MGMT_ROLES)
 def delete_time_entry(entry_id):
     entry = TimeEntry.query.get_or_404(entry_id)
     uid, uname = _audit_user()
