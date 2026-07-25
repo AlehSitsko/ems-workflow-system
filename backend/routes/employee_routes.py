@@ -3,6 +3,13 @@ from flask import Blueprint, jsonify, request
 from models import db, Employee, DailyCrewUnit
 from utils.employee_utils import apply_employee_data
 from notification_utils import create_notification
+from utils.auth_utils import require_role
+
+# Managing employee records is an admin/supervisor/HR function. The LIST stays
+# open to any signed-in user on purpose: the Dispatch Board and Crew Planner
+# (dispatcher-accessible) read it to populate crew dropdowns, and it carries no
+# salary data. Detail and mutations are the HR-record surface and are gated.
+_RECORD_ROLES = ("admin", "supervisor", "hr")
 
 
 # Blueprint for employee management routes.
@@ -22,19 +29,23 @@ def get_employees():
 
 # Return a single employee by id — backs the Employee Workspace.
 @employee_bp.route("/<int:id>", methods=["GET"])
+@require_role(*_RECORD_ROLES)
 def get_employee(id):
     employee = Employee.query.get(id)
 
     if not employee:
         return jsonify({"error": "Employee not found"}), 404
 
-    return jsonify(employee.to_dict())
+    # Detail is HR-gated and backs the edit form, which prefills the kiosk PIN —
+    # the one payload allowed to carry it (see Employee.to_dict).
+    return jsonify(employee.to_dict(include_pin=True))
 
 
 # Shifts this employee has been rostered on, newest first — backs the Employee
 # Workspace "Schedule" tab. An employee can hold any of the four crew slots, so
 # the shift also reports which role they worked.
 @employee_bp.route("/<int:id>/shifts", methods=["GET"])
+@require_role(*_RECORD_ROLES)
 def list_employee_shifts(id):
     employee = Employee.query.get(id)
     if not employee:
@@ -85,6 +96,7 @@ def list_employee_shifts(id):
 
 # Create a new employee record.
 @employee_bp.route("", methods=["POST"])
+@require_role(*_RECORD_ROLES)
 def create_employee():
     data = request.get_json()
 
@@ -115,6 +127,7 @@ def create_employee():
 
 # Update an existing employee record.
 @employee_bp.route("/<int:id>", methods=["PUT"])
+@require_role(*_RECORD_ROLES)
 def update_employee(id):
     employee = Employee.query.get(id)
 
@@ -141,6 +154,7 @@ def update_employee(id):
 
 # Delete an employee record.
 @employee_bp.route("/<int:id>", methods=["DELETE"])
+@require_role(*_RECORD_ROLES)
 def delete_employee(id):
     employee = Employee.query.get(id)
 

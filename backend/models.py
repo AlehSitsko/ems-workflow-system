@@ -116,8 +116,13 @@ class Employee(db.Model):
     paramedic_license_name = db.Column(db.String(150))
     paramedic_expiration_date = db.Column(db.String(20))
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_pin=False):
+        # The kiosk PIN is a clock-in credential: with it you can clock a
+        # colleague in or out at the shared kiosk. It must never travel in a
+        # roster payload, so it is omitted by default and included only when a
+        # caller that may manage it (the HR-gated detail endpoint) asks. The
+        # kiosk's own endpoints already expose `has_pin`, never the PIN itself.
+        data = {
             "id": self.id,
             "firstName": self.first_name,
             "lastName": self.last_name,
@@ -133,7 +138,6 @@ class Employee(db.Model):
             "status": self.status or "active",
             "isActive": self.is_active,
             "notes": self.notes,
-            "kioskPin": self.kiosk_pin or "",
 
             "cpr": {
                 "hasLicense": self.cpr_has_license,
@@ -159,6 +163,9 @@ class Employee(db.Model):
                 "expirationDate": self.paramedic_expiration_date or "",
             },
         }
+        if include_pin:
+            data["kioskPin"] = self.kiosk_pin or ""
+        return data
 
 
 class Vehicle(db.Model):

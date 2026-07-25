@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from models import Call
+from utils.auth_utils import require_role
 
 
 # Blueprint for supervisor analytics routes.
@@ -25,6 +26,7 @@ def split_missing_fields(value):
 
 # Return dispatcher performance and call quality analytics.
 @analytics_bp.route("/dispatchers", methods=["GET"])
+@require_role("admin", "supervisor")
 def get_dispatcher_analytics():
     limit = min(request.args.get("limit", 2000, type=int) or 2000, 5000)
     calls = Call.query.order_by(Call.id.desc()).limit(limit).all()

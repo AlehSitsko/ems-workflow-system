@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, TimeEntry, EmployeePayConfig, Employee
 from audit_utils import log_action
-from utils.auth_utils import get_request_user_id, get_request_user_name
+from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
 
 
 def _audit_user():
@@ -196,6 +196,7 @@ def kiosk_clock_out():
 # ── Pay Config ─────────────────────────────────────────────────────────────
 
 @time_bp.route("/employees/<int:employee_id>/pay-config", methods=["GET"])
+@require_role("admin", "supervisor", "hr")
 def get_pay_config(employee_id):
     Employee.query.get_or_404(employee_id)
     config = EmployeePayConfig.query.filter_by(employee_id=employee_id).order_by(
@@ -207,6 +208,7 @@ def get_pay_config(employee_id):
 
 
 @time_bp.route("/employees/<int:employee_id>/pay-config", methods=["PUT"])
+@require_role("admin", "supervisor", "hr")
 def upsert_pay_config(employee_id):
     Employee.query.get_or_404(employee_id)
     data = request.get_json() or {}

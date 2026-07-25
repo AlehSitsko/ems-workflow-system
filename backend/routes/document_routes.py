@@ -27,6 +27,7 @@ def _user_id_from_request():
 # ── Document list + create ──────────────────────────────────────────────────
 
 @doc_bp.route("/employees/<int:employee_id>/documents", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
 def list_documents(employee_id):
     Employee.query.get_or_404(employee_id)
     docs = (EmployeeDocument.query

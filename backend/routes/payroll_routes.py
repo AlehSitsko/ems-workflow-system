@@ -5,6 +5,10 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request, Response
 
 from models import db, PayPeriod, TimeEntry, Employee, EmployeePayConfig
+from utils.auth_utils import require_role
+
+# Payroll is salary data: admin, supervisor and HR only — never dispatcher.
+PAYROLL_ROLES = ("admin", "supervisor", "hr")
 
 payroll_bp = Blueprint("payroll", __name__, url_prefix="/api/payroll")
 
@@ -119,12 +123,14 @@ def _calc_period_summary(period):
 # ── routes ───────────────────────────────────────────────────────────────────
 
 @payroll_bp.route("/periods", methods=["GET"])
+@require_role(*PAYROLL_ROLES)
 def list_periods():
     periods = PayPeriod.query.order_by(PayPeriod.start_date.desc()).all()
     return jsonify([p.to_dict() for p in periods])
 
 
 @payroll_bp.route("/periods", methods=["POST"])
+@require_role(*PAYROLL_ROLES)
 def create_period():
     data = request.get_json() or {}
     if not data.get("start_date") or not data.get("end_date"):
@@ -145,6 +151,7 @@ def create_period():
 
 
 @payroll_bp.route("/periods/<int:period_id>", methods=["DELETE"])
+@require_role(*PAYROLL_ROLES)
 def delete_period(period_id):
     period = PayPeriod.query.get_or_404(period_id)
     db.session.delete(period)
@@ -153,6 +160,7 @@ def delete_period(period_id):
 
 
 @payroll_bp.route("/periods/<int:period_id>", methods=["PATCH"])
+@require_role(*PAYROLL_ROLES)
 def update_period(period_id):
     period = PayPeriod.query.get_or_404(period_id)
     data = request.get_json() or {}
@@ -164,6 +172,7 @@ def update_period(period_id):
 
 
 @payroll_bp.route("/periods/<int:period_id>/status", methods=["PATCH"])
+@require_role(*PAYROLL_ROLES)
 def update_period_status(period_id):
     period = PayPeriod.query.get_or_404(period_id)
     data = request.get_json() or {}
@@ -180,6 +189,7 @@ def update_period_status(period_id):
 
 
 @payroll_bp.route("/periods/<int:period_id>/summary", methods=["GET"])
+@require_role(*PAYROLL_ROLES)
 def period_summary(period_id):
     period = PayPeriod.query.get_or_404(period_id)
     summary = _calc_period_summary(period)
@@ -187,6 +197,7 @@ def period_summary(period_id):
 
 
 @payroll_bp.route("/export", methods=["GET"])
+@require_role(*PAYROLL_ROLES)
 def export_payroll():
     period_id = request.args.get("period_id", type=int)
     fmt = request.args.get("format", "csv").lower()
