@@ -367,4 +367,4 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 
 - [ ] Screenshots + a short workflow GIF in README
 - [ ] Seeded demo dataset for screenshots/walkthroughs
-- [ ] Simple architecture diagram
+- [x] Architecture diagram — two mermaid diagrams in the README (system layers + the auth/request flow), rendered and verified under mermaid 11 (GitHub's engine)

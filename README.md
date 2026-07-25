@@ -138,6 +138,54 @@ guards in `App.jsx` and the API's own role checks are the boundary — see
 
 Full module map and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Architecture
+
+A single-page React client talks to a Flask API over JSON. Identity is a signed,
+HttpOnly **session cookie** — the client never asserts its own role. The one
+compose file below runs both dev servers for a reproducible local environment.
+
+```mermaid
+flowchart TB
+    subgraph browser["Browser"]
+        SPA["React 19 SPA (Vite)<br/>pages and hubs, HashRouter data router<br/>api/ fetch wrappers, theme/settings context"]
+    end
+
+    subgraph backend["Flask API (application factory)"]
+        MW["Request pipeline<br/>CORS allowlist, login rate limit<br/>session-auth guard (before_request)"]
+        BP["Blueprints, one per module (21)<br/>dispatch, calls, patients, employees<br/>leave, payroll, fleet, crew, tasks<br/>calendar, operations, audit, users"]
+        ORM["SQLAlchemy ORM"]
+    end
+
+    DB[("SQLite<br/>Alembic migrations")]
+
+    SPA -->|"HTTPS, JSON, session cookie<br/>(credentials: include)"| MW
+    MW --> BP
+    BP --> ORM
+    ORM --> DB
+```
+
+*One `docker compose up` runs both dev servers (frontend + backend) for a
+reproducible local environment — see [docs/DOCKER.md](docs/DOCKER.md).*
+
+**Request path & authorization.** Every `/api/` request passes one guard before
+any handler runs: it requires a session, re-validates the signed-in user against
+the database on each request (so disabling an account or changing a role takes
+effect immediately), then the route's own role check decides access. Hiding a
+link is never the boundary — the API is.
+
+```mermaid
+flowchart LR
+    R["/api/ request"] --> P{"public endpoint?<br/>(login, health, kiosk)"}
+    P -->|yes| H["handler"]
+    P -->|no| S{"valid session?"}
+    S -->|no| E401["401<br/>Authentication required"]
+    S -->|yes| U{"user still<br/>active?"}
+    U -->|no| E401
+    U -->|yes| RR{"role permitted<br/>for this route?"}
+    RR -->|no| E403["403<br/>Insufficient permissions"]
+    RR -->|yes| H
+```
+
 ## Quick Start
 
 ### Docker (everything at once)
