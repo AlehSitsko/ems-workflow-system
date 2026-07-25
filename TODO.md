@@ -334,7 +334,9 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 
 - [ ] CSRF tokens for state-changing requests (`SameSite=Lax` covers the common
   case, not every case)
-- [ ] Password policy, lockout after repeated failures, rotation
+- [x] Password **complexity** on account create/edit (≥10 chars, letter, number,
+  not the username); login already rate-limited (10/min). 11 tests in
+  `test_auth.py`. Still open: password expiry/rotation and a breach-corpus check
 - [ ] Server-side session revocation (there is no session store; the cookie is
   the session)
 - [x] **Audit role correctness per route.** All 142 routes enumerated against

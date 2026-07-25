@@ -79,8 +79,11 @@ reachable by the wrong role, and were tightened (`tests/test_security.py`):
 **Still open before this can face an untrusted network:**
 - CSRF tokens for state-changing requests. `SameSite=Lax` covers the common
   case, not every case (e.g. a same-site subdomain compromise)
-- Password policy, lockout after repeated failures, and rotation. Login is rate
-  limited (10/min) but passwords have no complexity or expiry rules
+- Password **complexity** is enforced on account create/edit (≥10 chars, a
+  letter, a number, not the username — `validate_password_strength`); login is
+  rate limited (10/min). Still missing: expiry/rotation, and a breach-corpus
+  check. Enforced on the management routes only, so existing and demo accounts
+  are unaffected
 - Session storage is the signed cookie itself; server-side revocation of a
   specific live session is not possible without a session store
 

@@ -8,6 +8,7 @@ from utils.auth_utils import (
     start_session, end_session, require_auth, require_role,
     get_request_user_id, get_request_user_name,
 )
+from utils.validation_utils import validate_password_strength
 
 
 # Blueprint for authentication and user management routes.
@@ -122,6 +123,11 @@ def create_user():
     if not password:
         return jsonify({"error": "Password is required"}), 400
 
+    # A new account must meet the password policy.
+    pw_error = validate_password_strength(password, username)
+    if pw_error:
+        return jsonify({"error": pw_error}), 400
+
     if not display_name:
         return jsonify({"error": "Display name is required"}), 400
 
@@ -182,6 +188,13 @@ def update_user(id):
     if role not in ALLOWED_ROLES:
         return jsonify({"error": "Invalid user role"}), 400
 
+    # A replacement password must meet the same policy as a new account. Checked
+    # before any field is written, so a rejected update leaves the user unchanged.
+    if password:
+        pw_error = validate_password_strength(password, username)
+        if pw_error:
+            return jsonify({"error": pw_error}), 400
+
     existing_user = User.query.filter(
         User.username == username,
         User.id != id
@@ -220,7 +233,7 @@ def update_user(id):
     user.is_active = is_active
     user.employee_id = employee_id
 
-    # Update password only when a new password is provided.
+    # Update password only when a new password is provided (validated above).
     if password:
         user.password_hash = generate_password_hash(password)
 
