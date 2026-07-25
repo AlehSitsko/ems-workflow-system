@@ -441,3 +441,41 @@ def test_the_hr_detail_endpoint_still_carries_the_pin_for_the_edit_form(roles):
 
     body = roles["hr"].get(f"/api/employees/{e.id}").get_json()
     assert body["kioskPin"] == "4321", "the edit form can no longer prefill the PIN"
+
+
+# ── Audit resolutions: calls exclude HR, time-entries exclude dispatcher ─────
+#
+# Two contradictions the audit flagged for an owner decision, now resolved
+# toward the documented policy ("HR never sees calls; dispatcher never sees
+# payroll data") after verifying no HR or dispatcher flow depends on them.
+
+@pytest.mark.parametrize("method,path", [
+    ("get", "/api/calls"),
+    ("get", "/api/calls/confirmation-round?date=2099-01-01"),
+    ("get", "/api/calls/unscheduled"),
+])
+def test_hr_cannot_read_calls(roles, method, path):
+    assert getattr(roles["hr"], method)(path).status_code == 403
+
+
+@pytest.mark.parametrize("role", ["admin", "supervisor", "dispatcher"])
+def test_operational_roles_can_read_calls(roles, role):
+    assert roles[role].get("/api/calls").status_code == 200
+
+
+def test_dispatcher_cannot_touch_time_entries(roles):
+    e = _make_employee()
+    assert roles["dispatcher"].get(f"/api/employees/{e.id}/time-entries").status_code == 403
+    assert roles["dispatcher"].post(f"/api/employees/{e.id}/time-entries",
+                                    json={"clock_in": "2026-01-01T08:00"}).status_code == 403
+
+
+def test_payroll_roles_can_read_time_entries(roles):
+    e = _make_employee()
+    assert roles["hr"].get(f"/api/employees/{e.id}/time-entries").status_code == 200
+    assert roles["supervisor"].get(f"/api/employees/{e.id}/time-entries").status_code == 200
+
+
+def test_kiosk_clock_in_stays_reachable_after_time_entry_lockdown(client):
+    """Tightening the management routes must not touch the public kiosk."""
+    assert client.get("/api/kiosk/employees").status_code == 200

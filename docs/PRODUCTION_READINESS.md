@@ -67,14 +67,16 @@ reachable by the wrong role, and were tightened (`tests/test_security.py`):
 | `/api/analytics/dispatchers` | any signed-in | admin/supervisor | supervisor analytics |
 | employee **kiosk PIN** | in every roster payload | HR-gated detail only | a clock-in credential was readable by every signed-in user |
 
-**Residual findings left for an owner decision (not silently changed):**
-- **Calls and HR.** The policy line says "HR never sees calls", but the call
-  blueprint's own `ALLOWED_ROLES` deliberately includes `hr`, so HR can read
-  `/api/calls`. That is a contradiction between the doc and the code, not an
-  accident to fix unilaterally — resolve which is intended.
-- **Time-entries** (`/employees/<id>/time-entries`) are any-signed-in; they feed
-  payroll, so dispatcher arguably should not manage them. Lower severity — no
-  UI reaches them from a dispatcher context — but worth a policy call.
+**Two contradictions the audit surfaced have since been resolved** toward the
+documented policy, each after checking no excluded-role flow depended on it:
+- **Calls now exclude HR.** The call blueprint's `ALLOWED_ROLES` had included
+  `hr`, contradicting the policy and the `/calls` route guard; calls reference
+  patients, so it also undercut "HR never sees patient data". Every `/api/calls`
+  consumer is a dispatch/patient/supervisor surface — none HR-facing.
+- **Time-entry management now excludes dispatcher** (admin/supervisor/hr, like
+  payroll). It is reached only from the Employee Workspace "Time & Pay" tab,
+  already gated to those roles; the public kiosk clock-in routes are separate
+  and untouched.
 
 **Still open before this can face an untrusted network:**
 - CSRF tokens for state-changing requests. `SameSite=Lax` covers the common
