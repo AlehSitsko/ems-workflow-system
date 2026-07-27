@@ -346,6 +346,15 @@ export const ROUTE_METADATA = [
     canAccess: hasSupervisorAccess,
     width: "wide",
   },
+  {
+    path: "/reports",
+    title: "Reports",
+    subtitle: "Call volume, outcomes and service-level mix over a period",
+    icon: FaClipboardList,
+    group: "Management",
+    canAccess: hasSupervisorAccess,
+    width: "standard",
+  },
 
   // ── Administration ───────────────────────────────────────────────────────
   {
@@ -477,10 +486,23 @@ export const NAV_SECTIONS = [
     ],
   },
 
-  // Supervisor Dashboard is this project's analytics surface (it is backed by
-  // /api/analytics/dispatchers). There is no separate Reports module, so none is
-  // listed — see docs/ROADMAP.md for the planned one.
-  { title: "Management", items: [{ path: "/supervisor" }] },
+  // Management holds the two analytics surfaces: the Supervisor Dashboard
+  // (dispatcher performance, /api/analytics/dispatchers) and Reports (operational
+  // volume/outcomes over a date range, /api/reports/*). Both are admin/supervisor.
+  {
+    title: "Management",
+    items: [
+      {
+        id: "analytics",
+        label: "Analytics",
+        icon: FaChartBar,
+        children: [
+          { path: "/supervisor", label: "Supervisor Dashboard" },
+          { path: "/reports", label: "Reports" },
+        ],
+      },
+    ],
+  },
 
   {
     title: "Administration",

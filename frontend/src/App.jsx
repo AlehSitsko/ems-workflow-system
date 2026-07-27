@@ -13,6 +13,7 @@ import HomePage from "./pages/HomePage";
 import CallFormPage from "./pages/CallFormPage";
 import CallsPage from "./pages/CallsPage";
 import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
+import ReportsPage from "./pages/ReportsPage";
 import LoginPage from "./pages/LoginPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
@@ -304,6 +305,7 @@ function App() {
 
         { path: "/calls", element: <PatientRoute><CallsPage currentUser={currentUser} /></PatientRoute> },
         { path: "/supervisor", element: <SupervisorRoute><SupervisorDashboardPage /></SupervisorRoute> },
+        { path: "/reports", element: <SupervisorRoute><ReportsPage /></SupervisorRoute> },
         { path: "/manual", element: <ProtectedLayout><UserManualPage currentUser={currentUser} /></ProtectedLayout> },
 
         { path: "/employees", element: <EmployeeRoute><EmployeesPage /></EmployeeRoute> },
