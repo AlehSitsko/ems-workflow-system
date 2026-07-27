@@ -283,9 +283,13 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   an HR module that does not exist yet; the fields live under Overview for now
 - [ ] **Employee profile — Warnings/disciplinary tab.** No such module exists.
   Not stubbed: an empty tab implies a feature that isn't there
-- [ ] **Reports / Analytics section.** Supervisor Dashboard is the only analytics
-  surface today (`/api/analytics/dispatchers`). A separate Reports module would
-  need its own endpoints — no placeholder menu entry until then
+- [x] **Reports / Analytics section.** Operational reports over a date range —
+  call volume, outcome mix (completion/cancellation rates) and service-level
+  split, a per-day bar chart, and a CSV export for billing/insurance/audit
+  (covers ROADMAP 5.3). `GET /api/reports/calls` + `/calls/export`, admin/
+  supervisor only. Lives under Management → Analytics alongside the Supervisor
+  Dashboard. `test_reports.py` (17) + `reportsApi.test.js`. Verified end to end
+  on the running app. Still open: time/payroll and dispatch-utilization reports
 - [ ] **Dashboard customization** — user-chosen widgets and quick links. The
   quick links are role-defaults today (`QUICK_LINKS_BY_ROLE` in HomePage)
 - [ ] **Badges beyond the four queues.** Scheduling Inbox, Confirmations, Day
