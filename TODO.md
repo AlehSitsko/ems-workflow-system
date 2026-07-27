@@ -327,8 +327,7 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 
 **Still open:**
 
-- [ ] CSRF tokens for state-changing requests (`SameSite=Lax` covers the common
-  case, not every case)
+- [x] CSRF protection — per-session token echoed in an X-CSRF-Token header on every mutation, delivered via the login/me response (in-memory) with a same-origin cookie fallback, attached by a fetch interceptor. Forged cross-site POST -> 403. Verified end to end on the running app; test_security.py + csrf.test.js
 - [x] Password **complexity** on account create/edit (≥10 chars, letter, number,
   not the username); login already rate-limited (10/min). 11 tests in
   `test_auth.py`. Still open: password expiry/rotation and a breach-corpus check

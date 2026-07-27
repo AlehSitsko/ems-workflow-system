@@ -535,3 +535,64 @@ def test_deleting_the_user_behind_a_live_session_ends_it(app, roles):
     db.session.commit()
 
     assert roles["hr"].get("/api/employees").status_code == 401
+
+
+# ── CSRF: state-changing requests need the token header ─────────────────────
+#
+# The session cookie is SameSite=Lax, which blocks the common cross-site POST.
+# This is the defence-in-depth layer for the rest: a mutation must echo the
+# session's CSRF token, delivered in a JS-readable cookie a cross-site page
+# cannot read. `csrf=False` on the test client sends no header, i.e. forges the
+# request the way an attacker's page would.
+
+def test_a_mutation_without_the_csrf_header_is_refused(roles):
+    resp = roles["admin"].post("/api/patients",
+                               json={"first_name": "No", "last_name": "Token"}, csrf=False)
+    assert resp.status_code == 403
+    assert "CSRF" in resp.get_json()["error"]
+
+
+def test_a_mutation_with_a_wrong_csrf_token_is_refused(roles):
+    resp = roles["admin"].post("/api/patients",
+                               json={"first_name": "Bad", "last_name": "Token"},
+                               headers={"X-CSRF-Token": "not-the-real-token"}, csrf=False)
+    assert resp.status_code == 403
+
+
+def test_a_mutation_with_the_right_csrf_token_succeeds(roles):
+    # The auto-CSRF client attaches the cookie's token; this is the happy path.
+    resp = roles["admin"].post("/api/patients",
+                               json={"first_name": "Good", "last_name": "Token"})
+    assert resp.status_code == 201
+
+
+@pytest.mark.parametrize("method,url", [
+    ("put", "/api/patient/1"),
+    ("delete", "/api/patient/1"),
+])
+def test_other_unsafe_methods_are_also_guarded(roles, method, url):
+    assert getattr(roles["admin"], method)(url, csrf=False).status_code == 403
+
+
+def test_safe_reads_do_not_need_a_csrf_token(roles):
+    # GET changes nothing, so it is exempt — the app would be unusable otherwise.
+    assert roles["admin"].get("/api/patients").status_code == 200
+
+
+def test_login_does_not_require_a_csrf_token(client):
+    """Login is a POST but has no session yet, so it cannot carry a token; it is
+    the endpoint that establishes one."""
+    from conftest import make_user
+    make_user("admin", username="csrf_login")
+    resp = client.post("/api/auth/login",
+                       json={"username": "csrf_login", "password": "test-password"}, csrf=False)
+    assert resp.status_code == 200
+
+
+def test_login_hands_the_client_a_readable_csrf_cookie(client):
+    from conftest import make_user
+    make_user("admin", username="csrf_cookie")
+    client.post("/api/auth/login",
+                json={"username": "csrf_cookie", "password": "test-password"}, csrf=False)
+    token = client.get_cookie("csrf_token")
+    assert token is not None and token.value, "no CSRF cookie delivered at login"

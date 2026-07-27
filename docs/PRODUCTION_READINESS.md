@@ -79,8 +79,13 @@ documented policy, each after checking no excluded-role flow depended on it:
   and untouched.
 
 **Still open before this can face an untrusted network:**
-- CSRF tokens for state-changing requests. `SameSite=Lax` covers the common
-  case, not every case (e.g. a same-site subdomain compromise)
+- CSRF is enforced. Every state-changing request must echo a per-session token
+  in an `X-CSRF-Token` header; the server hands the token to the client in the
+  login/`me` response (and a same-origin cookie), and a fetch interceptor
+  attaches it. A forged cross-site POST cannot read the token, so it is refused
+  with 403 — the layer `SameSite=Lax` does not fully cover (e.g. a same-site
+  subdomain). Verified end to end on the running app. `test_security.py`,
+  `csrf.test.js`
 - Password **complexity** is enforced on account create/edit (≥10 chars, a
   letter, a number, not the username — `validate_password_strength`); login is
   rate limited (10/min). Still missing: expiry/rotation, and a breach-corpus
