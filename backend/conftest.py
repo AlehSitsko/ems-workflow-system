@@ -1,7 +1,32 @@
 import pytest
+from flask.testing import FlaskClient
 
 from app import create_app
 from models import db as _db
+
+# The API now requires a CSRF header on state-changing requests, with the token
+# delivered in a JS-readable cookie. A real browser echoes the cookie back in the
+# header; this client does the same automatically, so the hundreds of existing
+# mutating tests keep exercising their actual behaviour rather than being
+# rewritten. Tests that want to prove the CSRF gate itself pass
+# `csrf=False` (see below) to send no header.
+_UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+class CsrfClient(FlaskClient):
+    def open(self, *args, **kwargs):
+        method = (kwargs.get("method") or (args[1] if len(args) > 1 else "GET")).upper()
+        skip = kwargs.pop("csrf", None) is False
+        if method in _UNSAFE and not skip:
+            cookie = self.get_cookie("csrf_token")
+            if cookie is not None:
+                # Copy, never mutate the caller's dict: some tests pass a shared
+                # module-level headers object, and writing the token into it
+                # would leak one test's (stale) token into the next.
+                headers = dict(kwargs.get("headers") or {})
+                headers.setdefault("X-CSRF-Token", cookie.value)
+                kwargs["headers"] = headers
+        return super().open(*args, **kwargs)
 
 
 @pytest.fixture()
@@ -13,6 +38,7 @@ def app():
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "RATELIMIT_ENABLED": False,
     })
+    app.test_client_class = CsrfClient
     with app.app_context():
         _db.create_all()
         yield app

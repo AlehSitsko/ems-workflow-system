@@ -40,9 +40,20 @@ def test_me_restores_identity(app, client):
 def test_cookie_is_httponly_and_samesite(app, client):
     make_user("admin", username="a2")
     resp = client.post("/api/auth/login", json={"username": "a2", "password": TEST_PASSWORD})
-    cookie = resp.headers.get("Set-Cookie", "")
-    assert "HttpOnly" in cookie, cookie
-    assert "SameSite=Lax" in cookie, cookie
+    # Login now sets two cookies: the session cookie and the readable CSRF token
+    # cookie. Check the session cookie specifically — it is the one that must be
+    # HttpOnly (the CSRF cookie is deliberately readable by JS).
+    cookies = resp.headers.getlist("Set-Cookie")
+    session_cookie = next((c for c in cookies if c.startswith("session=")), "")
+    assert session_cookie, f"no session cookie set: {cookies}"
+    assert "HttpOnly" in session_cookie, session_cookie
+    assert "SameSite=Lax" in session_cookie, session_cookie
+
+    # The CSRF cookie carries the token to the SPA, so it must NOT be HttpOnly.
+    csrf_cookie = next((c for c in cookies if c.startswith("csrf_token=")), "")
+    assert csrf_cookie, f"no csrf cookie set: {cookies}"
+    assert "HttpOnly" not in csrf_cookie, csrf_cookie
+    assert "SameSite=Lax" in csrf_cookie, csrf_cookie
 
 
 def test_session_id_changes_on_login(app, client):

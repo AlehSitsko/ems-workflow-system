@@ -22,6 +22,8 @@ visibility is a convenience, never a security boundary.
 
 from functools import wraps
 
+import secrets
+
 from flask import request, jsonify, session
 
 # Every valid system role. Individual routes still narrow this to the subset
@@ -33,6 +35,15 @@ ALL_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 SESSION_USER_ID = "user_id"
 SESSION_ROLE = "role"
 SESSION_NAME = "display_name"
+SESSION_CSRF = "csrf_token"
+
+# CSRF: a per-session token, mirrored into a JS-readable cookie so the SPA can
+# echo it in a header on state-changing requests. The session cookie itself is
+# SameSite=Lax and HttpOnly, so this is defence in depth against the residual
+# CSRF surface Lax does not cover (e.g. a same-site subdomain).
+CSRF_COOKIE = "csrf_token"
+CSRF_HEADER = "X-CSRF-Token"
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 def start_session(user):
@@ -44,12 +55,19 @@ def start_session(user):
     session[SESSION_USER_ID] = user.id
     session[SESSION_ROLE] = user.role
     session[SESSION_NAME] = user.display_name
+    # A CSRF token bound to this session, unpredictable and rotated per login.
+    session[SESSION_CSRF] = secrets.token_urlsafe(32)
     session.permanent = True
 
 
 def end_session():
     """Drop the signed-in user. Safe to call when nobody is signed in."""
     session.clear()
+
+
+def get_csrf_token():
+    """This session's CSRF token, or None when not signed in."""
+    return session.get(SESSION_CSRF)
 
 
 def get_request_role():
@@ -194,4 +212,32 @@ def register_api_auth_guard(app):
             session[SESSION_ROLE] = user.role
             session[SESSION_NAME] = user.display_name
 
+        # CSRF: a state-changing request must echo this session's token in a
+        # header. A cross-site page can make the browser send the (SameSite=Lax)
+        # session cookie in some edge cases, but it cannot read the token cookie
+        # to reproduce the header — so a forged POST fails here. Safe methods
+        # (GET/HEAD) change nothing and are exempt.
+        if request.method in _UNSAFE_METHODS:
+            sent = request.headers.get(CSRF_HEADER, "")
+            expected = session.get(SESSION_CSRF)
+            if not expected or not secrets.compare_digest(sent, expected):
+                return jsonify({"error": "CSRF token missing or invalid"}), 403
+
         return None
+
+    @app.after_request
+    def _sync_csrf_cookie(response):
+        # Mirror the session's CSRF token into a JS-readable cookie so the SPA
+        # can echo it back in the header. Only written when it is missing or
+        # stale, not on every response. Not HttpOnly (the client must read it);
+        # SameSite=Lax and Secure-in-production like the session cookie.
+        token = session.get(SESSION_CSRF)
+        if token and request.cookies.get(CSRF_COOKIE) != token:
+            response.set_cookie(
+                CSRF_COOKIE, token,
+                samesite="Lax",
+                secure=app.config.get("SESSION_COOKIE_SECURE", False),
+                httponly=False,
+                max_age=int(app.permanent_session_lifetime.total_seconds()),
+            )
+        return response

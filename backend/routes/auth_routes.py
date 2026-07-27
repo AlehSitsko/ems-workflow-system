@@ -6,7 +6,7 @@ from limiter import limiter
 from audit_utils import log_action
 from utils.auth_utils import (
     start_session, end_session, require_auth, require_role,
-    get_request_user_id, get_request_user_name,
+    get_request_user_id, get_request_user_name, get_csrf_token,
 )
 from utils.validation_utils import validate_password_strength
 
@@ -57,7 +57,8 @@ def login():
 
     return jsonify({
         "message": "Login successful",
-        "user": user.to_dict()
+        "user": user.to_dict(),
+        "csrfToken": get_csrf_token(),
     })
 
 
@@ -84,7 +85,7 @@ def current_user():
         end_session()
         return jsonify({"error": "Authentication required"}), 401
 
-    return jsonify({"user": user.to_dict()})
+    return jsonify({"user": user.to_dict(), "csrfToken": get_csrf_token()})
 
 
 # Return all system users ordered by ID.

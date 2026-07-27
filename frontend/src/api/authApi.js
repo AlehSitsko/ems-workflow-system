@@ -1,4 +1,5 @@
 import API_BASE from "./config.js";
+import { setCsrfToken } from "./csrf.js";
 const API_BASE_URL = API_BASE;
 
 // The signed-in user is cached here only so the UI can render a name and scope
@@ -40,6 +41,9 @@ export async function loginUser(username, password) {
     throw new Error(data.error || "Login failed");
   }
 
+  // Hold the CSRF token so the fetch interceptor can echo it on mutations —
+  // the token cookie is unreadable when the API is a different origin.
+  setCsrfToken(data.csrfToken);
   return data.user;
 }
 
@@ -54,6 +58,7 @@ export async function fetchCurrentUser() {
     const response = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" });
     if (!response.ok) return null;
     const data = await response.json();
+    setCsrfToken(data.csrfToken);
     return data.user || null;
   } catch {
     // Offline or the API is down — treated as signed out rather than crashing
@@ -95,6 +100,7 @@ export async function logoutUser() {
   } catch {
     // Even if the call fails, clear locally: the user asked to sign out.
   }
+  setCsrfToken(null);
   localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
 }
 
