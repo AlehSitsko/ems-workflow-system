@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import DayOperationsDrawer from "./DayOperationsDrawer";
 
 const events = [
@@ -39,7 +40,7 @@ function renderDrawer(overrides = {}) {
     onOpenUnit: vi.fn(),
     ...overrides,
   };
-  render(<DayOperationsDrawer {...props} />);
+  render(<DayOperationsDrawer {...props} />, { wrapper: MemoryRouter });
   return props;
 }
 

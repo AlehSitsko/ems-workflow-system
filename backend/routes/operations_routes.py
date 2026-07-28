@@ -217,6 +217,121 @@ def get_day(day):
     return jsonify(_day_report(day))
 
 
+def _hm_local(iso):
+    """A stored lifecycle timestamp as local HH:MM, or "" if absent/malformed.
+
+    The timestamps are written inconsistently — some tz-aware (…+00:00), some
+    naive local. Convert an aware value to local before taking the clock time so
+    a UTC-stamped record does not display hours off; treat a naive one as already
+    local.
+    """
+    if not iso:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso)
+    except (ValueError, TypeError):
+        return ""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone()  # → the server's local zone
+    return dt.strftime("%H:%M")
+
+
+def _minutes_of_day(hm):
+    """"HH:MM" → minutes since midnight, or None if it is not a clock time."""
+    if not hm:
+        return None
+    try:
+        h, m = hm.split(":")
+        h, m = int(h), int(m)
+    except (ValueError, AttributeError):
+        return None
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return None
+    return h * 60 + m
+
+
+def _day_timeline(day):
+    """The day's trips as an agenda, each with its planned times, the actual
+    lifecycle milestones, and the pickup variance (actual arrival − planned).
+
+    Ordered by planned pickup time so the day reads top to bottom. This is the
+    read side of the lifecycle timestamps the Dispatch Board already records."""
+    calls = Call.query.filter(Call.trip_date == day).all()
+
+    assigned_unit_by_call = {}
+    if calls:
+        rows = (CallAssignment.query
+                .filter(CallAssignment.call_id.in_([c.id for c in calls]),
+                        CallAssignment.is_active.is_(True))
+                .all())
+        assigned_unit_by_call = {r.call_id: r.unit_id for r in rows}
+
+    trips = []
+    late_arrivals = 0
+    with_variance = 0
+    for c in calls:
+        arrived_pickup = _hm_local(c.arrived_pickup_at)
+        planned_pickup_min = _minutes_of_day(c.pickup_time)
+        actual_pickup_min = _minutes_of_day(arrived_pickup)
+        variance = (
+            actual_pickup_min - planned_pickup_min
+            if planned_pickup_min is not None and actual_pickup_min is not None
+            else None
+        )
+        if variance is not None:
+            with_variance += 1
+            if variance > 10:          # more than 10 minutes late to the pickup
+                late_arrivals += 1
+
+        trips.append({
+            "callId": c.id,
+            "patientName": c._patient_name(),
+            "serviceLevel": c.service_level,
+            "status": c.status or "new",
+            "assignedUnitId": assigned_unit_by_call.get(c.id),
+            "planned": {
+                "pickup": c.pickup_time or "",
+                "appointment": c.appointment_time or "",
+                "end": c._compute_planned_end_time(),
+                "endNextDay": c._planned_end_next_day(),
+            },
+            "actual": {
+                "dispatched":   _hm_local(c.dispatched_at),
+                "arrivedPickup": arrived_pickup,
+                "loaded":       _hm_local(c.patient_loaded_at),
+                "arrivedDest":  _hm_local(c.arrived_dest_at),
+                "completed":    _hm_local(c.completed_at),
+            },
+            "pickupVarianceMinutes": variance,
+        })
+
+    # Unscheduled trips (no pickup time) sink to the bottom in id order rather
+    # than jumping to the top as an empty string would.
+    trips.sort(key=lambda t: (_minutes_of_day(t["planned"]["pickup"]) is None,
+                              _minutes_of_day(t["planned"]["pickup"]) or 0,
+                              t["callId"]))
+
+    return {
+        "day": day,
+        "mode": operational_mode(day),
+        "summary": {
+            "trips": len(trips),
+            "withPickupVariance": with_variance,
+            "lateArrivals": late_arrivals,
+        },
+        "trips": trips,
+    }
+
+
+@operations_bp.route("/days/<day>/timeline", methods=["GET"])
+@require_role(*VIEW_ROLES)
+def get_day_timeline(day):
+    """The day's operational agenda: planned vs actual for every trip."""
+    if not is_valid_date(day):
+        return jsonify({"error": "day must be a real date (YYYY-MM-DD)"}), 400
+    return jsonify(_day_timeline(day))
+
+
 @operations_bp.route("/days", methods=["GET"])
 @require_role(*VIEW_ROLES)
 def list_closures():

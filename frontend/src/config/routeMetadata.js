@@ -216,6 +216,17 @@ export const ROUTE_METADATA = [
     parent: "/calls",
   },
   {
+    path: "/operations/days/:date",
+    title: "Day timeline",
+    subtitle: "Planned vs actual for the day",
+    icon: FaCalendarAlt,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/calendar",
+  },
+  {
     path: "/recurring-trips",
     title: "Recurring trips",
     subtitle: "Standing transport orders",
