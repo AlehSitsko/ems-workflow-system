@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Employee, DailyCrewUnit, EmploymentEvent
+from models import db, Employee, DailyCrewUnit, EmploymentEvent, DisciplinaryAction
 from utils.employee_utils import apply_employee_data
 from notification_utils import create_notification
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
@@ -260,3 +260,125 @@ def delete_employment_event(event_id):
     db.session.delete(event)
     db.session.commit()
     return jsonify({"message": "Employment event deleted"})
+
+
+# ── Disciplinary record ──────────────────────────────────────────────────────
+#
+# Warnings, suspensions, corrective actions and notes. More sensitive than the
+# rest of the employee surface, so it is narrowed to admin/HR — a supervisor who
+# can open the workspace still cannot read or write this record, and the tab is
+# hidden from them in the UI to match. Append-only like employment history, with
+# one field (acknowledged) that changes after issuance.
+
+_HR_RECORD_ROLES = ("admin", "hr")
+
+_DISCIPLINARY_ACTION_TYPES = {
+    "verbal_warning", "written_warning", "final_warning",
+    "suspension", "corrective_action", "note",
+}
+_DISCIPLINARY_SEVERITIES = {"", "low", "medium", "high"}
+
+
+@employee_bp.route("/<int:id>/disciplinary", methods=["GET"])
+@require_role(*_HR_RECORD_ROLES)
+def list_disciplinary_actions(id):
+    if not Employee.query.get(id):
+        return jsonify({"error": "Employee not found"}), 404
+
+    actions = (
+        DisciplinaryAction.query
+        .filter_by(employee_id=id)
+        .order_by(DisciplinaryAction.action_date.desc(), DisciplinaryAction.id.desc())
+        .all()
+    )
+    return jsonify([a.to_dict() for a in actions])
+
+
+@employee_bp.route("/<int:id>/disciplinary", methods=["POST"])
+@require_role(*_HR_RECORD_ROLES)
+def create_disciplinary_action(id):
+    employee = Employee.query.get(id)
+    if not employee:
+        return jsonify({"error": "Employee not found"}), 404
+
+    data = request.get_json() or {}
+
+    action_type = (data.get("actionType") or "").strip()
+    if action_type not in _DISCIPLINARY_ACTION_TYPES:
+        return jsonify({"error": "Invalid or missing actionType"}), 400
+
+    action_date = (data.get("actionDate") or "").strip()
+    if not is_valid_date(action_date):
+        return jsonify({"error": "actionDate must be a real YYYY-MM-DD date"}), 400
+
+    severity = (data.get("severity") or "").strip()
+    if severity not in _DISCIPLINARY_SEVERITIES:
+        return jsonify({"error": "severity must be low, medium or high"}), 400
+
+    uid, uname = get_request_user_id(), get_request_user_name()
+    action = DisciplinaryAction(
+        employee_id=id,
+        action_type=action_type,
+        action_date=action_date,
+        severity=severity or None,
+        subject=(data.get("subject") or "").strip() or None,
+        description=(data.get("description") or "").strip() or None,
+        acknowledged=bool(data.get("acknowledged", False)),
+        created_by=uid,
+        created_by_name=uname,
+        created_at=datetime.now().isoformat(timespec="seconds"),
+    )
+    db.session.add(action)
+
+    # The details never enter the audit trail — only that an action was recorded,
+    # so the audit log itself does not become a second copy of the HR record.
+    log_action(
+        "disciplinary.action_added", "employee", id,
+        f"{employee.first_name} {employee.last_name}",
+        {"type": action_type, "actionDate": action_date},
+        user_id=uid, user_name=uname,
+    )
+    db.session.commit()
+    return jsonify(action.to_dict()), 201
+
+
+@employee_bp.route("/disciplinary/<int:action_id>", methods=["PATCH"])
+@require_role(*_HR_RECORD_ROLES)
+def update_disciplinary_action(action_id):
+    """Only the acknowledgement flips after issuance; the rest is the record as
+    written and is not editable in place."""
+    action = DisciplinaryAction.query.get(action_id)
+    if not action:
+        return jsonify({"error": "Disciplinary action not found"}), 404
+
+    data = request.get_json() or {}
+    if "acknowledged" not in data:
+        return jsonify({"error": "Only 'acknowledged' can be updated"}), 400
+
+    action.acknowledged = bool(data["acknowledged"])
+    uid, uname = get_request_user_id(), get_request_user_name()
+    log_action(
+        "disciplinary.action_acknowledged", "employee", action.employee_id,
+        None, {"actionId": action_id, "acknowledged": action.acknowledged},
+        user_id=uid, user_name=uname,
+    )
+    db.session.commit()
+    return jsonify(action.to_dict())
+
+
+@employee_bp.route("/disciplinary/<int:action_id>", methods=["DELETE"])
+@require_role(*_HR_RECORD_ROLES)
+def delete_disciplinary_action(action_id):
+    action = DisciplinaryAction.query.get(action_id)
+    if not action:
+        return jsonify({"error": "Disciplinary action not found"}), 404
+
+    uid, uname = get_request_user_id(), get_request_user_name()
+    log_action(
+        "disciplinary.action_removed", "employee", action.employee_id,
+        None, {"actionId": action_id, "type": action.action_type},
+        user_id=uid, user_name=uname,
+    )
+    db.session.delete(action)
+    db.session.commit()
+    return jsonify({"message": "Disciplinary action deleted"})

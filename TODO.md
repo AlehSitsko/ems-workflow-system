@@ -286,8 +286,18 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   `DELETE /employment/<id>` (admin/supervisor/HR, audited). `EmployeeEmploymentTab`
   slots in after Overview. `test_employment.py` (13) + `EmployeeEmploymentTab.test.jsx`
   (5). Verified end to end on the running app (create, newest-first order, delete)
-- [ ] **Employee profile — Warnings/disciplinary tab.** No such module exists.
-  Not stubbed: an empty tab implies a feature that isn't there
+- [x] **Employee profile — Warnings/disciplinary tab.** An append-only HR record
+  of verbal/written/final warnings, suspensions, corrective actions and notes,
+  each with a date, optional severity and subject, and an acknowledgement flag
+  (the one field that flips after issuance). Narrower than the rest of the
+  employee surface — **admin/HR only**, so a supervisor who can open the
+  workspace still cannot read or write it, and the tab is hidden from them.
+  `DisciplinaryAction` model + migration `a7e3f1c92d48`;
+  `GET/POST /api/employees/<id>/disciplinary`, `PATCH/DELETE /disciplinary/<id>`
+  (audited, details kept out of the audit trail). `EmployeeDisciplinaryTab`.
+  `test_disciplinary.py` (15) + `EmployeeDisciplinaryTab.test.jsx` (5). Verified
+  end to end (create, severity, acknowledge toggle, delete; tab hidden for a
+  supervisor). Follow-up if wanted: whether supervisors should see it
 - [x] **Reports / Analytics section.** Operational reports over a date range —
   call volume, outcome mix (completion/cancellation rates) and service-level
   split, a per-day bar chart, and a CSV export for billing/insurance/audit
