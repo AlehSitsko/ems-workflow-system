@@ -746,6 +746,44 @@ def get_calendar_events():
             "metadata": {"priority": t.priority, "taskType": t.task_type, "visibleToAll": bool(t.visible_to_all)},
         })
 
+    # Manually created calendar events — meetings, reminders, time off. Filtered
+    # by the same personal/role/company rule the CRUD enforces, so nobody sees an
+    # event that was not meant for them.
+    from models import CalendarEvent
+    from routes.calendar_event_routes import visible_events_filter
+
+    manual_events = (
+        CalendarEvent.query
+        .filter(CalendarEvent.event_date >= start_str, CalendarEvent.event_date <= end_str,
+                visible_events_filter(actor_uid, role))
+        .all()
+    )
+    for ev in manual_events:
+        _add_overlay({
+            "id": f"calendar_event:{ev.id}",
+            "type": "calendar_event",
+            "title": ev.title,
+            "date": ev.event_date,
+            "start": None if ev.all_day else (f"{ev.event_date}T{ev.start_time}:00" if ev.start_time else None),
+            "end": None if ev.all_day else (f"{ev.event_date}T{ev.end_time}:00" if ev.end_time else None),
+            "allDay": bool(ev.all_day),
+            "status": ev.category or "event",
+            "severity": "normal",
+            "source": "calendar_event", "sourceId": ev.id,
+            "assignedUnitId": None, "assignedUnitNumber": None,
+            "link": None,
+            "metadata": {
+                "category": ev.category or "",
+                "visibility": ev.visibility,
+                "visibleToRole": ev.visible_to_role or "",
+                "ownerName": ev.owner_name or "",
+                "ownerUserId": ev.owner_user_id,
+                "description": ev.description or "",
+                "startTime": ev.start_time or "",
+                "endTime": ev.end_time or "",
+            },
+        })
+
     # Vehicle compliance / maintenance dates — operational roles only (not HR).
     if role in _OPERATIONAL_ROLES:
         vehicle_defs = [

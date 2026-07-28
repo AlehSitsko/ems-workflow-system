@@ -16,6 +16,7 @@ const DEFAULT_CALENDAR_SETTINGS = {
   sources: {
     scheduled_call: true, crew_shift: true, patient_birthday: true,
     employee_birthday: true, certification: true, task: true, vehicle: true,
+    calendar_event: true,
   },
   showWeekends: true, showHolidays: true, weekStartsOn: 0, density: "comfortable",
 };

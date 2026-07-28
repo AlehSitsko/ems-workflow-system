@@ -21,6 +21,7 @@ import CalendarWeekView from "../components/calendar/CalendarWeekView";
 import CalendarAgendaView from "../components/calendar/CalendarAgendaView";
 import CalendarSidebar from "../components/calendar/CalendarSidebar";
 import DayOperationsDrawer from "../components/calendar/DayOperationsDrawer";
+import NewCalendarEventModal from "../components/calendar/NewCalendarEventModal";
 
 const AGENDA_DAYS = 28; // agenda shows a rolling four-week window
 const VIEWS = [
@@ -36,7 +37,7 @@ const VIEWS = [
 const DEFAULT_SOURCES = {
   scheduled_call: true, crew_shift: true, patient_birthday: true,
   employee_birthday: true, certification: true, task: true, vehicle: true,
-  employee_leave: true,
+  employee_leave: true, calendar_event: true,
 };
 
 const CalendarPage = ({ currentUser }) => {
@@ -90,8 +91,11 @@ const CalendarPage = ({ currentUser }) => {
 
   const [selectedDay, setSelectedDay] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [newEventOpen, setNewEventOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Reload whenever the visible range changes (month navigation).
+  // Reload whenever the visible range changes (month navigation) or a manual
+  // event is created (reloadKey bump).
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -112,7 +116,7 @@ const CalendarPage = ({ currentUser }) => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [rangeStart, rangeEnd, currentUser]);
+  }, [rangeStart, rangeEnd, currentUser, reloadKey]);
 
   // Apply the user's per-source visibility toggles (display-only; access is
   // already enforced server-side). Group the visible events by date for the
@@ -188,18 +192,27 @@ const CalendarPage = ({ currentUser }) => {
               </p>
             </div>
 
-            <div className="calendar-viewswitch" role="group" aria-label="Calendar view">
-              {VIEWS.map((v) => (
-                <button
-                  key={v.value}
-                  type="button"
-                  className={`btn btn-sm ${view === v.value ? "btn-primary" : "btn-outline-secondary"}`}
-                  aria-pressed={view === v.value}
-                  onClick={() => setView(v.value)}
-                >
-                  {v.label}
-                </button>
-              ))}
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <div className="calendar-viewswitch" role="group" aria-label="Calendar view">
+                {VIEWS.map((v) => (
+                  <button
+                    key={v.value}
+                    type="button"
+                    className={`btn btn-sm ${view === v.value ? "btn-primary" : "btn-outline-secondary"}`}
+                    aria-pressed={view === v.value}
+                    onClick={() => setView(v.value)}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => { setSelectedDay(null); setNewEventOpen(true); }}
+              >
+                + New event
+              </button>
             </div>
           </div>
 
@@ -266,6 +279,14 @@ const CalendarPage = ({ currentUser }) => {
         onOpenDay={openDay}
         onOpenCall={openCall}
         onOpenUnit={openUnit}
+      />
+
+      <NewCalendarEventModal
+        open={newEventOpen}
+        onClose={() => setNewEventOpen(false)}
+        onCreated={() => setReloadKey((k) => k + 1)}
+        currentUser={currentUser}
+        defaultDate={selectedDay || toISODate(today)}
       />
     </div>
   );
