@@ -137,3 +137,60 @@ export async function deleteEmploymentEvent(eventId) {
   }
   return data;
 }
+
+// ── Disciplinary record (admin/HR only) ──────────────────────────────────────
+
+// An employee's disciplinary actions (newest action date first).
+export async function getDisciplinaryActions(employeeId) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/disciplinary`, {
+    credentials: "include",
+  });
+  const data = await response.json().catch(() => ([]));
+  if (!response.ok) {
+    throw new Error((data && data.error) || "Failed to fetch disciplinary record");
+  }
+  return Array.isArray(data) ? data : [];
+}
+
+// Record a disciplinary action (warning, suspension, corrective action, note).
+export async function createDisciplinaryAction(employeeId, payload) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/disciplinary`, {
+    credentials: "include",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to record disciplinary action");
+  }
+  return data;
+}
+
+// Flip the acknowledgement flag — the only field that changes after issuance.
+export async function setDisciplinaryAcknowledged(actionId, acknowledged) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/disciplinary/${actionId}`, {
+    credentials: "include",
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ acknowledged }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to update the action");
+  }
+  return data;
+}
+
+// Remove a mistaken disciplinary action (append-only, so a correction is a delete).
+export async function deleteDisciplinaryAction(actionId) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/disciplinary/${actionId}`, {
+    credentials: "include",
+    method: "DELETE",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to delete disciplinary action");
+  }
+  return data;
+}

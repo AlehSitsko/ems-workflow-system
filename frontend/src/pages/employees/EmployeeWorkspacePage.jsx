@@ -11,6 +11,7 @@ import { EmployeeAvatar } from "../../components/taxonomy/TaxonomyBadges";
 import DocumentsTab from "../../components/DocumentsTab";
 import TimePayTab from "../../components/TimePayTab";
 import EmployeeEmploymentTab from "../../components/employees/EmployeeEmploymentTab";
+import EmployeeDisciplinaryTab from "../../components/employees/EmployeeDisciplinaryTab";
 import { useUserSettings } from "../../context/useUserSettings";
 import EmployeeLeaveTab from "../../components/employees/EmployeeLeaveTab";
 import {
@@ -139,6 +140,10 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     }
   }, [employee, employeeId, currentUser, loadTab, tabData, tabState]);
 
+  // The disciplinary record is admin/HR only (the API enforces it); the tab is
+  // hidden from every other role so it never shows up half-working.
+  const canSeeDisciplinary = ["admin", "hr"].includes(currentUser?.role);
+
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "employment", label: "Employment" },
@@ -149,6 +154,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     { key: "schedule", label: "Schedule" },
     { key: "activity", label: "Activity" },
     { key: "leave", label: "Leave" },
+    ...(canSeeDisciplinary ? [{ key: "disciplinary", label: "Disciplinary" }] : []),
   ];
 
   const fullName = employee ? `${employee.firstName} ${employee.lastName}`.trim() : "Employee";
@@ -275,6 +281,11 @@ export default function EmployeeWorkspacePage({ currentUser }) {
 
     if (activeTab === "employment") {
       return <EmployeeEmploymentTab employeeId={employee.id} currentUser={currentUser} />;
+    }
+
+    if (activeTab === "disciplinary") {
+      if (!canSeeDisciplinary) return null;
+      return <EmployeeDisciplinaryTab employeeId={employee.id} />;
     }
 
     if (activeTab === "documents") {

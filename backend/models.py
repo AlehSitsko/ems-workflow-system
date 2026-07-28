@@ -216,6 +216,55 @@ class EmploymentEvent(db.Model):
         }
 
 
+class DisciplinaryAction(db.Model):
+    """One entry in an employee's disciplinary record — a verbal or written
+    warning, a suspension, a corrective-action plan, or a note.
+
+    Like employment history this is an append-only log (a correction deletes the
+    wrong entry), with one mutable field: `acknowledged`, which flips when the
+    employee has seen and signed off the action. It carries no clinical or
+    operational data — it is an HR record, gated to admin/HR at the API.
+    """
+    __tablename__ = "disciplinary_action"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False, index=True)
+
+    # verbal_warning | written_warning | final_warning | suspension |
+    # corrective_action | note
+    action_type = db.Column(db.String(30), nullable=False)
+    action_date = db.Column(db.String(20), nullable=False, index=True)  # YYYY-MM-DD
+
+    severity = db.Column(db.String(20))    # low | medium | high (optional)
+    subject = db.Column(db.String(150))    # short headline (optional)
+    description = db.Column(db.Text)       # the details (optional)
+
+    # Whether the employee has acknowledged the action. The one field that
+    # changes after creation — everything else is the record as issued.
+    acknowledged = db.Column(db.Boolean, default=False, nullable=False)
+
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_by_name = db.Column(db.String(150))
+    created_at = db.Column(db.String(50))
+
+    employee = db.relationship("Employee", foreign_keys=[employee_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "employeeId": self.employee_id,
+            "actionType": self.action_type,
+            "actionDate": self.action_date or "",
+            "severity": self.severity or "",
+            "subject": self.subject or "",
+            "description": self.description or "",
+            "acknowledged": bool(self.acknowledged),
+            "createdBy": self.created_by,
+            "createdByName": self.created_by_name or "",
+            "createdAt": self.created_at,
+        }
+
+
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
