@@ -7,6 +7,9 @@ import BrowserNotificationSettings from "../components/settings/BrowserNotificat
 import NotificationTypeSettings from "../components/settings/NotificationTypeSettings";
 import DispatchVisualAlertsSettings from "../components/settings/DispatchVisualAlertsSettings";
 import CalendarDisplaySettings from "../components/settings/CalendarDisplaySettings";
+import DashboardSettings from "../components/settings/DashboardSettings";
+import { getNavigationItems } from "../config/routeMetadata";
+import { roleQuickLinks } from "../config/dashboardDefaults";
 import API_BASE from "../api/config.js";
 
 const DEFAULT_CALENDAR_SETTINGS = {
@@ -27,6 +30,7 @@ function NotificationSettingsPage({ currentUser }) {
   const [localDispatch, setLocalDispatch] = useState({ pickup_late_after: 0, stuck_after: 30 });
   const [localTimeFormat, setLocalTimeFormat] = useState("12h");
   const [localCalendar, setLocalCalendar] = useState(DEFAULT_CALENDAR_SETTINGS);
+  const [localDashboard, setLocalDashboard] = useState({ quickLinks: null, hiddenWidgets: [] });
   const [hydrated, setHydrated] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -62,6 +66,10 @@ function NotificationSettingsPage({ currentUser }) {
       ...(settings.calendar || {}),
       sources: { ...DEFAULT_CALENDAR_SETTINGS.sources, ...(settings.calendar?.sources || {}) },
     });
+    setLocalDashboard({
+      quickLinks: settings.dashboard?.quickLinks ?? null,
+      hiddenWidgets: settings.dashboard?.hiddenWidgets ?? [],
+    });
     setHydrated(true);
   }, [settingsLoaded, loadingTypes, settings, availableTypes]);
 
@@ -92,6 +100,7 @@ function NotificationSettingsPage({ currentUser }) {
         dispatch: localDispatch,
         ui: { time_format: localTimeFormat },
         calendar: localCalendar,
+        dashboard: localDashboard,
       });
       setSaved(true);
     } catch { /* noop */ }
@@ -165,6 +174,13 @@ function NotificationSettingsPage({ currentUser }) {
         <CalendarDisplaySettings
           value={localCalendar}
           onChange={(next) => { setLocalCalendar(next); setSaved(false); }}
+        />
+
+        <DashboardSettings
+          value={localDashboard}
+          allowedLinks={getNavigationItems(currentUser)}
+          roleDefaults={roleQuickLinks(currentUser?.role)}
+          onChange={(next) => { setLocalDashboard(next); setSaved(false); }}
         />
       </section>
     </div>

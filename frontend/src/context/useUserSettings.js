@@ -25,6 +25,12 @@ export const DEFAULT_SETTINGS = {
       },
     },
   },
+  dashboard: {
+    // null → use the role's default shortcuts; otherwise an ordered list of
+    // route paths the user picked. hiddenWidgets names cards the user hid.
+    quickLinks:    null,
+    hiddenWidgets: [],
+  },
 };
 
 export const UserSettingsContext = createContext({

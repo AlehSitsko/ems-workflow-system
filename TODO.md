@@ -305,8 +305,15 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   supervisor only. Lives under Management → Analytics alongside the Supervisor
   Dashboard. `test_reports.py` (17) + `reportsApi.test.js`. Verified end to end
   on the running app. Still open: time/payroll and dispatch-utilization reports
-- [ ] **Dashboard customization** — user-chosen widgets and quick links. The
-  quick links are role-defaults today (`QUICK_LINKS_BY_ROLE` in HomePage)
+- [x] **Dashboard customization** — per-user `settings.dashboard`: hide dashboard
+  cards (Today's board, My tasks, Shortcuts — "Needs attention" always shows) and
+  pick/reorder the shortcut tiles (`quickLinks` null = role default, else an
+  ordered path list, capped at 8). `QUICK_LINKS_BY_ROLE` moved to
+  `config/dashboardDefaults.js` so HomePage and the editor share one source;
+  editor lives in the Settings page (`DashboardSettings`). Backend validates the
+  `dashboard` section on PATCH. `test_settings.py` (8), `dashboardDefaults.test.js`
+  (5), `DashboardSettings.test.jsx` (7). Verified end to end (hid two cards,
+  removed + reordered shortcuts, confirmed on the dashboard)
 - [ ] **Badges beyond the four queues.** Scheduling Inbox, Confirmations, Day
   Closeout and Leave Review are badged from `/api/operations/attention`. Tasks
   and Compliance would each need a count the endpoint does not yet return

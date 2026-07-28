@@ -6,7 +6,9 @@ import { kioskStatus, kioskClockIn, kioskClockOut } from "../api/timeApi";
 import { getTaskSummary } from "../api/tasksApi";
 import { hasCallIntakeAccess, hasDispatchAccess } from "../api/authApi";
 import { getNavigationItems } from "../config/routeMetadata";
+import { resolveQuickLinkPaths, isWidgetHidden } from "../config/dashboardDefaults";
 import { useAttentionCounts } from "../hooks/useAttentionCounts";
+import { useUserSettings } from "../context/useUserSettings";
 import { StatCard } from "../components/ui/Entity";
 import { PageSection } from "../components/ui/Page";
 import AttentionWidget from "../components/dashboard/AttentionWidget";
@@ -165,29 +167,17 @@ function QuickTile({ title, description, path, icon: Icon }) {
   );
 }
 
-/**
- * The handful of places a role goes most, in priority order.
- *
- * Paths only — the label, icon and permission still come from the navigation
- * tree, so a link here can never point somewhere the sidebar would hide, and a
- * renamed page renames itself here too.
- */
-const QUICK_LINKS_BY_ROLE = {
-  admin:      ["/dispatch", "/scheduling-inbox", "/confirmation-round", "/calendar", "/employees"],
-  supervisor: ["/dispatch", "/day-closeout", "/crew-planner", "/compliance", "/supervisor"],
-  dispatcher: ["/dispatch", "/scheduling-inbox", "/confirmation-round", "/crew-planner", "/calendar"],
-  hr:         ["/employees", "/compliance", "/leave", "/payroll", "/tasks"],
-};
-
-function QuickLinks({ currentUser }) {
+function QuickLinks({ currentUser, dashboardSettings }) {
   const allowed = getNavigationItems(currentUser);
-  const wanted = QUICK_LINKS_BY_ROLE[currentUser?.role] || [];
+  const wanted = resolveQuickLinkPaths(currentUser?.role, dashboardSettings);
 
-  // Intersect with what this user may actually open, keeping the role's order.
+  // Intersect with what this user may actually open, keeping the chosen order.
+  // The intersection is also the security backstop: a stale saved path the user
+  // may no longer open simply drops out rather than rendering a dead tile.
   const links = wanted
     .map((path) => allowed.find((item) => item.path === path))
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, 8);
 
   if (!links.length) return null;
 
@@ -219,6 +209,8 @@ function QuickLinks({ currentUser }) {
  */
 function HomePage({ currentUser }) {
   const { counts, loading: countsLoading } = useAttentionCounts(currentUser);
+  const { settings } = useUserSettings();
+  const dashboard = settings?.dashboard;
   const canTakeCalls = hasCallIntakeAccess(currentUser);
   const canSeeBoard = hasDispatchAccess(currentUser);
 
@@ -246,13 +238,18 @@ function HomePage({ currentUser }) {
         </div>
       </section>
 
+      {/* "Needs attention" is the reason the dashboard exists — always shown. */}
       <AttentionWidget counts={counts} loading={countsLoading} />
 
-      {canSeeBoard && <TodayBoardWidget currentUser={currentUser} />}
+      {canSeeBoard && !isWidgetHidden(dashboard, "todayBoard") && (
+        <TodayBoardWidget currentUser={currentUser} />
+      )}
 
-      <TaskSummaryWidget currentUser={currentUser} />
+      {!isWidgetHidden(dashboard, "tasks") && <TaskSummaryWidget currentUser={currentUser} />}
 
-      <QuickLinks currentUser={currentUser} />
+      {!isWidgetHidden(dashboard, "quickLinks") && (
+        <QuickLinks currentUser={currentUser} dashboardSettings={dashboard} />
+      )}
     </div>
   );
 }
