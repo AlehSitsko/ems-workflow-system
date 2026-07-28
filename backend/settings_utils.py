@@ -43,6 +43,15 @@ DEFAULT_SETTINGS = {
         "weekStartsOn":  0,      # 0 = Sunday, 1 = Monday
         "density":       "comfortable",  # comfortable | compact
     },
+    "dashboard": {
+        # Home dashboard customisation. `quickLinks` is null to mean "use the
+        # role defaults" and otherwise an ordered list of route paths the user
+        # picked. `hiddenWidgets` names the dashboard cards the user has hidden
+        # (todayBoard | tasks | quickLinks) — the "needs attention" card is the
+        # point of the page and is not hideable.
+        "quickLinks":     None,
+        "hiddenWidgets":  [],
+    },
 }
 
 

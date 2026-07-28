@@ -42,5 +42,24 @@ def patch_settings():
             if not (0 <= n <= max_value):
                 return jsonify({"error": f"dispatch.{key} must be between 0 and {max_value}"}), 400
 
+    dashboard = patch.get("dashboard")
+    if dashboard is not None:
+        if not isinstance(dashboard, dict):
+            return jsonify({"error": "dashboard must be an object"}), 400
+
+        quick_links = dashboard.get("quickLinks", "unset")
+        if quick_links != "unset" and quick_links is not None:
+            if not isinstance(quick_links, list) or not all(isinstance(p, str) for p in quick_links):
+                return jsonify({"error": "dashboard.quickLinks must be null or a list of paths"}), 400
+            if len(quick_links) > 12:
+                return jsonify({"error": "dashboard.quickLinks may hold at most 12 links"}), 400
+
+        hidden = dashboard.get("hiddenWidgets")
+        if hidden is not None:
+            allowed = {"todayBoard", "tasks", "quickLinks"}
+            if not isinstance(hidden, list) or not set(hidden) <= allowed:
+                return jsonify({"error": "dashboard.hiddenWidgets must be a subset of "
+                                         "todayBoard, tasks, quickLinks"}), 400
+
     merged = save_user_settings(user, patch)
     return jsonify(merged)
