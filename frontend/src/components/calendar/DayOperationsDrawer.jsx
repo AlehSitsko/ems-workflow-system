@@ -1,4 +1,5 @@
-import { FaAmbulance, FaPhoneAlt, FaExclamationTriangle, FaArrowRight, FaRegCalendarCheck } from "react-icons/fa";
+import { FaAmbulance, FaPhoneAlt, FaExclamationTriangle, FaArrowRight, FaRegCalendarCheck, FaStream } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 import EntityDrawer from "../ui/EntityDrawer";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
@@ -98,14 +99,24 @@ const DayOperationsDrawer = ({
   // Roles without Dispatch access get no handlers, so the drawer stays a
   // read-only day summary instead of offering a jump that bounces them home.
   const footer = onOpenDay ? (
-    <button
-      type="button"
-      className="btn btn-primary d-inline-flex align-items-center gap-2"
-      onClick={() => onOpenDay(dateIso)}
-    >
-      Open Day in Dispatch Board
-      <FaArrowRight />
-    </button>
+    <div className="d-flex gap-2 flex-wrap">
+      <Link
+        to={`/operations/days/${dateIso}`}
+        className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+        onClick={onClose}
+      >
+        <FaStream />
+        Day timeline
+      </Link>
+      <button
+        type="button"
+        className="btn btn-primary d-inline-flex align-items-center gap-2"
+        onClick={() => onOpenDay(dateIso)}
+      >
+        Open Day in Dispatch Board
+        <FaArrowRight />
+      </button>
+    </div>
   ) : null;
 
   return (

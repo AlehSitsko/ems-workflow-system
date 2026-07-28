@@ -18,6 +18,15 @@ async function handle(response, fallback) {
   return data;
 }
 
+/** The day's operational agenda: every trip's planned vs actual times. */
+export async function getDayTimeline(day, headers = {}) {
+  const response = await fetch(`${API_BASE_URL}/api/operations/days/${day}/timeline`, {
+    credentials: "include",
+    headers,
+  });
+  return handle(response, "Failed to load the day timeline");
+}
+
 /** The day's closing report: totals, loose ends, and the sign-off if it exists. */
 export async function getOperationalDay(day, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/operations/days/${day}`, {

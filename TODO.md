@@ -130,7 +130,14 @@ be implemented before the current Calendar slice is complete:
   a live client-side end-time preview (`utils/tripTiming.js`, mirrors the backend
   maths). `test_call_duration.py` (11) + `tripTiming.test.js` (4). Verified end
   to end (set 90 min on a 09:00 pickup → planned end 10:30)
-- [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
+- [x] Day / Agenda operational timeline; planned-vs-actual time comparison —
+  `GET /api/operations/days/<day>/timeline` returns the day's trips as an agenda
+  (ordered by planned pickup, unscheduled last) with planned times, the actual
+  lifecycle milestones (dispatched → at-pickup → loaded → at-dest → completed, as
+  local HH:MM), and the pickup variance (actual arrival − planned). `DayTimelinePage`
+  at `/operations/days/:date` (dispatch-access) with summary tiles and on-time/
+  late/early chips; linked from the calendar Day Operations Drawer. `test_day_timeline.py`
+  (10) + `DayTimelinePage.test.jsx` (3). Verified end to end on a seeded day
 - [x] Day handoff summary + "Close Operational Day" — `/day-closeout` and
   `/api/operations/days/<day>`. Past dates were already read-only, so closing is
   not a lock: it is the review of what the day ended up as, the loose ends nobody
