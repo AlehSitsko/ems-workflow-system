@@ -94,3 +94,46 @@ export async function deleteEmployee(employeeId) {
 
   return data;
 }
+
+// ── Employment history ───────────────────────────────────────────────────────
+
+// An employee's employment timeline (newest effective date first).
+export async function getEmploymentEvents(employeeId) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/employment`, {
+    credentials: "include",
+  });
+  const data = await response.json().catch(() => ([]));
+  if (!response.ok) {
+    throw new Error((data && data.error) || "Failed to fetch employment history");
+  }
+  return Array.isArray(data) ? data : [];
+}
+
+// Add an employment event (hire, position/status change, termination, note).
+export async function createEmploymentEvent(employeeId, payload) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/${employeeId}/employment`, {
+    credentials: "include",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to add employment event");
+  }
+  return data;
+}
+
+// Remove a mistaken employment event (the history is append-only, so a
+// correction is a delete rather than an edit).
+export async function deleteEmploymentEvent(eventId) {
+  const response = await fetch(`${API_BASE_URL}/api/employees/employment/${eventId}`, {
+    credentials: "include",
+    method: "DELETE",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to delete employment event");
+  }
+  return data;
+}
