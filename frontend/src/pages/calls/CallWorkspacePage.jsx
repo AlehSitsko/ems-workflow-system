@@ -10,6 +10,7 @@ import { useToast } from "../../components/ui/useToast";
 import { useConfirm } from "../../components/ui/useConfirm";
 import { getCall, setCallConfirmation, updateCall } from "../../api/callsApi";
 import { buildDispatchLink } from "../../utils/calendarLinks";
+import { computePlannedEnd } from "../../utils/tripTiming";
 import {
   describeConfirmation, describeLevel, CONFIRMATION_STATUSES, CONFIRMATION_STATUS_META,
 } from "../../utils/taxonomy";
@@ -28,7 +29,7 @@ function authHeaders() {
   return {};
 }
 
-const EDITABLE = ["pickup_time", "pickup_address", "dropoff_address", "caller_phone", "notes"];
+const EDITABLE = ["pickup_time", "estimated_duration_minutes", "pickup_address", "dropoff_address", "caller_phone", "notes"];
 
 export default function CallWorkspacePage({ currentUser }) {
   const { callId } = useParams();
@@ -119,6 +120,7 @@ export default function CallWorkspacePage({ currentUser }) {
   const confirmation = describeConfirmation(call.confirmation_status);
   const level = describeLevel(call.service_level);
   const cancelled = call.status === "cancelled";
+  const plannedEnd = computePlannedEnd(form.pickup_time, form.estimated_duration_minutes);
 
   return (
     <div className="page-stack">
@@ -151,6 +153,12 @@ export default function CallWorkspacePage({ currentUser }) {
         <div className="workspace-grid">
           <EntityField label="Status" value={call.status} />
           <EntityField label="Trip date" value={call.trip_date || null} />
+          <EntityField
+            label="Pickup → planned end"
+            value={call.pickup_time
+              ? `${call.pickup_time}${call.planned_end_time ? ` → ${call.planned_end_time}${call.planned_end_next_day ? " (next day)" : ""}` : ""}`
+              : null}
+          />
           <EntityField label="Taken on" value={call.date_of_call || null} />
           <EntityField label="Dispatcher" value={call.dispatcher_name || null} />
           {call.confirmed_by_name && (
@@ -166,6 +174,15 @@ export default function CallWorkspacePage({ currentUser }) {
             <label className="form-label fw-semibold" htmlFor="pickup_time">Pickup time</label>
             <input id="pickup_time" type="time" className="form-control" value={form.pickup_time || ""}
               onChange={(e) => setForm((f) => ({ ...f, pickup_time: e.target.value }))} disabled={busy} />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold" htmlFor="estimated_duration_minutes">Est. duration (min)</label>
+            <input id="estimated_duration_minutes" type="number" min="1" max="1440" step="5"
+              className="form-control" placeholder="e.g. 60" value={form.estimated_duration_minutes ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, estimated_duration_minutes: e.target.value }))} disabled={busy} />
+            {plannedEnd && (
+              <div className="form-text">Planned end {plannedEnd.time}{plannedEnd.nextDay ? " (next day)" : ""}</div>
+            )}
           </div>
           <div className="col-md-4">
             <label className="form-label fw-semibold" htmlFor="caller_phone">Phone</label>

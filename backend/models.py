@@ -911,6 +911,11 @@ class Call(db.Model):
     pickup_time = db.Column(db.String(20))
     appointment_time = db.Column(db.String(20))
 
+    # How long the trip is expected to take. Optional — set it and the app can
+    # show a planned end time (pickup_time + this), so a scheduler sees when the
+    # unit is expected free rather than guessing.
+    estimated_duration_minutes = db.Column(db.Integer)
+
     pickup_address = db.Column(db.Text)
     dropoff_address = db.Column(db.Text)
 
@@ -981,6 +986,12 @@ class Call(db.Model):
             "trip_date": self.trip_date,
             "pickup_time": self.pickup_time,
             "appointment_time": self.appointment_time,
+            "estimated_duration_minutes": self.estimated_duration_minutes,
+            # Derived: pickup_time + estimated_duration. "" when either is missing,
+            # so the client never has to redo the arithmetic or guess an end.
+            "planned_end_time": self._compute_planned_end_time(),
+            # True when the planned end lands on the following day (crosses midnight).
+            "planned_end_next_day": self._planned_end_next_day(),
 
             "pickup_address": self.pickup_address,
             "dropoff_address": self.dropoff_address,
@@ -1034,6 +1045,29 @@ class Call(db.Model):
         if not p:
             return None
         return f"{p.first_name} {p.last_name}".strip()
+
+    def _planned_end_datetime(self):
+        """pickup_time + estimated_duration as a datetime, or None if either is
+        missing or the time is malformed. Mirrors DailyCrewUnit's shift end."""
+        if not self.pickup_time or not self.estimated_duration_minutes:
+            return None
+        try:
+            from datetime import datetime, timedelta
+            start = datetime.strptime(self.pickup_time.strip(), "%H:%M")
+            return start + timedelta(minutes=int(self.estimated_duration_minutes))
+        except (ValueError, TypeError):
+            return None
+
+    def _compute_planned_end_time(self):
+        """HH:MM the unit is expected free, or "" when it cannot be computed."""
+        end = self._planned_end_datetime()
+        return end.strftime("%H:%M") if end else ""
+
+    def _planned_end_next_day(self):
+        """True when the planned end crosses midnight into the next day."""
+        end = self._planned_end_datetime()
+        # strptime with no date parses onto 1900-01-01; a later day means it wrapped.
+        return bool(end and end.day != 1)
 
 
 class NotificationEvent(db.Model):

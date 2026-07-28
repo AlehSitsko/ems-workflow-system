@@ -48,6 +48,31 @@ def _validate_quality_score(value):
     return score
 
 
+# A trip is at most a day; the estimate is minutes, so cap at 24h. Absent leaves
+# the planned end time simply uncomputed rather than defaulting to a guess.
+_MAX_TRIP_MINUTES = 24 * 60
+
+
+def _validate_duration(value):
+    """Return an int 1.._MAX_TRIP_MINUTES, or None when absent. Raises ValueError."""
+    if value is None or value == "":
+        return None
+    err = ValueError(f"estimated_duration_minutes must be an integer between 1 and {_MAX_TRIP_MINUTES}")
+    # bool is an int subclass, and a fractional float ("10.5 minutes") is not a
+    # whole number of minutes — reject both rather than silently truncating.
+    if isinstance(value, bool):
+        raise err
+    if isinstance(value, float) and not value.is_integer():
+        raise err
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        raise err
+    if not (1 <= minutes <= _MAX_TRIP_MINUTES):
+        raise err
+    return minutes
+
+
 def _role_from_request():
     return get_request_role()
 
@@ -137,6 +162,7 @@ def create_call():
 
     try:
         quality_score = _validate_quality_score(data.get("quality_score"))
+        estimated_duration = _validate_duration(data.get("estimated_duration_minutes"))
         _validate_time_field(data.get("pickup_time"), "pickup_time")
         _validate_time_field(data.get("appointment_time"), "appointment_time")
         check_length(data.get("pickup_address"), 500, "pickup_address")
@@ -162,6 +188,7 @@ def create_call():
         trip_date=data.get("trip_date"),
         pickup_time=data.get("pickup_time"),
         appointment_time=data.get("appointment_time"),
+        estimated_duration_minutes=estimated_duration,
 
         pickup_address=data.get("pickup_address"),
         dropoff_address=data.get("dropoff_address"),
@@ -225,7 +252,7 @@ def update_call(call_id):
 
     EDITABLE = [
         "dispatcher_name", "caller_type", "call_type", "caller_phone", "caller_note",
-        "trip_date", "pickup_time", "appointment_time",
+        "trip_date", "pickup_time", "appointment_time", "estimated_duration_minutes",
         "pickup_address", "dropoff_address",
         "service_level", "notes",
         "quality_score", "missing_critical_fields", "missing_optional_fields",
@@ -245,6 +272,8 @@ def update_call(call_id):
     try:
         if "quality_score" in data:
             data["quality_score"] = _validate_quality_score(data.get("quality_score"))
+        if "estimated_duration_minutes" in data:
+            data["estimated_duration_minutes"] = _validate_duration(data.get("estimated_duration_minutes"))
         if "pickup_time" in data:
             _validate_time_field(data.get("pickup_time"), "pickup_time")
         if "appointment_time" in data:

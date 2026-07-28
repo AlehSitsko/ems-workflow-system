@@ -123,7 +123,13 @@ be implemented before the current Calendar slice is complete:
   calendar filters by date and the board loads one day at a time, so they existed
   in the database and nowhere in the product. Oldest intake first; scheduling into
   the past or onto a finished call is refused. `tests/test_scheduling_inbox.py` (20)
-- [ ] Estimated trip duration + planned end time
+- [x] Estimated trip duration + planned end time — optional
+  `Call.estimated_duration_minutes` (migration `b8f2d3e64a17`); the API derives
+  `planned_end_time` (pickup + duration) and a `planned_end_next_day` flag on
+  every call. Editable in the call intake form and the Call workspace, both with
+  a live client-side end-time preview (`utils/tripTiming.js`, mirrors the backend
+  maths). `test_call_duration.py` (11) + `tripTiming.test.js` (4). Verified end
+  to end (set 90 min on a 09:00 pickup → planned end 10:30)
 - [ ] Day / Agenda operational timeline; planned-vs-actual time comparison
 - [x] Day handoff summary + "Close Operational Day" — `/day-closeout` and
   `/api/operations/days/<day>`. Past dates were already read-only, so closing is
