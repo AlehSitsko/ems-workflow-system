@@ -44,6 +44,39 @@ function renderDrawer(overrides = {}) {
   return props;
 }
 
+const manualEvent = {
+  id: "calendar_event:7", type: "calendar_event", title: "All-hands", date: "2026-07-16",
+  start: null, end: null, allDay: true, status: "meeting", severity: "normal",
+  source: "calendar_event", sourceId: 7,
+  metadata: { category: "meeting", visibility: "company", ownerUserId: 2, ownerName: "Sam" },
+};
+
+describe("DayOperationsDrawer — manual event management", () => {
+  it("offers edit/delete on a manual event to its owner", () => {
+    const onEditEvent = vi.fn();
+    const onDeleteEvent = vi.fn();
+    renderDrawer({
+      events: [manualEvent],
+      currentUser: { id: 2, role: "dispatcher" },   // the owner
+      onEditEvent, onDeleteEvent,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /edit all-hands/i }));
+    expect(onEditEvent).toHaveBeenCalledWith(expect.objectContaining({ sourceId: 7 }));
+    fireEvent.click(screen.getByRole("button", { name: /delete all-hands/i }));
+    expect(onDeleteEvent).toHaveBeenCalledWith(expect.objectContaining({ sourceId: 7 }));
+  });
+
+  it("offers them to an admin who is not the owner", () => {
+    renderDrawer({ events: [manualEvent], currentUser: { id: 99, role: "admin" }, onEditEvent: vi.fn() });
+    expect(screen.getByRole("button", { name: /edit all-hands/i })).toBeInTheDocument();
+  });
+
+  it("hides them from a non-owner non-admin", () => {
+    renderDrawer({ events: [manualEvent], currentUser: { id: 99, role: "dispatcher" } });
+    expect(screen.queryByRole("button", { name: /edit all-hands/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("DayOperationsDrawer", () => {
   it("shows only the selected day's calls and units", () => {
     renderDrawer();

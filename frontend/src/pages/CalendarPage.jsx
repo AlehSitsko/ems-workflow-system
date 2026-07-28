@@ -22,6 +22,9 @@ import CalendarAgendaView from "../components/calendar/CalendarAgendaView";
 import CalendarSidebar from "../components/calendar/CalendarSidebar";
 import DayOperationsDrawer from "../components/calendar/DayOperationsDrawer";
 import NewCalendarEventModal from "../components/calendar/NewCalendarEventModal";
+import { deleteCalendarEvent } from "../api/calendarEventsApi";
+import { useToast } from "../components/ui/useToast";
+import { useConfirm } from "../components/ui/useConfirm";
 
 const AGENDA_DAYS = 28; // agenda shows a rolling four-week window
 const VIEWS = [
@@ -92,7 +95,10 @@ const CalendarPage = ({ currentUser }) => {
   const [selectedDay, setSelectedDay] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newEventOpen, setNewEventOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   // Reload whenever the visible range changes (month navigation) or a manual
   // event is created (reloadKey bump).
@@ -179,6 +185,30 @@ const CalendarPage = ({ currentUser }) => {
     ? (iso, unitId) => navigate(buildDispatchLink(iso, { unit: unitId }))
     : undefined;
 
+  // Manual-event management from the day drawer (owner/admin only; the drawer
+  // decides which rows offer it, and the API enforces it again).
+  const editEvent = (e) => {
+    setDrawerOpen(false);
+    setEditingEvent(e);
+    setNewEventOpen(true);
+  };
+  const removeEvent = async (e) => {
+    const ok = await confirm({
+      title: "Delete this event?",
+      message: `"${e.title}" will be removed from the calendar.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
+    try {
+      await deleteCalendarEvent(e.sourceId);
+      toast.success("Event deleted");
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      toast.error("Could not delete the event", err.message);
+    }
+  };
+
   return (
     <div className="page-stack">
       <div className="calendar-layout">
@@ -209,7 +239,7 @@ const CalendarPage = ({ currentUser }) => {
               <button
                 type="button"
                 className="btn btn-sm btn-primary"
-                onClick={() => { setSelectedDay(null); setNewEventOpen(true); }}
+                onClick={() => { setSelectedDay(null); setEditingEvent(null); setNewEventOpen(true); }}
               >
                 + New event
               </button>
@@ -279,14 +309,18 @@ const CalendarPage = ({ currentUser }) => {
         onOpenDay={openDay}
         onOpenCall={openCall}
         onOpenUnit={openUnit}
+        currentUser={currentUser}
+        onEditEvent={editEvent}
+        onDeleteEvent={removeEvent}
       />
 
       <NewCalendarEventModal
         open={newEventOpen}
-        onClose={() => setNewEventOpen(false)}
+        onClose={() => { setNewEventOpen(false); setEditingEvent(null); }}
         onCreated={() => setReloadKey((k) => k + 1)}
         currentUser={currentUser}
         defaultDate={selectedDay || toISODate(today)}
+        event={editingEvent}
       />
     </div>
   );

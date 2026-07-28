@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import EntityDrawer from "../ui/EntityDrawer";
-import { createCalendarEvent } from "../../api/calendarEventsApi";
+import { createCalendarEvent, updateCalendarEvent } from "../../api/calendarEventsApi";
 
 // Create a manual calendar event. Personal is open to everyone; broadcasting to
 // a role or the whole company is admin/supervisor only, and the API enforces
@@ -18,16 +18,40 @@ const CATEGORIES = [
 
 const ROLES = ["admin", "supervisor", "dispatcher", "hr"];
 
-export default function NewCalendarEventModal({ open, onClose, onCreated, currentUser, defaultDate }) {
-  const canBroadcast = ["admin", "supervisor"].includes(currentUser?.role);
+const emptyForm = (defaultDate) => ({
+  title: "", eventDate: defaultDate || "", allDay: true,
+  startTime: "", endTime: "", category: "", description: "",
+  visibility: "personal", visibleToRole: "dispatcher",
+});
 
-  const [form, setForm] = useState({
-    title: "", eventDate: defaultDate || "", allDay: true,
-    startTime: "", endTime: "", category: "", description: "",
-    visibility: "personal", visibleToRole: "dispatcher",
-  });
+// Map an aggregator event (calendar_event) back into the editable form shape.
+const formFromEvent = (event) => ({
+  title: event.title || "",
+  eventDate: event.date || "",
+  allDay: event.allDay !== false,
+  startTime: event.metadata?.startTime || "",
+  endTime: event.metadata?.endTime || "",
+  category: event.metadata?.category || "",
+  description: event.metadata?.description || "",
+  visibility: event.metadata?.visibility || "personal",
+  visibleToRole: event.metadata?.visibleToRole || "dispatcher",
+});
+
+export default function NewCalendarEventModal({ open, onClose, onCreated, currentUser, defaultDate, event }) {
+  const canBroadcast = ["admin", "supervisor"].includes(currentUser?.role);
+  const isEdit = !!event;
+
+  const [form, setForm] = useState(() => emptyForm(defaultDate));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Re-seed the form each time the drawer opens: from the event when editing,
+  // otherwise a blank form on the selected day.
+  useEffect(() => {
+    if (!open) return;
+    setError("");
+    setForm(event ? formFromEvent(event) : emptyForm(defaultDate));
+  }, [open, event, defaultDate]);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
@@ -38,28 +62,25 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
       return;
     }
     setBusy(true);
+    const payload = {
+      title: form.title.trim(),
+      eventDate: form.eventDate,
+      allDay: form.allDay,
+      startTime: form.allDay ? "" : form.startTime,
+      endTime: form.allDay ? "" : form.endTime,
+      category: form.category,
+      description: form.description.trim(),
+      visibility: form.visibility,
+      visibleToRole: form.visibility === "role" ? form.visibleToRole : "",
+    };
     try {
-      await createCalendarEvent({
-        title: form.title.trim(),
-        eventDate: form.eventDate,
-        allDay: form.allDay,
-        startTime: form.allDay ? "" : form.startTime,
-        endTime: form.allDay ? "" : form.endTime,
-        category: form.category,
-        description: form.description.trim(),
-        visibility: form.visibility,
-        visibleToRole: form.visibility === "role" ? form.visibleToRole : "",
-      });
+      if (isEdit) await updateCalendarEvent(event.sourceId, payload);
+      else await createCalendarEvent(payload);
       onCreated?.();
       onClose?.();
-      // Reset for next time.
-      setForm({
-        title: "", eventDate: defaultDate || "", allDay: true,
-        startTime: "", endTime: "", category: "", description: "",
-        visibility: "personal", visibleToRole: "dispatcher",
-      });
+      if (!isEdit) setForm(emptyForm(defaultDate));
     } catch (err) {
-      setError(err.message || "Could not create the event.");
+      setError(err.message || `Could not ${isEdit ? "update" : "create"} the event.`);
     } finally {
       setBusy(false);
     }
@@ -68,7 +89,7 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
   const footer = (
     <div className="d-flex gap-2">
       <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
-        {busy ? "Saving…" : "Create event"}
+        {busy ? "Saving…" : isEdit ? "Save changes" : "Create event"}
       </button>
       <button type="button" className="btn btn-outline-secondary" onClick={onClose} disabled={busy}>
         Cancel
@@ -78,7 +99,8 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
 
   return (
     <EntityDrawer open={open} onClose={onClose} onCloseRequested={onClose}
-                  title="New calendar event" subtitle="Meeting, reminder or time off" footer={footer}>
+                  title={isEdit ? "Edit calendar event" : "New calendar event"}
+                  subtitle="Meeting, reminder or time off" footer={footer}>
       <div className="d-flex flex-column gap-3">
         <div>
           <label className="form-label fw-semibold" htmlFor="ce-title">Title</label>

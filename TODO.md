@@ -152,9 +152,11 @@ be implemented before the current Calendar slice is complete:
   `/api/calendar-events` (create/edit/delete gated to owner-or-admin, and only
   admin/supervisor may broadcast role- or company-wide). Surfaces through the
   calendar aggregator via a shared `visible_events_filter`, with a "+ New event"
-  drawer on the Calendar page and a `calendar_event` source toggle.
-  `test_calendar_events.py` (16), `NewCalendarEventModal.test.jsx` (5). Verified
-  end to end (company event created → shown in the day drawer)
+  drawer on the Calendar page and a `calendar_event` source toggle. Full CRUD in
+  the UI: the owner (or an admin) edits or deletes an event inline from the day
+  drawer, reusing the same drawer in edit mode. `test_calendar_events.py` (16),
+  `NewCalendarEventModal.test.jsx` (6), `DayOperationsDrawer.test.jsx` manage
+  cases (3). Verified end to end (create → edit → delete on the running app)
 - [ ] Participants, reminders, notification integration, saved views
 - [ ] Recurrence, ICS export, external (Google/Outlook) sync — much later; must
   not export patient data without a separate privacy/security policy

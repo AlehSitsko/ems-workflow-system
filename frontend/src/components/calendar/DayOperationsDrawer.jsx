@@ -1,4 +1,4 @@
-import { FaAmbulance, FaPhoneAlt, FaExclamationTriangle, FaArrowRight, FaRegCalendarCheck, FaStream } from "react-icons/fa";
+import { FaAmbulance, FaPhoneAlt, FaExclamationTriangle, FaArrowRight, FaRegCalendarCheck, FaStream, FaPen, FaTrash } from "react-icons/fa";
 import { Link } from "react-router-dom";
 
 import EntityDrawer from "../ui/EntityDrawer";
@@ -53,8 +53,16 @@ const DayOperationsDrawer = ({
   onOpenDay,
   onOpenCall,
   onOpenUnit,
+  currentUser,
+  onEditEvent,
+  onDeleteEvent,
 }) => {
   if (!dateIso) return null;
+
+  // The owner of a manual event (or an admin) may edit or delete it inline.
+  const canManageEvent = (e) =>
+    e.type === "calendar_event" &&
+    (currentUser?.role === "admin" || e.metadata?.ownerUserId === currentUser?.id);
 
   const dayEvents = (events || []).filter((e) => e.date === dateIso);
   const calls = dayEvents.filter((e) => e.type === "scheduled_call");
@@ -225,6 +233,18 @@ const DayOperationsDrawer = ({
                       <span className={`calendar-tag ${e.severity === "critical" ? "crit" : "warn"}`}>{e.severity}</span>
                     )}
                     <span className="calendar-tag">{meta.label}</span>
+                    {canManageEvent(e) && (
+                      <>
+                        <button type="button" className="btn btn-sm btn-link p-0 ms-2"
+                          onClick={() => onEditEvent?.(e)} aria-label={`Edit ${e.title}`} title="Edit">
+                          <FaPen />
+                        </button>
+                        <button type="button" className="btn btn-sm btn-link p-0 ms-2 text-danger"
+                          onClick={() => onDeleteEvent?.(e)} aria-label={`Delete ${e.title}`} title="Delete">
+                          <FaTrash />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </li>
               );
