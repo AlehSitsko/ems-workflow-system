@@ -11,6 +11,7 @@ const SOURCE_LABELS = [
   ["certification", "Certification expirations"],
   ["task", "Task due dates"],
   ["vehicle", "Vehicle dates"],
+  ["calendar_event", "Calendar events"],
 ];
 
 function Switch({ id, label, checked, onChange }) {

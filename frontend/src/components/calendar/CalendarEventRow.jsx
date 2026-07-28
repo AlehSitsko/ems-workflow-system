@@ -13,6 +13,7 @@ const TYPE_META = {
   task: { emoji: "🗒️", label: "Task" },
   vehicle: { emoji: "🚑", label: "Vehicle" },
   employee_leave: { emoji: "🌴", label: "Leave" },
+  calendar_event: { emoji: "📌", label: "Event" },
 };
 
 function eventTime(startIso, timeFormat) {

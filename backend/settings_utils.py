@@ -37,6 +37,7 @@ DEFAULT_SETTINGS = {
             "certification":     True,
             "task":              True,
             "vehicle":           True,
+            "calendar_event":    True,
         },
         "showWeekends":  True,   # highlight Sat/Sun
         "showHolidays":  True,   # show US federal holiday markers

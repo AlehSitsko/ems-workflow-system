@@ -1776,3 +1776,64 @@ class RecurringTrip(db.Model):
             "createdByName": self.created_by_name or "",
             "updatedAt": self.updated_at or "",
         }
+
+
+class CalendarEvent(db.Model):
+    """A manually created calendar entry — a meeting, reminder, training day, or
+    time-off marker — as opposed to the events the calendar derives from calls,
+    shifts and certifications.
+
+    Visibility decides who else sees it:
+      personal — only the owner
+      role     — everyone holding `visible_to_role`
+      company  — everyone
+
+    The API enforces this on read (the aggregator filters) and on write (only
+    admin/supervisor may broadcast a role- or company-wide event; anyone may keep
+    a personal one). Edits and deletes are the owner's or an admin's.
+    """
+    __tablename__ = "calendar_event"
+
+    VISIBILITIES = ("personal", "role", "company")
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text)
+
+    event_date = db.Column(db.String(20), nullable=False, index=True)  # YYYY-MM-DD
+    start_time = db.Column(db.String(20))   # HH:MM, optional
+    end_time = db.Column(db.String(20))     # HH:MM, optional
+    all_day = db.Column(db.Boolean, default=True, nullable=False)
+
+    # meeting | reminder | training | time_off | other (free-ish; drives a colour)
+    category = db.Column(db.String(30))
+
+    visibility = db.Column(db.String(20), nullable=False, default="personal")
+    visible_to_role = db.Column(db.String(30))  # set only when visibility == "role"
+
+    owner_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    owner_name = db.Column(db.String(150))
+
+    created_at = db.Column(db.String(50))
+    updated_at = db.Column(db.String(50))
+
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description or "",
+            "eventDate": self.event_date,
+            "startTime": self.start_time or "",
+            "endTime": self.end_time or "",
+            "allDay": bool(self.all_day),
+            "category": self.category or "",
+            "visibility": self.visibility,
+            "visibleToRole": self.visible_to_role or "",
+            "ownerUserId": self.owner_user_id,
+            "ownerName": self.owner_name or "",
+            "createdAt": self.created_at or "",
+            "updatedAt": self.updated_at or "",
+        }

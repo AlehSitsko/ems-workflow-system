@@ -146,8 +146,15 @@ be implemented before the current Calendar slice is complete:
   over loose ends requires explicit acknowledgement; the stored snapshot keeps
   saying what was true at sign-off even if a call is edited later. Supervisor and
   admin close, dispatcher reads, admin alone reopens. `tests/test_day_closure.py` (20)
-- [ ] `CalendarEvent` model for manual events (visibility scopes: company /
-  operations / management / HR / patient-operations / private)
+- [x] `CalendarEvent` model for manual events (visibility scopes: personal /
+  role / company) — a user creates meetings, reminders, training days and
+  time-off markers by hand. Migration `c9a4e7b21f38`; CRUD at
+  `/api/calendar-events` (create/edit/delete gated to owner-or-admin, and only
+  admin/supervisor may broadcast role- or company-wide). Surfaces through the
+  calendar aggregator via a shared `visible_events_filter`, with a "+ New event"
+  drawer on the Calendar page and a `calendar_event` source toggle.
+  `test_calendar_events.py` (16), `NewCalendarEventModal.test.jsx` (5). Verified
+  end to end (company event created → shown in the day drawer)
 - [ ] Participants, reminders, notification integration, saved views
 - [ ] Recurrence, ICS export, external (Google/Outlook) sync — much later; must
   not export patient data without a separate privacy/security policy
