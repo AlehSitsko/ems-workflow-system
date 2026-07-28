@@ -202,6 +202,7 @@ export const ROUTE_METADATA = [
     group: "Staff",
     canAccess: hasTaskAccess,
     width: "standard",
+    badgeKey: "tasks",   // my overdue / due-today tasks
   },
   {
     path: "/calls/:callId",
@@ -334,6 +335,7 @@ export const ROUTE_METADATA = [
     group: "Staff",
     canAccess: hasPayrollAccess,
     width: "standard",
+    badgeKey: "compliance",   // active staff with an expired / soon-expiring cert
   },
 
   // ── Management ───────────────────────────────────────────────────────────

@@ -119,9 +119,9 @@ def attention_counts():
     not carry. Each is scoped to the roles that can act on it, so nobody is
     nagged about a queue they cannot open.
     """
-    from models import EmployeeLeaveRequest
+    from models import EmployeeLeaveRequest, Task, Employee, User
     from utils.operational_dates import local_today
-    from datetime import timedelta
+    from datetime import date, timedelta
 
     role = get_request_role()
     counts = {}
@@ -159,6 +159,51 @@ def attention_counts():
         counts["leaveReview"] = (
             EmployeeLeaveRequest.query.filter(EmployeeLeaveRequest.status == "pending").count()
         )
+
+    # My tasks that are already due — overdue or due today. Personal, unlike the
+    # queues above, and scoped exactly like the Tasks "mine" filter so the badge
+    # and that list cannot disagree about what counts as mine.
+    today = local_today().isoformat()
+    user = User.query.get(get_request_user_id())
+    employee_id = user.employee_id if user else None
+    mine = []
+    if employee_id:
+        mine.append(Task.assigned_to_employee_id == employee_id)
+    if role in ("admin", "supervisor", "hr"):
+        mine.append(Task.created_by_user_id == get_request_user_id())
+    if mine:
+        counts["tasks"] = (
+            Task.query
+            .filter(Task.is_archived.is_(False),
+                    db.or_(*mine),
+                    Task.status.notin_(Task.TERMINAL_STATUSES),
+                    Task.due_date.isnot(None), Task.due_date != "",
+                    Task.due_date <= today)
+            .count()
+        )
+
+    # Compliance: active employees carrying at least one certification that is
+    # expired or within 14 days (the "critical" threshold used on the Compliance
+    # page). A nudge, not the full matrix — documents live on that page.
+    if role in ("admin", "supervisor", "hr"):
+        today_d = local_today()
+
+        def _urgent(has_license, expiry):
+            if not has_license or not expiry:
+                return False
+            try:
+                return (date.fromisoformat(expiry) - today_d).days <= 14
+            except ValueError:
+                return False
+
+        non_compliant = 0
+        for e in Employee.query.filter(Employee.is_active.is_(True)).all():
+            if (_urgent(e.cpr_has_license, e.cpr_expiration_date)
+                    or _urgent(e.evoc_has_license, e.evoc_expiration_date)
+                    or _urgent(e.emt_has_license, e.emt_expiration_date)
+                    or _urgent(e.paramedic_has_license, e.paramedic_expiration_date)):
+                non_compliant += 1
+        counts["compliance"] = non_compliant
 
     return jsonify(counts)
 

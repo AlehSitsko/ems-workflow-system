@@ -314,9 +314,13 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   `dashboard` section on PATCH. `test_settings.py` (8), `dashboardDefaults.test.js`
   (5), `DashboardSettings.test.jsx` (7). Verified end to end (hid two cards,
   removed + reordered shortcuts, confirmed on the dashboard)
-- [ ] **Badges beyond the four queues.** Scheduling Inbox, Confirmations, Day
-  Closeout and Leave Review are badged from `/api/operations/attention`. Tasks
-  and Compliance would each need a count the endpoint does not yet return
+- [x] **Badges beyond the four queues.** `/api/operations/attention` now also
+  returns `tasks` (the caller's own overdue / due-today open tasks, scoped like
+  the Tasks "mine" filter) and `compliance` (active employees with a certification
+  expired or within 14 days — admin/supervisor/HR only). Wired via `badgeKey` on
+  the `/tasks` and `/compliance` routes, so they flow through the existing
+  sidebar badge mechanism. `test_attention_badges.py` (5). Verified live — both
+  badges render in the sidebar
 - [ ] **Employee portal.** No `employee` role exists in the app — the roles are
   admin / supervisor / dispatcher / hr. Self-service shifts, tasks and hours are
   a separate module, so no menu entry pretends otherwise
