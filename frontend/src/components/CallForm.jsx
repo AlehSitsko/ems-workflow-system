@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { useToast } from "./ui/useToast";
+import { computePlannedEnd } from "../utils/tripTiming";
 
 import {
   FaClipboardCheck,
@@ -57,6 +58,7 @@ const CallForm = forwardRef((props, ref) => {
     tripDate: "",
     pickupTime: "",
     appointmentTime: "",
+    estimatedDuration: "",
     additionalInfo: "",
 
     returnRideOption: "none",
@@ -372,6 +374,7 @@ const CallForm = forwardRef((props, ref) => {
         trip_date: formData.tripDate,
         pickup_time: formData.pickupTime,
         appointment_time: formData.appointmentTime,
+        estimated_duration_minutes: formData.estimatedDuration ? Number(formData.estimatedDuration) : null,
 
         pickup_address: formData.pickupAddress,
         dropoff_address: formData.dropoffAddress,
@@ -432,6 +435,8 @@ setSubmitMessage("Call and patient record saved successfully.");
       setIsSubmitting(false);
     }
   };
+
+  const plannedEnd = computePlannedEnd(formData.pickupTime, formData.estimatedDuration);
 
   return (
     <div className="call-form-modern">
@@ -791,6 +796,29 @@ setSubmitMessage("Call and patient record saved successfully.");
                 />
               </div>
             )}
+
+            <div className="col-md-3">
+              <label htmlFor="estimatedDuration" className="form-label">
+                Est. Duration (min)
+              </label>
+              <input
+                type="number"
+                className="form-control"
+                id="estimatedDuration"
+                min="1"
+                max="1440"
+                step="5"
+                placeholder="e.g. 60"
+                value={formData.estimatedDuration}
+                onChange={(e) => setFormData((prev) => ({ ...prev, estimatedDuration: e.target.value }))}
+                disabled={isSubmitting}
+              />
+              {plannedEnd && (
+                <div className="form-text">
+                  Planned end {plannedEnd.time}{plannedEnd.nextDay ? " (next day)" : ""}
+                </div>
+              )}
+            </div>
 
             <div className="col-12">
               <label htmlFor="additionalInfo" className="form-label">
