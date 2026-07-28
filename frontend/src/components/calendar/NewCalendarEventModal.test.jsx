@@ -26,6 +26,7 @@ describe("NewCalendarEventModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.createCalendarEvent.mockResolvedValue({ id: 1 });
+    api.updateCalendarEvent.mockResolvedValue({ id: 5 });
   });
 
   it("hides role/company options from a dispatcher", () => {
@@ -58,6 +59,27 @@ describe("NewCalendarEventModal", () => {
     ));
     expect(onCreated).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("edits an existing event: prefilled and PATCHes by sourceId", async () => {
+    const event = {
+      id: "calendar_event:5", sourceId: 5, title: "All-hands", date: "2026-08-12",
+      allDay: true,
+      metadata: { category: "meeting", visibility: "company", description: "Q3 review" },
+    };
+    setup({ role: "admin" }, { event });
+
+    expect(screen.getByText("Edit calendar event")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("All-hands");
+    expect(screen.getByLabelText("Visibility")).toHaveValue("company");
+
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "All-hands (Q3)" } });
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(api.updateCalendarEvent).toHaveBeenCalledWith(
+      5, expect.objectContaining({ title: "All-hands (Q3)", visibility: "company" }),
+    ));
+    expect(api.createCalendarEvent).not.toHaveBeenCalled();
   });
 
   it("shows the role picker only for a role-scoped event", () => {
