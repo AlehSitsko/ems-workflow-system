@@ -1,9 +1,13 @@
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request
 
-from models import db, Employee, DailyCrewUnit
+from models import db, Employee, DailyCrewUnit, EmploymentEvent
 from utils.employee_utils import apply_employee_data
 from notification_utils import create_notification
-from utils.auth_utils import require_role
+from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
+from utils.validation_utils import is_valid_date
+from audit_utils import log_action
 
 # Managing employee records is an admin/supervisor/HR function. The LIST stays
 # open to any signed-in user on purpose: the Dispatch Board and Crew Planner
@@ -165,3 +169,94 @@ def delete_employee(id):
     db.session.commit()
 
     return jsonify({"message": "Employee deleted"})
+
+
+# ── Employment history ───────────────────────────────────────────────────────
+#
+# A per-employee timeline of hires, position and status changes, terminations,
+# rehires and notes. Append-only: the Employee row holds the *current* position
+# and status, so this records how it got there rather than being edited in place.
+# Same HR-record gate as the rest of the employee detail surface.
+
+_EMPLOYMENT_EVENT_TYPES = {
+    "hired", "position_change", "status_change",
+    "pay_change", "terminated", "rehired", "note",
+}
+
+
+@employee_bp.route("/<int:id>/employment", methods=["GET"])
+@require_role(*_RECORD_ROLES)
+def list_employment_events(id):
+    if not Employee.query.get(id):
+        return jsonify({"error": "Employee not found"}), 404
+
+    # Newest first — the timeline reads top-down from the most recent change.
+    events = (
+        EmploymentEvent.query
+        .filter_by(employee_id=id)
+        .order_by(EmploymentEvent.effective_date.desc(), EmploymentEvent.id.desc())
+        .all()
+    )
+    return jsonify([e.to_dict() for e in events])
+
+
+@employee_bp.route("/<int:id>/employment", methods=["POST"])
+@require_role(*_RECORD_ROLES)
+def create_employment_event(id):
+    employee = Employee.query.get(id)
+    if not employee:
+        return jsonify({"error": "Employee not found"}), 404
+
+    data = request.get_json() or {}
+
+    event_type = (data.get("eventType") or "").strip()
+    if event_type not in _EMPLOYMENT_EVENT_TYPES:
+        return jsonify({"error": "Invalid or missing eventType"}), 400
+
+    effective_date = (data.get("effectiveDate") or "").strip()
+    if not is_valid_date(effective_date):
+        return jsonify({"error": "effectiveDate must be a real YYYY-MM-DD date"}), 400
+
+    uid, uname = get_request_user_id(), get_request_user_name()
+    event = EmploymentEvent(
+        employee_id=id,
+        event_type=event_type,
+        effective_date=effective_date,
+        title=(data.get("title") or "").strip() or None,
+        employment_type=(data.get("employmentType") or "").strip() or None,
+        status=(data.get("status") or "").strip() or None,
+        note=(data.get("note") or "").strip() or None,
+        created_by=uid,
+        created_by_name=uname,
+        created_at=datetime.now().isoformat(timespec="seconds"),
+    )
+    db.session.add(event)
+
+    log_action(
+        "employment.event_added", "employee", id,
+        f"{employee.first_name} {employee.last_name}",
+        {"type": event_type, "effectiveDate": effective_date},
+        user_id=uid, user_name=uname,
+    )
+    db.session.commit()
+    return jsonify(event.to_dict()), 201
+
+
+@employee_bp.route("/employment/<int:event_id>", methods=["DELETE"])
+@require_role(*_RECORD_ROLES)
+def delete_employment_event(event_id):
+    """Remove a mistaken entry. The history is append-only, so a correction is a
+    delete of the wrong row, not an edit of it."""
+    event = EmploymentEvent.query.get(event_id)
+    if not event:
+        return jsonify({"error": "Employment event not found"}), 404
+
+    uid, uname = get_request_user_id(), get_request_user_name()
+    log_action(
+        "employment.event_removed", "employee", event.employee_id,
+        None, {"eventId": event_id, "type": event.event_type},
+        user_id=uid, user_name=uname,
+    )
+    db.session.delete(event)
+    db.session.commit()
+    return jsonify({"message": "Employment event deleted"})

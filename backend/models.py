@@ -168,6 +168,54 @@ class Employee(db.Model):
         return data
 
 
+class EmploymentEvent(db.Model):
+    """One entry in an employee's employment history — a hire, a position or
+    status change, a termination, a rehire, or a free-form note.
+
+    Append-only by design: the Employee row holds the *current* position and
+    status (hire_date, role, status); this table is the record of how it got
+    there, so an edit would rewrite history. Corrections are a delete of the
+    wrong entry, not an in-place change.
+    """
+    __tablename__ = "employment_event"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False, index=True)
+
+    # hired | position_change | status_change | pay_change | terminated | rehired | note
+    event_type = db.Column(db.String(30), nullable=False)
+    effective_date = db.Column(db.String(20), nullable=False, index=True)  # YYYY-MM-DD
+
+    # The employment facts as of this event. All optional — a "note" event may
+    # carry none of them, a "hired" event usually carries all three.
+    title = db.Column(db.String(120))                # position / job title
+    employment_type = db.Column(db.String(30))       # full_time | part_time | per_diem | contract
+    status = db.Column(db.String(30))                # active | on_leave | inactive | terminated
+
+    note = db.Column(db.Text)
+
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    created_by_name = db.Column(db.String(150))
+    created_at = db.Column(db.String(50))
+
+    employee = db.relationship("Employee", foreign_keys=[employee_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "employeeId": self.employee_id,
+            "eventType": self.event_type,
+            "effectiveDate": self.effective_date or "",
+            "title": self.title or "",
+            "employmentType": self.employment_type or "",
+            "status": self.status or "",
+            "note": self.note or "",
+            "createdBy": self.created_by,
+            "createdByName": self.created_by_name or "",
+            "createdAt": self.created_at,
+        }
+
+
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 

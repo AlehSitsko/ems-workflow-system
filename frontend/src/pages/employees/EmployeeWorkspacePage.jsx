@@ -10,6 +10,7 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import { EmployeeAvatar } from "../../components/taxonomy/TaxonomyBadges";
 import DocumentsTab from "../../components/DocumentsTab";
 import TimePayTab from "../../components/TimePayTab";
+import EmployeeEmploymentTab from "../../components/employees/EmployeeEmploymentTab";
 import { useUserSettings } from "../../context/useUserSettings";
 import EmployeeLeaveTab from "../../components/employees/EmployeeLeaveTab";
 import {
@@ -140,6 +141,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
 
   const tabs = [
     { key: "overview", label: "Overview" },
+    { key: "employment", label: "Employment" },
     { key: "qualifications", label: "Qualifications" },
     { key: "documents", label: "Documents" },
     { key: "timepay", label: "Time & Pay" },
@@ -269,6 +271,10 @@ export default function EmployeeWorkspacePage({ currentUser }) {
           </div>
         </PageSection>
       );
+    }
+
+    if (activeTab === "employment") {
+      return <EmployeeEmploymentTab employeeId={employee.id} currentUser={currentUser} />;
     }
 
     if (activeTab === "documents") {

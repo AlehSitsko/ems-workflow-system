@@ -277,10 +277,15 @@ The day-before ring-round that checks tomorrow's trips are still on.
 The two-level navigation, the Calls & Scheduling / Fleet & Crews / Employees hubs
 and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 
-- [ ] **Employee profile — Employment tab.** The workspace covers Overview,
-  Qualifications, Documents, Time & Pay, Tasks, Schedule, Activity and Leave.
-  A dedicated Employment tab (hire/termination history, position changes) needs
-  an HR module that does not exist yet; the fields live under Overview for now
+- [x] **Employee profile — Employment tab.** An append-only employment timeline
+  per employee — hires, position/status/pay changes, terminations, rehires and
+  notes, each with an effective date and recorder attribution. The Employee row
+  still holds the *current* position/status; this records how it got there, so a
+  correction is a delete, not an edit. `EmploymentEvent` model + migration
+  `c4d9f2a17b60`; `GET/POST /api/employees/<id>/employment` +
+  `DELETE /employment/<id>` (admin/supervisor/HR, audited). `EmployeeEmploymentTab`
+  slots in after Overview. `test_employment.py` (13) + `EmployeeEmploymentTab.test.jsx`
+  (5). Verified end to end on the running app (create, newest-first order, delete)
 - [ ] **Employee profile — Warnings/disciplinary tab.** No such module exists.
   Not stubbed: an empty tab implies a feature that isn't there
 - [x] **Reports / Analytics section.** Operational reports over a date range —
