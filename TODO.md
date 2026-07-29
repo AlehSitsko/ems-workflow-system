@@ -435,6 +435,14 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 
 ## Portfolio polish (P3-ish, independent)
 
-- [ ] Screenshots + a short workflow GIF in README
-- [ ] Seeded demo dataset for screenshots/walkthroughs
+- [x] **Seeded demo dataset for screenshots/walkthroughs** — `flask --app app
+  seed-demo-data` builds a coherent world (`backend/demo_data.py`): 8 crew, 6
+  patients, 4 vehicles, today's 3 crewed units, ~51 calls across the last week +
+  today + upcoming (completed with lifecycle times, some assigned, some undated),
+  4 tasks and a recurring huddle — all dated relative to today so it always reads
+  current. Guarded against double-seeding; refuses a non-empty DB without
+  `--force`. `test_demo_data.py` (3). Verified live: Dashboard, Dispatch Board and
+  Reports all render cleanly on the seeded data
+- [ ] Screenshots + a short workflow GIF in README (seed with `seed-demo-data`
+  first; flagship screens listed in the README "Screenshots" section)
 - [x] Architecture diagram — two mermaid diagrams in the README (system layers + the auth/request flow), rendered and verified under mermaid 11 (GitHub's engine)

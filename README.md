@@ -126,7 +126,24 @@ guards in `App.jsx` and the API's own role checks are the boundary — see
 
 ## Screenshots
 
-*(placeholder — screenshots and a workflow GIF are tracked in [docs/ROADMAP.md](docs/ROADMAP.md), Priority 5)*
+The repo ships a one-command demo dataset so the app looks populated and current
+the moment you open it — recognisable crews and patients, a week of completed and
+cancelled trips, today's board fully crewed, a few expiring certifications, and a
+recurring staff meeting, all dated relative to *today*:
+
+```powershell
+flask --app app seed-demo-data   # local/demo only; see "Demo Users / Demo Mode"
+```
+
+Flagship screens to capture from the seeded demo:
+
+- **Dashboard** — role-aware "needs attention" + today's operational snapshot
+- **Dispatch Board** — crewed units, open vs assigned calls, Planning/Live/History
+- **Calendar** — aggregated calls, shifts, birthdays, certifications and manual events
+- **Reports** — call volume, completion/cancellation rates and a per-day chart
+- **Compliance** — certifications across the roster, colour-coded by expiry
+
+*(Static images and a short workflow GIF are still tracked in [docs/ROADMAP.md](docs/ROADMAP.md), Priority 5.)*
 
 ## Tech Stack
 
@@ -211,6 +228,7 @@ python -m venv venv
 pip install -r requirements.txt
 flask --app app db upgrade    # build the schema (Flask auto-detects the create_app factory)
 flask --app app seed-demo     # create demo users (idempotent; local/demo only)
+flask --app app seed-demo-data # optional: a full operational demo dataset for screenshots
 python app.py                 # dev server on http://127.0.0.1:5050
 ```
 
@@ -234,10 +252,10 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-# Backend — 206 isolated pytest tests (in-memory SQLite, no server needed)
+# Backend — 689 isolated pytest tests (in-memory SQLite, no server needed)
 cd backend; pytest -v
 
-# Frontend — 127 Vitest tests (utilities + component tests)
+# Frontend — 387 Vitest tests (utilities + component tests)
 cd frontend; npm test
 
 # Live QA (optional) — needs the backend running; use a DISPOSABLE database
@@ -262,6 +280,12 @@ skipped). **Not** seeded on normal startup. For local/demo use only:
 | supervisor | supervisor | supervisor |
 | dispatcher | dispatcher | dispatcher |
 | hr | hr | hr |
+
+For a populated app (employees, patients, fleet, today's crews, a week of calls,
+tasks and a recurring event), run `flask --app app seed-demo-data`. It ensures the
+demo users exist, then builds the dataset — and refuses to run on a database that
+already has records (pass `--force` to override). Local/demo only; never in
+production.
 
 ## Project Structure
 
