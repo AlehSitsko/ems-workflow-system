@@ -443,6 +443,11 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   current. Guarded against double-seeding; refuses a non-empty DB without
   `--force`. `test_demo_data.py` (3). Verified live: Dashboard, Dispatch Board and
   Reports all render cleanly on the seeded data
-- [ ] Screenshots + a short workflow GIF in README (seed with `seed-demo-data`
-  first; flagship screens listed in the README "Screenshots" section)
+- [x] **Screenshots in README** — five flagship screens (Dashboard, Dispatch
+  Board, Reports, Calendar, Compliance) captured from the seeded demo and embedded
+  in the README. Reproducible: `frontend/scripts/capture-screenshots.mjs`
+  (Playwright) logs in and shoots each route; `npm run screenshots`. Images in
+  `docs/screenshots/`.
+- [ ] A short workflow GIF in README (the still images are done; a recorded GIF
+  of a dispatch flow is still open)
 - [x] Architecture diagram — two mermaid diagrams in the README (system layers + the auth/request flow), rendered and verified under mermaid 11 (GitHub's engine)
