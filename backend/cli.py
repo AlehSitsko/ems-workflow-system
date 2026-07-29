@@ -243,9 +243,43 @@ def link_crew_units_to_vehicles_command(apply_changes):
                    f"{total_unresolved} unresolved. Re-run with --apply to write.")
 
 
+@click.command("seed-demo-data")
+@click.option("--force", is_flag=True, help="Seed even if operational rows already exist.")
+@with_appcontext
+def seed_demo_data_command(force):
+    """Seed a coherent operational demo dataset (employees, patients, fleet,
+    today's crews, calls, tasks). For local/demo and screenshots only.
+
+    Ensures the demo users exist first, then builds the dataset. Refuses to run on
+    a database that already has records unless --force, so it never doubles up or
+    pollutes real data.
+    """
+    from demo_data import build_demo_dataset, has_demo_data
+
+    for user_data in DEMO_USERS:
+        if not User.query.filter_by(username=user_data["username"]).first():
+            db.session.add(User(
+                username=user_data["username"],
+                password_hash=generate_password_hash(user_data["password"]),
+                display_name=user_data["display_name"],
+                role=user_data["role"], is_active=True,
+            ))
+    db.session.commit()
+
+    if has_demo_data() and not force:
+        click.echo("seed-demo-data: operational data already present — nothing to do "
+                   "(use --force to seed anyway).")
+        return
+
+    summary = build_demo_dataset()
+    parts = ", ".join(f"{k}={v}" for k, v in summary.items())
+    click.echo(f"seed-demo-data: created {parts}")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
+    app.cli.add_command(seed_demo_data_command)
     app.cli.add_command(normalize_taxonomy_command)
     app.cli.add_command(migrate_emergency_service_level_command)
     app.cli.add_command(link_crew_units_to_vehicles_command)
