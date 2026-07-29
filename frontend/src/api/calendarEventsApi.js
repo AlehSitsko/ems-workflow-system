@@ -8,6 +8,16 @@ async function handle(res, fallback) {
   return data;
 }
 
+/**
+ * Browser URL for the .ics export of the caller's visible events in [start, end].
+ * A plain GET the browser downloads (Content-Disposition), so a link carries the
+ * session cookie without going through fetch.
+ */
+export function calendarIcsExportUrl(start, end) {
+  const params = new URLSearchParams({ start, end });
+  return `${BASE}/export.ics?${params}`;
+}
+
 /** Manually created calendar events the caller may see, in [start, end]. */
 export async function getCalendarManualEvents(start, end) {
   const params = new URLSearchParams({ start, end });

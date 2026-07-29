@@ -6,9 +6,9 @@ aggregator reuses `visible_events_filter` so a manual event shows up alongside
 calls and shifts, filtered by exactly the same rule enforced here.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 
 from models import db, CalendarEvent
 from utils.auth_utils import (
@@ -196,3 +196,102 @@ def delete_event(event_id):
     db.session.delete(event)
     db.session.commit()
     return jsonify({"message": "Event deleted"})
+
+
+# ── ICS export ───────────────────────────────────────────────────────────────
+#
+# The same events the calendar shows, as an .ics file the user can import into
+# Google Calendar or Outlook. Read-only and one-way: an export is a snapshot, not
+# a live subscription, so nothing here changes when the source event does.
+
+def _ics_escape(text):
+    """Escape a value for an iCalendar TEXT field (RFC 5545 §3.3.11)."""
+    return (
+        (text or "")
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\r\n", "\\n")
+        .replace("\n", "\\n")
+    )
+
+
+def _ics_fold(line):
+    """Fold a content line to ≤75 octets with CRLF + space continuations."""
+    encoded = line.encode("utf-8")
+    if len(encoded) <= 75:
+        return line
+    chunks, start = [], 0
+    # 75 octets on the first line, 74 on continuations (the leading space counts).
+    limit = 75
+    while start < len(encoded):
+        chunk = encoded[start:start + limit]
+        chunks.append(chunk.decode("utf-8", "ignore"))
+        start += limit
+        limit = 74
+    return "\r\n ".join(chunks)
+
+
+def _event_to_vevent(event, dtstamp):
+    lines = [
+        "BEGIN:VEVENT",
+        f"UID:calendar-event-{event.id}@ems-workflow-system",
+        f"DTSTAMP:{dtstamp}",
+    ]
+    compact = event.event_date.replace("-", "")
+    if event.all_day or not event.start_time:
+        # DTEND is exclusive for an all-day event: the day after.
+        end_day = (datetime.strptime(event.event_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y%m%d")
+        lines.append(f"DTSTART;VALUE=DATE:{compact}")
+        lines.append(f"DTEND;VALUE=DATE:{end_day}")
+    else:
+        # Floating local time — the app does not track a zone per event.
+        lines.append(f"DTSTART:{compact}T{event.start_time.replace(':', '')}00")
+        if event.end_time:
+            lines.append(f"DTEND:{compact}T{event.end_time.replace(':', '')}00")
+    lines.append(f"SUMMARY:{_ics_escape(event.title)}")
+    if event.description:
+        lines.append(f"DESCRIPTION:{_ics_escape(event.description)}")
+    if event.category:
+        lines.append(f"CATEGORIES:{_ics_escape(event.category.upper())}")
+    lines.append("END:VEVENT")
+    return [_ics_fold(l) for l in lines]
+
+
+@calendar_event_bp.route("/export.ics", methods=["GET"])
+@require_role(*ALL_ROLES)
+def export_ics():
+    """The caller's visible events in [start, end] as an iCalendar file."""
+    start = request.args.get("start", "")
+    end = request.args.get("end", "")
+    if not is_valid_date(start) or not is_valid_date(end):
+        return jsonify({"error": "start and end must be valid YYYY-MM-DD dates"}), 400
+    if end < start:
+        return jsonify({"error": "end must not be before start"}), 400
+
+    uid, role = get_request_user_id(), get_request_role()
+    events = (
+        CalendarEvent.query
+        .filter(CalendarEvent.event_date >= start, CalendarEvent.event_date <= end,
+                visible_events_filter(uid, role))
+        .order_by(CalendarEvent.event_date.asc(), CalendarEvent.start_time.asc())
+        .all()
+    )
+
+    dtstamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//EMS Workflow System//Calendar//EN",
+        "CALSCALE:GREGORIAN",
+    ]
+    for event in events:
+        lines.extend(_event_to_vevent(event, dtstamp))
+    lines.append("END:VCALENDAR")
+
+    body = "\r\n".join(lines) + "\r\n"
+    return Response(
+        body,
+        mimetype="text/calendar",
+        headers={"Content-Disposition": f"attachment; filename=ems-calendar_{start}_{end}.ics"},
+    )
