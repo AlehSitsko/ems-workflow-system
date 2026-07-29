@@ -22,7 +22,7 @@ import CalendarAgendaView from "../components/calendar/CalendarAgendaView";
 import CalendarSidebar from "../components/calendar/CalendarSidebar";
 import DayOperationsDrawer from "../components/calendar/DayOperationsDrawer";
 import NewCalendarEventModal from "../components/calendar/NewCalendarEventModal";
-import { deleteCalendarEvent } from "../api/calendarEventsApi";
+import { deleteCalendarEvent, calendarIcsExportUrl } from "../api/calendarEventsApi";
 import { useToast } from "../components/ui/useToast";
 import { useConfirm } from "../components/ui/useConfirm";
 
@@ -243,6 +243,13 @@ const CalendarPage = ({ currentUser }) => {
               >
                 + New event
               </button>
+              <a
+                className="btn btn-sm btn-outline-secondary ms-2"
+                href={calendarIcsExportUrl(rangeStart, rangeEnd)}
+                title="Download the events in view as an .ics calendar file"
+              >
+                Export .ics
+              </a>
             </div>
           </div>
 

@@ -158,8 +158,16 @@ be implemented before the current Calendar slice is complete:
   `NewCalendarEventModal.test.jsx` (6), `DayOperationsDrawer.test.jsx` manage
   cases (3). Verified end to end (create → edit → delete on the running app)
 - [ ] Participants, reminders, notification integration, saved views
-- [ ] Recurrence, ICS export, external (Google/Outlook) sync — much later; must
-  not export patient data without a separate privacy/security policy
+- [x] **ICS export** — the caller's visible manual events in a range as an
+  RFC 5545 `.ics` file (`GET /api/calendar-events/export.ics`), for import into
+  Google/Outlook. One-way snapshot, same visibility rule as the calendar, and
+  **manual events only** — no calls, shifts or patient data cross the boundary.
+  All-day → `VALUE=DATE` with an exclusive end; timed → floating datetimes; text
+  escaped per spec. "Export .ics" button on the calendar (current view's range).
+  `test_calendar_ics.py` (8), `calendarEventsApi.test.js` (1). Verified end to end
+  on the running app
+- [ ] Recurrence + external (Google/Outlook) two-way sync — much later; must not
+  export patient data without a separate privacy/security policy
 - [ ] Route optimization — separate future research only
 
 ## P1b — Entity Workspace migration (in progress)
