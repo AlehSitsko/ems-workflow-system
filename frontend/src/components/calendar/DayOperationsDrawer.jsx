@@ -232,6 +232,9 @@ const DayOperationsDrawer = ({
                     {e.severity !== "normal" && (
                       <span className={`calendar-tag ${e.severity === "critical" ? "crit" : "warn"}`}>{e.severity}</span>
                     )}
+                    {e.metadata?.isRecurring && (
+                      <span className="calendar-tag" title={`Repeats ${e.metadata.recurrence}`}>↻ {e.metadata.recurrence}</span>
+                    )}
                     <span className="calendar-tag">{meta.label}</span>
                     {canManageEvent(e) && (
                       <>

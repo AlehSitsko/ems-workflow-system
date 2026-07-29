@@ -36,6 +36,36 @@ describe("NewCalendarEventModal", () => {
     expect(screen.getByText(/Only admins and supervisors can share/i)).toBeInTheDocument();
   });
 
+  it("creates a weekly recurring event with an until date", async () => {
+    setup({ role: "admin" });
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Weekly sync" } });
+    fireEvent.change(screen.getByLabelText("Repeats"), { target: { value: "weekly" } });
+    // The 'Until' field only appears once it repeats.
+    fireEvent.change(screen.getByLabelText(/Until/), { target: { value: "2026-09-30" } });
+    fireEvent.click(screen.getByRole("button", { name: /create event/i }));
+
+    await waitFor(() => expect(api.createCalendarEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ recurrence: "weekly", recurrenceUntil: "2026-09-30" }),
+    ));
+  });
+
+  it("hides the until field until an event repeats", () => {
+    setup({ role: "admin" });
+    expect(screen.queryByLabelText(/Until/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Repeats"), { target: { value: "monthly" } });
+    expect(screen.getByLabelText(/Until/)).toBeInTheDocument();
+  });
+
+  it("prefills recurrence when editing a repeating event", () => {
+    const event = {
+      id: "calendar_event:5:2026-08-03", sourceId: 5, title: "Standup", date: "2026-08-03",
+      allDay: true, metadata: { recurrence: "weekly", recurrenceUntil: "2026-09-30", visibility: "company" },
+    };
+    setup({ role: "admin" }, { event });
+    expect(screen.getByLabelText("Repeats")).toHaveValue("weekly");
+    expect(screen.getByLabelText(/Until/)).toHaveValue("2026-09-30");
+  });
+
   it("offers role and company to a supervisor", () => {
     setup({ role: "supervisor" });
     const options = Array.from(screen.getByLabelText("Visibility").querySelectorAll("option")).map((o) => o.value);

@@ -22,6 +22,7 @@ const emptyForm = (defaultDate) => ({
   title: "", eventDate: defaultDate || "", allDay: true,
   startTime: "", endTime: "", category: "", description: "",
   visibility: "personal", visibleToRole: "dispatcher",
+  recurrence: "none", recurrenceUntil: "",
 });
 
 // Map an aggregator event (calendar_event) back into the editable form shape.
@@ -35,6 +36,8 @@ const formFromEvent = (event) => ({
   description: event.metadata?.description || "",
   visibility: event.metadata?.visibility || "personal",
   visibleToRole: event.metadata?.visibleToRole || "dispatcher",
+  recurrence: event.metadata?.recurrence || "none",
+  recurrenceUntil: event.metadata?.recurrenceUntil || "",
 });
 
 export default function NewCalendarEventModal({ open, onClose, onCreated, currentUser, defaultDate, event }) {
@@ -72,6 +75,8 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
       description: form.description.trim(),
       visibility: form.visibility,
       visibleToRole: form.visibility === "role" ? form.visibleToRole : "",
+      recurrence: form.recurrence,
+      recurrenceUntil: form.recurrence === "none" ? "" : form.recurrenceUntil,
     };
     try {
       if (isEdit) await updateCalendarEvent(event.sourceId, payload);
@@ -166,6 +171,29 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
             </select>
           </div>
         )}
+
+        <div className="row g-2">
+          <div className="col-md-6">
+            <label className="form-label fw-semibold" htmlFor="ce-recurrence">Repeats</label>
+            <select id="ce-recurrence" className="form-select" value={form.recurrence}
+                    onChange={(e) => set({ recurrence: e.target.value })} disabled={busy}>
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          {form.recurrence !== "none" && (
+            <div className="col-md-6">
+              <label className="form-label fw-semibold" htmlFor="ce-until">
+                Until <span className="text-secondary fw-normal">(optional)</span>
+              </label>
+              <input id="ce-until" type="date" className="form-control"
+                     value={form.recurrenceUntil} min={form.eventDate}
+                     onChange={(e) => set({ recurrenceUntil: e.target.value })} disabled={busy} />
+            </div>
+          )}
+        </div>
 
         <div>
           <label className="form-label fw-semibold" htmlFor="ce-desc">Details <span className="text-secondary fw-normal">(optional)</span></label>

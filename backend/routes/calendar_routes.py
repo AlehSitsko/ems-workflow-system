@@ -751,38 +751,60 @@ def get_calendar_events():
     # event that was not meant for them.
     from models import CalendarEvent
     from routes.calendar_event_routes import visible_events_filter
+    from utils.event_recurrence import occurrences_in
 
+    # A recurring event whose base date is before the window can still occur in
+    # it, so recurring rows are kept as long as the series is not entirely before
+    # the window; non-recurring rows still need their single date inside it.
     manual_events = (
         CalendarEvent.query
-        .filter(CalendarEvent.event_date >= start_str, CalendarEvent.event_date <= end_str,
-                visible_events_filter(actor_uid, role))
+        .filter(
+            CalendarEvent.event_date <= end_str,
+            db.or_(
+                db.and_(CalendarEvent.recurrence == "none", CalendarEvent.event_date >= start_str),
+                db.and_(
+                    CalendarEvent.recurrence != "none",
+                    db.or_(CalendarEvent.recurrence_until.is_(None),
+                           CalendarEvent.recurrence_until == "",
+                           CalendarEvent.recurrence_until >= start_str),
+                ),
+            ),
+            visible_events_filter(actor_uid, role),
+        )
         .all()
     )
     for ev in manual_events:
-        _add_overlay({
-            "id": f"calendar_event:{ev.id}",
-            "type": "calendar_event",
-            "title": ev.title,
-            "date": ev.event_date,
-            "start": None if ev.all_day else (f"{ev.event_date}T{ev.start_time}:00" if ev.start_time else None),
-            "end": None if ev.all_day else (f"{ev.event_date}T{ev.end_time}:00" if ev.end_time else None),
-            "allDay": bool(ev.all_day),
-            "status": ev.category or "event",
-            "severity": "normal",
-            "source": "calendar_event", "sourceId": ev.id,
-            "assignedUnitId": None, "assignedUnitNumber": None,
-            "link": None,
-            "metadata": {
-                "category": ev.category or "",
-                "visibility": ev.visibility,
-                "visibleToRole": ev.visible_to_role or "",
-                "ownerName": ev.owner_name or "",
-                "ownerUserId": ev.owner_user_id,
-                "description": ev.description or "",
-                "startTime": ev.start_time or "",
-                "endTime": ev.end_time or "",
-            },
-        })
+        recurring = bool(ev.recurrence and ev.recurrence != "none")
+        # One entry per day the event lands on in this window. Editing or deleting
+        # any of them targets the same row (sourceId), so the whole series moves.
+        for occ in occurrences_in(ev.event_date, ev.recurrence, ev.recurrence_until, start, end):
+            _add_overlay({
+                "id": f"calendar_event:{ev.id}:{occ}",
+                "type": "calendar_event",
+                "title": ev.title,
+                "date": occ,
+                "start": None if ev.all_day else (f"{occ}T{ev.start_time}:00" if ev.start_time else None),
+                "end": None if ev.all_day else (f"{occ}T{ev.end_time}:00" if ev.end_time else None),
+                "allDay": bool(ev.all_day),
+                "status": ev.category or "event",
+                "severity": "normal",
+                "source": "calendar_event", "sourceId": ev.id,
+                "assignedUnitId": None, "assignedUnitNumber": None,
+                "link": None,
+                "metadata": {
+                    "category": ev.category or "",
+                    "visibility": ev.visibility,
+                    "visibleToRole": ev.visible_to_role or "",
+                    "ownerName": ev.owner_name or "",
+                    "ownerUserId": ev.owner_user_id,
+                    "description": ev.description or "",
+                    "startTime": ev.start_time or "",
+                    "endTime": ev.end_time or "",
+                    "recurrence": ev.recurrence or "none",
+                    "recurrenceUntil": ev.recurrence_until or "",
+                    "isRecurring": recurring,
+                },
+            })
 
     # Vehicle compliance / maintenance dates — operational roles only (not HR).
     if role in _OPERATIONAL_ROLES:
