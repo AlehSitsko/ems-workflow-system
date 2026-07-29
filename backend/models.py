@@ -1812,6 +1812,13 @@ class CalendarEvent(db.Model):
     visibility = db.Column(db.String(20), nullable=False, default="personal")
     visible_to_role = db.Column(db.String(30))  # set only when visibility == "role"
 
+    # Recurrence: none | daily | weekly | monthly. The event is one row; the
+    # calendar expands it into occurrences within the window it is rendering, and
+    # editing or deleting the row changes the whole series (no per-occurrence
+    # edits). recurrence_until (inclusive, optional) caps an otherwise open series.
+    recurrence = db.Column(db.String(20), nullable=False, default="none")
+    recurrence_until = db.Column(db.String(20))  # YYYY-MM-DD, optional
+
     owner_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     owner_name = db.Column(db.String(150))
 
@@ -1832,6 +1839,8 @@ class CalendarEvent(db.Model):
             "category": self.category or "",
             "visibility": self.visibility,
             "visibleToRole": self.visible_to_role or "",
+            "recurrence": self.recurrence or "none",
+            "recurrenceUntil": self.recurrence_until or "",
             "ownerUserId": self.owner_user_id,
             "ownerName": self.owner_name or "",
             "createdAt": self.created_at or "",

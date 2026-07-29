@@ -16,6 +16,7 @@ from utils.auth_utils import (
     ALL_ROLES,
 )
 from utils.validation_utils import is_valid_date, check_length
+from utils.event_recurrence import VALID_RECURRENCES
 
 
 calendar_event_bp = Blueprint("calendar_event", __name__, url_prefix="/api/calendar-events")
@@ -99,6 +100,25 @@ def _parse_body(data, role):
         else:
             # personal/company never carry a role target.
             out["visible_to_role"] = None
+
+    if "recurrence" in data:
+        recurrence = (data.get("recurrence") or "none").strip() or "none"
+        if recurrence not in VALID_RECURRENCES:
+            raise ValueError("recurrence must be none, daily, weekly or monthly")
+        out["recurrence"] = recurrence
+        if recurrence == "none":
+            # A one-off carries no end-of-series date.
+            out["recurrence_until"] = None
+
+    if "recurrenceUntil" in data:
+        until = (data.get("recurrenceUntil") or "").strip()
+        if until and not is_valid_date(until):
+            raise ValueError("recurrenceUntil must be a real YYYY-MM-DD date")
+        # A non-recurring event never keeps an until date, whatever was sent.
+        if out.get("recurrence", data.get("recurrence")) == "none":
+            out["recurrence_until"] = None
+        else:
+            out["recurrence_until"] = until or None
 
     return out
 
@@ -249,6 +269,18 @@ def _event_to_vevent(event, dtstamp):
         lines.append(f"DTSTART:{compact}T{event.start_time.replace(':', '')}00")
         if event.end_time:
             lines.append(f"DTEND:{compact}T{event.end_time.replace(':', '')}00")
+
+    # A recurring event is exported as a rule, not expanded — that is what lets a
+    # calendar app keep it as one repeating entry the user can later edit.
+    if event.recurrence and event.recurrence != "none":
+        freq = {"daily": "DAILY", "weekly": "WEEKLY", "monthly": "MONTHLY"}[event.recurrence]
+        rule = f"RRULE:FREQ={freq}"
+        if event.recurrence_until:
+            until = event.recurrence_until.replace("-", "")
+            # UNTIL matches DTSTART's value type: DATE for all-day, UTC DATE-TIME otherwise.
+            rule += f";UNTIL={until}" if (event.all_day or not event.start_time) else f";UNTIL={until}T235959Z"
+        lines.append(rule)
+
     lines.append(f"SUMMARY:{_ics_escape(event.title)}")
     if event.description:
         lines.append(f"DESCRIPTION:{_ics_escape(event.description)}")

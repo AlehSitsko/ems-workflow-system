@@ -166,8 +166,18 @@ be implemented before the current Calendar slice is complete:
   escaped per spec. "Export .ics" button on the calendar (current view's range).
   `test_calendar_ics.py` (8), `calendarEventsApi.test.js` (1). Verified end to end
   on the running app
-- [ ] Recurrence + external (Google/Outlook) two-way sync — much later; must not
-  export patient data without a separate privacy/security policy
+- [x] **Recurrence** — manual events repeat daily / weekly / monthly with an
+  optional until-date. The event stays one row; the calendar aggregator expands
+  it into occurrences within the window it renders (`utils/event_recurrence.py`),
+  and editing or deleting the row moves the whole series — no per-occurrence
+  edits. Weekly keeps the weekday; monthly keeps the day-of-month, clamped to a
+  short month without drifting. ICS exports a recurring event as an `RRULE`, not
+  expanded, so a calendar app keeps it as one repeating entry. Recurrence picker
+  in the event drawer; a ↻ indicator on recurring days. `test_event_recurrence.py`
+  (11), `test_calendar_recurrence.py` (10), modal tests (3). Verified end to end
+  on the running app (weekly event expanded across the month, RRULE in the .ics)
+- [ ] External (Google/Outlook) two-way sync — much later; must not export
+  patient data without a separate privacy/security policy
 - [ ] Route optimization — separate future research only
 
 ## P1b — Entity Workspace migration (in progress)
