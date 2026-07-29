@@ -135,15 +135,35 @@ recurring staff meeting, all dated relative to *today*:
 flask --app app seed-demo-data   # local/demo only; see "Demo Users / Demo Mode"
 ```
 
-Flagship screens to capture from the seeded demo:
+### Dashboard
+Role-aware "needs attention" plus today's operational snapshot.
 
-- **Dashboard** — role-aware "needs attention" + today's operational snapshot
-- **Dispatch Board** — crewed units, open vs assigned calls, Planning/Live/History
-- **Calendar** — aggregated calls, shifts, birthdays, certifications and manual events
-- **Reports** — call volume, completion/cancellation rates and a per-day chart
-- **Compliance** — certifications across the roster, colour-coded by expiry
+![Dashboard](docs/screenshots/dashboard.png)
 
-*(Static images and a short workflow GIF are still tracked in [docs/ROADMAP.md](docs/ROADMAP.md), Priority 5.)*
+### Dispatch Board
+Crewed units, open vs assigned calls, and Planning / Live / History date modes.
+
+![Dispatch Board](docs/screenshots/dispatch-board.png)
+
+### Reports
+Call volume, completion / cancellation rates, a per-day chart and CSV export.
+
+![Reports](docs/screenshots/reports.png)
+
+### Calendar
+Aggregated calls, crew shifts, birthdays, certifications and manual events.
+
+![Calendar](docs/screenshots/calendar.png)
+
+### Compliance
+Certifications across the roster, colour-coded by expiry.
+
+![Compliance](docs/screenshots/compliance.png)
+
+> Regenerate these from the seeded demo: run the backend (against a demo DB) and
+> the frontend dev server, then `cd frontend && npm run screenshots`
+> (`scripts/capture-screenshots.mjs`, Playwright — `npx playwright install chromium` once).
+> A short workflow GIF is still tracked in [docs/ROADMAP.md](docs/ROADMAP.md), Priority 5.
 
 ## Tech Stack
 
