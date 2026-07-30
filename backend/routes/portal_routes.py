@@ -260,4 +260,4 @@ def my_document_file(doc_id):
         return jsonify({"error": "Document not found"}), 404
     if not doc.file_path:
         return jsonify({"error": "No file attached to this document"}), 404
-    return get_file_response(doc.file_path)
+    return get_file_response(doc.file_path, download_name=doc.file_name)

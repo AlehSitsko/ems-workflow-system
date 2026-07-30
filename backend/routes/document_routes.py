@@ -180,7 +180,7 @@ def download_document_file(doc_id):
     if not doc.file_path:
         return jsonify({"error": "No file attached to this document"}), 404
 
-    return get_file_response(doc.file_path)
+    return get_file_response(doc.file_path, download_name=doc.file_name)
 
 
 # ── Compliance summary (all employees × doc types) ───────────────────────────

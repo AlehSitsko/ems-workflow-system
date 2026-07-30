@@ -64,6 +64,12 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _secret("DATABASE_URL") or "sqlite:///database.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # Cap the request body so an oversized upload is refused (413) by the framework
+    # before it is buffered, rather than only by the document route's own 10 MB
+    # check after the fact. 16 MB leaves headroom over that limit for multipart
+    # overhead; no other endpoint needs a large body.
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+
     # ── Session authentication ───────────────────────────────────────────────
     # Signs the session cookie. See _dev_secret_key for why there is no
     # committed default.
