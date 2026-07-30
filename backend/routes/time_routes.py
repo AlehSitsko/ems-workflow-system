@@ -2,14 +2,29 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
+from flask_limiter.util import get_remote_address
+
 from models import db, TimeEntry, EmployeePayConfig, Employee
 from audit_utils import log_action
+from limiter import limiter
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
 from utils.time_clock import active_clock_entry, clock_in, clock_out
 
 # Managing time entries is payroll-adjacent: never dispatcher. Kiosk clock-in
 # routes below are separate and stay public (PIN-gated per action).
 _TIME_MGMT_ROLES = ("admin", "supervisor", "hr")
+
+
+def _kiosk_pin_key():
+    """Rate-limit key for the PIN-gated kiosk endpoints: per employee, per IP.
+
+    A 4-digit kiosk PIN has only 10 000 combinations and no session behind it, so
+    without a limit it is brute-forceable. Keying by employee id (not just the IP)
+    caps guesses against one person while leaving a shared wall kiosk free to clock
+    a stream of different employees in and out from the same address.
+    """
+    data = request.get_json(silent=True) or {}
+    return f"{get_remote_address()}:{data.get('employee_id', '?')}"
 
 
 def _audit_user():
@@ -115,6 +130,7 @@ def kiosk_employee_list():
 
 
 @time_bp.route("/kiosk/verify-pin", methods=["POST"])
+@limiter.limit("10 per minute", key_func=_kiosk_pin_key)
 def kiosk_verify_pin():
     data = request.get_json() or {}
     eid = data.get("employee_id")
@@ -139,6 +155,7 @@ def kiosk_status(employee_id):
 
 
 @time_bp.route("/kiosk/clock-in", methods=["POST"])
+@limiter.limit("10 per minute", key_func=_kiosk_pin_key)
 def kiosk_clock_in(employee_id=None):
     data = request.get_json() or {}
     eid = data.get("employee_id")
@@ -158,6 +175,7 @@ def kiosk_clock_in(employee_id=None):
 
 
 @time_bp.route("/kiosk/clock-out", methods=["POST"])
+@limiter.limit("10 per minute", key_func=_kiosk_pin_key)
 def kiosk_clock_out():
     data = request.get_json() or {}
     eid = data.get("employee_id")

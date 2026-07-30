@@ -454,8 +454,11 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   hardened:** document files now download-only + `nosniff` (was inline → stored
   XSS, since the type check trusts the spoofable client Content-Type while the
   file kept its original extension), plus a framework `MAX_CONTENT_LENGTH` (413
-  before buffering). `test_upload_security.py` (3). Still open: the broader manual
-  authz/rate-limit pass and tenant-isolation review
+  before buffering). `test_upload_security.py` (3). **Rate limiting extended:** the
+  PIN-gated kiosk endpoints (4-digit PIN, no session → brute-forceable) are now
+  capped 10/min keyed by employee+IP, so one person's PIN can't be brute-forced
+  while a shared kiosk still serves many employees. `test_rate_limit.py` (2). Still
+  open: manual authz spot-checks across blueprints and tenant-isolation review
 
 - [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
   `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`); no code change — the URI
