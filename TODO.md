@@ -445,7 +445,13 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   process environment. Postgres's own `POSTGRES_PASSWORD_FILE` is supported by its
   image. `test_config.py` (5) pins file-over-env precedence; verified the app boots
   in production mode from a `SECRET_KEY_FILE`. Still open: rotation tooling
-- [ ] Full security review
+- [~] **Security review — dependency audit done.** `pip-audit` + `npm audit`:
+  fixed `postcss` (→8.5.25, build-time path traversal) and `pytest` (→9.0.3,
+  test-only; suite re-verified). Assessed and accepted with rationale (see
+  PRODUCTION_READINESS → Security review): `react-router` (RSC-mode CSRF — not
+  exploitable in a client-only SPA, only a breaking downgrade offered) and
+  `brace-expansion` (no patch published; dev-toolchain only). Still open: the
+  broader manual authz/upload/rate-limit pass and tenant-isolation review
 
 - [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
   `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`); no code change — the URI

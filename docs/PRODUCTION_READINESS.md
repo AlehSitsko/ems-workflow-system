@@ -188,3 +188,11 @@ aggregates, but belongs on an internal network (restrict it at the proxy).
 ## Security review
 
 Once the above are in place, a dedicated pass over the whole application — auth, tenant isolation, file upload handling, rate limiting, dependency audit — before calling any of this production-ready. Not a checkbox to rush through at the end; the actual gate.
+
+**Dependency audit (done):** `pip-audit` on the backend and `npm audit` on the frontend.
+- **Fixed:** `postcss` → 8.5.25 (build-time path-traversal advisory); `pytest` → 9.0.3 (test-only; full suite re-verified green). Backend runtime and prod dependency sets: no known vulnerabilities.
+- **Assessed and accepted, no code change:**
+  - `react-router` — the flagged advisory is an *RSC-mode* CSRF bypass. This app is a client-only SPA (Vite build, `HashRouter`, no React Server Components or router server actions), so it is not exploitable; the only offered "fix" is a breaking downgrade to 7.11.0, which would be a regression for a non-applicable issue.
+  - `brace-expansion` — an OOM/ReDoS advisory with no published patch for any version; reached only through the dev toolchain (ESLint's glob matching over trusted local files), never the app or the shipped bundle.
+
+**Still open:** the broader manual pass (authz spot-checks, upload handling, rate-limit coverage) and a runtime tenant-isolation review once that feature is activated.
