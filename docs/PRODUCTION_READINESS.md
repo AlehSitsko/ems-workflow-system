@@ -101,12 +101,11 @@ documented policy, each after checking no excluded-role flow depended on it:
 
 ## Database
 
-**Current state:** SQLite. Fine for single-user local development and demo use; does not support concurrent writes well — parallel dispatch actions from 2+ simultaneous users can produce lock errors.
+**Development:** SQLite — fast and frictionless for local/demo and the test suite. It does not handle concurrent writes well (parallel dispatch actions from 2+ users can hit lock errors), which is why production uses Postgres.
 
-**Production plan:**
-- Migrate to PostgreSQL — no model changes required, the app already goes through SQLAlchemy's abstraction for every query
-- Update `SQLALCHEMY_DATABASE_URI`, write a one-time data migration script from the SQLite file
-- Alembic migrations already work identically against either backend
+**Production:** PostgreSQL. The prod stack (`docker-compose.prod.yml`) runs a `postgres:16` service and points the backend at it via a `postgresql+psycopg://` `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`). No model or query change was needed — every query already goes through SQLAlchemy, and the same Alembic migrations apply on both backends (verified: all 26 run cleanly on Postgres, and the full stack serves against it). The prod image runs migrations on startup.
+
+**Still open:** a one-time SQLite→Postgres data-copy script, needed only to carry an existing SQLite deployment's data over (a fresh deployment just migrates + seeds).
 
 ## Server
 
@@ -170,7 +169,7 @@ No third-party logging dependency — the JSON formatter is stdlib.
 
 **Still to do:**
 - TLS termination in front of Nginx (the prod stack expects to sit behind it; `SESSION_COOKIE_SECURE=0` is only for local HTTP smoke tests)
-- Pinned base image digests; a Postgres service in place of the SQLite volume
+- Pinned base image digests
 
 ## Security review
 
