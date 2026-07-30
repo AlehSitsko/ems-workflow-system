@@ -164,12 +164,13 @@ No third-party logging dependency — the JSON formatter is stdlib.
 
 ## Deployment
 
-**Current state:** no containerization; `frontend/package.json` has a `deploy` script (`gh-pages -d dist`) but GitHub Pages deployment is currently on hold and not an active priority — it exists from earlier exploration, not as part of the current workflow.
+**Current state:** containerized for both development and production.
+- **Development:** `docker-compose.yml` runs both dev servers (Flask reloader + Vite HMR) with SQLite on a named volume — reproducible local/demo, no reverse proxy or TLS.
+- **Production:** `docker-compose.prod.yml` runs **Gunicorn** (`backend/Dockerfile.prod`, non-root, `wsgi:app`, gthread workers) behind an **unprivileged Nginx** (`frontend/Dockerfile.prod`, multi-stage Node build → static bundle) that serves the SPA and proxies `/api` — so the app and API are one origin and the `SameSite=Lax` session cookie is sent. `EMS_ENV=production` forces a real `SECRET_KEY` and Secure cookies; the frontend resolves its API base to same-origin in a production build. CI builds both prod images and validates the prod compose on every push.
 
-**Production plan:**
-- Dockerfile for backend and frontend
-- `docker-compose.yml` with nginx reverse proxy
-- Environment-based configuration throughout (no hardcoded URLs/secrets)
+**Still to do:**
+- TLS termination in front of Nginx (the prod stack expects to sit behind it; `SESSION_COOKIE_SECURE=0` is only for local HTTP smoke tests)
+- Pinned base image digests; a Postgres service in place of the SQLite volume
 
 ## Security review
 

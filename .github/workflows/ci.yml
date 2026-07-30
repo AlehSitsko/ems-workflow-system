@@ -51,15 +51,21 @@ jobs:
         run: npm run build
 
   docker:
-    name: Docker (build both dev images)
+    name: Docker (build dev + prod images)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Build backend image
+      - name: Build backend dev image
         run: docker build -t ems-backend-dev ./backend
-      - name: Build frontend image
+      - name: Build frontend dev image
         run: docker build -t ems-frontend-dev ./frontend
+      - name: Build backend prod image (Gunicorn, non-root)
+        run: docker build -f backend/Dockerfile.prod -t ems-backend-prod ./backend
+      - name: Build frontend prod image (Nginx, multi-stage)
+        run: docker build -f frontend/Dockerfile.prod -t ems-frontend-prod ./frontend
       # Compose is validated rather than started: bringing the stack up would
       # need a database and a wait loop, which belongs in local use, not CI.
-      - name: Validate compose file
+      - name: Validate dev compose file
         run: docker compose config --quiet
+      - name: Validate prod compose file
+        run: SECRET_KEY=ci-validate docker compose -f docker-compose.prod.yml config --quiet
