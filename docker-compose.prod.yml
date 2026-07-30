@@ -1,10 +1,11 @@
 # Production-style stack: Gunicorn behind an Nginx that serves the built SPA and
-# proxies /api — both as non-root images, source baked in, no bind mounts.
+# proxies /api, on a PostgreSQL database — all non-root images, source baked in,
+# no bind mounts.
 #
 # Intended to run behind a TLS-terminating proxy. To smoke-test locally over
 # plain HTTP, set SESSION_COOKIE_SECURE=0 so the session cookie is actually sent.
 #
-#   SECRET_KEY=$(openssl rand -hex 32) \
+#   SECRET_KEY=$(openssl rand -hex 32) POSTGRES_PASSWORD=$(openssl rand -hex 16) \
 #     docker compose -f docker-compose.prod.yml up --build
 #
 # then open http://localhost:8080. Demo data is never seeded automatically; run
@@ -17,6 +18,22 @@
 name: ems-prod
 
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ems}
+      POSTGRES_USER: ${POSTGRES_USER:-ems}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ems} -d ${POSTGRES_DB:-ems}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -25,11 +42,13 @@ services:
       EMS_ENV: production
       # Required in production — the app refuses to start without a real key.
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -hex 32}
-      DATABASE_URL: sqlite:////app/instance/database.db
+      # PostgreSQL (psycopg 3). The migrations run against it on startup.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ems}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ems}
       # Secure (HTTPS-only) cookies by default; set 0 to smoke-test over HTTP.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-1}
-    volumes:
-      - backend_instance:/app/instance
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5050/api/health')\""]
       interval: 10s
@@ -50,4 +69,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  backend_instance:
+  db_data:

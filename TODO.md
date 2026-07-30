@@ -442,7 +442,15 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [ ] Secrets management
 - [ ] Full security review
 
-- [ ] PostgreSQL migration
+- [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
+  `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`); no code change — the URI
+  already drives `SQLALCHEMY_DATABASE_URI`. `docker-compose.prod.yml` now includes
+  a `postgres:16` service (health-gated) and points the backend at it; the prod
+  image's migrations run against it on startup. Verified end to end: all 26
+  migrations apply on Postgres, seed + ORM read-back work, and a login through the
+  full prod stack (Postgres → Gunicorn → Nginx) succeeds with the data confirmed in
+  Postgres. Dev/CI stay on SQLite. Still open: a SQLite→Postgres data-copy script
+  (only needed to carry an existing SQLite deployment over)
 - [x] **Production Docker images.** `backend/Dockerfile.prod` (Gunicorn via
   `wsgi:app`, non-root user, gthread workers, migrations-then-serve) and
   `frontend/Dockerfile.prod` (multi-stage Node build → unprivileged Nginx serving

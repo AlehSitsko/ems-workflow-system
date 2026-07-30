@@ -1,5 +1,8 @@
-# Production dependencies = the app's runtime deps plus a real WSGI server.
-# Kept separate so the development image and local runs stay lean.
+# Production dependencies = the app's runtime deps plus a real WSGI server and a
+# PostgreSQL driver. Kept separate so development and CI stay on SQLite and lean.
 -r requirements.txt
 
 gunicorn==23.0.0
+
+# PostgreSQL driver (psycopg 3). Use a postgresql+psycopg:// DATABASE_URL.
+psycopg[binary]==3.3.4
