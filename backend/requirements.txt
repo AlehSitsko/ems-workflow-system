@@ -28,6 +28,7 @@ MarkupSafe==3.0.3
 multidict==6.7.1
 ordered-set==4.1.0
 packaging==26.2
+prometheus-client==0.26.0
 propcache==0.5.2
 py-vapid==1.9.4
 pycparser==3.0

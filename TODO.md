@@ -474,7 +474,11 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   --if-exists` so a restore lands on a non-empty DB. Verified the full cycle:
   seed → backup → delete all calls → restore → data back (51/51). Schedule from
   cron/systemd for real use.
-- [ ] Monitoring (metrics/tracing/alerting), log shipping
+- [x] **Metrics.** `GET /metrics` in Prometheus format (`metrics.py`): a request
+  counter and latency histogram labelled by method, Flask endpoint (view name, not
+  the raw path — no id cardinality, no id in a metric) and status; scrape + health
+  excluded. `prometheus-client`. `test_metrics.py` (3); verified live. Still open:
+  distributed tracing, alerting rules, log shipping (deployment concerns)
 
 ---
 
