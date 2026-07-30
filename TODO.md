@@ -370,9 +370,16 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   out of the ops app (`PortalLayout`, no ops sidebar); admins create/link a portal
   login in User management. Demo login `jcarter` / `employee`. `routes/portal_routes.py`,
   `utils/employee_shifts.py` (shared with the HR schedule tab), `pages/portal/`.
-  `test_portal.py` (17) + `PortalPage.test.jsx` (5). Verified end to end on the
-  running app. Still open: My Hours / clock-in from the portal, employee-side
-  document view. Not stubbed beyond v1
+  `test_portal.py` + `PortalPage.test.jsx`. Verified end to end on the running app.
+- [x] **Employee portal — phase 2.** My Hours (recent time entries + total) with
+  session-based clock in / out, and My Documents (own licenses/certs, read-only,
+  download own file only). Clock logic extracted to `utils/time_clock.py` and
+  shared with the PIN kiosk so both open/close a `TimeEntry` the same way; the
+  document file route is scoped to the caller's own docs (another's is a 404).
+  Demo data gives `jcarter` closed shifts + a license. `test_portal.py` (+5),
+  `PortalPage.test.jsx` (+2). Verified end to end (clocked in/out, viewed hours
+  and a document on the running app). Still open: manager approval of portal-filed
+  leave surfaced back to the employee (already flows into HR's Leave Review)
 - [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
 - [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
   expands the sidebar and opens it. A hover/focus flyout would need its own

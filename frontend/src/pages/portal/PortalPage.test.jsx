@@ -29,6 +29,19 @@ beforeEach(() => {
     emt: { hasLicense: false, expirationDate: "" },
     paramedic: { hasLicense: true, expirationDate: "2027-06-01" },
   });
+  api.getMyClock.mockResolvedValue({ clockedIn: false, since: null, entryId: null });
+  api.clockIn.mockResolvedValue({ id: 1 });
+  api.clockOut.mockResolvedValue({ id: 1 });
+  api.getMyHours.mockResolvedValue({
+    entries: [{ id: 1, clock_in: "2026-08-10T08:00:00", clock_out: "2026-08-10T16:00:00",
+                duration_minutes: 480, status: "approved" }],
+    totalMinutes: 480,
+  });
+  api.getMyDocuments.mockResolvedValue([
+    { id: 3, title: "EMT License", doc_type: "ems_license",
+      expiry_date: "2027-01-01", expiry_status: "ok", has_file: true },
+  ]);
+  api.myDocumentFileUrl.mockReturnValue("/api/portal/me/documents/3/file");
 });
 
 describe("PortalPage", () => {
@@ -68,6 +81,23 @@ describe("PortalPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Request" }));
     expect(await screen.findByText(/start date is required/i)).toBeInTheDocument();
     expect(api.requestLeave).not.toHaveBeenCalled();
+  });
+
+  it("lets me clock in from the hours tab", async () => {
+    render(<PortalPage currentUser={user} />);
+    fireEvent.click(screen.getByRole("button", { name: /My Hours/i }));
+    expect(await screen.findByText(/Not clocked in/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Clock in/i }));
+    await waitFor(() => expect(api.clockIn).toHaveBeenCalled());
+  });
+
+  it("shows my documents with a download link", async () => {
+    render(<PortalPage currentUser={user} />);
+    fireEvent.click(screen.getByRole("button", { name: /My Documents/i }));
+    expect(await screen.findByText("EMT License")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /Download/i });
+    expect(link).toHaveAttribute("href", "/api/portal/me/documents/3/file");
   });
 
   it("shows my profile and certifications", async () => {

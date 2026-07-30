@@ -1,20 +1,33 @@
 import { useCallback, useEffect, useState } from "react";
-import { FaCalendarAlt, FaTasks, FaUmbrellaBeach, FaIdBadge } from "react-icons/fa";
+import {
+  FaCalendarAlt, FaTasks, FaUmbrellaBeach, FaIdBadge, FaClock, FaFileAlt, FaDownload,
+} from "react-icons/fa";
 
 import { PageSection } from "../../components/ui/Page";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/ui/States";
 import StatusBadge from "../../components/ui/StatusBadge";
-import { formatDate } from "../../utils/dateDisplay";
+import { formatDate, formatDateTime } from "../../utils/dateDisplay";
 import {
   getMyProfile, getMySchedule, getMyTasks, updateMyTask, getMyLeave, requestLeave,
+  getMyClock, clockIn, clockOut, getMyHours, getMyDocuments, myDocumentFileUrl,
 } from "../../api/portalApi";
 
 const TABS = [
   ["schedule", "My Schedule", FaCalendarAlt],
   ["tasks", "My Tasks", FaTasks],
+  ["hours", "My Hours", FaClock],
   ["leave", "My Leave", FaUmbrellaBeach],
+  ["documents", "My Documents", FaFileAlt],
   ["profile", "My Profile", FaIdBadge],
 ];
+
+/** Minutes → "Xh Ym". */
+const fmtDuration = (min) => {
+  if (min == null) return "—";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+};
 
 const WORKER_STATUSES = ["In Progress", "Waiting", "Done"];
 const LEAVE_TYPES = ["vacation", "sick", "personal", "unpaid", "bereavement", "training", "other"];
@@ -52,7 +65,9 @@ export default function PortalPage({ currentUser }) {
 
       {tab === "schedule" && <ScheduleTab />}
       {tab === "tasks" && <TasksTab />}
+      {tab === "hours" && <HoursTab />}
       {tab === "leave" && <LeaveTab />}
+      {tab === "documents" && <DocumentsTab />}
       {tab === "profile" && <ProfileTab />}
     </div>
   );
@@ -246,6 +261,129 @@ function LeaveTab() {
 }
 
 const CERTS = [["cpr", "CPR"], ["evoc", "EVOC"], ["emt", "EMT"], ["paramedic", "Paramedic"]];
+
+function HoursTab() {
+  const { data, error, reload } = useLoad(getMyHours);
+  const [clock, setClock] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+
+  const loadClock = useCallback(() => {
+    getMyClock().then(setClock).catch(() => setClock({ clockedIn: false }));
+  }, []);
+  useEffect(loadClock, [loadClock]);
+
+  const toggle = async () => {
+    setBusy(true);
+    setActionError("");
+    try {
+      if (clock?.clockedIn) await clockOut();
+      else await clockIn();
+      loadClock();
+      reload();
+    } catch (e) {
+      setActionError(e.message || "Could not update your clock");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <PageSection title="My Hours" description="Clock in and out, and review your recent time.">
+      <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        {clock?.clockedIn
+          ? <StatusBadge tone="success" label={`Clocked in since ${formatDateTime(clock.since)}`} />
+          : <StatusBadge tone="neutral" label="Not clocked in" />}
+        <button
+          type="button"
+          className={`btn btn-sm d-inline-flex align-items-center gap-2 ${clock?.clockedIn ? "btn-outline-danger" : "btn-primary"}`}
+          onClick={toggle}
+          disabled={busy || clock === null}
+        >
+          <FaClock /> {clock?.clockedIn ? "Clock out" : "Clock in"}
+        </button>
+      </div>
+      {actionError && <div className="alert alert-danger py-2">{actionError}</div>}
+
+      {error && <ErrorState message={error} onRetry={reload} />}
+      {!error && data === null && <LoadingSkeleton rows={3} label="Loading your hours" />}
+      {data && (data.entries.length === 0 ? (
+        <EmptyState variant="empty" title="No time recorded yet"
+                    description="Your clock-ins will appear here." />
+      ) : (
+        <>
+          <p className="text-secondary">
+            Total <strong>{fmtDuration(data.totalMinutes)}</strong> across {data.entries.length} entries.
+          </p>
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light">
+                <tr><th>Clock in</th><th>Clock out</th><th>Duration</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {data.entries.map((e) => (
+                  <tr key={e.id}>
+                    <td>{formatDateTime(e.clock_in)}</td>
+                    <td>{e.clock_out ? formatDateTime(e.clock_out) : <em className="text-secondary">in progress</em>}</td>
+                    <td>{fmtDuration(e.duration_minutes)}</td>
+                    <td className="text-capitalize">{e.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ))}
+    </PageSection>
+  );
+}
+
+const DOC_STATUS_TONE = {
+  ok: "success", warning: "warning", critical: "danger", expired: "danger", none: "neutral",
+};
+
+function DocumentsTab() {
+  const { data, error, reload } = useLoad(getMyDocuments);
+
+  return (
+    <PageSection title="My Documents" description="Your licenses, certifications and HR documents.">
+      {error && <ErrorState message={error} onRetry={reload} />}
+      {!error && data === null && <LoadingSkeleton rows={3} label="Loading your documents" />}
+      {data && (data.length === 0 ? (
+        <EmptyState variant="empty" title="No documents on file"
+                    description="Documents your employer uploads will appear here." />
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0">
+            <thead className="table-light">
+              <tr><th>Document</th><th>Expires</th><th>Status</th><th className="text-end">File</th></tr>
+            </thead>
+            <tbody>
+              {data.map((d) => (
+                <tr key={d.id}>
+                  <td>
+                    {d.title}
+                    <div className="small text-secondary text-capitalize">{d.doc_type.replace(/_/g, " ")}</div>
+                  </td>
+                  <td>{d.expiry_date ? formatDate(d.expiry_date) : "—"}</td>
+                  <td><StatusBadge tone={DOC_STATUS_TONE[d.expiry_status] || "neutral"} label={cap(d.expiry_status)} /></td>
+                  <td className="text-end">
+                    {d.has_file && (
+                      <a className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                         href={myDocumentFileUrl(d.id)}>
+                        <FaDownload /> Download
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </PageSection>
+  );
+}
 
 function ProfileTab() {
   const { data, error, reload } = useLoad(getMyProfile);
