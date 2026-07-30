@@ -16,3 +16,6 @@ vapid_private.pem
 dist/
 # Local DB backups taken before data migrations
 backend/instance/database.backup-*.db
+
+# Database dumps produced by scripts/backup-db.sh
+backups/

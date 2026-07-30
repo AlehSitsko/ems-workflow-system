@@ -105,6 +105,8 @@ documented policy, each after checking no excluded-role flow depended on it:
 
 **Production:** PostgreSQL. The prod stack (`docker-compose.prod.yml`) runs a `postgres:16` service and points the backend at it via a `postgresql+psycopg://` `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`). No model or query change was needed — every query already goes through SQLAlchemy, and the same Alembic migrations apply on both backends (verified: all 26 run cleanly on Postgres, and the full stack serves against it). The prod image runs migrations on startup.
 
+**Backups:** `scripts/backup-db.sh` writes a timestamped, gzipped `pg_dump` (`--clean --if-exists`, so it restores onto a non-empty database) and `scripts/restore-db.sh` restores one. Both find the running `db` container by its Compose labels and dump over its local socket, so they need neither the app's secrets nor the DB password. Schedule the backup from cron/systemd for real use; the full cycle (backup → wipe → restore) is verified.
+
 **Still open:** a one-time SQLite→Postgres data-copy script, needed only to carry an existing SQLite deployment's data over (a fresh deployment just migrates + seeds).
 
 ## Server
