@@ -439,7 +439,12 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [x] **Resolved: time-entry management excludes dispatcher** (admin/supervisor/
   hr, matching payroll). Only the Employee Workspace Time & Pay tab reaches them;
   kiosk clock-in stays public. 9 new tests in `test_security.py`.
-- [ ] Secrets management
+- [x] **Secrets management.** `config.py._secret(name)` reads `{NAME}_FILE` (a
+  mounted Docker/Kubernetes secret) before the `{NAME}` env var, so `SECRET_KEY`
+  and the `DATABASE_URL` (which carries the DB password) can stay out of the
+  process environment. Postgres's own `POSTGRES_PASSWORD_FILE` is supported by its
+  image. `test_config.py` (5) pins file-over-env precedence; verified the app boots
+  in production mode from a `SECRET_KEY_FILE`. Still open: rotation tooling
 - [ ] Full security review
 
 - [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
