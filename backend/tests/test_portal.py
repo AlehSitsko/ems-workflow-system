@@ -7,7 +7,10 @@ existing ops/HR surface stays closed to the new role.
 
 import pytest
 
-from models import db, Employee, User, DailyCrewUnit, Task, EmployeeLeaveRequest
+from models import (
+    db, Employee, User, DailyCrewUnit, Task, EmployeeLeaveRequest,
+    TimeEntry, EmployeeDocument,
+)
 from conftest import make_user, login, TEST_PASSWORD
 
 
@@ -177,3 +180,71 @@ def test_creating_a_linked_employee_login_works_and_is_unique(app, clients):
         "role": "employee", "employee_id": emp.id,
     })
     assert dup.status_code == 409
+
+
+# ── Phase 2: clock in/out ────────────────────────────────────────────────────
+
+def test_clock_in_out_cycle(app):
+    c, emp = portal_client(app)
+    assert c.get("/api/portal/me/clock").get_json()["clockedIn"] is False
+
+    assert c.post("/api/portal/me/clock/in").status_code == 201
+    status = c.get("/api/portal/me/clock").get_json()
+    assert status["clockedIn"] is True and status["since"]
+
+    # A second clock-in while already in is refused.
+    assert c.post("/api/portal/me/clock/in").status_code == 409
+
+    assert c.post("/api/portal/me/clock/out").status_code == 200
+    assert c.get("/api/portal/me/clock").get_json()["clockedIn"] is False
+    # Clocking out when not in is refused.
+    assert c.post("/api/portal/me/clock/out").status_code == 409
+
+
+# ── Phase 2: hours ───────────────────────────────────────────────────────────
+
+def test_hours_returns_my_entries_and_total(app):
+    c, emp = portal_client(app)
+    other = mk_employee("Pat", "Nunez")
+    db.session.add(TimeEntry(employee_id=emp.id, clock_in="2026-08-10T08:00:00",
+                             clock_out="2026-08-10T16:00:00", entry_type="clock", status="approved"))
+    db.session.add(TimeEntry(employee_id=other.id, clock_in="2026-08-10T08:00:00",
+                             clock_out="2026-08-10T12:00:00", entry_type="clock", status="approved"))
+    db.session.commit()
+
+    body = c.get("/api/portal/me/hours").get_json()
+    assert len(body["entries"]) == 1              # only mine
+    assert body["totalMinutes"] == 8 * 60          # 8h, no break
+
+
+# ── Phase 2: documents (own, read-only) ──────────────────────────────────────
+
+def mk_document(employee_id, title="EMT License", file_path=None):
+    d = EmployeeDocument(employee_id=employee_id, doc_type="ems_license", title=title,
+                         file_path=file_path, uploaded_at="2026-01-01T00:00:00")
+    db.session.add(d)
+    db.session.commit()
+    return d
+
+
+def test_documents_lists_only_mine(app):
+    c, emp = portal_client(app)
+    other = mk_employee("Ivy", "Cole")
+    mk_document(emp.id, title="Mine")
+    mk_document(other.id, title="Not mine")
+
+    titles = [d["title"] for d in c.get("/api/portal/me/documents").get_json()]
+    assert titles == ["Mine"]
+
+
+def test_cannot_download_another_employees_document(app):
+    c, emp = portal_client(app)
+    other = mk_employee("Nyla", "Bond")
+    doc = mk_document(other.id, file_path="fake/path.pdf")
+    assert c.get(f"/api/portal/me/documents/{doc.id}/file").status_code == 404
+
+
+def test_download_of_a_fileless_document_is_404(app):
+    c, emp = portal_client(app)
+    doc = mk_document(emp.id, file_path=None)
+    assert c.get(f"/api/portal/me/documents/{doc.id}/file").status_code == 404

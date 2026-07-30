@@ -46,3 +46,34 @@ export async function requestLeave(payload) {
   });
   return handle(res, "Failed to submit your request");
 }
+
+// ── Clock in / out ───────────────────────────────────────────────────────────
+
+export async function getMyClock() {
+  return handle(await fetch(`${BASE}/me/clock`, { credentials: "include" }), "Failed to load your clock status");
+}
+
+export async function clockIn() {
+  return handle(await fetch(`${BASE}/me/clock/in`, { method: "POST", credentials: "include" }), "Failed to clock in");
+}
+
+export async function clockOut() {
+  return handle(await fetch(`${BASE}/me/clock/out`, { method: "POST", credentials: "include" }), "Failed to clock out");
+}
+
+// ── Hours ────────────────────────────────────────────────────────────────────
+
+export async function getMyHours() {
+  return handle(await fetch(`${BASE}/me/hours`, { credentials: "include" }), "Failed to load your hours");
+}
+
+// ── Documents ────────────────────────────────────────────────────────────────
+
+export async function getMyDocuments() {
+  return handle(await fetch(`${BASE}/me/documents`, { credentials: "include" }), "Failed to load your documents");
+}
+
+/** Browser URL for downloading one of my own document files (a plain GET). */
+export function myDocumentFileUrl(docId) {
+  return `${BASE}/me/documents/${docId}/file`;
+}

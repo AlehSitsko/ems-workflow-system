@@ -10,11 +10,13 @@ request leave.
 
 from flask import Blueprint, jsonify, request
 
-from models import db, User, Employee, Task, EmployeeLeaveRequest
+from models import db, User, Employee, Task, EmployeeLeaveRequest, TimeEntry, EmployeeDocument
 from utils.auth_utils import (
     require_role, get_request_user_id, get_request_user_name,
 )
 from utils.employee_shifts import employee_shifts
+from utils.time_clock import active_clock_entry, clock_in, clock_out
+from storage import get_file_response
 
 # Reuse the real leave validation and the worker-facing task statuses so the
 # portal cannot drift from the rules the rest of the app enforces.
@@ -160,3 +162,102 @@ def request_leave():
     db.session.add(leave)
     db.session.commit()
     return jsonify(leave.to_dict("scheduling")), 201
+
+
+# ── Clock in / out (session, not the shared PIN kiosk) ───────────────────────
+
+@portal_bp.route("/me/clock", methods=["GET"])
+@require_role("employee")
+def my_clock_status():
+    employee, err = _me()
+    if err:
+        return err
+    active = active_clock_entry(employee.id)
+    return jsonify({
+        "clockedIn": active is not None,
+        "since": active.clock_in if active else None,
+        "entryId": active.id if active else None,
+    })
+
+
+@portal_bp.route("/me/clock/in", methods=["POST"])
+@require_role("employee")
+def my_clock_in():
+    employee, err = _me()
+    if err:
+        return err
+    entry, active = clock_in(employee.id)
+    if active:
+        return jsonify({"error": "You are already clocked in.", "entryId": active.id}), 409
+    return jsonify(entry.to_dict()), 201
+
+
+@portal_bp.route("/me/clock/out", methods=["POST"])
+@require_role("employee")
+def my_clock_out():
+    employee, err = _me()
+    if err:
+        return err
+    entry, _unused = clock_out(employee.id)
+    if not entry:
+        return jsonify({"error": "You are not clocked in."}), 409
+    return jsonify(entry.to_dict())
+
+
+# ── Hours ────────────────────────────────────────────────────────────────────
+
+@portal_bp.route("/me/hours", methods=["GET"])
+@require_role("employee")
+def my_hours():
+    """My recent time entries, plus the total worked minutes across them."""
+    employee, err = _me()
+    if err:
+        return err
+    try:
+        limit = min(int(request.args.get("limit", 60)), 300)
+    except (TypeError, ValueError):
+        return jsonify({"error": "limit must be an integer"}), 400
+
+    entries = (
+        TimeEntry.query
+        .filter(TimeEntry.employee_id == employee.id)
+        .order_by(TimeEntry.clock_in.desc())
+        .limit(limit)
+        .all()
+    )
+    rows = [e.to_dict() for e in entries]
+    total_minutes = sum(r["duration_minutes"] or 0 for r in rows)
+    return jsonify({"entries": rows, "totalMinutes": total_minutes})
+
+
+# ── Documents (own, read-only) ───────────────────────────────────────────────
+
+@portal_bp.route("/me/documents", methods=["GET"])
+@require_role("employee")
+def my_documents():
+    employee, err = _me()
+    if err:
+        return err
+    docs = (
+        EmployeeDocument.query
+        .filter_by(employee_id=employee.id)
+        .order_by(EmployeeDocument.uploaded_at.desc())
+        .all()
+    )
+    return jsonify([d.to_dict() for d in docs])
+
+
+@portal_bp.route("/me/documents/<int:doc_id>/file", methods=["GET"])
+@require_role("employee")
+def my_document_file(doc_id):
+    """Download one of my own document files. Scoped to me: a document that is not
+    mine is a 404, never someone else's file."""
+    employee, err = _me()
+    if err:
+        return err
+    doc = EmployeeDocument.query.get(doc_id)
+    if not doc or doc.employee_id != employee.id:
+        return jsonify({"error": "Document not found"}), 404
+    if not doc.file_path:
+        return jsonify({"error": "No file attached to this document"}), 404
+    return get_file_response(doc.file_path)

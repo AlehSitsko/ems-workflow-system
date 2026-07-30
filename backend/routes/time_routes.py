@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from models import db, TimeEntry, EmployeePayConfig, Employee
 from audit_utils import log_action
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
+from utils.time_clock import active_clock_entry, clock_in, clock_out
 
 # Managing time entries is payroll-adjacent: never dispatcher. Kiosk clock-in
 # routes below are separate and stay public (PIN-gated per action).
@@ -129,11 +130,7 @@ def kiosk_verify_pin():
 @time_bp.route("/kiosk/status/<int:employee_id>", methods=["GET"])
 def kiosk_status(employee_id):
     """Returns current clock-in state for an employee."""
-    active = TimeEntry.query.filter(
-        TimeEntry.employee_id == employee_id,
-        TimeEntry.clock_out == None,
-        TimeEntry.entry_type == "clock",
-    ).order_by(TimeEntry.clock_in.desc()).first()
+    active = active_clock_entry(employee_id)
     return jsonify({
         "clocked_in": active is not None,
         "entry_id": active.id if active else None,
@@ -154,23 +151,9 @@ def kiosk_clock_in(employee_id=None):
         if data.get("pin") != employee.kiosk_pin:
             return jsonify({"error": "Invalid PIN"}), 403
 
-    # Prevent double clock-in
-    active = TimeEntry.query.filter(
-        TimeEntry.employee_id == eid,
-        TimeEntry.clock_out == None,
-        TimeEntry.entry_type == "clock",
-    ).first()
+    entry, active = clock_in(eid)
     if active:
         return jsonify({"error": "Already clocked in", "entry_id": active.id}), 409
-
-    entry = TimeEntry(
-        employee_id=eid,
-        clock_in=datetime.now().isoformat(timespec="seconds"),
-        entry_type="clock",
-        status="approved",
-    )
-    db.session.add(entry)
-    db.session.commit()
     return jsonify({"ok": True, "entry": entry.to_dict()}), 201
 
 
@@ -187,18 +170,10 @@ def kiosk_clock_out():
         if data.get("pin") != employee.kiosk_pin:
             return jsonify({"error": "Invalid PIN"}), 403
 
-    active = TimeEntry.query.filter(
-        TimeEntry.employee_id == eid,
-        TimeEntry.clock_out == None,
-        TimeEntry.entry_type == "clock",
-    ).order_by(TimeEntry.clock_in.desc()).first()
-
-    if not active:
+    entry, _ = clock_out(eid)
+    if not entry:
         return jsonify({"error": "Not clocked in"}), 409
-
-    active.clock_out = datetime.now().isoformat(timespec="seconds")
-    db.session.commit()
-    return jsonify({"ok": True, "entry": active.to_dict()})
+    return jsonify({"ok": True, "entry": entry.to_dict()})
 
 
 # ── Pay Config ─────────────────────────────────────────────────────────────

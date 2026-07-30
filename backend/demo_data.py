@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash
 
 from models import (
     db, User, Employee, Patient, Vehicle, DailyCrewUnit, Call, CallAssignment,
-    Task, CalendarEvent,
+    Task, CalendarEvent, TimeEntry, EmployeeDocument,
 )
 
 
@@ -233,6 +233,24 @@ def build_demo_dataset(today=None):
             assigned_to_employee_id=assignee.id, created_by_user_id=admin_id,
             assigned_by_user_id=admin_id, created_at=now, updated_at=now,
         ))
+
+    # ── Portal phase 2: hours + a document for James Carter ──────────────────
+    # A couple of closed shifts and an on-file license so his My Hours and My
+    # Documents tabs are populated.
+    for offset in (-3, -2, -1):
+        day = today + timedelta(days=offset)
+        db.session.add(TimeEntry(
+            employee_id=employees[0].id,
+            clock_in=f"{day.isoformat()}T08:00:00",
+            clock_out=f"{day.isoformat()}T20:00:00",
+            entry_type="clock", status="approved",
+        ))
+    db.session.add(EmployeeDocument(
+        employee_id=employees[0].id, doc_type="ems_license",
+        title="Paramedic License", document_number="PM-44821",
+        issuing_body="State EMS Office", expiry_date=d(300),
+        uploaded_at=now, updated_at=now,
+    ))
 
     # ── A recurring staff meeting ────────────────────────────────────────────
     if admin_id:
