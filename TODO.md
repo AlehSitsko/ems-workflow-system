@@ -450,8 +450,12 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   test-only; suite re-verified). Assessed and accepted with rationale (see
   PRODUCTION_READINESS → Security review): `react-router` (RSC-mode CSRF — not
   exploitable in a client-only SPA, only a breaking downgrade offered) and
-  `brace-expansion` (no patch published; dev-toolchain only). Still open: the
-  broader manual authz/upload/rate-limit pass and tenant-isolation review
+  `brace-expansion` (no patch published; dev-toolchain only). **File uploads
+  hardened:** document files now download-only + `nosniff` (was inline → stored
+  XSS, since the type check trusts the spoofable client Content-Type while the
+  file kept its original extension), plus a framework `MAX_CONTENT_LENGTH` (413
+  before buffering). `test_upload_security.py` (3). Still open: the broader manual
+  authz/rate-limit pass and tenant-isolation review
 
 - [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
   `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`); no code change — the URI

@@ -42,9 +42,21 @@ def delete_file(rel_path: str) -> None:
         pass
 
 
-def get_file_response(rel_path: str):
-    """Return a Flask send_from_directory response for the file."""
+def get_file_response(rel_path: str, download_name: str = None):
+    """Return a response that downloads the stored file.
+
+    Always served as an attachment, never inline, and with `nosniff`: an uploaded
+    document is arbitrary user content, and the upload type check trusts the
+    client-supplied Content-Type. Rendering it inline same-origin would let an
+    attacker who uploads an .html/.svg (labelled as an allowed type) run script in
+    the app's origin — stored XSS. Forcing a download and disabling MIME sniffing
+    removes that: the browser saves the file instead of executing it.
+    """
     base = _base_path()
     directory = os.path.join(base, os.path.dirname(rel_path))
     filename = os.path.basename(rel_path)
-    return send_from_directory(directory, filename, as_attachment=False)
+    response = send_from_directory(
+        directory, filename, as_attachment=True, download_name=download_name or filename,
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
