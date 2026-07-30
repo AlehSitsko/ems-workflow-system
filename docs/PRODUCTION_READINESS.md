@@ -171,6 +171,12 @@ No third-party logging dependency — the JSON formatter is stdlib.
 - TLS termination in front of Nginx (the prod stack expects to sit behind it; `SESSION_COOKIE_SECURE=0` is only for local HTTP smoke tests)
 - Pinned base image digests
 
+## Secrets
+
+**Current state:** the two production secrets — `SECRET_KEY` (signs session cookies; the app refuses to start in production without it) and the database password inside `DATABASE_URL` — are read via `config.py._secret()`, which prefers a `{NAME}_FILE` (a mounted Docker/Kubernetes secret) over the `{NAME}` environment variable. That keeps them out of the process environment, where they would otherwise be visible to `docker inspect`, crash dumps and child processes. The Postgres image reads `POSTGRES_PASSWORD_FILE` the same way.
+
+**Still open:** a rotation story (swapping `SECRET_KEY` invalidates live sessions; a real deployment needs a documented, low-disruption rotation).
+
 ## Security review
 
 Once the above are in place, a dedicated pass over the whole application — auth, tenant isolation, file upload handling, rate limiting, dependency audit — before calling any of this production-ready. Not a checkbox to rush through at the end; the actual gate.

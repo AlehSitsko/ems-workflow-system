@@ -5,6 +5,11 @@
 # Intended to run behind a TLS-terminating proxy. To smoke-test locally over
 # plain HTTP, set SESSION_COOKIE_SECURE=0 so the session cookie is actually sent.
 #
+# Secrets here come from the environment for a one-command local run. For a real
+# deployment, mount them as files and point the app at the paths instead —
+# SECRET_KEY_FILE / DATABASE_URL_FILE (and Postgres's POSTGRES_PASSWORD_FILE) —
+# so the values never sit in the container environment (see config.py._secret).
+#
 #   SECRET_KEY=$(openssl rand -hex 32) POSTGRES_PASSWORD=$(openssl rand -hex 16) \
 #     docker compose -f docker-compose.prod.yml up --build
 #

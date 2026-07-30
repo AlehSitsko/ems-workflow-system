@@ -10,6 +10,26 @@ import os
 import secrets
 
 
+def _secret(name):
+    """A secret from `{NAME}_FILE` (a mounted file) or the `{NAME}` environment
+    variable, in that order; None if neither is set.
+
+    The file convention (Docker/Kubernetes secrets mount the value as a file) is
+    preferred because it keeps the value out of the process environment, where it
+    can leak into `docker inspect`, a crash dump, or a child process's env.
+    """
+    path = os.environ.get(f"{name}_FILE")
+    if path:
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                value = handle.read().strip()
+            if value:
+                return value
+        except OSError:
+            pass  # unreadable secret file → fall back to the env var
+    return os.environ.get(name)
+
+
 def _dev_secret_key():
     """A per-process key for local development.
 
@@ -22,7 +42,7 @@ def _dev_secret_key():
     generating one — sessions would otherwise be invalidated by every restart and
     by every worker in a multi-process server.
     """
-    key = os.environ.get("SECRET_KEY")
+    key = _secret("SECRET_KEY")
     if key:
         return key
 
@@ -38,9 +58,10 @@ def _dev_secret_key():
 
 class Config:
     # DATABASE_URL lets tests / Docker point this elsewhere without touching the
-    # local dev default. Relative sqlite paths resolve under the Flask instance
-    # folder (backend/instance/).
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///database.db")
+    # local dev default; DATABASE_URL_FILE (a mounted secret) takes precedence, so
+    # the connection string — which carries the DB password — need not sit in the
+    # environment. Relative sqlite paths resolve under backend/instance/.
+    SQLALCHEMY_DATABASE_URI = _secret("DATABASE_URL") or "sqlite:///database.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── Session authentication ───────────────────────────────────────────────
