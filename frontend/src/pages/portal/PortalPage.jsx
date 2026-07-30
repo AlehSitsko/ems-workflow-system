@@ -161,7 +161,7 @@ function TasksTab() {
 }
 
 function LeaveTab() {
-  const { data, error, reload, setError } = useLoad(getMyLeave);
+  const { data, error, reload } = useLoad(getMyLeave);
   const [form, setForm] = useState({ leaveType: "vacation", startDate: "", endDate: "", reason: "" });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
