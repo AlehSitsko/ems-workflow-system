@@ -32,10 +32,6 @@ EXPOSE 5050
 
 # Apply migrations (idempotent), then serve with Gunicorn. gthread workers keep a
 # blocking database call on one request from starving the others; the counts are
-# a conservative default to tune per host.
-CMD ["sh", "-c", "flask --app app db upgrade && exec gunicorn \
-    --bind 0.0.0.0:5050 \
-    --workers 3 --threads 2 --worker-class gthread \
-    --timeout 60 \
-    --access-logfile - --error-logfile - \
-    wsgi:app"]
+# a conservative default to tune per host. `exec` so signals reach Gunicorn, not
+# the shell. Kept on one line: an exec-form CMD is JSON, not shell.
+CMD ["sh", "-c", "flask --app app db upgrade && exec gunicorn --bind 0.0.0.0:5050 --workers 3 --threads 2 --worker-class gthread --timeout 60 --access-logfile - --error-logfile - wsgi:app"]
