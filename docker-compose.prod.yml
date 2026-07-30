@@ -10,6 +10,11 @@
 # then open http://localhost:8080. Demo data is never seeded automatically; run
 #   docker compose -f docker-compose.prod.yml exec backend flask --app app seed-demo
 # (or seed-demo-data) once the stack is healthy.
+#
+# A distinct project name so the prod images/containers never collide with the
+# dev stack's (docker-compose.yml), which would otherwise share the same names
+# and silently reuse each other's images.
+name: ems-prod
 
 services:
   backend:
