@@ -128,12 +128,18 @@ the acting `user_id`, and deliberately never the request body, since a call or
 patient payload is PHI. Health checks and CORS preflight are excluded as noise.
 No third-party logging dependency — the JSON formatter is stdlib.
 
+**Metrics are exposed** (`metrics.py`) at `GET /metrics` in Prometheus format: a
+request counter and a latency histogram, labelled by method, Flask *endpoint*
+(the view name, never the raw path — so an id in the URL can't explode label
+cardinality and no id reaches a metric) and status. The scrape and health probe
+are excluded. `/metrics` is unauthenticated for scraping and exposes only
+aggregates, but belongs on an internal network (restrict it at the proxy).
+
 **Still open:**
 - Ship the JSON logs somewhere (a file, or stdout to a collector) and set
   retention — the app writes them; where they go is a deployment concern
-- Metrics and tracing (request rate, error rate, latency percentiles); a
-  `/metrics` endpoint or an APM agent would be the usual next step
-- Alerting on error-rate or latency thresholds
+- Distributed tracing (an APM/OpenTelemetry agent) for cross-service latency
+- Alerting on error-rate or latency thresholds (rules over the metrics above)
 
 ## Real-time updates
 
