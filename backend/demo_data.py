@@ -12,6 +12,8 @@ rather than a duplicate, and it never touches a database that already has record
 
 from datetime import datetime, timedelta
 
+from werkzeug.security import generate_password_hash
+
 from models import (
     db, User, Employee, Patient, Vehicle, DailyCrewUnit, Call, CallAssignment,
     Task, CalendarEvent,
@@ -205,6 +207,16 @@ def build_demo_dataset(today=None):
     # Undated → Scheduling Inbox.
     add_call(today.isoformat(), "00:00", patients[2], "BLS", "new", "Dispatcher User", trip=False)
     add_call(today.isoformat(), "00:00", patients[5], "ALS", "new", "Admin User", trip=False)
+
+    # ── An employee self-service login ───────────────────────────────────────
+    # James Carter already has a shift and a task, so his portal has something to
+    # show. Idempotent: skip if the username is already taken.
+    if not User.query.filter_by(username="jcarter").first():
+        db.session.add(User(
+            username="jcarter", password_hash=generate_password_hash("employee"),
+            display_name="James Carter", role="employee", is_active=True,
+            employee_id=employees[0].id,
+        ))
 
     # ── Tasks ────────────────────────────────────────────────────────────────
     admin = User.query.filter_by(username="admin").first()

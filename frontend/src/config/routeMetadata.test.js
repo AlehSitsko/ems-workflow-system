@@ -75,7 +75,9 @@ describe("metadata stays in step with the router", () => {
     .filter((p) => p !== "*" && p !== "/");
 
   // Rendered outside the AppShell, so it has no header/sidebar to describe.
-  const OUTSIDE_SHELL = ["/login"];
+  // Routes that render outside the ops AppShell, so they carry no shell metadata:
+  // the login page and the employee portal (its own PortalLayout).
+  const OUTSIDE_SHELL = ["/login", "/portal"];
 
   it("covers every shell route in the router", () => {
     const metaPaths = ROUTE_METADATA.map((r) => r.path);

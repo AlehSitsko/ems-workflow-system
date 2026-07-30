@@ -15,8 +15,41 @@ from utils.validation_utils import validate_password_strength
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
-# Allowed system roles.
-ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr"]
+# Allowed system roles. `employee` is a self-service portal login (see
+# routes/portal_routes.py): it is admitted to authentication but, because every
+# ops/HR endpoint fails closed on an unlisted role, it can reach nothing except
+# the portal — which only ever serves the caller's own linked employee record.
+ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr", "employee"]
+
+
+def _resolve_employee_link(data, role, current_user_id=None):
+    """Validate the optional user↔employee link. Returns (employee_id, error).
+
+    A link is optional for staff roles (it powers "my tasks"), but **required**
+    for an `employee` portal login — that account has nothing to show without one
+    — and an employee record may back at most one portal login.
+    """
+    raw = data.get("employee_id")
+    employee_id = None
+    if raw not in (None, ""):
+        try:
+            employee_id = int(raw)
+        except (TypeError, ValueError):
+            return None, ("employee_id must be an integer", 400)
+        if not Employee.query.get(employee_id):
+            return None, ("Employee not found", 404)
+
+    if role == "employee":
+        if employee_id is None:
+            return None, ("An employee portal login must be linked to an employee record", 400)
+        clash = User.query.filter(
+            User.employee_id == employee_id, User.role == "employee",
+            User.id != current_user_id,
+        ).first()
+        if clash:
+            return None, ("That employee already has a portal login", 409)
+
+    return employee_id, None
 
 
 def _audit_user():
@@ -140,12 +173,18 @@ def create_user():
     if existing_user:
         return jsonify({"error": "Username already exists"}), 409
 
+    employee_id, link_error = _resolve_employee_link(data, role)
+    if link_error:
+        message, status = link_error
+        return jsonify({"error": message}), status
+
     user = User(
         username=username,
         password_hash=generate_password_hash(password),
         display_name=display_name,
         role=role,
         is_active=is_active,
+        employee_id=employee_id,
     )
 
     db.session.add(user)
@@ -214,19 +253,15 @@ def update_user(id):
     if password:
         changes["password"] = "changed"
 
-    # Link to employee record (nullable — send null/None to unlink). Validated
-    # before any field is written so a bad employee_id doesn't raise
-    # sqlite3.IntegrityError (FK constraint) on commit.
-    employee_id = data.get("employee_id")
-    if employee_id:
-        try:
-            employee_id = int(employee_id)
-        except (TypeError, ValueError):
-            return jsonify({"error": "employee_id must be an integer"}), 400
-        if not Employee.query.get(employee_id):
-            return jsonify({"error": "Employee not found"}), 404
-    else:
-        employee_id = None
+    # Link to employee record (nullable — send null/None to unlink for a staff
+    # role; required for an employee portal login). Validated before any field is
+    # written so a bad employee_id doesn't raise a FK IntegrityError on commit.
+    employee_id, link_error = _resolve_employee_link(data, role, current_user_id=user.id)
+    if link_error:
+        message, status = link_error
+        return jsonify({"error": message}), status
+    if user.employee_id != employee_id:
+        changes["employee_id"] = {"from": user.employee_id, "to": employee_id}
 
     user.username = username
     user.display_name = display_name

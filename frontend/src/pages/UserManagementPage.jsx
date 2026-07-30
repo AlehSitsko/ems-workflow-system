@@ -310,6 +310,7 @@ function UserManagementPage() {
                 <option value="hr">HR</option>
                 <option value="supervisor">Supervisor</option>
                 <option value="admin">Admin</option>
+                <option value="employee">Employee (self-service portal)</option>
               </select>
             </div>
 
@@ -328,7 +329,11 @@ function UserManagementPage() {
                   <option key={e.id} value={e.id}>{e.name}</option>
                 ))}
               </select>
-              <div className="form-text">Links this user to an employee record for clock-in/out.</div>
+              <div className="form-text">
+                {formData.role === "employee"
+                  ? "Required for a portal login — this is whose schedule, tasks and leave they will see."
+                  : "Optional — links this staff login to an employee record (e.g. for “my tasks”)."}
+              </div>
             </div>
 
             <div className="col-12">
