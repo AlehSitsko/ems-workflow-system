@@ -1,0 +1,48 @@
+# Production-style stack: Gunicorn behind an Nginx that serves the built SPA and
+# proxies /api — both as non-root images, source baked in, no bind mounts.
+#
+# Intended to run behind a TLS-terminating proxy. To smoke-test locally over
+# plain HTTP, set SESSION_COOKIE_SECURE=0 so the session cookie is actually sent.
+#
+#   SECRET_KEY=$(openssl rand -hex 32) \
+#     docker compose -f docker-compose.prod.yml up --build
+#
+# then open http://localhost:8080. Demo data is never seeded automatically; run
+#   docker compose -f docker-compose.prod.yml exec backend flask --app app seed-demo
+# (or seed-demo-data) once the stack is healthy.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    environment:
+      EMS_ENV: production
+      # Required in production — the app refuses to start without a real key.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -hex 32}
+      DATABASE_URL: sqlite:////app/instance/database.db
+      # Secure (HTTPS-only) cookies by default; set 0 to smoke-test over HTTP.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-1}
+    volumes:
+      - backend_instance:/app/instance
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5050/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  backend_instance:

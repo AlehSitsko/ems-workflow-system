@@ -25,6 +25,12 @@ function defaultApiBase() {
   return `${protocol}//${hostname}:${DEFAULT_API_PORT}`;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || defaultApiBase();
+// Resolution order:
+//   1. an explicit VITE_API_BASE_URL (a deployment on a different host)
+//   2. same-origin ("") in a production build — Nginx serves the app and proxies
+//      /api, so a relative "/api/…" URL reaches the backend on one origin
+//   3. the dev default (follow the page's hostname on the API port)
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.PROD ? "" : defaultApiBase());
 
 export default API_BASE;

@@ -58,8 +58,13 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
 
     # HTTPS-only in production. Off in development because the dev server is
-    # plain HTTP and a Secure cookie would simply never be sent.
-    SESSION_COOKIE_SECURE = os.environ.get("EMS_ENV") == "production"
+    # plain HTTP and a Secure cookie would simply never be sent. `SESSION_COOKIE_SECURE`
+    # can override the default explicitly — needed to smoke-test the production
+    # stack over plain HTTP locally, where a Secure cookie would break login.
+    SESSION_COOKIE_SECURE = os.environ.get(
+        "SESSION_COOKIE_SECURE",
+        "1" if os.environ.get("EMS_ENV") == "production" else "0",
+    ).lower() in ("1", "true", "yes")
 
     # Sessions expire rather than living forever; an EMS console is often left
     # signed in on a shared machine.

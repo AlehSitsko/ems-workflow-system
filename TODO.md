@@ -443,7 +443,15 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [ ] Full security review
 
 - [ ] PostgreSQL migration
-- [ ] Production Docker images (Gunicorn, Nginx, multi-stage frontend, non-root)
+- [x] **Production Docker images.** `backend/Dockerfile.prod` (Gunicorn via
+  `wsgi:app`, non-root user, gthread workers, migrations-then-serve) and
+  `frontend/Dockerfile.prod` (multi-stage Node build → unprivileged Nginx serving
+  the SPA and proxying `/api` same-origin). `docker-compose.prod.yml` wires them
+  with `EMS_ENV=production` (real `SECRET_KEY` + Secure cookies required); the
+  frontend resolves its API base to same-origin in a prod build
+  (`src/api/config.js`), and a `SESSION_COOKIE_SECURE` override allows local HTTP
+  smoke tests. CI builds both prod images and validates the prod compose. Still
+  open: TLS termination, pinned base digests, Postgres in place of the volume
 - [ ] Runtime tenant isolation (the `organization` schema exists but is inactive)
 - [x] Structured logging — JSON in production / human-readable in dev, plus a PHI-safe request access log (method, path, status, duration, actor). `logging_config.py`, `test_logging.py` (7 tests)
 - [ ] Backup strategy, monitoring (metrics/tracing/alerting), log shipping

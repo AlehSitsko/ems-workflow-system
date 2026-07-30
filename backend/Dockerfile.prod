@@ -1,0 +1,41 @@
+# Production image for the Flask backend.
+#
+# What makes it production over the dev image (backend/Dockerfile): a real WSGI
+# server (Gunicorn) instead of Flask's dev server, an unprivileged user, and the
+# prod dependency set. Source is baked in, not bind-mounted. See
+# docs/PRODUCTION_READINESS.md.
+
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    EMS_ENV=production
+
+WORKDIR /app
+
+# Dependencies first so editing application code does not reinstall them.
+COPY requirements.txt requirements-prod.txt ./
+RUN pip install -r requirements-prod.txt
+
+COPY . .
+
+# Run as an unprivileged user. The instance directory (SQLite file / mounted
+# volume) is the only path the app writes to, so it is the only one chowned.
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/instance \
+    && chown -R appuser:appuser /app/instance
+USER appuser
+
+EXPOSE 5050
+
+# Apply migrations (idempotent), then serve with Gunicorn. gthread workers keep a
+# blocking database call on one request from starving the others; the counts are
+# a conservative default to tune per host.
+CMD ["sh", "-c", "flask --app app db upgrade && exec gunicorn \
+    --bind 0.0.0.0:5050 \
+    --workers 3 --threads 2 --worker-class gthread \
+    --timeout 60 \
+    --access-logfile - --error-logfile - \
+    wsgi:app"]

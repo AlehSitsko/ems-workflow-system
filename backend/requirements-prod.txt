@@ -1,0 +1,5 @@
+# Production dependencies = the app's runtime deps plus a real WSGI server.
+# Kept separate so the development image and local runs stay lean.
+-r requirements.txt
+
+gunicorn==23.0.0
