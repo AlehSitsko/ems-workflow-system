@@ -1,0 +1,4 @@
+# Shell scripts must be LF on every platform — a CRLF line ending on the shebang
+# or a command makes the script fail on Linux (`\r`: command not found). Without
+# this, autocrlf=true on Windows would check them out as CRLF.
+*.sh text eol=lf

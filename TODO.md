@@ -467,7 +467,14 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   open: TLS termination, pinned base digests, Postgres in place of the volume
 - [ ] Runtime tenant isolation (the `organization` schema exists but is inactive)
 - [x] Structured logging — JSON in production / human-readable in dev, plus a PHI-safe request access log (method, path, status, duration, actor). `logging_config.py`, `test_logging.py` (7 tests)
-- [ ] Backup strategy, monitoring (metrics/tracing/alerting), log shipping
+- [x] **Backup strategy.** `scripts/backup-db.sh` (pg_dump → timestamped
+  `backups/*.sql.gz`) and `scripts/restore-db.sh`. Both talk to the running `db`
+  container directly by its Compose labels, so they need no app secrets and no DB
+  password (pg_dump over the container's local socket). Dumps use `--clean
+  --if-exists` so a restore lands on a non-empty DB. Verified the full cycle:
+  seed → backup → delete all calls → restore → data back (51/51). Schedule from
+  cron/systemd for real use.
+- [ ] Monitoring (metrics/tracing/alerting), log shipping
 
 ---
 
