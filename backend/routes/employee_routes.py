@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, Employee, DailyCrewUnit, EmploymentEvent, DisciplinaryAction
 from utils.employee_utils import apply_employee_data
+from utils.employee_shifts import employee_shifts
 from notification_utils import create_notification
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
 from utils.validation_utils import is_valid_date
@@ -60,42 +61,7 @@ def list_employee_shifts(id):
     except (TypeError, ValueError):
         return jsonify({"error": "limit must be an integer"}), 400
 
-    SLOT_ROLES = {
-        "driver_id": "Driver",
-        "medical_id": "Medical",
-        "assist1_id": "Assist",
-        "assist2_id": "Assist",
-    }
-
-    units = (DailyCrewUnit.query
-             .filter(db.or_(
-                 DailyCrewUnit.driver_id == id,
-                 DailyCrewUnit.medical_id == id,
-                 DailyCrewUnit.assist1_id == id,
-                 DailyCrewUnit.assist2_id == id,
-             ))
-             .order_by(DailyCrewUnit.shift_date.desc(), DailyCrewUnit.start_time.desc())
-             .limit(limit)
-             .all())
-
-    def role_on(unit):
-        for slot, label in SLOT_ROLES.items():
-            if getattr(unit, slot) == id:
-                return label
-        return None
-
-    return jsonify([{
-        "id": u.id,
-        "shiftDate": u.shift_date,
-        "unitType": u.unit_type,
-        "truckNumber": u.truck_number,
-        "startTime": u.start_time,
-        "endTime": u.end_time or "",
-        "endDate": u.end_date or "",
-        "shiftType": u.shift_type or "day",
-        "shiftStatus": u.shift_status or "scheduled",
-        "role": role_on(u),
-    } for u in units])
+    return jsonify(employee_shifts(id, limit))
 
 
 # Create a new employee record.

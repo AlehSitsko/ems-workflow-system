@@ -108,6 +108,12 @@ export async function logoutUser() {
 // ROLE ACCESS HELPERS
 // =========================
 
+// An employee self-service login. This role reaches only the portal — every ops
+// helper below returns false for it, and the backend fails closed the same way.
+export function isEmployeePortalUser(user) {
+  return !!user && user.role === "employee";
+}
+
 // Check whether a user has access to the dispatch board.
 export function hasDispatchAccess(user) {
   if (!user) return false;

@@ -301,6 +301,10 @@ skipped). **Not** seeded on normal startup. For local/demo use only:
 | dispatcher | dispatcher | dispatcher |
 | hr | hr | hr |
 
+The **employee self-service portal** login (`jcarter` / `employee`, an `employee`
+role linked to a demo employee) is created by `seed-demo-data`, not `seed-demo`,
+because it needs a linked employee record to show a schedule, tasks and leave.
+
 For a populated app (employees, patients, fleet, today's crews, a week of calls,
 tasks and a recurring event), run `flask --app app seed-demo-data`. It ensures the
 demo users exist, then builds the dataset — and refuses to run on a database that

@@ -23,8 +23,8 @@ const LoginPage = ({ onLogin }) => {
       saveCurrentUser(user);
       onLogin(user);
 
-      // Redirect authenticated users to the module launcher.
-      navigate("/home", { replace: true });
+      // Ops staff land on the dashboard; an employee login goes to its portal.
+      navigate(user.role === "employee" ? "/portal" : "/home", { replace: true });
     } catch (err) {
       console.error("Login failed:", err);
       setError(err.message || "Login failed.");

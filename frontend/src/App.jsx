@@ -8,6 +8,7 @@ import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { UserSettingsProvider } from "./context/UserSettingsContext";
 
 import AppShell from "./components/layout/AppShell";
+import PortalLayout from "./components/portal/PortalLayout";
 
 import HomePage from "./pages/HomePage";
 import CallFormPage from "./pages/CallFormPage";
@@ -30,6 +31,7 @@ const SchedulingInboxPage = lazy(() => import("./pages/SchedulingInboxPage"));
 const CallWorkspacePage = lazy(() => import("./pages/calls/CallWorkspacePage"));
 const ConfirmationRoundPage = lazy(() => import("./pages/calls/ConfirmationRoundPage"));
 const DayCloseoutPage = lazy(() => import("./pages/operations/DayCloseoutPage"));
+const PortalPage = lazy(() => import("./pages/portal/PortalPage"));
 const DayTimelinePage = lazy(() => import("./pages/operations/DayTimelinePage"));
 const RecurringTripsPage = lazy(() => import("./pages/calls/RecurringTripsPage"));
 const PatientsPage = lazy(() => import("./pages/PatientsPage"));
@@ -64,6 +66,7 @@ import {
   hasAdminAccess,
   hasDispatchAccess,
   hasFleetAccess,
+  isEmployeePortalUser,
 } from "./api/authApi";
 
 function App() {
@@ -101,10 +104,16 @@ function App() {
     setCurrentUser(null);
   };
 
-  // Wrap protected pages inside the shared application layout.
+  // Wrap protected pages inside the shared application layout. An employee has no
+  // operational surface, so they never render the ops shell — they are sent to
+  // their portal instead. Every ops route bounces a non-matching role to /home,
+  // so this one check catches employees for the whole ops app.
   const ProtectedLayout = ({ children }) => {
     if (!currentUser) {
       return <Navigate to="/login" replace />;
+    }
+    if (isEmployeePortalUser(currentUser)) {
+      return <Navigate to="/portal" replace />;
     }
 
     return (
@@ -114,10 +123,25 @@ function App() {
     );
   };
 
-  // Prevent logged-in users from staying on the login page.
+  // The employee self-service portal — its own shell, gated to the employee role.
+  const PortalRoute = ({ children }) => {
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+    if (!isEmployeePortalUser(currentUser)) {
+      return <Navigate to="/home" replace />;
+    }
+    return (
+      <PortalLayout currentUser={currentUser} onLogout={handleLogout}>
+        {children}
+      </PortalLayout>
+    );
+  };
+
+  // Prevent logged-in users from staying on the login page; route by role.
   const LoginRoute = ({ children }) => {
     if (currentUser) {
-      return <Navigate to="/home" replace />;
+      return <Navigate to={isEmployeePortalUser(currentUser) ? "/portal" : "/home"} replace />;
     }
 
     return children;
@@ -293,6 +317,8 @@ function App() {
         { path: "/kiosk", element: <KioskPage currentUser={currentUser} /> },
 
         { path: "/login", element: <LoginRoute><LoginPage onLogin={handleLogin} /></LoginRoute> },
+
+        { path: "/portal", element: <PortalRoute><PortalPage currentUser={currentUser} /></PortalRoute> },
 
         { path: "/home", element: <ProtectedLayout><HomePage currentUser={currentUser} /></ProtectedLayout> },
         { path: "/call-form", element: <PatientRoute><CallFormPage /></PatientRoute> },

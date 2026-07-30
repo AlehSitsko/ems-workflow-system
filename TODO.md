@@ -361,9 +361,19 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   the `/tasks` and `/compliance` routes, so they flow through the existing
   sidebar badge mechanism. `test_attention_badges.py` (5). Verified live — both
   badges render in the sidebar
-- [ ] **Employee portal.** No `employee` role exists in the app — the roles are
-  admin / supervisor / dispatcher / hr. Self-service shifts, tasks and hours are
-  a separate module, so no menu entry pretends otherwise
+- [x] **Employee portal (v1).** New `employee` login role with an isolated,
+  self-scoped area: My Schedule (shifts), My Tasks (view + mark In Progress /
+  Waiting / Done), My Leave (list + request), My Profile (certs, read-only).
+  Built to fail closed — `require_role` denies the role everywhere by default, so
+  all self-service flows through one `/api/portal` blueprint that resolves "me"
+  from the session and never takes an id from the client. Employees are redirected
+  out of the ops app (`PortalLayout`, no ops sidebar); admins create/link a portal
+  login in User management. Demo login `jcarter` / `employee`. `routes/portal_routes.py`,
+  `utils/employee_shifts.py` (shared with the HR schedule tab), `pages/portal/`.
+  `test_portal.py` (17) + `PortalPage.test.jsx` (5). Verified end to end on the
+  running app. Still open: My Hours / clock-in from the portal, employee-side
+  document view. Not stubbed beyond v1
+- [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
 - [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
   expands the sidebar and opens it. A hover/focus flyout would need its own
   touch, keyboard and screen-reader handling for little gain
