@@ -1366,6 +1366,11 @@ class AuditLog(db.Model):
     entity_label  = db.Column(db.String(255))        # human-readable: "Call #42", "John Doe"
     details       = db.Column(db.Text)               # JSON string with old/new values or extra context
 
+    # Tenant owner — so one organisation's admin cannot read another's audit trail.
+    # Stamped automatically for in-request writes (tenant.py); a system-written entry
+    # (no request context) has none and is not shown in any org's view.
+    org_id        = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True, index=True)
+
     def to_dict(self):
         return {
             "id":           self.id,
@@ -1863,5 +1868,5 @@ class CalendarEvent(db.Model):
 ORG_SCOPED_MODELS = (
     User, Employee, Vehicle, DailyCrewUnit, CrewPreset, Patient, Call,
     NotificationEvent, PayPeriod, EmployeeLeaveRequest, OperationalDayClosure,
-    RecurringTrip, CalendarEvent, Task,
+    RecurringTrip, CalendarEvent, Task, AuditLog,
 )

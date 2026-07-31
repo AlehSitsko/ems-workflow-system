@@ -170,10 +170,13 @@ cannot be fetched by id across tenants. A migration seeds a default organisation
 and backfills all existing rows to it. Cross-tenant isolation is proved end to end
 by `tests/test_tenant_isolation.py`.
 
+The audit trail is scoped too — `AuditLog` carries `org_id`, stamped on every
+in-request write, so no organisation's admin can read another's history.
+
 **Still open (documented residual):** per-org login by subdomain/slug and a
-`g.current_org` from the Host header; a platform super-admin cross-org view;
-`org_id` on `AuditLog`; and a create/deactivate-organisations admin UI. Each user
-is currently bound to exactly one organisation.
+`g.current_org` from the Host header; a platform super-admin cross-org view; and a
+create/deactivate-organisations admin UI. Each user is currently bound to exactly
+one organisation.
 
 ## File storage
 
