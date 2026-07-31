@@ -16,6 +16,7 @@ import { buildDispatchLink } from "../utils/calendarLinks";
 import { useUserSettings } from "../context/useUserSettings";
 
 import CalendarToolbar from "../components/calendar/CalendarToolbar";
+import CalendarViewsMenu from "../components/calendar/CalendarViewsMenu";
 import CalendarGrid from "../components/calendar/CalendarGrid";
 import CalendarWeekView from "../components/calendar/CalendarWeekView";
 import CalendarAgendaView from "../components/calendar/CalendarAgendaView";
@@ -45,7 +46,7 @@ const DEFAULT_SOURCES = {
 
 const CalendarPage = ({ currentUser }) => {
   const navigate = useNavigate();
-  const { settings } = useUserSettings();
+  const { settings, updateSettings } = useUserSettings();
   const timeFormat = settings?.ui?.time_format || "12h";
 
   // Per-user calendar display preferences (with safe fallbacks).
@@ -64,6 +65,34 @@ const CalendarPage = ({ currentUser }) => {
   // of the agenda window. Switching views keeps you on the same date.
   const [view, setView] = useState("month");
   const [anchor, setAnchor] = useState(() => new Date());
+
+  // Saved views: named snapshots of the display prefs (+ view mode). Applying one
+  // writes its prefs back through settings, which the calendar already reads from.
+  const savedViews = calPrefs.savedViews || [];
+  const applyView = (v) => {
+    updateSettings({
+      calendar: {
+        sources: v.sources || {},
+        weekStartsOn: v.weekStartsOn ?? weekStartsOn,
+        density: v.density || density,
+        showWeekends: v.showWeekends !== false,
+        showHolidays: v.showHolidays !== false,
+      },
+    });
+    if (v.view) setView(v.view);
+  };
+  const saveCurrentView = () => {
+    const name = (window.prompt("Name this view") || "").trim();
+    if (!name) return;
+    const snapshot = {
+      id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()),
+      name, view, sources: enabledSources,
+      weekStartsOn, density, showWeekends, showHolidays,
+    };
+    updateSettings({ calendar: { savedViews: [...savedViews, snapshot] } });
+  };
+  const deleteView = (v) =>
+    updateSettings({ calendar: { savedViews: savedViews.filter((x) => x.id !== v.id) } });
 
   const matrix = useMemo(() => {
     const m = getMonthMatrix(anchor.getFullYear(), anchor.getMonth(), today, weekStartsOn);
@@ -250,6 +279,14 @@ const CalendarPage = ({ currentUser }) => {
               >
                 Export .ics
               </a>
+              <span className="ms-2">
+                <CalendarViewsMenu
+                  savedViews={savedViews}
+                  onApply={applyView}
+                  onSaveCurrent={saveCurrentView}
+                  onDelete={deleteView}
+                />
+              </span>
             </div>
           </div>
 

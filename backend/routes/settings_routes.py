@@ -61,5 +61,17 @@ def patch_settings():
                 return jsonify({"error": "dashboard.hiddenWidgets must be a subset of "
                                          "todayBoard, tasks, quickLinks"}), 400
 
+    calendar = patch.get("calendar")
+    if isinstance(calendar, dict) and "savedViews" in calendar:
+        views = calendar.get("savedViews")
+        if not isinstance(views, list):
+            return jsonify({"error": "calendar.savedViews must be a list"}), 400
+        if len(views) > 20:
+            return jsonify({"error": "calendar.savedViews may hold at most 20 views"}), 400
+        for v in views:
+            name = v.get("name") if isinstance(v, dict) else None
+            if not isinstance(name, str) or not name.strip() or len(name) > 60:
+                return jsonify({"error": "each saved view needs a name of 1–60 characters"}), 400
+
     merged = save_user_settings(user, patch)
     return jsonify(merged)

@@ -63,6 +63,24 @@ def test_hidden_widgets_must_be_known_keys(clients):
                                   json={"dashboard": {"hiddenWidgets": ["tasks", "quickLinks"]}}).status_code == 200
 
 
+def test_calendar_saved_views_round_trip(clients):
+    view = {"name": "My shifts", "view": "week",
+            "sources": {"scheduled_call": False, "crew_shift": True}}
+    resp = clients["admin"].patch("/api/settings", json={"calendar": {"savedViews": [view]}})
+    assert resp.status_code == 200
+    saved = resp.get_json()["calendar"]["savedViews"]
+    assert len(saved) == 1 and saved[0]["name"] == "My shifts"
+
+
+def test_calendar_saved_views_validation(clients):
+    c = clients["admin"]
+    assert c.patch("/api/settings", json={"calendar": {"savedViews": "nope"}}).status_code == 400
+    assert c.patch("/api/settings", json={"calendar": {"savedViews": [{"view": "week"}]}}).status_code == 400  # no name
+    assert c.patch("/api/settings", json={"calendar": {"savedViews": [{"name": ""}]}}).status_code == 400
+    assert c.patch("/api/settings",
+                   json={"calendar": {"savedViews": [{"name": "x"}] * 21}}).status_code == 400
+
+
 def test_settings_require_a_session(anon):
     # The API auth guard blocks an anonymous mutation before it reaches the route.
     assert anon.patch("/api/settings", json={"dashboard": {"hiddenWidgets": []}}).status_code == 401
