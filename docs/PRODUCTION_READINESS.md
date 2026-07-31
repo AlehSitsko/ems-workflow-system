@@ -151,15 +151,29 @@ aggregates, but belongs on an internal network (restrict it at the proxy).
 
 ## Multi-tenancy
 
-**Current state:** schema foundation only. `Organization` model and nullable `org_id` columns exist on every tenant-scoped table, but the `organization` table is not seeded, no row has an `org_id` assigned, and no query currently filters by it — see [ARCHITECTURE.md](ARCHITECTURE.md#multi-tenancy-foundation). Runtime tenant isolation is not active yet.
+**Runtime isolation is active** (`tenant.py`). Enforcement is global at the ORM
+layer, not per query — the app has 200+ `Model.query` call sites and one missed
+filter would leak across tenants. Two SQLAlchemy session events do it: a
+`do_orm_execute` hook adds `WHERE org_id = :current_org` to every SELECT of an
+org-owned entity (so reads, including `.get(pk)` via a fresh request session, can
+only return the caller's org), and a `before_flush` hook stamps `org_id` on new
+org-owned rows (so writes land in the caller's org without any route touching the
+column). The current org is set by the auth guard from the signed-in user
+(`utils/auth_utils.py`); with no org context — the CLI, seeding, the pre-login
+lookup, the existing test suite — both hooks are inert.
 
-**Production plan:**
-- Flask middleware reads subdomain from the Host header → looks up `Organization` by slug → sets `g.current_org`
-- Every tenant-scoped query filtered by `org_id`
-- Superadmin role + UI: create/deactivate organizations, assign org admins
-- Frontend `OrgContext` reads `/api/org/current` on startup
-- Local dev fallback: `lvh.me` subdomains or an `X-Org-Slug` header
-- **Do this after** the tenant isolation tests described in [ROADMAP.md](ROADMAP.md) Priority 3 exist — enabling org filtering without a test proving cross-tenant isolation is the highest-risk order of operations here
+The 14 org-owned models are named once in `models.ORG_SCOPED_MODELS`. Child/detail
+tables (documents, assignments, task comments, …) have no `org_id` and are isolated
+transitively through their org-filtered parent; the one security-boundary child,
+`EmployeeDocument`, is resolved through a filtered employee lookup so a document
+cannot be fetched by id across tenants. A migration seeds a default organisation
+and backfills all existing rows to it. Cross-tenant isolation is proved end to end
+by `tests/test_tenant_isolation.py`.
+
+**Still open (documented residual):** per-org login by subdomain/slug and a
+`g.current_org` from the Host header; a platform super-admin cross-org view;
+`org_id` on `AuditLog`; and a create/deactivate-organisations admin UI. Each user
+is currently bound to exactly one organisation.
 
 ## File storage
 

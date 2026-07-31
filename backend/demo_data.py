@@ -34,6 +34,11 @@ def _iso(d, hm, offset_min=0):
 
 def build_demo_dataset(today=None):
     """Create the demo dataset. Returns a short summary dict of what was made."""
+    # No request here, so bind seeding to the default org: the tenant write-stamp
+    # then gives every seeded row an org_id.
+    from tenant import ensure_default_org, set_current_org, unfiltered
+    set_current_org(ensure_default_org())
+
     today = today or datetime.now().date()
     d = lambda days: (today + timedelta(days=days)).isoformat()  # noqa: E731
     now = datetime.now().isoformat(timespec="seconds")
@@ -211,7 +216,10 @@ def build_demo_dataset(today=None):
     # ── An employee self-service login ───────────────────────────────────────
     # James Carter already has a shift and a task, so his portal has something to
     # show. Idempotent: skip if the username is already taken.
-    if not User.query.filter_by(username="jcarter").first():
+    # Account existence checks look across tenants (usernames are globally unique).
+    with unfiltered():
+        jcarter_exists = User.query.filter_by(username="jcarter").first() is not None
+    if not jcarter_exists:
         db.session.add(User(
             username="jcarter", password_hash=generate_password_hash("employee"),
             display_name="James Carter", role="employee", is_active=True,
@@ -219,7 +227,8 @@ def build_demo_dataset(today=None):
         ))
 
     # ── Tasks ────────────────────────────────────────────────────────────────
-    admin = User.query.filter_by(username="admin").first()
+    with unfiltered():
+        admin = User.query.filter_by(username="admin").first()
     admin_id = admin.id if admin else None
     tasks_spec = [
         ("Restock Medic-1 narcotics kit", "Supply", "High", "New", d(0), employees[0]),

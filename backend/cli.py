@@ -33,6 +33,11 @@ def seed_demo_command():
     Safe to re-run: existing usernames are skipped, not duplicated or updated.
     Errors are not swallowed — if the schema is missing, run `flask db upgrade`.
     """
+    # Seeding has no request, so bind it to the default org — the write-stamp then
+    # gives every seeded user an org_id (without one they would see every tenant).
+    from tenant import ensure_default_org, set_current_org
+    set_current_org(ensure_default_org())
+
     created, skipped = [], []
     for user_data in DEMO_USERS:
         if User.query.filter_by(username=user_data["username"]).first():
