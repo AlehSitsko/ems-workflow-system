@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 
 from models import db
 from limiter import limiter
+import tenant  # noqa: F401 — importing registers the tenant isolation ORM events
 
 migrate = Migrate()
 

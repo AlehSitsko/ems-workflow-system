@@ -1387,6 +1387,11 @@ class Task(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
+    # Tenant owner. The only top-level tenant entity that lacked org_id; added so
+    # tasks are isolated like the other org-owned records (its child tables —
+    # participants, comments, activity — inherit the tenant through the task).
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True, index=True)
+
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
 
@@ -1846,3 +1851,17 @@ class CalendarEvent(db.Model):
             "createdAt": self.created_at or "",
             "updatedAt": self.updated_at or "",
         }
+
+
+# ── Tenant scoping ────────────────────────────────────────────────────────────
+#
+# The models that carry an `org_id` and are therefore isolated per organisation.
+# Named once here so the tenant filter/stamp events (tenant.py) and any future
+# tooling share one authoritative list rather than drifting apart. Child/detail
+# tables (documents, assignments, task comments, …) are deliberately absent: they
+# have no org_id and inherit their tenant through an org-owning parent.
+ORG_SCOPED_MODELS = (
+    User, Employee, Vehicle, DailyCrewUnit, CrewPreset, Patient, Call,
+    NotificationEvent, PayPeriod, EmployeeLeaveRequest, OperationalDayClosure,
+    RecurringTrip, CalendarEvent, Task,
+)

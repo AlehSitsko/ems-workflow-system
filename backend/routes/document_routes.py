@@ -24,12 +24,40 @@ def _user_id_from_request():
     return get_request_user_id()
 
 
+def _employee_in_scope(employee_id):
+    """The employee if it is in the caller's organisation, else None. Uses a
+    filtered SELECT (not .get(pk), which can bypass the tenant filter via the
+    identity map) so a cross-org id resolves to None."""
+    return Employee.query.filter_by(id=employee_id).first()
+
+
+def _scoped_document(doc_id):
+    """A document only if it belongs to the caller's organisation, else None.
+
+    EmployeeDocument has no org_id of its own — its tenant is its Employee's. The
+    Employee query is tenant-filtered, so a document whose employee is not visible
+    in the current org is treated as not found (no cross-tenant read by guessing an
+    id). Returns None when the document or its (in-scope) employee is missing.
+    """
+    doc = EmployeeDocument.query.get(doc_id)
+    if doc is None:
+        return None
+    # filter_by(...).first() always emits a SELECT, so the tenant filter applies —
+    # unlike .get(pk), which can return a cross-org row straight from the identity
+    # map. The employee query is tenant-scoped, so a document whose employee is not
+    # in the caller's org resolves to None (treated as not found).
+    if _employee_in_scope(doc.employee_id) is None:
+        return None
+    return doc
+
+
 # ── Document list + create ──────────────────────────────────────────────────
 
 @doc_bp.route("/employees/<int:employee_id>/documents", methods=["GET"])
 @require_role(*ALLOWED_ROLES)
 def list_documents(employee_id):
-    Employee.query.get_or_404(employee_id)
+    if _employee_in_scope(employee_id) is None:
+        return jsonify({"error": "Employee not found"}), 404
     docs = (EmployeeDocument.query
             .filter_by(employee_id=employee_id)
             .order_by(EmployeeDocument.uploaded_at.desc())
@@ -40,7 +68,8 @@ def list_documents(employee_id):
 @doc_bp.route("/employees/<int:employee_id>/documents", methods=["POST"])
 @require_role(*ALLOWED_ROLES)
 def upload_document(employee_id):
-    Employee.query.get_or_404(employee_id)
+    if _employee_in_scope(employee_id) is None:
+        return jsonify({"error": "Employee not found"}), 404
 
     doc_type = request.form.get("doc_type", "other")
     if doc_type not in DOC_TYPES:
@@ -126,14 +155,18 @@ def _notify_if_expiring(doc):
 @doc_bp.route("/documents/<int:doc_id>", methods=["GET"])
 @require_role(*ALLOWED_ROLES)
 def get_document(doc_id):
-    doc = EmployeeDocument.query.get_or_404(doc_id)
+    doc = _scoped_document(doc_id)
+    if doc is None:
+        return jsonify({"error": "Document not found"}), 404
     return jsonify(doc.to_dict())
 
 
 @doc_bp.route("/documents/<int:doc_id>", methods=["PATCH"])
 @require_role(*ALLOWED_ROLES)
 def update_document(doc_id):
-    doc = EmployeeDocument.query.get_or_404(doc_id)
+    doc = _scoped_document(doc_id)
+    if doc is None:
+        return jsonify({"error": "Document not found"}), 404
     data = request.get_json() or {}
 
     if "doc_type" in data and data["doc_type"] not in DOC_TYPES:
@@ -163,7 +196,9 @@ def update_document(doc_id):
 @doc_bp.route("/documents/<int:doc_id>", methods=["DELETE"])
 @require_role(*ALLOWED_ROLES)
 def delete_document(doc_id):
-    doc = EmployeeDocument.query.get_or_404(doc_id)
+    doc = _scoped_document(doc_id)
+    if doc is None:
+        return jsonify({"error": "Document not found"}), 404
     if doc.file_path:
         delete_file(doc.file_path)
     db.session.delete(doc)
@@ -176,7 +211,9 @@ def delete_document(doc_id):
 @doc_bp.route("/documents/<int:doc_id>/file", methods=["GET"])
 @require_role(*ALLOWED_ROLES)
 def download_document_file(doc_id):
-    doc = EmployeeDocument.query.get_or_404(doc_id)
+    doc = _scoped_document(doc_id)
+    if doc is None:
+        return jsonify({"error": "Document not found"}), 404
     if not doc.file_path:
         return jsonify({"error": "No file attached to this document"}), 404
 

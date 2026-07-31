@@ -35,6 +35,7 @@ ALL_ROLES = {"admin", "supervisor", "hr", "dispatcher"}
 SESSION_USER_ID = "user_id"
 SESSION_ROLE = "role"
 SESSION_NAME = "display_name"
+SESSION_ORG = "org_id"
 SESSION_CSRF = "csrf_token"
 
 # CSRF: a per-session token, mirrored into a JS-readable cookie so the SPA can
@@ -55,6 +56,7 @@ def start_session(user):
     session[SESSION_USER_ID] = user.id
     session[SESSION_ROLE] = user.role
     session[SESSION_NAME] = user.display_name
+    session[SESSION_ORG] = user.org_id
     # A CSRF token bound to this session, unpredictable and rotated per login.
     session[SESSION_CSRF] = secrets.token_urlsafe(32)
     session.permanent = True
@@ -202,11 +204,21 @@ def register_api_auth_guard(app):
         # the cookie until the user signs in again. One primary-key lookup per
         # request — cheap, and the alternative is a stale credential.
         from models import User
+        from tenant import set_current_org, unfiltered
 
-        user = User.query.get(get_request_user_id())
+        # The signed-in user's own lookup must never be tenant-filtered — it is what
+        # establishes the tenant, and any org context left over from a prior request
+        # in the same context would otherwise hide them and force a false 401.
+        with unfiltered():
+            user = User.query.get(get_request_user_id())
         if user is None or not user.is_active:
+            set_current_org(None)
             end_session()
             return jsonify({"error": "Authentication required"}), 401
+
+        # Bind this request to the user's organisation so the tenant filter/stamp
+        # (tenant.py) scope every subsequent query and insert to it.
+        set_current_org(user.org_id)
 
         if session.get(SESSION_ROLE) != user.role or session.get(SESSION_NAME) != user.display_name:
             session[SESSION_ROLE] = user.role

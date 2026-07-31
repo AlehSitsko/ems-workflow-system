@@ -484,7 +484,18 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   (`src/api/config.js`), and a `SESSION_COOKIE_SECURE` override allows local HTTP
   smoke tests. CI builds both prod images and validates the prod compose. Still
   open: TLS termination, pinned base digests, Postgres in place of the volume
-- [ ] Runtime tenant isolation (the `organization` schema exists but is inactive)
+- [x] **Runtime tenant isolation.** Enforced globally at the ORM layer
+  (`tenant.py`): a `do_orm_execute` hook filters every SELECT of an org-owned model
+  by the caller's `org_id`, and a `before_flush` hook stamps it on new rows — so no
+  route or query change is needed and a missed filter can't leak. The current org
+  is set by the auth guard from the session; with no org context (CLI, seeding,
+  existing tests) it's inert. `Task` gained `org_id` (the last top-level tenant
+  entity without it); the 14 org-owned models live in `models.ORG_SCOPED_MODELS`;
+  the `EmployeeDocument` child-by-id path resolves through a filtered employee
+  lookup. Migration seeds a default org + backfills all rows. `test_tenant_isolation.py`
+  (5); backend 737; migration + live cross-org isolation verified on the real DB.
+  Still open: subdomain login, platform super-admin, org admin UI (see
+  PRODUCTION_READINESS → Multi-tenancy)
 - [x] Structured logging — JSON in production / human-readable in dev, plus a PHI-safe request access log (method, path, status, duration, actor). `logging_config.py`, `test_logging.py` (7 tests)
 - [x] **Backup strategy.** `scripts/backup-db.sh` (pg_dump → timestamped
   `backups/*.sql.gz`) and `scripts/restore-db.sh`. Both talk to the running `db`
