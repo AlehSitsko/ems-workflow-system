@@ -53,6 +53,7 @@ def test_portal_requires_a_session(anon):
 def test_employee_is_locked_out_of_ops_endpoints(app):
     c, emp = portal_client(app)
     # A grab-bag of surfaces the employee must never reach.
+    assert c.get("/api/employees").status_code == 403                # the full roster (names + DOB)
     assert c.get("/api/employees/%d" % emp.id).status_code == 403   # HR record surface
     assert c.get("/api/tasks").status_code == 403                    # ops task list
     assert c.get("/api/dispatch/board?date=2026-08-01").status_code in (403, 404)

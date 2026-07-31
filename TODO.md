@@ -457,8 +457,14 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   before buffering). `test_upload_security.py` (3). **Rate limiting extended:** the
   PIN-gated kiosk endpoints (4-digit PIN, no session → brute-forceable) are now
   capped 10/min keyed by employee+IP, so one person's PIN can't be brute-forced
-  while a shared kiosk still serves many employees. `test_rate_limit.py` (2). Still
-  open: manual authz spot-checks across blueprints and tenant-isolation review
+  while a shared kiosk still serves many employees. `test_rate_limit.py` (2).
+  **Authorization pass done:** mapped all 169 routes to their gates and audited the
+  38 session-only ones + id routes for IDOR. Fixed three gaps — notification
+  endpoints trusted a client `user_id` (read/modify anyone's notifications & prefs
+  → now session-scoped), `/api/crew-presets` had no role gate (→ crew roles), and
+  `GET /api/employees` leaked the roster to the new `employee` role (→ staff roles
+  only). `test_authz_review.py` (8) + portal lockout. Still open: tenant-isolation
+  review once that feature is activated
 
 - [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
   `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`); no code change — the URI
