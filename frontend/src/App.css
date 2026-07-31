@@ -3715,3 +3715,56 @@ textarea.form-control {
   color: var(--color-danger);
   font-weight: 700;
 }
+
+/* Saved calendar views menu (native <details> dropdown) */
+.calendar-views-menu { position: relative; display: inline-block; }
+.calendar-views-menu > summary { list-style: none; cursor: pointer; }
+.calendar-views-menu > summary::-webkit-details-marker { display: none; }
+.calendar-views-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.calendar-views-row { display: flex; align-items: center; gap: 4px; }
+.calendar-views-apply {
+  flex: 1;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.calendar-views-apply:hover { background: var(--color-surface-subtle); }
+.calendar-views-delete {
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.calendar-views-delete:hover { color: var(--color-danger); }
+.calendar-views-save {
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.calendar-views-save:hover { background: var(--color-surface-subtle); }
+.calendar-views-empty { padding: 6px 8px; font-size: 12px; color: var(--color-text-muted); }
+.calendar-views-sep { margin: 4px 0; border: 0; border-top: 1px solid var(--color-border); }

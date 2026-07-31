@@ -43,6 +43,10 @@ DEFAULT_SETTINGS = {
         "showHolidays":  True,   # show US federal holiday markers
         "weekStartsOn":  0,      # 0 = Sunday, 1 = Monday
         "density":       "comfortable",  # comfortable | compact
+        # Named presets of the display prefs above (+ view mode), applied from the
+        # calendar toolbar. Each: {name, view, sources, weekStartsOn, density,
+        # showWeekends, showHolidays}.
+        "savedViews":    [],
     },
     "dashboard": {
         # Home dashboard customisation. `quickLinks` is null to mean "use the
