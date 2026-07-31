@@ -9,7 +9,7 @@ the filter is inert there; here the users have an org, which turns it on.
 
 import pytest
 
-from models import db, Organization, Patient, Employee, Call, Task, EmployeeDocument
+from models import db, Organization, Patient, Employee, Call, Task, EmployeeDocument, AuditLog
 from conftest import make_user, login
 from tenant import set_current_org, unfiltered
 
@@ -101,6 +101,18 @@ def test_created_records_are_stamped_with_the_callers_org(app, orgs):
     with unfiltered():
         p = Patient.query.filter_by(first_name="New").first()
     assert p is not None and p.org_id == a
+
+
+# ── The audit trail is scoped too ────────────────────────────────────────────
+
+def test_audit_log_is_scoped(app, orgs):
+    a, b = orgs
+    seed(a, AuditLog(timestamp="2026-08-01T00:00:00", action="patient.created", entity_label="A action"))
+    seed(b, AuditLog(timestamp="2026-08-01T00:00:00", action="patient.created", entity_label="B action"))
+    ca = client_in(app, a, "admin_a")
+    body = ca.get("/api/audit").get_json()
+    assert body["total"] == 1                                        # only A's entry
+    assert [e["entity_label"] for e in body["entries"]] == ["A action"]
 
 
 # ── A child row (no org_id) can't be fetched cross-org ───────────────────────
