@@ -10,7 +10,8 @@ export function useNotifications(user) {
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`${API_BASE}/api/notifications?user_id=${user.id}`, { credentials: "include" });
+      // Identity comes from the session cookie; the server ignores any client id.
+      const res = await fetch(`${API_BASE}/api/notifications`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setUnreadCount(data.unread_count);
@@ -32,7 +33,7 @@ export function useNotifications(user) {
     credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id, notification_id: notifId }),
+        body: JSON.stringify({ notification_id: notifId }),
       });
     } catch { /* noop */ }
     setNotifications((prev) => prev.map((n) => n.id === notifId ? { ...n, is_read: true } : n));
@@ -45,8 +46,6 @@ export function useNotifications(user) {
       await fetch(`${API_BASE}/api/notifications/read-all`, {
     credentials: "include",
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id }),
       });
     } catch { /* noop */ }
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
