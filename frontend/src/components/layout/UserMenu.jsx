@@ -74,6 +74,9 @@ export default function UserMenu({ currentUser, onLogout }) {
           <div className="user-menu-header">
             <div className="user-menu-name">{currentUser?.display_name || "User"}</div>
             <div className="user-menu-role">{currentUser?.role || "unknown"}</div>
+            {currentUser?.organization?.name && (
+              <div className="user-menu-org">{currentUser.organization.name}</div>
+            )}
           </div>
 
           <div className="user-menu-section">
