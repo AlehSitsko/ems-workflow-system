@@ -1079,6 +1079,12 @@ textarea.form-control {
   text-transform: capitalize;
 }
 
+.user-menu-org {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
 .user-menu-chevron {
   font-size: 10px;
   color: var(--color-text-muted);

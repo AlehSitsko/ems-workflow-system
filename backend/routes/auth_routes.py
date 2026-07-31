@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import db, User, Employee
+from models import db, User, Employee, Organization
 from limiter import limiter
 from audit_utils import log_action
 from utils.auth_utils import (
@@ -20,6 +20,16 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 # ops/HR endpoint fails closed on an unlisted role, it can reach nothing except
 # the portal — which only ever serves the caller's own linked employee record.
 ALLOWED_ROLES = ["admin", "supervisor", "dispatcher", "hr", "employee"]
+
+
+def _user_payload(user):
+    """The user dict the client caches as `currentUser`, plus their organisation so
+    the UI can show which tenant they are signed in to. Organisation is not tenant-
+    scoped, so this is a plain lookup of the user's own org."""
+    data = user.to_dict()
+    org = Organization.query.get(user.org_id) if user.org_id else None
+    data["organization"] = {"id": org.id, "name": org.name} if org else None
+    return data
 
 
 def _resolve_employee_link(data, role, current_user_id=None):
@@ -90,7 +100,7 @@ def login():
 
     return jsonify({
         "message": "Login successful",
-        "user": user.to_dict(),
+        "user": _user_payload(user),
         "csrfToken": get_csrf_token(),
     })
 
@@ -118,7 +128,7 @@ def current_user():
         end_session()
         return jsonify({"error": "Authentication required"}), 401
 
-    return jsonify({"user": user.to_dict(), "csrfToken": get_csrf_token()})
+    return jsonify({"user": _user_payload(user), "csrfToken": get_csrf_token()})
 
 
 # Return all system users ordered by ID.
