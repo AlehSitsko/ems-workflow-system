@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, CrewPreset
 from utils.employee_utils import parse_optional_employee_id
+from utils.auth_utils import require_role
 
 
 # Blueprint for reusable crew preset routes.
@@ -11,9 +12,16 @@ crew_preset_bp = Blueprint(
     url_prefix="/api/crew-presets"
 )
 
+# A crew preset is a saved crew layout for the Crew Planner, so it is scoped to the
+# roles that plan crews — the same set as crew_routes. Previously these routes had
+# no role gate, so any signed-in role (HR, or an employee portal login) could read
+# and edit them.
+CREW_ROLES = ("admin", "supervisor", "dispatcher")
+
 
 # Return all saved crew presets.
 @crew_preset_bp.route("", methods=["GET"])
+@require_role(*CREW_ROLES)
 def get_crew_presets():
     presets = CrewPreset.query.order_by(
         CrewPreset.preset_name.asc(),
@@ -25,6 +33,7 @@ def get_crew_presets():
 
 # Create a new crew preset.
 @crew_preset_bp.route("", methods=["POST"])
+@require_role(*CREW_ROLES)
 def create_crew_preset():
     data = request.get_json()
 
@@ -66,6 +75,7 @@ def create_crew_preset():
 
 # Update an existing crew preset.
 @crew_preset_bp.route("/<int:id>", methods=["PUT"])
+@require_role(*CREW_ROLES)
 def update_crew_preset(id):
     preset = CrewPreset.query.get(id)
 
@@ -109,6 +119,7 @@ def update_crew_preset(id):
 
 # Delete an existing crew preset.
 @crew_preset_bp.route("/<int:id>", methods=["DELETE"])
+@require_role(*CREW_ROLES)
 def delete_crew_preset(id):
     preset = CrewPreset.query.get(id)
 

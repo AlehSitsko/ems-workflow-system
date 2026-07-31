@@ -6,14 +6,17 @@ from models import db, Employee, DailyCrewUnit, EmploymentEvent, DisciplinaryAct
 from utils.employee_utils import apply_employee_data
 from utils.employee_shifts import employee_shifts
 from notification_utils import create_notification
-from utils.auth_utils import require_role, get_request_user_id, get_request_user_name
+from utils.auth_utils import require_role, get_request_user_id, get_request_user_name, ALL_ROLES
 from utils.validation_utils import is_valid_date
 from audit_utils import log_action
 
-# Managing employee records is an admin/supervisor/HR function. The LIST stays
-# open to any signed-in user on purpose: the Dispatch Board and Crew Planner
+# Managing employee records is an admin/supervisor/HR function. The LIST is
+# readable by every *staff* role — the Dispatch Board and Crew Planner
 # (dispatcher-accessible) read it to populate crew dropdowns, and it carries no
-# salary data. Detail and mutations are the HR-record surface and are gated.
+# salary data — but not by an `employee` portal login, which has no business with
+# the roster (and it would otherwise leak names + dates of birth). ALL_ROLES is
+# the four staff roles; `employee` is deliberately not in it. Detail and mutations
+# are the HR-record surface and are gated tighter.
 _RECORD_ROLES = ("admin", "supervisor", "hr")
 
 
@@ -23,6 +26,7 @@ employee_bp = Blueprint("employee", __name__, url_prefix="/api/employees")
 
 # Return all employees ordered by last name and first name.
 @employee_bp.route("", methods=["GET"])
+@require_role(*ALL_ROLES)
 def get_employees():
     employees = Employee.query.order_by(
         Employee.last_name.asc(),

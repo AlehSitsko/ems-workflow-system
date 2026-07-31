@@ -201,4 +201,11 @@ Once the above are in place, a dedicated pass over the whole application — aut
 
 **Rate limiting (reviewed & extended):** login was already capped (10/min). The other unauthenticated brute-force surface — the kiosk PIN endpoints (`verify-pin`, `clock-in`, `clock-out`), which authenticate an employee by a 4-digit PIN with no session — is now capped at 10/min **keyed by employee + IP**, so guessing one person's PIN is throttled while a shared wall kiosk stays free to clock a stream of different employees.
 
-**Still open:** the remaining manual authz spot-checks across blueprints, and a runtime tenant-isolation review once that feature is activated.
+**Authorization (reviewed & hardened):** a pass over all 169 API routes mapping each to its role gate, focusing on the 38 that rely only on a session (any authenticated role) and on id-parameter routes (IDOR). Most session-only routes are correct by design (self-scoped settings/notifications, task routes with internal role + `_can_view_task` checks, the public PIN kiosk, read-only taxonomy). Three real gaps were found and fixed:
+- **Notifications — IDOR (systemic).** The whole notification blueprint predated session auth and trusted a client-supplied `user_id` (query or body), so any signed-in user could read *or modify* another user's notifications and preferences by naming their id (`GET /notifications?user_id=…`, `PUT /prefs`, `mark-read`, push subscription). Every endpoint now derives the user from the session (`get_request_user_id()`) and ignores any client id.
+- **Crew presets — missing role gate.** The four `/api/crew-presets` CRUD routes had no `@require_role`, so any signed-in role (HR, or an `employee` portal login) could read and edit crew layouts. Gated to the crew-planning roles (admin/supervisor/dispatcher), matching `crew_routes`.
+- **Employee roster — over-broad after the `employee` role landed.** `GET /api/employees` was intentionally open to "any signed-in user" for crew dropdowns, but the new `employee` portal role then inherited access to the full roster (names + dates of birth). Narrowed to the four staff roles (`ALL_ROLES`); `employee` is excluded.
+
+Regression tests: `test_authz_review.py` (8) plus the employee-roster lockout in `test_portal.py`.
+
+**Still open:** a runtime tenant-isolation review once that feature is activated.

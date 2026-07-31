@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 from models import db, User, UserNotification, NotificationEvent, UserNotificationPrefs
 from notification_utils import ROLE_EVENT_TYPES, NOTIFICATION_LABELS, run_temporal_checks
+from utils.auth_utils import get_request_user_id
 
 notif_bp = Blueprint("notifications", __name__, url_prefix="/api/notifications")
 
@@ -29,7 +30,7 @@ def _get_prefs_dict(user_id):
 
 @notif_bp.route("", methods=["GET"])
 def get_notifications():
-    user_id = request.args.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     since = request.args.get("since")
 
     if not user_id:
@@ -95,7 +96,7 @@ def get_notifications():
 @notif_bp.route("/read", methods=["POST"])
 def mark_read():
     data = request.get_json() or {}
-    user_id = data.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     notification_id = data.get("notification_id")
 
     un = UserNotification.query.filter_by(id=notification_id, user_id=user_id).first()
@@ -110,7 +111,7 @@ def mark_read():
 @notif_bp.route("/read-all", methods=["POST"])
 def mark_all_read():
     data = request.get_json() or {}
-    user_id = data.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
 
@@ -121,7 +122,7 @@ def mark_all_read():
 
 @notif_bp.route("/prefs", methods=["GET"])
 def get_prefs():
-    user_id = request.args.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
     user = _get_user(user_id)
@@ -143,7 +144,7 @@ def get_prefs():
 @notif_bp.route("/prefs", methods=["PUT"])
 def update_prefs():
     data = request.get_json() or {}
-    user_id = data.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     new_prefs = data.get("prefs", {})
 
     if not user_id:
@@ -168,7 +169,7 @@ def get_vapid_public_key():
 @notif_bp.route("/push-subscribe", methods=["POST"])
 def push_subscribe():
     data = request.get_json() or {}
-    user_id = data.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     subscription = data.get("subscription")
     if not user_id or not subscription:
         return jsonify({"error": "user_id and subscription required"}), 400
@@ -185,7 +186,7 @@ def push_subscribe():
 @notif_bp.route("/push-unsubscribe", methods=["POST"])
 def push_unsubscribe():
     data = request.get_json() or {}
-    user_id = data.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
 
@@ -199,7 +200,7 @@ def push_unsubscribe():
 @notif_bp.route("/test-push", methods=["POST"])
 def test_push():
     data = request.get_json() or {}
-    user_id = data.get("user_id")
+    user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
 
