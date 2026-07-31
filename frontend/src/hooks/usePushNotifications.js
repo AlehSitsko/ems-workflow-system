@@ -105,7 +105,7 @@ export function usePushNotifications(user) {
     credentials: "include",
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id, subscription: sub.toJSON() }),
+        body: JSON.stringify({ subscription: sub.toJSON() }),
       });
     } catch { /* noop */ }
 
@@ -124,8 +124,6 @@ export function usePushNotifications(user) {
     const res = await fetch(`${API_BASE}/api/notifications/test-push`, {
     credentials: "include",
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user.id }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "Failed to send test notification");

@@ -46,7 +46,7 @@ function NotificationSettingsPage({ currentUser }) {
   // Load available types + labels from backend (role-specific metadata)
   useEffect(() => {
     if (!currentUser?.id) return;
-    fetch(`${API_BASE}/api/notifications/prefs?user_id=${currentUser.id}`, { credentials: "include" })
+    fetch(`${API_BASE}/api/notifications/prefs`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => { setAvailableTypes(data); setLoadingTypes(false); })
       .catch(() => setLoadingTypes(false));
