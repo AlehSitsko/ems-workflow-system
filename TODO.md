@@ -463,9 +463,16 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
     current one; `password_changed_at` is stamped on every password set (create,
     admin edit, self-change). `test_password_rotation.py` (7),
     `ChangePasswordPage.test.jsx` (4). Verified live (login carries the flag; wrong
-    current → 403, weak new → 400). Still open: a breach-corpus check (needs an
-    external HaveIBeenPwned lookup) and full password-history reuse (this rejects
-    only the current password)
+    current → 403, weak new → 400).
+  - [x] **Password history (no reuse of the last N).** `PasswordHistory` (migration
+    `b7c2e94f10a8`, existing users backfilled with their current hash) records every
+    password set — create, admin edit, self-change — pruned to a 24-entry bound.
+    `Config.PASSWORD_HISTORY_DEPTH` (0 = off, the default; a change still refuses the
+    *current* password regardless) makes change-password reject a new password
+    matching any of the last N stored hashes. Recording is always on, so raising the
+    depth later works against the history already kept. `test_password_rotation.py`
+    (+3). Still open: a breach-corpus (HaveIBeenPwned) check — needs an external
+    lookup, so out of scope for the self-contained app
 - [x] Server-side revocation for the common case: the user is re-validated
   against the DB every request, so disable/delete/role-change takes effect on the
   next request (not at cookie expiry).

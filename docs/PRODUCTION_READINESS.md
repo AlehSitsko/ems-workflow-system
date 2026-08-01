@@ -99,8 +99,14 @@ documented policy, each after checking no excluded-role flow depended on it:
   and logout (`403 {"code": "password_expired"}` everywhere else) and the SPA shows
   a forced change screen. Self-service `POST /api/auth/change-password` verifies
   the current password, applies the same strength policy, and rejects reusing the
-  current password. Still missing: a full password-history check (only the current
-  password is refused for reuse) and a breach-corpus (HaveIBeenPwned) lookup.
+  current password.
+- Password **history** refuses reuse of a recent password: `PasswordHistory` records
+  every password set (create, admin edit, self-change), pruned to a 24-entry bound
+  and backfilled for existing users. `Config.PASSWORD_HISTORY_DEPTH` (0 by default,
+  so nothing changes unless opted in) makes a change reject a new password matching
+  any of the last N stored hashes; recording is always on, so raising the depth
+  later works against the history already retained. Still missing: a breach-corpus
+  (HaveIBeenPwned) lookup, which needs an external service.
 - **Revocation** works for the case that matters: the signed-in user is
   re-validated against the database on every request, so disabling or deleting an
   account, or changing its role, takes effect on that account's very next request

@@ -73,6 +73,55 @@ def password_expired(user):
     return datetime.now() - changed > timedelta(days=max_age)
 
 
+# How many history rows to retain per user regardless of the configured check
+# depth, so the depth can be raised later without having discarded the data.
+_PASSWORD_HISTORY_KEEP = 24
+
+
+def append_password_history(user):
+    """Record the user's *current* password hash as a history entry and prune the
+    oldest beyond the retained bound. Call after each password set (the user must
+    already have an id). Reuses the stored hash — never re-hashes."""
+    from datetime import datetime
+    from models import db, PasswordHistory
+
+    db.session.add(PasswordHistory(
+        user_id=user.id,
+        password_hash=user.password_hash,
+        created_at=user.password_changed_at or datetime.now().isoformat(timespec="seconds"),
+    ))
+    db.session.flush()
+
+    stale = (
+        PasswordHistory.query
+        .filter_by(user_id=user.id)
+        .order_by(PasswordHistory.created_at.desc(), PasswordHistory.id.desc())
+        .offset(_PASSWORD_HISTORY_KEEP)
+        .all()
+    )
+    for row in stale:
+        db.session.delete(row)
+
+
+def password_in_history(user, raw_password, depth):
+    """True when raw_password matches any of the user's last `depth` stored hashes.
+    `depth <= 0` disables the check. The current password is the newest entry, so a
+    depth of 1 already refuses reusing it."""
+    if depth <= 0:
+        return False
+    from werkzeug.security import check_password_hash
+    from models import PasswordHistory
+
+    recent = (
+        PasswordHistory.query
+        .filter_by(user_id=user.id)
+        .order_by(PasswordHistory.created_at.desc(), PasswordHistory.id.desc())
+        .limit(depth)
+        .all()
+    )
+    return any(check_password_hash(r.password_hash, raw_password) for r in recent)
+
+
 def start_session(user):
     """Record a signed-in user. Called only after the password is verified."""
     # A fresh session id per login: reusing the pre-login one would leave the
