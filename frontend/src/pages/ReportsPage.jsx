@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { getCallsReport, callsReportExportUrl } from "../api/reportsApi";
+import {
+  getCallsReport, callsReportExportUrl,
+  getUtilizationReport,
+  getHoursReport, hoursReportExportUrl,
+} from "../api/reportsApi";
 
 /** Local YYYY-MM-DD (never UTC — the report is keyed by the operational day). */
 function isoLocal(date) {
@@ -17,6 +21,29 @@ function defaultRange() {
   return { start: isoLocal(start), end: isoLocal(end) };
 }
 
+// The three reports share the date range and export mechanics; each defines how
+// to fetch it, its export URL (or none), and a one-line description.
+const REPORTS = {
+  calls: {
+    label: "Calls",
+    title: "Call volume, outcomes and service-level mix over a date range.",
+    fetch: getCallsReport,
+    exportUrl: callsReportExportUrl,
+  },
+  utilization: {
+    label: "Fleet utilisation",
+    title: "Crew units on duty against the calls they carried.",
+    fetch: getUtilizationReport,
+    exportUrl: null,
+  },
+  hours: {
+    label: "Staff hours",
+    title: "Worked hours per employee, from approved time entries.",
+    fetch: getHoursReport,
+    exportUrl: hoursReportExportUrl,
+  },
+};
+
 const SummaryTile = ({ label, value, sub }) => (
   <div className="col-6 col-md-3">
     <div className="card shadow-sm h-100">
@@ -31,41 +58,45 @@ const SummaryTile = ({ label, value, sub }) => (
 
 const ReportsPage = () => {
   const initial = useMemo(defaultRange, []);
+  const [report, setReport] = useState("calls");
   const [start, setStart] = useState(initial.start);
   const [end, setEnd] = useState(initial.end);
   const [data, setData] = useState(null);
+  // Which report `data` belongs to — the three payload shapes differ, so a view
+  // must never render against another report's data during the switch's in-flight
+  // fetch. Rendering is gated on this matching the selected report.
+  const [dataKind, setDataKind] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const load = async (s, e) => {
+  const active = REPORTS[report];
+
+  const load = async (kind, s, e) => {
     setLoading(true);
     setError("");
     try {
-      setData(await getCallsReport(s, e));
+      const result = await REPORTS[kind].fetch(s, e);
+      setData(result);
+      setDataKind(kind);
     } catch (err) {
       setError(err.message || "Failed to load report.");
       setData(null);
+      setDataKind(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load the default range on open.
+  // Load on open and whenever the report type changes (reusing the current range).
   useEffect(() => {
-    load(initial.start, initial.end);
+    load(report, start, end);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [report]);
 
   const applyRange = (event) => {
     event.preventDefault();
-    load(start, end);
+    load(report, start, end);
   };
-
-  const summary = data?.summary;
-  const maxDay = useMemo(
-    () => Math.max(1, ...((data?.by_day || []).map((d) => d.total))),
-    [data],
-  );
 
   return (
     <div className="container mt-4">
@@ -73,9 +104,7 @@ const ReportsPage = () => {
         <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
             <h4 className="mb-1">Operational Reports</h4>
-            <p className="text-muted mb-0">
-              Call volume, outcomes and service-level mix over a date range.
-            </p>
+            <p className="text-muted mb-0">{active.title}</p>
           </div>
 
           <form className="d-flex align-items-end flex-wrap gap-2" onSubmit={applyRange}>
@@ -104,95 +133,240 @@ const ReportsPage = () => {
             <button type="submit" className="btn btn-primary btn-sm" disabled={loading}>
               {loading ? "Loading..." : "Apply"}
             </button>
-            <a
-              className={`btn btn-outline-secondary btn-sm${loading ? " disabled" : ""}`}
-              href={callsReportExportUrl(start, end)}
-              // A normal navigation the browser turns into a download.
-            >
-              Export CSV
-            </a>
+            {active.exportUrl && (
+              <a
+                className={`btn btn-outline-secondary btn-sm${loading ? " disabled" : ""}`}
+                href={active.exportUrl(start, end)}
+                // A normal navigation the browser turns into a download.
+              >
+                Export CSV
+              </a>
+            )}
           </form>
         </div>
+
+        <ul className="nav nav-pills gap-1 mt-3">
+          {Object.entries(REPORTS).map(([key, cfg]) => (
+            <li className="nav-item" key={key}>
+              <button
+                type="button"
+                className={`nav-link py-1 px-3${report === key ? " active" : ""}`}
+                aria-current={report === key ? "page" : undefined}
+                onClick={() => setReport(key)}
+              >
+                {cfg.label}
+              </button>
+            </li>
+          ))}
+        </ul>
 
         {error && <div className="alert alert-danger mt-3 mb-0">{error}</div>}
       </div>
 
-      {summary && (
-        <>
-          <div className="row g-3 mb-4">
-            <SummaryTile label="Total calls" value={summary.total_calls} />
-            <SummaryTile
-              label="Completed"
-              value={summary.completed}
-              sub={<span className="text-success">{summary.completion_rate}% of total</span>}
-            />
-            <SummaryTile
-              label="Cancelled"
-              value={summary.cancelled}
-              sub={<span className="text-danger">{summary.cancellation_rate}% of total</span>}
-            />
-            <SummaryTile label="Days" value={data.range.days} />
-          </div>
-
-          <div className="card shadow-sm mb-4">
-            <div className="card-body">
-              <h5 className="mb-3">Calls by day</h5>
-              {summary.total_calls === 0 ? (
-                <p className="text-muted mb-0">No calls in this range.</p>
-              ) : (
-                <div className="d-flex align-items-stretch gap-1" style={{ height: 160 }}>
-                  {data.by_day.map((d) => (
-                    <div
-                      key={d.date}
-                      className="flex-fill d-flex flex-column justify-content-end"
-                      style={{ minWidth: 2 }}
-                      title={`${d.date}: ${d.total} calls (${d.completed} completed, ${d.cancelled} cancelled)`}
-                      aria-label={`${d.date}: ${d.total} calls`}
-                    >
-                      <div
-                        className="bg-primary rounded-top"
-                        style={{ height: `${(d.total / maxDay) * 100}%` }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="d-flex justify-content-between text-muted small mt-2">
-                <span>{data.range.start}</span>
-                <span>{data.range.end}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <div className="card shadow-sm h-100">
-                <div className="card-body">
-                  <h5 className="mb-3">By status</h5>
-                  <BreakdownTable rows={data.by_status} keyField="status" label="Status" />
-                </div>
-              </div>
-            </div>
-            <div className="col-md-6">
-              <div className="card shadow-sm h-100">
-                <div className="card-body">
-                  <h5 className="mb-3">By service level</h5>
-                  <BreakdownTable
-                    rows={data.by_service_level}
-                    keyField="service_level"
-                    label="Service level"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      {data && dataKind === report && report === "calls" && <CallsView data={data} />}
+      {data && dataKind === report && report === "utilization" && <UtilizationView data={data} />}
+      {data && dataKind === report && report === "hours" && <HoursView data={data} />}
     </div>
   );
 };
 
-const BreakdownTable = ({ rows, keyField, label }) => {
+// ── Calls ────────────────────────────────────────────────────────────────────
+
+const CallsView = ({ data }) => {
+  const summary = data.summary;
+  const maxDay = Math.max(1, ...(data.by_day || []).map((d) => d.total));
+  return (
+    <>
+      <div className="row g-3 mb-4">
+        <SummaryTile label="Total calls" value={summary.total_calls} />
+        <SummaryTile
+          label="Completed"
+          value={summary.completed}
+          sub={<span className="text-success">{summary.completion_rate}% of total</span>}
+        />
+        <SummaryTile
+          label="Cancelled"
+          value={summary.cancelled}
+          sub={<span className="text-danger">{summary.cancellation_rate}% of total</span>}
+        />
+        <SummaryTile label="Days" value={data.range.days} />
+      </div>
+
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <h5 className="mb-3">Calls by day</h5>
+          {summary.total_calls === 0 ? (
+            <p className="text-muted mb-0">No calls in this range.</p>
+          ) : (
+            <div className="d-flex align-items-stretch gap-1" style={{ height: 160 }}>
+              {data.by_day.map((d) => (
+                <div
+                  key={d.date}
+                  className="flex-fill d-flex flex-column justify-content-end"
+                  style={{ minWidth: 2 }}
+                  title={`${d.date}: ${d.total} calls (${d.completed} completed, ${d.cancelled} cancelled)`}
+                  aria-label={`${d.date}: ${d.total} calls`}
+                >
+                  <div
+                    className="bg-primary rounded-top"
+                    style={{ height: `${(d.total / maxDay) * 100}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="d-flex justify-content-between text-muted small mt-2">
+            <span>{data.range.start}</span>
+            <span>{data.range.end}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="row g-3">
+        <div className="col-md-6">
+          <div className="card shadow-sm h-100">
+            <div className="card-body">
+              <h5 className="mb-3">By status</h5>
+              <CountTable rows={data.by_status} keyField="status" label="Status" valueField="count" valueHead="Calls" />
+            </div>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="card shadow-sm h-100">
+            <div className="card-body">
+              <h5 className="mb-3">By service level</h5>
+              <CountTable rows={data.by_service_level} keyField="service_level" label="Service level" valueField="count" valueHead="Calls" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ── Fleet utilisation ─────────────────────────────────────────────────────────
+
+const UtilizationView = ({ data }) => {
+  const s = data.summary;
+  const maxUnits = Math.max(1, ...(data.by_day || []).map((d) => d.units));
+  return (
+    <>
+      <div className="row g-3 mb-4">
+        <SummaryTile label="Unit-days" value={s.unit_days} sub={<span className="text-muted">{s.avg_units_per_day}/day</span>} />
+        <SummaryTile label="Total calls" value={s.total_calls} />
+        <SummaryTile label="Calls / unit" value={s.avg_calls_per_unit} />
+        <SummaryTile label="Assigned" value={s.assigned_calls} sub={<span className="text-success">{s.assigned_rate}% of calls</span>} />
+      </div>
+
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <h5 className="mb-3">Units on duty by day</h5>
+          {s.unit_days === 0 ? (
+            <p className="text-muted mb-0">No crew units scheduled in this range.</p>
+          ) : (
+            <div className="d-flex align-items-stretch gap-1" style={{ height: 160 }}>
+              {data.by_day.map((d) => (
+                <div
+                  key={d.date}
+                  className="flex-fill d-flex flex-column justify-content-end"
+                  style={{ minWidth: 2 }}
+                  title={`${d.date}: ${d.units} units, ${d.calls} calls (${d.calls_per_unit}/unit)`}
+                  aria-label={`${d.date}: ${d.units} units, ${d.calls} calls`}
+                >
+                  <div className="bg-info rounded-top" style={{ height: `${(d.units / maxUnits) * 100}%` }} />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="d-flex justify-content-between text-muted small mt-2">
+            <span>{data.range.start}</span>
+            <span>{data.range.end}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card shadow-sm">
+        <div className="card-body">
+          <h5 className="mb-3">By day</h5>
+          <div className="table-responsive">
+            <table className="table table-sm table-hover align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th className="text-end">Units</th>
+                  <th className="text-end">Calls</th>
+                  <th className="text-end">Assigned</th>
+                  <th className="text-end">Calls / unit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.by_day.map((d) => (
+                  <tr key={d.date}>
+                    <td>{d.date}</td>
+                    <td className="text-end">{d.units}</td>
+                    <td className="text-end">{d.calls}</td>
+                    <td className="text-end">{d.assigned}</td>
+                    <td className="text-end">{d.calls_per_unit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ── Staff hours ────────────────────────────────────────────────────────────────
+
+const HoursView = ({ data }) => {
+  const s = data.summary;
+  return (
+    <>
+      <div className="row g-3 mb-4">
+        <SummaryTile label="Total hours" value={s.total_hours} />
+        <SummaryTile label="Employees" value={s.employees} />
+        <SummaryTile label="Time entries" value={s.total_entries} />
+        <SummaryTile label="Days" value={data.range.days} />
+      </div>
+
+      <div className="card shadow-sm">
+        <div className="card-body">
+          <h5 className="mb-3">Hours by employee</h5>
+          {s.employees === 0 ? (
+            <p className="text-muted mb-0">No completed time entries in this range.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-sm table-hover align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Employee</th>
+                    <th className="text-end">Hours</th>
+                    <th className="text-end">Days worked</th>
+                    <th className="text-end">Entries</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.by_employee.map((r) => (
+                    <tr key={r.employee_id}>
+                      <td>{r.name}</td>
+                      <td className="text-end">{r.total_hours}</td>
+                      <td className="text-end">{r.days_worked}</td>
+                      <td className="text-end">{r.entries}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+const CountTable = ({ rows, keyField, label, valueField, valueHead }) => {
   if (!rows || rows.length === 0) {
     return <p className="text-muted mb-0">No data.</p>;
   }
@@ -202,14 +376,14 @@ const BreakdownTable = ({ rows, keyField, label }) => {
         <thead className="table-light">
           <tr>
             <th>{label}</th>
-            <th className="text-end">Calls</th>
+            <th className="text-end">{valueHead}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r[keyField]}>
               <td className="text-capitalize">{String(r[keyField]).replace(/_/g, " ")}</td>
-              <td className="text-end">{r.count}</td>
+              <td className="text-end">{r[valueField]}</td>
             </tr>
           ))}
         </tbody>

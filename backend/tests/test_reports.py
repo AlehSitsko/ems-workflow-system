@@ -6,7 +6,7 @@ validation, the aggregate maths, and the export's shape.
 
 import pytest
 
-from models import db, Call
+from models import db, Call, DailyCrewUnit, CallAssignment, TimeEntry, Employee
 
 
 def mk_call(trip_date, status="new", service_level="BLS",
@@ -19,6 +19,38 @@ def mk_call(trip_date, status="new", service_level="BLS",
     db.session.add(c)
     db.session.commit()
     return c
+
+
+def mk_unit(shift_date, truck="M1"):
+    u = DailyCrewUnit(shift_date=shift_date, unit_type="BLS",
+                      truck_number=truck, start_time="08:00")
+    db.session.add(u)
+    db.session.commit()
+    return u
+
+
+def assign(call, unit, active=True):
+    a = CallAssignment(call_id=call.id, unit_id=unit.id, is_active=active)
+    db.session.add(a)
+    db.session.commit()
+    return a
+
+
+def mk_employee(first="Pat", last="Rider"):
+    e = Employee(first_name=first, last_name=last, role="EMT", status="active", is_active=True)
+    db.session.add(e)
+    db.session.commit()
+    return e
+
+
+def mk_entry(employee, day, hours=8, break_minutes=30, clock_out=True):
+    clock_in = f"{day}T08:00:00"
+    co = f"{day}T{8 + hours:02d}:00:00" if clock_out else None
+    t = TimeEntry(employee_id=employee.id, clock_in=clock_in, clock_out=co,
+                  break_minutes=break_minutes)
+    db.session.add(t)
+    db.session.commit()
+    return t
 
 
 # ── Role gate ───────────────────────────────────────────────────────────────
@@ -130,3 +162,86 @@ def test_export_carries_no_patient_identifiers(clients):
     ).get_data(as_text=True).splitlines()[0].lower()
     assert "patient" not in header
     assert "name" not in header  # no patient name; "Dispatcher" is staff, allowed
+
+
+# ── Fleet utilisation ────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("role", ["dispatcher", "hr"])
+def test_utilization_is_supervisory_only(clients, role):
+    assert clients[role].get("/api/reports/utilization?start=2026-01-01&end=2026-01-31").status_code == 403
+
+
+def test_utilization_counts_units_calls_and_load(clients):
+    mk_unit("2026-01-10")
+    mk_unit("2026-01-10")            # two units on duty that day
+    c1 = mk_call("2026-01-10", status="completed")
+    c2 = mk_call("2026-01-10", status="new")
+    mk_unit("2026-01-11")           # a unit but no calls
+    assign(c1, DailyCrewUnit.query.first())   # one call covered
+
+    body = clients["admin"].get(
+        "/api/reports/utilization?start=2026-01-10&end=2026-01-11").get_json()
+    s = body["summary"]
+    assert s["unit_days"] == 3          # 2 + 1
+    assert s["total_calls"] == 2
+    assert s["assigned_calls"] == 1
+    assert s["assigned_rate"] == 50
+    assert s["avg_calls_per_unit"] == round(2 / 3, 1)
+
+    by_day = {d["date"]: d for d in body["by_day"]}
+    assert by_day["2026-01-10"]["units"] == 2
+    assert by_day["2026-01-10"]["calls"] == 2
+    assert by_day["2026-01-10"]["calls_per_unit"] == 1.0
+    assert by_day["2026-01-11"]["units"] == 1
+    assert by_day["2026-01-11"]["calls"] == 0
+    assert by_day["2026-01-11"]["calls_per_unit"] == 0
+
+
+# ── Staff hours ──────────────────────────────────────────────────────────────
+
+def test_hours_report_is_denied_to_dispatcher_but_allowed_for_hr(clients):
+    assert clients["dispatcher"].get("/api/reports/hours?start=2026-01-01&end=2026-01-31").status_code == 403
+    assert clients["hr"].get("/api/reports/hours?start=2026-01-01&end=2026-01-31").status_code == 200
+
+
+def test_hours_sum_per_employee_net_of_breaks(clients):
+    a = mk_employee("Ann", "Ng")
+    b = mk_employee("Bo", "Lee")
+    mk_entry(a, "2026-01-10", hours=8, break_minutes=30)   # 7.5h
+    mk_entry(a, "2026-01-11", hours=4, break_minutes=0)    # 4h
+    mk_entry(b, "2026-01-10", hours=8, break_minutes=0)    # 8h
+    mk_entry(b, "2026-01-12", clock_out=False)             # still clocked in → excluded
+
+    body = clients["admin"].get(
+        "/api/reports/hours?start=2026-01-01&end=2026-01-31").get_json()
+    assert body["summary"]["employees"] == 2
+    assert body["summary"]["total_hours"] == 19.5   # 11.5 + 8
+    rows = {r["name"]: r for r in body["by_employee"]}
+    assert rows["Ann Ng"]["total_hours"] == 11.5
+    assert rows["Ann Ng"]["days_worked"] == 2
+    assert rows["Bo Lee"]["total_hours"] == 8.0
+    # Sorted hours-desc: the busiest employee is first.
+    assert body["by_employee"][0]["total_hours"] >= body["by_employee"][-1]["total_hours"]
+
+
+def test_hours_only_counts_entries_clocking_in_within_the_range(clients):
+    e = mk_employee("Sam", "Cruz")
+    mk_entry(e, "2026-01-10", hours=8, break_minutes=0)   # in → 8h
+    mk_entry(e, "2025-12-31", hours=8, break_minutes=0)   # before → excluded
+
+    body = clients["admin"].get(
+        "/api/reports/hours?start=2026-01-01&end=2026-01-31").get_json()
+    assert body["summary"]["total_hours"] == 8.0
+
+
+def test_hours_export_is_csv(clients):
+    e = mk_employee("Rae", "Ng")
+    mk_entry(e, "2026-01-10", hours=8, break_minutes=0)
+
+    resp = clients["hr"].get("/api/reports/hours/export?start=2026-01-01&end=2026-01-31")
+    assert resp.status_code == 200
+    assert resp.mimetype == "text/csv"
+    assert "hours_2026-01-01_2026-01-31.csv" in resp.headers["Content-Disposition"]
+    lines = resp.get_data(as_text=True).strip().splitlines()
+    assert lines[0].startswith("Employee ID,Name,Total Hours")
+    assert len(lines) == 2

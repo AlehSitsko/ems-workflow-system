@@ -360,7 +360,18 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   (covers ROADMAP 5.3). `GET /api/reports/calls` + `/calls/export`, admin/
   supervisor only. Lives under Management → Analytics alongside the Supervisor
   Dashboard. `test_reports.py` (17) + `reportsApi.test.js`. Verified end to end
-  on the running app. Still open: time/payroll and dispatch-utilization reports
+  on the running app.
+  - [x] Follow-up: **fleet-utilisation** and **staff-hours** reports, as tabs on
+    the same page sharing the date range. `GET /api/reports/utilization` (crew
+    units on duty per day against the calls they carried — unit-days, calls/unit,
+    assigned rate; admin/supervisor) and `GET /api/reports/hours` + `/hours/export`
+    (worked hours per employee from approved time entries, reusing payroll's
+    net-minutes maths; admin/supervisor/**hr**, since it is payroll-shaped). The
+    page guards each view on which report its loaded data belongs to, so a tab
+    switch never renders one report's shape against another's payload (fixed a
+    crash caught in live testing). `test_reports.py` (+7), `reportsApi.test.js`
+    (+2), `ReportsPage.test.jsx` (4). Verified end to end on the running app
+    (utilisation 15 unit-days/690 calls; hours 66.85h across 2 staff)
 - [x] **Dashboard customization** — per-user `settings.dashboard`: hide dashboard
   cards (Today's board, My tasks, Shortcuts — "Needs attention" always shows) and
   pick/reorder the shortcut tiles (`quickLinks` null = role default, else an
