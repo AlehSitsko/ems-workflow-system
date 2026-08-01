@@ -585,8 +585,26 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   the `EmployeeDocument` child-by-id path resolves through a filtered employee
   lookup. Migration seeds a default org + backfills all rows. `test_tenant_isolation.py`
   (5); backend 737; migration + live cross-org isolation verified on the real DB.
-  Still open: subdomain login, platform super-admin, org admin UI (see
-  PRODUCTION_READINESS → Multi-tenancy)
+  - [x] **Multi-tenancy v2 — subdomain login, per-org users, platform super-admin.**
+    Each org is reached at its own subdomain (`acme.<BASE_DOMAIN>`); `utils/tenant_host.py`
+    turns the Host into an org, and a bare host (localhost/apex) resolves to *no* org —
+    the single-tenant, back-compatible path that keeps every existing test green.
+    Usernames are now unique **per org** (migration `d9f4a2c81e60`: `uq_user_org_username`),
+    and login is scoped to the subdomain's org. A `User.is_platform_admin` (NULL org)
+    runs the cross-org **platform console** (`/api/platform`, `routes/platform_routes.py`):
+    create an org + its first admin, rename/suspend it, reset an org admin; the auth
+    guard confines a platform admin to that console on the platform host so their
+    unfiltered reach never touches a tenant. The guard also **binds a session to its
+    org's subdomain** and **locks out a suspended workspace**. `cli.py` gains
+    `create-org` / `create-platform-admin`; the login screen greets the workspace
+    (`GET /api/tenant/current`, public); an org admin edits their org in Settings
+    (`GET/PATCH /api/tenant/org`); CORS reflects any `*.BASE_DOMAIN` origin. Tests:
+    `test_tenant_host`/`test_multitenancy_login`/`test_multitenancy_session`/`test_platform`/`test_tenant_routes`
+    (backend 820); `PlatformConsolePage`/`OrgSettings` frontend tests (frontend 424).
+    Verified live: same username in two orgs resolves by subdomain; platform admin
+    lists/creates/suspends orgs and cannot read a tenant endpoint; a suspended org's
+    login is refused. Still open: org-scoped subdomain in prod needs DNS + a wildcard
+    TLS cert (infra, not code); platform-admin impersonation was deliberately excluded
 - [x] Structured logging — JSON in production / human-readable in dev, plus a PHI-safe request access log (method, path, status, duration, actor). `logging_config.py`, `test_logging.py` (7 tests)
 - [x] **Backup strategy.** `scripts/backup-db.sh` (pg_dump → timestamped
   `backups/*.sql.gz`) and `scripts/restore-db.sh`. Both talk to the running `db`

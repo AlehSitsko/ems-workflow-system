@@ -39,9 +39,16 @@ def init_extensions(app):
     # A wildcard is not merely discouraged here: the browser refuses to combine
     # `Access-Control-Allow-Origin: *` with credentials at all, so the allowlist
     # is enforced by the spec as well as by intent.
+    # Multi-tenancy reaches each org at its own subdomain, so the allowlist is the
+    # static entries plus a regex matching any subdomain of BASE_DOMAIN (and the
+    # apex/platform host), on any port. Still an allowlist — a wildcard cannot be
+    # combined with credentials — just one that admits the tenant subdomains.
+    import re
+    base = re.escape(app.config.get("BASE_DOMAIN", "localhost"))
+    subdomain_origin = re.compile(rf"^https?://([a-z0-9-]+\.)?{base}(:\d+)?$")
     CORS(
         app,
-        origins=app.config.get("CORS_ORIGINS", []),
+        origins=list(app.config.get("CORS_ORIGINS", [])) + [subdomain_origin],
         supports_credentials=True,
     )
     db.init_app(app)

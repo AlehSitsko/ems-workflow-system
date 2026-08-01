@@ -9,6 +9,7 @@ import DispatchVisualAlertsSettings from "../components/settings/DispatchVisualA
 import CalendarDisplaySettings from "../components/settings/CalendarDisplaySettings";
 import DashboardSettings from "../components/settings/DashboardSettings";
 import ActiveSessions from "../components/settings/ActiveSessions";
+import OrgSettings from "../components/settings/OrgSettings";
 import { getNavigationItems } from "../config/routeMetadata";
 import { roleQuickLinks } from "../config/dashboardDefaults";
 import API_BASE from "../api/config.js";
@@ -185,6 +186,12 @@ function NotificationSettingsPage({ currentUser }) {
           onChange={(next) => { setLocalDashboard(next); setSaved(false); }}
         />
       </section>
+
+      {currentUser?.role === "admin" && (
+        <section className="mt-4">
+          <OrgSettings />
+        </section>
+      )}
 
       <section className="mt-4">
         <ActiveSessions />
