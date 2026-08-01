@@ -2,6 +2,18 @@ import { useEffect, useState } from "react";
 
 import EntityDrawer from "../ui/EntityDrawer";
 import { createCalendarEvent, updateCalendarEvent } from "../../api/calendarEventsApi";
+import { getEmployees } from "../../api/employeesApi";
+
+// Lead times the reminder select offers, in minutes (0 = off). Must match the
+// backend's ALLOWED_REMINDERS so a stored value always maps to an option.
+const REMINDERS = [
+  [0, "No reminder"],
+  [10, "10 minutes before"],
+  [30, "30 minutes before"],
+  [60, "1 hour before"],
+  [120, "2 hours before"],
+  [1440, "1 day before"],
+];
 
 // Create a manual calendar event. Personal is open to everyone; broadcasting to
 // a role or the whole company is admin/supervisor only, and the API enforces
@@ -23,6 +35,7 @@ const emptyForm = (defaultDate) => ({
   startTime: "", endTime: "", category: "", description: "",
   visibility: "personal", visibleToRole: "dispatcher",
   recurrence: "none", recurrenceUntil: "",
+  reminderMinutes: 0, participantEmployeeIds: [],
 });
 
 // Map an aggregator event (calendar_event) back into the editable form shape.
@@ -38,6 +51,8 @@ const formFromEvent = (event) => ({
   visibleToRole: event.metadata?.visibleToRole || "dispatcher",
   recurrence: event.metadata?.recurrence || "none",
   recurrenceUntil: event.metadata?.recurrenceUntil || "",
+  reminderMinutes: event.metadata?.reminderMinutes || 0,
+  participantEmployeeIds: (event.metadata?.participants || []).map((p) => p.employeeId),
 });
 
 export default function NewCalendarEventModal({ open, onClose, onCreated, currentUser, defaultDate, event }) {
@@ -47,6 +62,7 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
   const [form, setForm] = useState(() => emptyForm(defaultDate));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [employees, setEmployees] = useState([]);
 
   // Re-seed the form each time the drawer opens: from the event when editing,
   // otherwise a blank form on the selected day.
@@ -56,7 +72,18 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
     setForm(event ? formFromEvent(event) : emptyForm(defaultDate));
   }, [open, event, defaultDate]);
 
+  // Roster for the participant picker — loaded once the drawer is first opened.
+  useEffect(() => {
+    if (!open || employees.length) return;
+    getEmployees().then(setEmployees).catch(() => setEmployees([]));
+  }, [open, employees.length]);
+
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  const onParticipantsChange = (e) => {
+    const ids = Array.from(e.target.selectedOptions, (o) => Number(o.value));
+    set({ participantEmployeeIds: ids });
+  };
 
   const submit = async () => {
     setError("");
@@ -77,6 +104,8 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
       visibleToRole: form.visibility === "role" ? form.visibleToRole : "",
       recurrence: form.recurrence,
       recurrenceUntil: form.recurrence === "none" ? "" : form.recurrenceUntil,
+      reminderMinutes: Number(form.reminderMinutes) || 0,
+      participantEmployeeIds: form.participantEmployeeIds || [],
     };
     try {
       if (isEdit) await updateCalendarEvent(event.sourceId, payload);
@@ -193,6 +222,33 @@ export default function NewCalendarEventModal({ open, onClose, onCreated, curren
                      onChange={(e) => set({ recurrenceUntil: e.target.value })} disabled={busy} />
             </div>
           )}
+        </div>
+
+        <div>
+          <label className="form-label fw-semibold" htmlFor="ce-reminder">Remind</label>
+          <select id="ce-reminder" className="form-select" value={form.reminderMinutes}
+                  onChange={(e) => set({ reminderMinutes: Number(e.target.value) })} disabled={busy}>
+            {REMINDERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <div className="form-text">Notifies you{form.participantEmployeeIds.length ? " and the participants" : ""} before it starts.</div>
+        </div>
+
+        <div>
+          <label className="form-label fw-semibold" htmlFor="ce-participants">
+            Participants <span className="text-secondary fw-normal">(optional)</span>
+          </label>
+          <select id="ce-participants" className="form-select" multiple
+                  size={Math.min(5, Math.max(3, employees.length || 3))}
+                  value={(form.participantEmployeeIds || []).map(String)}
+                  onChange={onParticipantsChange} disabled={busy}>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+            ))}
+          </select>
+          <div className="form-text">
+            Hold Ctrl/Cmd to pick several. They see the event on their calendar and
+            get an invite (and any reminder).
+          </div>
         </div>
 
         <div>

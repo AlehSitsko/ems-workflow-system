@@ -157,7 +157,23 @@ be implemented before the current Calendar slice is complete:
   drawer, reusing the same drawer in edit mode. `test_calendar_events.py` (16),
   `NewCalendarEventModal.test.jsx` (6), `DayOperationsDrawer.test.jsx` manage
   cases (3). Verified end to end (create → edit → delete on the running app)
-- [ ] Participants, reminders, notification integration, saved views
+- [x] Participants, reminders, notification integration, saved views —
+  **saved views** ship as named display presets (see "named saved views" below).
+  **Participants** are employees invited to a manual event (mirroring task
+  participants): they see the event on their calendar and, through their linked
+  user, receive an invite when added — `CalendarEventParticipant` (migration
+  `f1a9c3e57b02`), synced through the event's create/update payload, and the
+  aggregator/CRUD `visible_events_filter` gains a participant clause so a personal
+  event still reaches them. **Reminders** are a per-event lead time
+  (`CalendarEvent.reminder_minutes`, 0–1 day); the temporal scan
+  (`run_temporal_checks`) fires an `event_reminder` to the owner + participants
+  when the lead crosses, occurrence-aware for recurring events. **Notification
+  integration**: `event_invite` / `event_reminder` types + labels, a `notify_users`
+  fan-out helper (one event, many directed recipients, so the recency dedup does
+  not swallow the second). Modal gains a Remind select + participant picker; the
+  day drawer shows ⏰ / 👥 tags. `test_calendar_participants.py` (10),
+  `NewCalendarEventModal.test.jsx` (+2). Verified end to end on the running app
+  (participant sees a personal event; reminder delivered from the scan)
 - [x] **ICS export** — the caller's visible manual events in a range as an
   RFC 5545 `.ics` file (`GET /api/calendar-events/export.ics`), for import into
   Google/Outlook. One-way snapshot, same visibility rule as the calendar, and
