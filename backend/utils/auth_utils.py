@@ -398,6 +398,28 @@ def register_api_auth_guard(app):
             if not (is_platform_host() and allowed):
                 return jsonify({"error": "Insufficient permissions"}), 403
 
+        # Org-membership enforcement (only for users that belong to an org):
+        #   * a suspended workspace locks its users out everywhere — end their
+        #     session so the SPA's 401 handler returns them to login;
+        #   * on an org subdomain the session must belong to *that* org, closing
+        #     cross-subdomain cookie replay if the cookie is ever domain-scoped.
+        # Inert on a bare host (localhost/apex): no slug resolves, so single-tenant
+        # deployments and the existing tests are unaffected.
+        if user.org_id is not None:
+            from models import Organization
+            from utils.tenant_host import org_slug_from_host
+            with unfiltered():
+                user_org = Organization.query.get(user.org_id)
+            if user_org is not None and not user_org.is_active:
+                set_current_org(None)
+                end_session()
+                return jsonify({"error": "This workspace is suspended",
+                                "code": "org_suspended"}), 401
+            host_slug = org_slug_from_host(request.host)
+            if host_slug is not None and (user_org is None or user_org.slug != host_slug):
+                set_current_org(None)
+                return jsonify({"error": "Authentication required"}), 401
+
         # An expired password locks the account to the change-password flow: the
         # user has a valid session but cannot do anything else until they rotate.
         if endpoint not in PASSWORD_CHANGE_EXEMPT and password_expired(user):
