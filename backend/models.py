@@ -66,6 +66,19 @@ class User(db.Model):
         }
 
 
+class PasswordHistory(db.Model):
+    """Past password hashes, so a rotation can refuse reuse of a recent one (see
+    Config.PASSWORD_HISTORY_DEPTH). A child of User with no org_id of its own — it
+    is only ever queried for the session user's own id, never by a client id."""
+    __tablename__ = "password_history"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.String(50), nullable=False)
+
+
 class Employee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 

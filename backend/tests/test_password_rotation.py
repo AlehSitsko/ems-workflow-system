@@ -10,8 +10,13 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from models import db, User
+from models import db, User, PasswordHistory
 from conftest import make_user, login, TEST_PASSWORD
+
+
+def _change(client, current, new):
+    return client.post("/api/auth/change-password",
+                       json={"currentPassword": current, "newPassword": new})
 
 
 def days_ago(n):
@@ -109,4 +114,53 @@ def test_a_newly_created_user_gets_a_password_timestamp(clients):
         "display_name": "Provisioned", "role": "dispatcher",
     })
     assert resp.status_code == 201
-    assert User.query.filter_by(username="provisioned").first().password_changed_at
+    user = User.query.filter_by(username="provisioned").first()
+    assert user.password_changed_at
+    # The initial password seeds the history, so rotation has something to compare.
+    assert PasswordHistory.query.filter_by(user_id=user.id).count() == 1
+
+
+# ── Password history (no reuse of the last N) ────────────────────────────────
+
+def test_history_blocks_reuse_of_a_recent_password(app):
+    app.config["PASSWORD_HISTORY_DEPTH"] = 3
+    make_user("dispatcher", username="histuser")
+    c = app.test_client()
+    login(c, "histuser")
+
+    assert _change(c, TEST_PASSWORD, "PassAlpha1").status_code == 200
+    assert _change(c, "PassAlpha1", "PassBravo2").status_code == 200
+    assert _change(c, "PassBravo2", "PassCharlie3").status_code == 200
+
+    # PassAlpha1 is within the last three — refused…
+    reused = _change(c, "PassCharlie3", "PassAlpha1")
+    assert reused.status_code == 400
+    assert "last 3" in reused.get_json()["error"]
+    # …but a genuinely new one is accepted.
+    assert _change(c, "PassCharlie3", "PassDelta4").status_code == 200
+
+
+def test_depth_zero_allows_an_old_password_but_never_the_current(app):
+    app.config["PASSWORD_HISTORY_DEPTH"] = 0
+    make_user("hr", username="nohist")
+    c = app.test_client()
+    login(c, "nohist")
+
+    assert _change(c, TEST_PASSWORD, "OldPass111").status_code == 200
+    assert _change(c, "OldPass111", "NewPass222").status_code == 200
+    # With the check off, an older (non-current) password may be reused…
+    assert _change(c, "NewPass222", "OldPass111").status_code == 200
+    # …but the current one is still refused by the always-on current-password check.
+    same = _change(c, "OldPass111", "OldPass111")
+    assert same.status_code == 400
+
+
+def test_history_is_recorded_on_each_change(app):
+    app.config["PASSWORD_HISTORY_DEPTH"] = 5
+    user = make_user("supervisor", username="tracked")
+    c = app.test_client()
+    login(c, "tracked")
+    _change(c, TEST_PASSWORD, "FirstPass01")
+    _change(c, "FirstPass01", "SecondPas02")
+    # make_user bypasses the API (no seed row), so two API changes = two rows.
+    assert PasswordHistory.query.filter_by(user_id=user.id).count() == 2

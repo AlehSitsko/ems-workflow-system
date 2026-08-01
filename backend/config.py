@@ -103,6 +103,12 @@ class Config:
     # reach the change-password, /me and logout endpoints until they rotate it.
     PASSWORD_MAX_AGE_DAYS = int(os.environ.get("PASSWORD_MAX_AGE_DAYS", "0"))
 
+    # Refuse a new password that matches any of the user's last N passwords. 0
+    # disables the history check (the default) — a change still refuses reuse of the
+    # *current* password regardless. Past hashes are always recorded, so raising
+    # this later takes effect immediately with the history already on hand.
+    PASSWORD_HISTORY_DEPTH = int(os.environ.get("PASSWORD_HISTORY_DEPTH", "0"))
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     # An explicit allowlist. Credentialed requests cannot use a wildcard origin
     # at all, so this has to be a real list — which is the point.

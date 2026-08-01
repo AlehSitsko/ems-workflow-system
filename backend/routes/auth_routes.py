@@ -7,8 +7,9 @@ from audit_utils import log_action
 from utils.auth_utils import (
     start_session, end_session, require_auth, require_role,
     get_request_user_id, get_request_user_name, get_csrf_token,
-    password_expired,
+    password_expired, append_password_history, password_in_history,
 )
+from flask import current_app
 from utils.validation_utils import validate_password_strength
 
 
@@ -165,9 +166,14 @@ def change_password():
     # Rotation means a genuinely new secret, not the same one re-entered.
     if check_password_hash(user.password_hash, new):
         return jsonify({"error": "The new password must be different from the current one"}), 400
+    # …nor a recent one, when a history depth is configured.
+    depth = current_app.config.get("PASSWORD_HISTORY_DEPTH", 0)
+    if password_in_history(user, new, depth):
+        return jsonify({"error": f"The new password must not match your last {depth} passwords"}), 400
 
     user.password_hash = generate_password_hash(new)
     user.password_changed_at = _now_iso()
+    append_password_history(user)
     db.session.commit()
 
     return jsonify({"message": "Password changed", "user": _user_payload(user)})
@@ -242,6 +248,7 @@ def create_user():
 
     db.session.add(user)
     db.session.flush()
+    append_password_history(user)  # seed history with the initial password
 
     uid, uname = _audit_user()
     log_action("user.created", "user", user.id, user.username,
@@ -326,6 +333,7 @@ def update_user(id):
     if password:
         user.password_hash = generate_password_hash(password)
         user.password_changed_at = _now_iso()  # resets the rotation clock
+        append_password_history(user)
 
     if changes:
         uid, uname = _audit_user()
