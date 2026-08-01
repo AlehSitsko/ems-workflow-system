@@ -37,6 +37,11 @@ SESSION_ROLE = "role"
 SESSION_NAME = "display_name"
 SESSION_ORG = "org_id"
 SESSION_CSRF = "csrf_token"
+SESSION_SID = "sid"  # per-device session id, validated against the user_session table
+
+# Don't rewrite last_seen on every request — once per this many seconds is enough
+# to power a "last active" display without a write on the hot path.
+_SESSION_TOUCH_INTERVAL_S = 300
 
 # CSRF: a per-session token, mirrored into a JS-readable cookie so the SPA can
 # echo it in a header on state-changing requests. The session cookie itself is
@@ -124,6 +129,9 @@ def password_in_history(user, raw_password, depth):
 
 def start_session(user):
     """Record a signed-in user. Called only after the password is verified."""
+    from datetime import datetime
+    from models import db, UserSession
+
     # A fresh session id per login: reusing the pre-login one would leave the
     # app open to session fixation, where an attacker plants a known id and
     # inherits the session once the victim signs in.
@@ -134,12 +142,63 @@ def start_session(user):
     session[SESSION_ORG] = user.org_id
     # A CSRF token bound to this session, unpredictable and rotated per login.
     session[SESSION_CSRF] = secrets.token_urlsafe(32)
+
+    # Register this device server-side so it can be listed and revoked. The sid in
+    # the cookie is the handle; the guard checks the row every request.
+    sid = secrets.token_urlsafe(32)
+    session[SESSION_SID] = sid
+    now = datetime.now().isoformat(timespec="seconds")
+    db.session.add(UserSession(
+        sid=sid, user_id=user.id, created_at=now, last_seen_at=now,
+        user_agent=(request.headers.get("User-Agent") or "")[:300],
+    ))
+    db.session.commit()
+
     session.permanent = True
 
 
 def end_session():
-    """Drop the signed-in user. Safe to call when nobody is signed in."""
+    """Drop the signed-in user and revoke this device's server-side session. Safe
+    to call when nobody is signed in."""
+    from models import db, UserSession
+
+    sid = session.get(SESSION_SID)
+    if sid:
+        row = UserSession.query.filter_by(sid=sid).first()
+        if row and not row.revoked:
+            row.revoked = True
+            db.session.commit()
     session.clear()
+
+
+def session_is_live():
+    """True when this request's session id is registered and not revoked, updating
+    its last_seen (throttled). False means the device was signed out elsewhere, so
+    the guard should reject the request. Absence of a sid is treated as live, so a
+    context that never went through start_session (some tests) is unaffected."""
+    from datetime import datetime
+    from models import db, UserSession
+
+    sid = session.get(SESSION_SID)
+    if not sid:
+        return True
+
+    row = UserSession.query.filter_by(sid=sid).first()
+    if row is None or row.revoked:
+        return False
+
+    now = datetime.now()
+    last = row.last_seen_at
+    stale = True
+    if last:
+        try:
+            stale = (now - datetime.fromisoformat(last)).total_seconds() > _SESSION_TOUCH_INTERVAL_S
+        except (ValueError, TypeError):
+            stale = True
+    if stale:
+        row.last_seen_at = now.isoformat(timespec="seconds")
+        db.session.commit()
+    return True
 
 
 def get_csrf_token():
@@ -289,6 +348,13 @@ def register_api_auth_guard(app):
         if user is None or not user.is_active:
             set_current_org(None)
             end_session()
+            return jsonify({"error": "Authentication required"}), 401
+
+        # This specific device's session may have been revoked (from another
+        # device) even though the account is fine — sign it out on its next call.
+        if not session_is_live():
+            set_current_org(None)
+            session.clear()  # the row is already revoked; just drop the cookie
             return jsonify({"error": "Authentication required"}), 401
 
         # Bind this request to the user's organisation so the tenant filter/stamp

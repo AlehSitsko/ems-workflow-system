@@ -64,6 +64,33 @@ export async function changePassword(currentPassword, newPassword) {
   return data.user;
 }
 
+// My active sessions (one per signed-in device), current flagged.
+export async function getSessions() {
+  const response = await fetch(`${API_BASE_URL}/api/auth/sessions`, { credentials: "include" });
+  if (!response.ok) throw new Error("Failed to load sessions");
+  return response.json();
+}
+
+// Revoke one of my sessions by id. Revoking the current one signs me out here.
+export async function revokeSession(id) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/sessions/${id}`, {
+    method: "DELETE", credentials: "include",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Failed to revoke the session");
+  return data; // { current: bool }
+}
+
+// Sign out every other device, keeping this one.
+export async function revokeOtherSessions() {
+  const response = await fetch(`${API_BASE_URL}/api/auth/sessions/revoke-others`, {
+    method: "POST", credentials: "include",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Failed to sign out other devices");
+  return data; // { revoked: N }
+}
+
 /**
  * Who the session cookie belongs to, or null.
  *

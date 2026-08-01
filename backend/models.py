@@ -66,6 +66,36 @@ class User(db.Model):
         }
 
 
+class UserSession(db.Model):
+    """A server-side record of one signed-in session (one device/browser).
+
+    Flask's cookie is stateless, so on its own a session cannot be revoked before
+    it expires. This registry gives each login a random `sid` (stored in the
+    cookie); the auth guard checks the sid is still present and not revoked every
+    request, so revoking a row signs that one device out on its next call —
+    without touching the user's other sessions. A child of User with no org_id; it
+    is only ever queried by sid or for the session user's own id."""
+    __tablename__ = "user_session"
+
+    id = db.Column(db.Integer, primary_key=True)
+    sid = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    created_at = db.Column(db.String(50), nullable=False)
+    last_seen_at = db.Column(db.String(50))
+    user_agent = db.Column(db.String(300))
+    revoked = db.Column(db.Boolean, nullable=False, default=False, index=True)
+
+    def to_dict(self, current_sid=None):
+        return {
+            "id": self.id,
+            "createdAt": self.created_at,
+            "lastSeenAt": self.last_seen_at or self.created_at,
+            "userAgent": self.user_agent or "",
+            "current": bool(current_sid and self.sid == current_sid),
+        }
+
+
 class PasswordHistory(db.Model):
     """Past password hashes, so a rotation can refuse reuse of a recent one (see
     Config.PASSWORD_HISTORY_DEPTH). A child of User with no org_id of its own — it

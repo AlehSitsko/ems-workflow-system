@@ -1,15 +1,15 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import db, User, Employee, Organization
+from models import db, User, Employee, Organization, UserSession
 from limiter import limiter
 from audit_utils import log_action
 from utils.auth_utils import (
     start_session, end_session, require_auth, require_role,
     get_request_user_id, get_request_user_name, get_csrf_token,
     password_expired, append_password_history, password_in_history,
+    SESSION_SID,
 )
-from flask import current_app
 from utils.validation_utils import validate_password_strength
 
 
@@ -177,6 +177,60 @@ def change_password():
     db.session.commit()
 
     return jsonify({"message": "Password changed", "user": _user_payload(user)})
+
+
+# ── Active sessions (per-device) ─────────────────────────────────────────────
+#
+# Every route here operates only on the caller's *own* sessions — the query is
+# scoped by user_id from the session, so one user can never see or revoke another's
+# devices.
+
+@auth_bp.route("/sessions", methods=["GET"])
+@require_auth
+def list_sessions():
+    """My active (non-revoked) sessions, newest activity first, current flagged."""
+    uid = get_request_user_id()
+    current_sid = session.get(SESSION_SID)
+    rows = (
+        UserSession.query
+        .filter_by(user_id=uid, revoked=False)
+        .order_by(UserSession.last_seen_at.desc(), UserSession.id.desc())
+        .all()
+    )
+    return jsonify([r.to_dict(current_sid) for r in rows])
+
+
+@auth_bp.route("/sessions/<int:session_id>", methods=["DELETE"])
+@require_auth
+def revoke_session(session_id):
+    """Revoke one of my sessions. Revoking the current one also signs me out here."""
+    uid = get_request_user_id()
+    row = UserSession.query.filter_by(id=session_id, user_id=uid).first()
+    if not row:
+        return jsonify({"error": "Session not found"}), 404
+
+    is_current = session.get(SESSION_SID) == row.sid
+    row.revoked = True
+    db.session.commit()
+    if is_current:
+        end_session()  # already revoked above; this clears the cookie too
+    return jsonify({"message": "Session revoked", "current": is_current})
+
+
+@auth_bp.route("/sessions/revoke-others", methods=["POST"])
+@require_auth
+def revoke_other_sessions():
+    """Sign out everywhere except this device — the "was that you?" panic button."""
+    uid = get_request_user_id()
+    current_sid = session.get(SESSION_SID)
+    rows = UserSession.query.filter_by(user_id=uid, revoked=False).all()
+    revoked = 0
+    for row in rows:
+        if row.sid != current_sid:
+            row.revoked = True
+            revoked += 1
+    db.session.commit()
+    return jsonify({"message": "Other sessions signed out", "revoked": revoked})
 
 
 # Return all system users ordered by ID.
