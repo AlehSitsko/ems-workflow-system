@@ -92,7 +92,20 @@ def login():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
-    user = User.query.filter_by(username=username).first()
+    # Which organisation is this login for? On an org subdomain the username is
+    # scoped to that org; on a bare host (localhost/apex) there is no subdomain, so
+    # the lookup stays global — the pre-v2, single-tenant behaviour.
+    from utils.tenant_host import org_slug_from_host
+    slug = org_slug_from_host(request.host)
+    if slug:
+        org = Organization.query.filter_by(slug=slug).first()
+        if org is None:
+            return jsonify({"error": "Invalid username or password"}), 401
+        if not org.is_active:
+            return jsonify({"error": "This workspace is suspended"}), 403
+        user = User.query.filter_by(org_id=org.id, username=username).first()
+    else:
+        user = User.query.filter_by(username=username).first()
 
     if not user:
         return jsonify({"error": "Invalid username or password"}), 401

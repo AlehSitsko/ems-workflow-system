@@ -193,10 +193,32 @@ by `tests/test_tenant_isolation.py`.
 The audit trail is scoped too — `AuditLog` carries `org_id`, stamped on every
 in-request write, so no organisation's admin can read another's history.
 
-**Still open (documented residual):** per-org login by subdomain/slug and a
-`g.current_org` from the Host header; a platform super-admin cross-org view; and a
-create/deactivate-organisations admin UI. Each user is currently bound to exactly
-one organisation.
+### v2 — subdomain login, per-org users, platform super-admin
+
+Each organisation is reached at its own subdomain (`acme.<BASE_DOMAIN>`).
+`utils/tenant_host.py` turns the request Host into an org; a bare host
+(localhost / the apex / an unknown host) resolves to **no org**, and the app then
+behaves as the pre-v2 single tenant — the back-compat lever that keeps existing
+deployments and the whole test suite working. Usernames are unique **per org**
+(`uq_user_org_username`), and login is scoped to the subdomain's organisation; a
+suspended workspace refuses login and locks out its live sessions on the next
+request, and a session is bound to its org's subdomain (defence against a
+cross-subdomain cookie replay if the cookie is ever domain-scoped).
+
+A **platform super-admin** (`User.is_platform_admin`, no org) runs the cross-org
+console (`/api/platform`) on the platform host only: create an organisation and its
+first admin, rename or suspend it, and reset an org admin's password. The auth guard
+confines a platform admin to that console — with a NULL org they read unfiltered, so
+they must never reach an ordinary tenant endpoint. Org admins manage their own org's
+name and branding (`/api/tenant/org`); the login screen greets the workspace
+(`/api/tenant/current`, public). Bootstrap without a UI via `flask create-org` and
+`flask create-platform-admin`. CORS reflects any `*.BASE_DOMAIN` origin (still an
+allowlist — a wildcard cannot carry credentials).
+
+Tests: `test_tenant_host`, `test_multitenancy_login`, `test_multitenancy_session`,
+`test_platform`, `test_tenant_routes`. **Still open:** running real subdomains in
+production needs DNS records and a wildcard TLS certificate (infrastructure, not
+application code); platform-admin impersonation was deliberately left out.
 
 ## File storage
 
