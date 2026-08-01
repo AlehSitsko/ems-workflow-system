@@ -107,13 +107,17 @@ documented policy, each after checking no excluded-role flow depended on it:
   any of the last N stored hashes; recording is always on, so raising the depth
   later works against the history already retained. Still missing: a breach-corpus
   (HaveIBeenPwned) lookup, which needs an external service.
-- **Revocation** works for the case that matters: the signed-in user is
+- **Revocation** works at two levels. Account-level: the signed-in user is
   re-validated against the database on every request, so disabling or deleting an
   account, or changing its role, takes effect on that account's very next request
   rather than lingering until the 12-hour cookie expires (`register_api_auth_guard`,
-  tests in `test_security.py`). What still needs a session store is revoking *one*
-  specific device's session while the user stays active elsewhere — the cookie
-  carries no per-session id to target
+  tests in `test_security.py`). Device-level: a `UserSession` registry gives each
+  login a random `sid` (carried in the cookie) that the guard checks every request,
+  so revoking one row signs *that one device* out on its next call while the user
+  stays signed in elsewhere. Users manage their own devices from Settings → Active
+  sessions (`GET/DELETE /api/auth/sessions`, `POST /api/auth/sessions/revoke-others`,
+  scoped to the caller); `test_sessions.py`. Pre-upgrade cookie sessions carry no
+  sid and are asked to sign in once
 
 ## Database
 

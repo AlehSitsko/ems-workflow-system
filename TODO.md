@@ -484,8 +484,18 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
     fires once across a burst of concurrent 401s, and re-arms on the next login.
     `sessionExpiry.test.js` (7). Verified live (killed the session server-side →
     the next API call bounced the tab straight to the login form)
-  - [ ] Still open: revoking one specific device's session (needs a session store
-    with per-session ids)
+  - [x] **Per-device session revocation.** A `UserSession` registry (migration
+    `c5e1a83d6b47`) gives each login a random `sid` (also in the cookie) with its
+    device's user-agent and a throttled last-seen; the auth guard checks the sid is
+    present and not revoked every request, so revoking one row signs that device out
+    on its next call without disturbing the others. `GET /api/auth/sessions` lists
+    the caller's own devices (current flagged), `DELETE /api/auth/sessions/<id>`
+    revokes one (scoped to the caller — another user's id is a 404), and
+    `POST /api/auth/sessions/revoke-others` is the "sign out everywhere else" button;
+    logout revokes the current row. Settings gains an **Active sessions** panel.
+    `test_sessions.py` (7), `ActiveSessions.test.jsx` (4). Verified live (two devices
+    → revoke one → its next request 401, the other keeps working). Pre-existing
+    cookie sessions carry no sid and are asked to sign in once after the upgrade.
 - [x] **Audit role correctness per route.** All 142 routes enumerated against
   their guard; the "any signed-in" ones checked against the documented policy.
   Tightened patients (HR out), payroll + pay-config (dispatcher out), employee
