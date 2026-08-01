@@ -16,6 +16,7 @@ import CallsPage from "./pages/CallsPage";
 import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import ReportsPage from "./pages/ReportsPage";
 import LoginPage from "./pages/LoginPage";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
@@ -384,12 +385,23 @@ function App() {
     },
   ]), [currentUser]);
 
+  // An expired password locks the whole app: the server refuses every other API
+  // call, so there is nothing to render behind the router until it is rotated.
+  const onPasswordChanged = (updated) => {
+    saveCurrentUser(updated);
+    setCurrentUser(updated);
+  };
+
   return (
     <ThemeProvider>
     <ToastProvider>
     <ConfirmProvider>
     <UserSettingsProvider currentUser={currentUser}>
-      <RouterProvider router={router} />
+      {currentUser && currentUser.passwordExpired ? (
+        <ChangePasswordPage user={currentUser} onChanged={onPasswordChanged} onLogout={handleLogout} />
+      ) : (
+        <RouterProvider router={router} />
+      )}
     </UserSettingsProvider>
     </ConfirmProvider>
     </ToastProvider>

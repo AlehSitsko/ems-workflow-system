@@ -46,6 +46,32 @@ CSRF_COOKIE = "csrf_token"
 CSRF_HEADER = "X-CSRF-Token"
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
+# When a password has expired (see Config.PASSWORD_MAX_AGE_DAYS), the only /api/
+# endpoints a signed-in user may still reach are these: changing the password (the
+# way out), reading their own identity, and signing out. Everything else is 403
+# until they rotate — enforced in the auth guard, not just hidden in the UI.
+PASSWORD_CHANGE_EXEMPT = {"auth.change_password", "auth.current_user", "auth.logout"}
+
+
+def password_expired(user):
+    """True when password rotation is enabled and this user's password is older
+    than the configured maximum age. A missing timestamp counts as expired (an
+    unknown age must be rotated); rotation off (max age 0) is never expired."""
+    from datetime import datetime, timedelta
+    from flask import current_app
+
+    max_age = current_app.config.get("PASSWORD_MAX_AGE_DAYS", 0)
+    if not max_age:
+        return False
+    changed_at = getattr(user, "password_changed_at", None)
+    if not changed_at:
+        return True
+    try:
+        changed = datetime.fromisoformat(changed_at)
+    except (ValueError, TypeError):
+        return True
+    return datetime.now() - changed > timedelta(days=max_age)
+
 
 def start_session(user):
     """Record a signed-in user. Called only after the password is verified."""
@@ -219,6 +245,14 @@ def register_api_auth_guard(app):
         # Bind this request to the user's organisation so the tenant filter/stamp
         # (tenant.py) scope every subsequent query and insert to it.
         set_current_org(user.org_id)
+
+        # An expired password locks the account to the change-password flow: the
+        # user has a valid session but cannot do anything else until they rotate.
+        if endpoint not in PASSWORD_CHANGE_EXEMPT and password_expired(user):
+            return jsonify({
+                "error": "Your password has expired. Please set a new one.",
+                "code": "password_expired",
+            }), 403
 
         if session.get(SESSION_ROLE) != user.role or session.get(SESSION_NAME) != user.display_name:
             session[SESSION_ROLE] = user.role

@@ -7,8 +7,14 @@ from audit_utils import log_action
 from utils.auth_utils import (
     start_session, end_session, require_auth, require_role,
     get_request_user_id, get_request_user_name, get_csrf_token,
+    password_expired,
 )
 from utils.validation_utils import validate_password_strength
+
+
+def _now_iso():
+    from datetime import datetime
+    return datetime.now().isoformat(timespec="seconds")
 
 
 # Blueprint for authentication and user management routes.
@@ -29,6 +35,9 @@ def _user_payload(user):
     data = user.to_dict()
     org = Organization.query.get(user.org_id) if user.org_id else None
     data["organization"] = {"id": org.id, "name": org.name} if org else None
+    # Lets the client route an expired user straight to the change-password screen
+    # rather than into an app whose every request would 403.
+    data["passwordExpired"] = password_expired(user)
     return data
 
 
@@ -131,6 +140,39 @@ def current_user():
     return jsonify({"user": _user_payload(user), "csrfToken": get_csrf_token()})
 
 
+@auth_bp.route("/change-password", methods=["POST"])
+@require_auth
+def change_password():
+    """Change my own password. This is the one thing an expired account can still
+    do (see the auth guard), and the ordinary way any user rotates theirs."""
+    user = User.query.get(get_request_user_id())
+    if not user or not user.is_active:
+        end_session()
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.get_json() or {}
+    current = data.get("currentPassword", "")
+    new = data.get("newPassword", "")
+
+    if not current or not new:
+        return jsonify({"error": "Both currentPassword and newPassword are required"}), 400
+    if not check_password_hash(user.password_hash, current):
+        return jsonify({"error": "Current password is incorrect"}), 403
+
+    pw_error = validate_password_strength(new, user.username)
+    if pw_error:
+        return jsonify({"error": pw_error}), 400
+    # Rotation means a genuinely new secret, not the same one re-entered.
+    if check_password_hash(user.password_hash, new):
+        return jsonify({"error": "The new password must be different from the current one"}), 400
+
+    user.password_hash = generate_password_hash(new)
+    user.password_changed_at = _now_iso()
+    db.session.commit()
+
+    return jsonify({"message": "Password changed", "user": _user_payload(user)})
+
+
 # Return all system users ordered by ID.
 # ── User administration — admin only ────────────────────────────────────────
 #
@@ -191,6 +233,7 @@ def create_user():
     user = User(
         username=username,
         password_hash=generate_password_hash(password),
+        password_changed_at=_now_iso(),
         display_name=display_name,
         role=role,
         is_active=is_active,
@@ -282,6 +325,7 @@ def update_user(id):
     # Update password only when a new password is provided (validated above).
     if password:
         user.password_hash = generate_password_hash(password)
+        user.password_changed_at = _now_iso()  # resets the rotation clock
 
     if changes:
         uid, uname = _audit_user()

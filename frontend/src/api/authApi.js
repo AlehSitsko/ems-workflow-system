@@ -47,6 +47,23 @@ export async function loginUser(username, password) {
   return data.user;
 }
 
+// Change my own password. Returns the updated user (with passwordExpired cleared)
+// so the caller can drop any forced-rotation screen. Throws the server's message
+// on failure (wrong current password, too weak, or unchanged).
+export async function changePassword(currentPassword, newPassword) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Could not change the password");
+  }
+  return data.user;
+}
+
 /**
  * Who the session cookie belongs to, or null.
  *

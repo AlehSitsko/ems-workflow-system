@@ -31,6 +31,9 @@ class User(db.Model):
     # Basic authentication information.
     username = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    # When the password was last set — drives optional rotation (see
+    # Config.PASSWORD_MAX_AGE_DAYS). ISO datetime; stamped on every password set.
+    password_changed_at = db.Column(db.String(50))
 
     # Display name is used in the UI and as dispatcher identity.
     display_name = db.Column(db.String(150), nullable=False)

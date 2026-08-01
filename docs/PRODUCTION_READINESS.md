@@ -88,9 +88,19 @@ documented policy, each after checking no excluded-role flow depended on it:
   `csrf.test.js`
 - Password **complexity** is enforced on account create/edit (≥10 chars, a
   letter, a number, not the username — `validate_password_strength`); login is
-  rate limited (10/min). Still missing: expiry/rotation, and a breach-corpus
-  check. Enforced on the management routes only, so existing and demo accounts
-  are unaffected
+  rate limited (10/min). Enforced on the management routes only, so existing and
+  demo accounts are unaffected.
+- Password **expiry / rotation** is available and off by default:
+  `Config.PASSWORD_MAX_AGE_DAYS` (0 disables it, so nothing changes unless a
+  deployment opts in — set e.g. 90 in production). `User.password_changed_at` is
+  stamped on every password set and backfilled for existing rows so the clock
+  starts at the upgrade rather than expiring everyone at once. When a password is
+  past the limit the auth guard restricts that session to change-password, `/me`
+  and logout (`403 {"code": "password_expired"}` everywhere else) and the SPA shows
+  a forced change screen. Self-service `POST /api/auth/change-password` verifies
+  the current password, applies the same strength policy, and rejects reusing the
+  current password. Still missing: a full password-history check (only the current
+  password is refused for reuse) and a breach-corpus (HaveIBeenPwned) lookup.
 - **Revocation** works for the case that matters: the signed-in user is
   re-validated against the database on every request, so disabling or deleting an
   account, or changing its role, takes effect on that account's very next request
