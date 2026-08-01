@@ -26,11 +26,23 @@ class Organization(db.Model):
 
 
 class User(db.Model):
+    # Usernames are unique *per organisation*, not globally — the same "admin" can
+    # exist in two orgs, each reached by its own subdomain. A platform super-admin
+    # is the exception: is_platform_admin with a NULL org, managing orgs from the
+    # platform console rather than belonging to any one of them.
+    __table_args__ = (
+        db.UniqueConstraint("org_id", "username", name="uq_user_org_username"),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
 
-    # Basic authentication information.
-    username = db.Column(db.String(100), unique=True, nullable=False)
+    # Basic authentication information. (Unique per-org via __table_args__ above.)
+    username = db.Column(db.String(100), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+
+    # A cross-org platform operator: creates and manages organisations, belongs to
+    # none (org_id is NULL), and is only admitted on the platform host.
+    is_platform_admin = db.Column(db.Boolean, nullable=False, default=False)
     # When the password was last set — drives optional rotation (see
     # Config.PASSWORD_MAX_AGE_DAYS). ISO datetime; stamped on every password set.
     password_changed_at = db.Column(db.String(50))
@@ -63,6 +75,7 @@ class User(db.Model):
             "role": self.role,
             "is_active": self.is_active,
             "employee_id": self.employee_id,
+            "is_platform_admin": bool(self.is_platform_admin),
         }
 
 

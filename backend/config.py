@@ -109,6 +109,17 @@ class Config:
     # this later takes effect immediately with the history already on hand.
     PASSWORD_HISTORY_DEPTH = int(os.environ.get("PASSWORD_HISTORY_DEPTH", "0"))
 
+    # ── Multi-tenancy (subdomain routing) ────────────────────────────────────
+    # The apex the org subdomains sit under (`acme.<BASE_DOMAIN>` → org "acme").
+    # `localhost` is the dev default because *.localhost resolves to 127.0.0.1 on
+    # most systems, so `acme.localhost` needs no DNS. A host that is exactly the
+    # base domain (or has no subdomain label) resolves to *no* org — the app then
+    # behaves as the single-tenant it was before, which keeps existing tests and
+    # deployments working. PLATFORM_HOST is where the cross-org super-admin console
+    # lives and is never treated as an org subdomain.
+    BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "localhost")
+    PLATFORM_HOST = os.environ.get("PLATFORM_HOST", "admin.localhost")
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     # An explicit allowlist. Credentialed requests cannot use a wildcard origin
     # at all, so this has to be a real list — which is the point.
