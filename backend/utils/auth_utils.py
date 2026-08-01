@@ -38,6 +38,7 @@ SESSION_NAME = "display_name"
 SESSION_ORG = "org_id"
 SESSION_CSRF = "csrf_token"
 SESSION_SID = "sid"  # per-device session id, validated against the user_session table
+SESSION_PLATFORM = "is_platform_admin"  # cross-org super-admin flag, cached from login
 
 # Don't rewrite last_seen on every request — once per this many seconds is enough
 # to power a "last active" display without a write on the hot path.
@@ -56,6 +57,11 @@ _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # way out), reading their own identity, and signing out. Everything else is 403
 # until they rotate — enforced in the auth guard, not just hidden in the UI.
 PASSWORD_CHANGE_EXEMPT = {"auth.change_password", "auth.current_user", "auth.logout"}
+
+# A platform super-admin has no org, so their reads run unfiltered; they must only
+# reach the platform console plus these self-service auth endpoints, never an
+# ordinary tenant route where that NULL org would see every organisation's data.
+PLATFORM_SELF_ENDPOINTS = {"auth.current_user", "auth.logout", "auth.change_password"}
 
 
 def password_expired(user):
@@ -140,6 +146,7 @@ def start_session(user):
     session[SESSION_ROLE] = user.role
     session[SESSION_NAME] = user.display_name
     session[SESSION_ORG] = user.org_id
+    session[SESSION_PLATFORM] = bool(user.is_platform_admin)
     # A CSRF token bound to this session, unpredictable and rotated per login.
     session[SESSION_CSRF] = secrets.token_urlsafe(32)
 
@@ -225,6 +232,11 @@ def get_request_user_name():
     return session.get(SESSION_NAME) or None
 
 
+def get_request_is_platform():
+    """True when the signed-in user is a platform super-admin (cached at login)."""
+    return bool(session.get(SESSION_PLATFORM))
+
+
 def is_authenticated():
     """True when the request carries a signed-in session.
 
@@ -233,6 +245,22 @@ def is_authenticated():
     all is anonymous.
     """
     return bool(get_request_role())
+
+
+def require_platform_admin(fn):
+    """Gate a view to platform super-admins on the platform host only. A normal
+    org user (even an org admin) gets 403; so does a platform admin reaching it
+    from an org subdomain."""
+    from utils.tenant_host import is_platform_host
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not is_authenticated():
+            return jsonify({"error": "Authentication required"}), 401
+        if not (get_request_is_platform() and is_platform_host()):
+            return jsonify({"error": "Insufficient permissions"}), 403
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 def require_auth(fn):
@@ -360,6 +388,15 @@ def register_api_auth_guard(app):
         # Bind this request to the user's organisation so the tenant filter/stamp
         # (tenant.py) scope every subsequent query and insert to it.
         set_current_org(user.org_id)
+
+        # Confine a platform super-admin (NULL org → unfiltered) to the platform
+        # console on the platform host, so their cross-org reach can never land on
+        # an ordinary tenant endpoint.
+        if user.is_platform_admin:
+            from utils.tenant_host import is_platform_host
+            allowed = endpoint.startswith("platform.") or endpoint in PLATFORM_SELF_ENDPOINTS
+            if not (is_platform_host() and allowed):
+                return jsonify({"error": "Insufficient permissions"}), 403
 
         # An expired password locks the account to the change-password flow: the
         # user has a valid session but cannot do anything else until they rotate.

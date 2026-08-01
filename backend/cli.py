@@ -5,11 +5,13 @@ users are created explicitly, never on normal app startup, so importing or
 serving the app has no side effects on the database.
 """
 
+from datetime import datetime
+
 import click
 from flask.cli import with_appcontext
 from werkzeug.security import generate_password_hash
 
-from models import db, User, Call, Patient, DailyCrewUnit, Vehicle
+from models import db, User, Call, Patient, DailyCrewUnit, Vehicle, Organization
 from utils.taxonomy import (
     normalize_service_level, normalize_unit_type, normalize_vehicle_capability,
 )
@@ -281,6 +283,76 @@ def seed_demo_data_command(force):
     click.echo(f"seed-demo-data: created {parts}")
 
 
+@click.command("create-platform-admin")
+@click.argument("username")
+@click.argument("password")
+@with_appcontext
+def create_platform_admin_command(username, password):
+    """Create a cross-org platform super-admin (no org; manages organisations).
+
+    Runs unfiltered — it has no request/session to derive a tenant from, and a
+    platform admin belongs to no org anyway.
+    """
+    from tenant import unfiltered
+
+    username = username.strip()
+    with unfiltered():
+        if User.query.filter_by(username=username, org_id=None, is_platform_admin=True).first():
+            click.echo(f"create-platform-admin: {username!r} already exists")
+            return
+        now = datetime.now().isoformat(timespec="seconds")
+        db.session.add(User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            password_changed_at=now,
+            display_name=username,
+            role="admin",
+            is_active=True,
+            org_id=None,
+            is_platform_admin=True,
+        ))
+        db.session.commit()
+    click.echo(f"create-platform-admin: created {username!r}")
+
+
+@click.command("create-org")
+@click.argument("slug")
+@click.argument("name")
+@click.option("--admin-user", required=True, help="Username for the org's first admin.")
+@click.option("--admin-pass", required=True, help="Password for the org's first admin.")
+@with_appcontext
+def create_org_command(slug, name, admin_user, admin_pass):
+    """Create an organisation (reachable at <slug>.<BASE_DOMAIN>) and its first admin."""
+    from tenant import unfiltered
+    from routes.platform_routes import _validate_slug
+
+    slug = slug.strip().lower()
+    slug_error = _validate_slug(slug)
+    if slug_error:
+        click.echo(f"create-org: {slug_error}")
+        return
+
+    with unfiltered():
+        if Organization.query.filter_by(slug=slug).first():
+            click.echo(f"create-org: an organisation with slug {slug!r} already exists")
+            return
+        now = datetime.now().isoformat(timespec="seconds")
+        org = Organization(name=name, slug=slug, is_active=True, created_at=now)
+        db.session.add(org)
+        db.session.flush()
+        db.session.add(User(
+            username=admin_user.strip(),
+            password_hash=generate_password_hash(admin_pass),
+            password_changed_at=now,
+            display_name=admin_user.strip(),
+            role="admin",
+            is_active=True,
+            org_id=org.id,
+        ))
+        db.session.commit()
+    click.echo(f"create-org: created {slug!r} ({name!r}) with admin {admin_user!r}")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
@@ -288,3 +360,5 @@ def register_cli_commands(app):
     app.cli.add_command(normalize_taxonomy_command)
     app.cli.add_command(migrate_emergency_service_level_command)
     app.cli.add_command(link_crew_units_to_vehicles_command)
+    app.cli.add_command(create_platform_admin_command)
+    app.cli.add_command(create_org_command)

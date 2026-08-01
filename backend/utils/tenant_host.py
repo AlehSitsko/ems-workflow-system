@@ -55,6 +55,14 @@ def org_slug_from_host(host):
     return slug
 
 
+def is_platform_host(host=None):
+    """True when the request is on the cross-org platform host — the only place a
+    platform super-admin may operate."""
+    hostname = _strip_port(host if host is not None else (request.host if request else None))
+    platform = _strip_port(current_app.config.get("PLATFORM_HOST", ""))
+    return bool(platform) and hostname == platform
+
+
 def resolve_request_org():
     """The active Organization for this request's host, or None. Memoised on
     flask.g so repeated calls in one request cost a single lookup."""
