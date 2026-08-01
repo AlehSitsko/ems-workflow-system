@@ -74,6 +74,24 @@ describe("PortalPage", () => {
     ));
   });
 
+  it("shows the review decision on a reviewed leave request", async () => {
+    api.getMyLeave.mockResolvedValue([
+      {
+        id: 9, leaveType: "vacation", startDate: "2026-09-01", endDate: "2026-09-03",
+        status: "approved", reviewedByName: "Dana HR", reviewedAt: "2026-08-15T09:00:00",
+        reviewNote: "Approved — enjoy!",
+      },
+      { id: 10, leaveType: "sick", startDate: "2026-09-20", endDate: "2026-09-20", status: "pending" },
+    ]);
+    render(<PortalPage currentUser={user} />);
+    fireEvent.click(screen.getByRole("button", { name: /My Leave/i }));
+
+    expect(await screen.findByText("Approved — enjoy!")).toBeInTheDocument();
+    expect(screen.getByText("Dana HR", { exact: false })).toBeInTheDocument();
+    // A still-pending request reads as awaiting, not a blank decision.
+    expect(screen.getByText(/Awaiting review/i)).toBeInTheDocument();
+  });
+
   it("blocks a leave request with no start date", async () => {
     render(<PortalPage currentUser={user} />);
     fireEvent.click(screen.getByRole("button", { name: /My Leave/i }));

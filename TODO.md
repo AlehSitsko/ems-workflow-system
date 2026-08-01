@@ -405,8 +405,14 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   document file route is scoped to the caller's own docs (another's is a 404).
   Demo data gives `jcarter` closed shifts + a license. `test_portal.py` (+5),
   `PortalPage.test.jsx` (+2). Verified end to end (clocked in/out, viewed hours
-  and a document on the running app). Still open: manager approval of portal-filed
-  leave surfaced back to the employee (already flows into HR's Leave Review)
+  and a document on the running app).
+  - [x] Follow-up: **the review decision surfaced back to the employee.** My Leave
+    gains a Decision column — who approved/denied it, when, and the reviewer's note
+    to the employee — via a new `to_dict("self")` visibility that adds the review
+    trail and the employee's own real leave type + reason, but never HR's
+    `private_notes` (nor the raw reviewer/submitter user ids). Pending reads as
+    "Awaiting review". `test_portal.py` (+2, pinning that `privateNotes` never
+    reaches the portal), `PortalPage.test.jsx` (+1)
 - [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
 - [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
   expands the sidebar and opens it. A hover/focus flyout would need its own

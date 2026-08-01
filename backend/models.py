@@ -1616,9 +1616,12 @@ class EmployeeLeaveRequest(db.Model):
         return bool(date_str) and self.start_date <= date_str <= self.end_date
 
     def to_dict(self, visibility="scheduling"):
-        """Serialize at one of two levels.
+        """Serialize at one of three levels.
 
         "hr"         — everything, for admin/HR.
+        "self"       — the requester's own view: their real leave type, reason and
+                       the review decision (who decided, when, and the note left
+                       *for them*), but never HR's private notes.
         "scheduling" — who is away and when, and nothing else. Sensitive types
                        collapse to "unavailable"; reason, notes and the review
                        trail are omitted entirely rather than blanked, so they
@@ -1652,6 +1655,18 @@ class EmployeeLeaveRequest(db.Model):
                 "reviewNote": self.review_note or "",
                 "createdAt": self.created_at,
                 "updatedAt": self.updated_at,
+            })
+        elif visibility == "self":
+            # The employee filed this, so they see their own real type and reason,
+            # plus the decision and the reviewer's note to them — but not the
+            # HR-only private_notes, nor the raw reviewer/submitter user ids.
+            data.update({
+                "leaveType": self.leave_type,
+                "reason": self.reason or "",
+                "submittedAt": self.submitted_at or "",
+                "reviewedAt": self.reviewed_at or "",
+                "reviewedByName": self.reviewed_by_name or "",
+                "reviewNote": self.review_note or "",
             })
         else:
             # A non-sensitive type is safe to name (Vacation, Training); anything

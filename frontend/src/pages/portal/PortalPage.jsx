@@ -241,7 +241,7 @@ function LeaveTab() {
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light">
-                <tr><th>Type</th><th>Dates</th><th>Status</th></tr>
+                <tr><th>Type</th><th>Dates</th><th>Status</th><th>Decision</th></tr>
               </thead>
               <tbody>
                 {data.map((r) => (
@@ -249,6 +249,7 @@ function LeaveTab() {
                     <td className="text-capitalize">{r.leaveType}</td>
                     <td>{formatDate(r.startDate)}{r.endDate !== r.startDate ? ` – ${formatDate(r.endDate)}` : ""}</td>
                     <td><StatusBadge tone={leaveTone(r.status)} label={cap(r.status)} /></td>
+                    <td><LeaveDecision request={r} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -257,6 +258,29 @@ function LeaveTab() {
         )}
       </PageSection>
     </>
+  );
+}
+
+// The outcome of a leave request, from the employee's side: who decided, when,
+// and any note they left. Pending shows as awaiting; a cancelled request has no
+// decision to show.
+function LeaveDecision({ request: r }) {
+  if (r.status === "pending") {
+    return <span className="text-muted small">Awaiting review</span>;
+  }
+  if (r.status === "cancelled") {
+    return <span className="text-muted small">—</span>;
+  }
+  return (
+    <div className="small">
+      {r.reviewedByName && (
+        <div className="text-muted">
+          {r.reviewedByName}{r.reviewedAt ? ` · ${formatDate(r.reviewedAt)}` : ""}
+        </div>
+      )}
+      {r.reviewNote && <div>{r.reviewNote}</div>}
+      {!r.reviewedByName && !r.reviewNote && <span className="text-muted">—</span>}
+    </div>
   );
 }
 
