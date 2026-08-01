@@ -104,6 +104,14 @@ export async function logoutUser() {
   localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
 }
 
+// Drop the local session without calling the server — for when the session is
+// already gone (a 401 the server gave us), so there is nothing to log out and a
+// POST /logout would only 401 again.
+export function clearLocalSession() {
+  setCsrfToken(null);
+  localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+}
+
 // =========================
 // ROLE ACCESS HELPERS
 // =========================
