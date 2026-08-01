@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-import { getCallsReport, callsReportExportUrl } from "./reportsApi";
+import {
+  getCallsReport, callsReportExportUrl,
+  getUtilizationReport, getHoursReport, hoursReportExportUrl,
+} from "./reportsApi";
 import API_BASE from "./config.js";
 
 describe("reportsApi", () => {
@@ -36,5 +39,25 @@ describe("reportsApi", () => {
   it("builds a same-origin export URL carrying the range", () => {
     const url = callsReportExportUrl("2026-01-01", "2026-01-31");
     expect(url).toBe(`${API_BASE}/api/reports/calls/export?start=2026-01-01&end=2026-01-31`);
+  });
+
+  it("requests the utilisation and hours reports at their own endpoints", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: {} }) }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getUtilizationReport("2026-01-01", "2026-01-31");
+    await getHoursReport("2026-01-01", "2026-01-31");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${API_BASE}/api/reports/utilization?start=2026-01-01&end=2026-01-31`);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      `${API_BASE}/api/reports/hours?start=2026-01-01&end=2026-01-31`);
+  });
+
+  it("builds the hours CSV export URL", () => {
+    expect(hoursReportExportUrl("2026-01-01", "2026-01-31")).toBe(
+      `${API_BASE}/api/reports/hours/export?start=2026-01-01&end=2026-01-31`);
   });
 });
