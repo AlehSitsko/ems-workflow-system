@@ -497,8 +497,17 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   endpoints trusted a client `user_id` (read/modify anyone's notifications & prefs
   → now session-scoped), `/api/crew-presets` had no role gate (→ crew roles), and
   `GET /api/employees` leaked the roster to the new `employee` role (→ staff roles
-  only). `test_authz_review.py` (8) + portal lockout. Still open: tenant-isolation
-  review once that feature is activated
+  only). `test_authz_review.py` (8) + portal lockout.
+  - [x] **Tenant-isolation review** (done now that isolation is active). Enumerated
+    every route that loads a child row without its own `org_id` by a client id, and
+    found six route families that reached the child directly instead of through its
+    org-owning parent — a cross-org IDOR since the global filter cannot scope an
+    org-less row: employment-event delete, disciplinary PATCH/DELETE, vehicle
+    maintenance PATCH, the three call-assignment lifecycle routes, and patient
+    alert/contact PUT/DELETE/resolve. Each now resolves through an org-filtered
+    parent (employee / vehicle / call / patient) and returns 404 cross-org.
+    `test_tenant_isolation.py` (+5, red before the fix). Org-scoped `.get(pk)` was
+    confirmed correctly filtered (the leaks were only the org-less children)
 
 - [x] **PostgreSQL.** The app runs on Postgres via a `postgresql+psycopg://`
   `DATABASE_URL` (psycopg 3, in `requirements-prod.txt`); no code change — the URI

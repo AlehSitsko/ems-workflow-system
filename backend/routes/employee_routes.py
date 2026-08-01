@@ -218,7 +218,9 @@ def delete_employment_event(event_id):
     """Remove a mistaken entry. The history is append-only, so a correction is a
     delete of the wrong row, not an edit of it."""
     event = EmploymentEvent.query.get(event_id)
-    if not event:
+    # The event carries no org_id; reach it through the org-filtered employee so
+    # one org cannot delete another's history by guessing an event id.
+    if not event or not Employee.query.filter_by(id=event.employee_id).first():
         return jsonify({"error": "Employment event not found"}), 404
 
     uid, uname = get_request_user_id(), get_request_user_name()
@@ -318,7 +320,7 @@ def update_disciplinary_action(action_id):
     """Only the acknowledgement flips after issuance; the rest is the record as
     written and is not editable in place."""
     action = DisciplinaryAction.query.get(action_id)
-    if not action:
+    if not action or not Employee.query.filter_by(id=action.employee_id).first():
         return jsonify({"error": "Disciplinary action not found"}), 404
 
     data = request.get_json() or {}
@@ -340,7 +342,7 @@ def update_disciplinary_action(action_id):
 @require_role(*_HR_RECORD_ROLES)
 def delete_disciplinary_action(action_id):
     action = DisciplinaryAction.query.get(action_id)
-    if not action:
+    if not action or not Employee.query.filter_by(id=action.employee_id).first():
         return jsonify({"error": "Disciplinary action not found"}), 404
 
     uid, uname = get_request_user_id(), get_request_user_name()

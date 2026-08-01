@@ -492,6 +492,10 @@ def create_patient_alert(id):
 @patient_bp.route("/api/patient/<int:id>/alerts/<int:alert_id>", methods=["PUT"])
 @require_role(*PATIENT_ROLES)
 def update_patient_alert(id, alert_id):
+    # Scope through the org-filtered patient first: the alert carries no org_id, so
+    # without this an org could reach another's alert by guessing patient+alert ids.
+    if not Patient.query.filter_by(id=id).first():
+        return jsonify({"error": "Patient not found"}), 404
     alert = PatientAlert.query.filter_by(id=alert_id, patient_id=id).first()
     if not alert:
         return jsonify({"error": "Alert not found"}), 404
@@ -549,6 +553,10 @@ def update_patient_alert(id, alert_id):
 @patient_bp.route("/api/patient/<int:id>/alerts/<int:alert_id>/resolve", methods=["POST"])
 @require_role(*PATIENT_ROLES)
 def resolve_patient_alert(id, alert_id):
+    # Scope through the org-filtered patient first: the alert carries no org_id, so
+    # without this an org could reach another's alert by guessing patient+alert ids.
+    if not Patient.query.filter_by(id=id).first():
+        return jsonify({"error": "Patient not found"}), 404
     alert = PatientAlert.query.filter_by(id=alert_id, patient_id=id).first()
     if not alert:
         return jsonify({"error": "Alert not found"}), 404
@@ -636,6 +644,9 @@ def create_patient_contact(id):
 @patient_bp.route("/api/patient/<int:id>/contacts/<int:contact_id>", methods=["PUT"])
 @require_role(*PATIENT_ROLES)
 def update_patient_contact(id, contact_id):
+    # Scope through the org-filtered patient first (the contact carries no org_id).
+    if not Patient.query.filter_by(id=id).first():
+        return jsonify({"error": "Patient not found"}), 404
     contact = PatientContact.query.filter_by(id=contact_id, patient_id=id).first()
     if not contact:
         return jsonify({"error": "Contact not found"}), 404
@@ -679,6 +690,9 @@ def update_patient_contact(id, contact_id):
 @patient_bp.route("/api/patient/<int:id>/contacts/<int:contact_id>", methods=["DELETE"])
 @require_role(*PATIENT_ROLES)
 def delete_patient_contact(id, contact_id):
+    # Scope through the org-filtered patient first (the contact carries no org_id).
+    if not Patient.query.filter_by(id=id).first():
+        return jsonify({"error": "Patient not found"}), 404
     contact = PatientContact.query.filter_by(id=contact_id, patient_id=id).first()
     if not contact:
         return jsonify({"error": "Contact not found"}), 404

@@ -354,7 +354,9 @@ def assign_call():
 @require_role(*DISPATCH_ROLES)
 def unassign_call(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
-    if not assignment:
+    # CallAssignment carries no org_id; scope it through its org-filtered call so
+    # one org cannot touch another's assignment by guessing an id.
+    if not assignment or not Call.query.filter_by(id=assignment.call_id).first():
         return jsonify({"error": "Assignment not found"}), 404
 
     # Unassigning is a planning operation: allowed today and in the future,
@@ -382,7 +384,9 @@ def unassign_call(assignment_id):
 @require_role(*DISPATCH_ROLES)
 def complete_assignment(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
-    if not assignment:
+    # CallAssignment carries no org_id; scope it through its org-filtered call so
+    # one org cannot touch another's assignment by guessing an id.
+    if not assignment or not Call.query.filter_by(id=assignment.call_id).first():
         return jsonify({"error": "Assignment not found"}), 404
 
     # Completion is live lifecycle — today only. A future trip has not happened
@@ -411,7 +415,9 @@ def complete_assignment(assignment_id):
 @require_role(*DISPATCH_ROLES)
 def reopen_assignment(assignment_id):
     assignment = db.session.get(CallAssignment, assignment_id)
-    if not assignment:
+    # CallAssignment carries no org_id; scope it through its org-filtered call so
+    # one org cannot touch another's assignment by guessing an id.
+    if not assignment or not Call.query.filter_by(id=assignment.call_id).first():
         return jsonify({"error": "Assignment not found"}), 404
 
     # Reopen is live lifecycle — today only.

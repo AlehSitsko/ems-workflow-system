@@ -606,7 +606,9 @@ def create_maintenance(id):
 @require_role(*FLEET_EDIT_ROLES)
 def update_maintenance(record_id):
     record = VehicleMaintenanceRecord.query.get(record_id)
-    if not record:
+    # The record has no org_id; reach it through the org-filtered vehicle so one
+    # org cannot edit another's maintenance by guessing a record id.
+    if not record or not Vehicle.query.filter_by(id=record.vehicle_id).first():
         return jsonify({"error": "Maintenance record not found"}), 404
 
     data = request.get_json() or {}
