@@ -769,7 +769,7 @@ def get_calendar_events():
                            CalendarEvent.recurrence_until >= start_str),
                 ),
             ),
-            visible_events_filter(actor_uid, role),
+            visible_events_filter(actor_uid, role, actor_emp_id),
         )
         .all()
     )
@@ -803,6 +803,8 @@ def get_calendar_events():
                     "recurrence": ev.recurrence or "none",
                     "recurrenceUntil": ev.recurrence_until or "",
                     "isRecurring": recurring,
+                    "reminderMinutes": ev.reminder_minutes or 0,
+                    "participants": [p.to_dict() for p in ev.participants],
                 },
             })
 

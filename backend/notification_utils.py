@@ -13,18 +13,23 @@ from push_utils import send_push
 _TEMPORAL_CHECK_MIN_INTERVAL_S = 5
 _last_temporal_check_at = 0.0
 
+# Calendar invites and reminders are directed at named participants (not a role
+# broadcast), so every role that can hold a calendar event may receive them.
+_CALENDAR_TYPES = {"event_invite", "event_reminder"}
+
 # Which event types each role can receive.
 ROLE_EVENT_TYPES = {
     "admin":      {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "employee_added",
                    "doc_expiring", "cert_no_scan",
-                   "unit_shift_near_end", "unit_shift_overdue", "task_assigned"},
+                   "unit_shift_near_end", "unit_shift_overdue", "task_assigned"} | _CALENDAR_TYPES,
     "supervisor": {"call_unassigned_soon", "call_new_today", "call_als_on_bls",
                    "unit_stuck_status", "unit_understaffed", "cert_expiring", "doc_expiring",
-                   "cert_no_scan", "unit_shift_near_end", "unit_shift_overdue", "task_assigned"},
+                   "cert_no_scan", "unit_shift_near_end", "unit_shift_overdue", "task_assigned"} | _CALENDAR_TYPES,
     "dispatcher": {"call_unassigned_soon", "call_new_today", "call_als_on_bls", "unit_stuck_status",
-                   "unit_shift_near_end", "unit_shift_overdue", "task_assigned"},
-    "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan", "task_assigned"},
+                   "unit_shift_near_end", "unit_shift_overdue", "task_assigned"} | _CALENDAR_TYPES,
+    "hr":         {"cert_expiring", "employee_added", "doc_expiring", "cert_no_scan",
+                   "task_assigned"} | _CALENDAR_TYPES,
 }
 
 # Human-readable label for each notification type, shown in Notification Settings.
@@ -41,6 +46,8 @@ NOTIFICATION_LABELS = {
     "unit_shift_near_end":   "Unit shift near end",
     "unit_shift_overdue":    "Unit shift overdue",
     "task_assigned":         "Task assigned to you",
+    "event_invite":          "Added to a calendar event",
+    "event_reminder":        "Calendar event reminder",
 }
 
 # Roles that receive each event type.
@@ -178,6 +185,61 @@ def notify_user(user_id, event_type, severity, title, body, entity_type=None, en
     if prefs_row and prefs_row.push_sub_json:
         try:
             send_push(prefs_row.push_sub_json, title, body or "")
+        except Exception:
+            pass
+
+
+def notify_users(user_ids, event_type, severity, title, body,
+                 entity_type=None, entity_id=None, dedup_minutes=60, dedup=True):
+    """One NotificationEvent, fanned out to each listed active user that hasn't
+    turned the type off. For *directed* events (a calendar invite, a reminder)
+    that reach a specific set of people rather than everyone in a role.
+
+    Unlike calling notify_user() in a loop, this creates a single event so the
+    recency dedup does not swallow the second recipient. `dedup=False` skips the
+    recency guard entirely — use it for one-shot actions (an invite fires once per
+    add) where the entity may already carry an earlier notification of the type."""
+    ids = [i for i in dict.fromkeys(user_ids) if i is not None]
+    if not ids:
+        return
+    if dedup and entity_id is not None and _event_exists_recently(event_type, entity_id, dedup_minutes):
+        return
+
+    users = User.query.filter(User.id.in_(ids), User.is_active == True).all()
+    if not users:
+        return
+
+    event = NotificationEvent(
+        type=event_type,
+        severity=severity,
+        title=title,
+        body=body,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        created_at=_now_iso(),
+    )
+    db.session.add(event)
+    db.session.flush()
+
+    push_targets = []
+    for user in users:
+        if not _get_user_prefs(user.id).get(event_type, True):
+            continue
+        db.session.add(UserNotification(
+            event_id=event.id,
+            user_id=user.id,
+            is_read=False,
+            created_at=_now_iso(),
+        ))
+        prefs_row = UserNotificationPrefs.query.get(user.id)
+        if prefs_row and prefs_row.push_sub_json:
+            push_targets.append(prefs_row.push_sub_json)
+
+    db.session.commit()
+
+    for sub_json in push_targets:
+        try:
+            send_push(sub_json, title, body or "")
         except Exception:
             pass
 
@@ -334,3 +396,48 @@ def run_temporal_checks():
             )
         except Exception:
             pass
+
+    # event_reminder: manual calendar events whose lead time has just been crossed.
+    # Fires to the owner + each participant's linked user. The anchor is the start
+    # time (or the start of the day for an all-day event); a recurring event uses
+    # its nearest occurrence in a small look-ahead window (a lead can point at
+    # tomorrow). Dedup keeps a single occurrence from re-firing across polls.
+    from models import CalendarEvent, User as _User
+    from utils.event_recurrence import occurrences_in
+    win_start = now_dt.date()
+    win_end = win_start + timedelta(days=2)
+    reminder_events = CalendarEvent.query.filter(CalendarEvent.reminder_minutes > 0).all()
+    for ev in reminder_events:
+        lead = ev.reminder_minutes
+        for occ in occurrences_in(ev.event_date, ev.recurrence, ev.recurrence_until, win_start, win_end):
+            try:
+                occ_dt = datetime.strptime(occ, "%Y-%m-%d")
+            except Exception:
+                continue
+            if ev.all_day or not ev.start_time:
+                anchor = occ_dt.replace(hour=0, minute=0)
+            else:
+                try:
+                    h, m = ev.start_time.split(":")
+                    anchor = occ_dt.replace(hour=int(h), minute=int(m))
+                except Exception:
+                    continue
+            trigger = anchor - timedelta(minutes=lead)
+            if not (trigger <= now_dt < anchor):
+                continue
+            recipient_ids = {ev.owner_user_id}
+            part_emp_ids = [p.employee_id for p in ev.participants]
+            if part_emp_ids:
+                linked = _User.query.filter(
+                    _User.employee_id.in_(part_emp_ids), _User.is_active == True
+                ).all()
+                recipient_ids.update(u.id for u in linked)
+            when = "today" if (ev.all_day or not ev.start_time) else f"at {ev.start_time}"
+            notify_users(
+                list(recipient_ids), "event_reminder", "info",
+                f"Reminder: {ev.title}",
+                f"{ev.title} — {occ} {when}",
+                entity_type="calendar_event", entity_id=ev.id,
+                dedup_minutes=max(lead + 5, 60),
+            )
+            break  # the nearest upcoming occurrence is enough for one scan

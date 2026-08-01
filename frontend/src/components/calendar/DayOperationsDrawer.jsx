@@ -235,6 +235,14 @@ const DayOperationsDrawer = ({
                     {e.metadata?.isRecurring && (
                       <span className="calendar-tag" title={`Repeats ${e.metadata.recurrence}`}>↻ {e.metadata.recurrence}</span>
                     )}
+                    {e.metadata?.reminderMinutes > 0 && (
+                      <span className="calendar-tag" title="Reminder set">⏰</span>
+                    )}
+                    {e.metadata?.participants?.length > 0 && (
+                      <span className="calendar-tag" title={e.metadata.participants.map((p) => p.name).join(", ")}>
+                        👥 {e.metadata.participants.length}
+                      </span>
+                    )}
                     <span className="calendar-tag">{meta.label}</span>
                     {canManageEvent(e) && (
                       <>
