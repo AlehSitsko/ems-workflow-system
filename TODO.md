@@ -450,7 +450,22 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
 - [x] CSRF protection — per-session token echoed in an X-CSRF-Token header on every mutation, delivered via the login/me response (in-memory) with a same-origin cookie fallback, attached by a fetch interceptor. Forged cross-site POST -> 403. Verified end to end on the running app; test_security.py + csrf.test.js
 - [x] Password **complexity** on account create/edit (≥10 chars, letter, number,
   not the username); login already rate-limited (10/min). 11 tests in
-  `test_auth.py`. Still open: password expiry/rotation and a breach-corpus check
+  `test_auth.py`.
+  - [x] **Password expiry / rotation.** `User.password_changed_at` (migration
+    `a4d8b1f0c273`, existing rows backfilled to now so the clock starts, not
+    instantly expired) plus `Config.PASSWORD_MAX_AGE_DAYS` — **0 disables it**, the
+    default, so dev/CI and existing deployments are unchanged; set e.g. 90 in prod.
+    When enabled, the auth guard locks an expired session to just change-password /
+    `/me` / logout (403 `code: password_expired` everywhere else), the login/`/me`
+    payload carries `passwordExpired`, and the SPA renders a forced change screen
+    until it clears. Self-service `POST /api/auth/change-password` verifies the
+    current password, enforces the strength policy, and rejects reuse of the
+    current one; `password_changed_at` is stamped on every password set (create,
+    admin edit, self-change). `test_password_rotation.py` (7),
+    `ChangePasswordPage.test.jsx` (4). Verified live (login carries the flag; wrong
+    current → 403, weak new → 400). Still open: a breach-corpus check (needs an
+    external HaveIBeenPwned lookup) and full password-history reuse (this rejects
+    only the current password)
 - [x] Server-side revocation for the common case: the user is re-validated
   against the DB every request, so disable/delete/role-change takes effect on the
   next request (not at cookie expiry).

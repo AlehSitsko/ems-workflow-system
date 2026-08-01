@@ -97,6 +97,12 @@ class Config:
     # signed in on a shared machine.
     PERMANENT_SESSION_LIFETIME = int(os.environ.get("SESSION_LIFETIME_SECONDS", 12 * 60 * 60))
 
+    # Force a password change once it reaches this age in days. 0 disables rotation
+    # (the default, so dev and existing deployments are unchanged); set e.g. 90 in
+    # production. When enabled, a signed-in user whose password has expired can only
+    # reach the change-password, /me and logout endpoints until they rotate it.
+    PASSWORD_MAX_AGE_DAYS = int(os.environ.get("PASSWORD_MAX_AGE_DAYS", "0"))
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     # An explicit allowlist. Credentialed requests cannot use a wildcard origin
     # at all, so this has to be a real list — which is the point.
