@@ -17,6 +17,7 @@ import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import ReportsPage from "./pages/ReportsPage";
 import LoginPage from "./pages/LoginPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
+import PlatformConsolePage from "./pages/platform/PlatformConsolePage";
 import UserManagementPage from "./pages/UserManagementPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
@@ -399,6 +400,10 @@ function App() {
     <UserSettingsProvider currentUser={currentUser}>
       {currentUser && currentUser.passwordExpired ? (
         <ChangePasswordPage user={currentUser} onChanged={onPasswordChanged} onLogout={handleLogout} />
+      ) : currentUser && currentUser.is_platform_admin ? (
+        // A platform super-admin belongs to no org and has no ops app — they get
+        // the cross-org console instead of the router.
+        <PlatformConsolePage currentUser={currentUser} onLogout={handleLogout} />
       ) : (
         <RouterProvider router={router} />
       )}
