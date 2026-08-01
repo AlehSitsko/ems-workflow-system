@@ -9,7 +9,11 @@ the filter is inert there; here the users have an org, which turns it on.
 
 import pytest
 
-from models import db, Organization, Patient, Employee, Call, Task, EmployeeDocument, AuditLog
+from models import (
+    db, Organization, Patient, Employee, Call, Task, EmployeeDocument, AuditLog,
+    EmploymentEvent, DisciplinaryAction, Vehicle, VehicleMaintenanceRecord,
+    DailyCrewUnit, CallAssignment, PatientAlert, PatientContact,
+)
 from conftest import make_user, login
 from tenant import set_current_org, unfiltered
 
@@ -131,3 +135,89 @@ def test_child_by_id_does_not_leak_across_orgs(app, orgs):
     # cannot reach org B's document.
     assert ca.get(f"/api/documents/{doc_id}").status_code == 404
     assert ca.get(f"/api/employees/{emp_b_id}/documents").status_code == 404
+
+
+# ── Child-by-id mutations resolve through the org-scoped parent ───────────────
+#
+# These routes load a row that carries no org_id of its own (an employment event,
+# a disciplinary action, a maintenance record, a call assignment, a patient alert
+# or contact). The global filter cannot scope such a row, so each route must reach
+# it through its org-owning parent — otherwise org A could mutate org B's child by
+# guessing its id. One test per route family that a cross-org id is refused (404).
+
+def _child(parent_kwargs_obj):
+    """Persist a child row directly (no org context) and return its id."""
+    with unfiltered():
+        db.session.add(parent_kwargs_obj)
+        db.session.commit()
+        return parent_kwargs_obj.id
+
+
+def test_employment_event_delete_is_scoped(app, orgs):
+    a, b = orgs
+    emp_b = seed(b, Employee(first_name="Ben", last_name="B", role="EMT"))
+    ev_id = _child(EmploymentEvent(employee_id=emp_b, event_type="hire",
+                                   effective_date="2026-01-01",
+                                   created_at="2026-01-01T00:00:00"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.delete(f"/api/employees/employment/{ev_id}").status_code == 404
+    with unfiltered():
+        assert db.session.get(EmploymentEvent, ev_id) is not None  # untouched
+
+
+def test_disciplinary_action_patch_and_delete_are_scoped(app, orgs):
+    a, b = orgs
+    emp_b = seed(b, Employee(first_name="Ben", last_name="B", role="EMT"))
+    act_id = _child(DisciplinaryAction(employee_id=emp_b, action_type="note",
+                                       action_date="2026-01-01", acknowledged=False,
+                                       created_at="2026-01-01T00:00:00"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.patch(f"/api/employees/disciplinary/{act_id}",
+                    json={"acknowledged": True}).status_code == 404
+    assert ca.delete(f"/api/employees/disciplinary/{act_id}").status_code == 404
+    with unfiltered():
+        assert db.session.get(DisciplinaryAction, act_id).acknowledged is False
+
+
+def test_vehicle_maintenance_patch_is_scoped(app, orgs):
+    a, b = orgs
+    veh_b = seed(b, Vehicle(unit_name="Medic B", unit_number="B1", unit_type="BLS",
+                            is_retired=False))
+    rec_id = _child(VehicleMaintenanceRecord(vehicle_id=veh_b, maintenance_type="oil",
+                                             status="scheduled"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.patch(f"/api/vehicles/maintenance/{rec_id}",
+                    json={"status": "completed"}).status_code == 404
+    with unfiltered():
+        assert db.session.get(VehicleMaintenanceRecord, rec_id).status == "scheduled"
+
+
+def test_call_assignment_mutations_are_scoped(app, orgs):
+    a, b = orgs
+    call_b = seed(b, Call(trip_date="2026-08-01", service_level="BLS", status="assigned"))
+    unit_b = seed(b, DailyCrewUnit(shift_date="2026-08-01", unit_type="BLS",
+                                   truck_number="B1", start_time="08:00"))
+    asg_id = _child(CallAssignment(call_id=call_b, unit_id=unit_b, is_active=True))
+    ca = client_in(app, a, "admin_a")
+    assert ca.delete(f"/api/dispatch/assign/{asg_id}").status_code == 404
+    assert ca.patch(f"/api/dispatch/assign/{asg_id}/complete").status_code == 404
+    assert ca.patch(f"/api/dispatch/assign/{asg_id}/reopen").status_code == 404
+    with unfiltered():
+        assert db.session.get(CallAssignment, asg_id).is_active is True  # untouched
+
+
+def test_patient_alert_and_contact_mutations_are_scoped(app, orgs):
+    a, b = orgs
+    pat_b = seed(b, Patient(first_name="Bob", last_name="B"))
+    alert_id = _child(PatientAlert(patient_id=pat_b, category="medical", severity="high",
+                                   title="Allergy", is_active=True))
+    contact_id = _child(PatientContact(patient_id=pat_b, name="Kin"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.put(f"/api/patient/{pat_b}/alerts/{alert_id}",
+                  json={"severity": "low"}).status_code == 404
+    assert ca.post(f"/api/patient/{pat_b}/alerts/{alert_id}/resolve").status_code == 404
+    assert ca.put(f"/api/patient/{pat_b}/contacts/{contact_id}",
+                  json={"name": "Hacked"}).status_code == 404
+    assert ca.delete(f"/api/patient/{pat_b}/contacts/{contact_id}").status_code == 404
+    with unfiltered():
+        assert db.session.get(PatientContact, contact_id).name == "Kin"  # untouched

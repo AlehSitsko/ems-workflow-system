@@ -225,4 +225,15 @@ Once the above are in place, a dedicated pass over the whole application — aut
 
 Regression tests: `test_authz_review.py` (8) plus the employee-roster lockout in `test_portal.py`.
 
-**Still open:** a runtime tenant-isolation review once that feature is activated.
+### Tenant-isolation review (cross-org IDOR on org-less children)
+
+Runtime tenant isolation filters every SELECT of an org-owning entity, but a child row that carries no `org_id` of its own (an employment event, disciplinary action, maintenance record, call assignment, patient alert/contact) cannot be scoped by that filter — it is only safe if the route reaches it *through* its org-owning parent. A pass over every route that loads such a child by a client-supplied id found six families that loaded it directly, so one organisation could read/modify another's child row by guessing its id:
+
+- **Employment event** — `DELETE /api/employees/employment/<id>`.
+- **Disciplinary action** — `PATCH`/`DELETE /api/employees/disciplinary/<id>`.
+- **Vehicle maintenance** — `PATCH /api/vehicles/maintenance/<id>` (mutated the record before ever loading its vehicle).
+- **Call assignment** — `DELETE /api/dispatch/assign/<id>` and its `…/complete` and `…/reopen` PATCHes (the assignment's `is_active` flipped regardless of the call's org).
+- **Patient alert** — `PUT …/alerts/<id>` and `POST …/alerts/<id>/resolve`.
+- **Patient contact** — `PUT`/`DELETE …/contacts/<id>`.
+
+Each now resolves through an org-filtered parent (`Employee` / `Vehicle` / `Call` / `Patient` via `filter_by(id=…).first()`) and returns 404 when the parent is not in the caller's organisation. Org-scoped `.get(pk)` itself was confirmed to be correctly filtered per request — the leaks were only the org-less children reached without their parent. Regression tests: `test_tenant_isolation.py` (+5, each red before the fix).
