@@ -119,9 +119,9 @@ def my_leave():
         .order_by(EmployeeLeaveRequest.start_date.desc())
         .all()
     )
-    # "scheduling" visibility: the employee sees their own request but not HR's
-    # private review notes.
-    return jsonify([r.to_dict("scheduling") for r in requests])
+    # "self" visibility: the employee's own request in full, plus the review
+    # decision and the note left for them — but not HR's private notes.
+    return jsonify([r.to_dict("self") for r in requests])
 
 
 @portal_bp.route("/me/leave", methods=["POST"])
@@ -161,7 +161,7 @@ def request_leave():
     )
     db.session.add(leave)
     db.session.commit()
-    return jsonify(leave.to_dict("scheduling")), 201
+    return jsonify(leave.to_dict("self")), 201
 
 
 # ── Clock in / out (session, not the shared PIN kiosk) ───────────────────────

@@ -156,6 +156,43 @@ def test_a_leave_request_is_always_filed_for_me(app):
     assert EmployeeLeaveRequest.query.filter_by(employee_id=emp.id).count() == 1
 
 
+def test_i_see_the_review_decision_but_not_hr_private_notes(app):
+    c, emp = portal_client(app)
+    # A request that HR has approved with a note to the employee and a private one.
+    leave = EmployeeLeaveRequest(
+        employee_id=emp.id, leave_type="vacation",
+        start_date="2026-09-01", end_date="2026-09-03", reason="Family trip",
+        status="approved", reviewed_at="2026-08-15T09:00:00",
+        reviewed_by_name="Dana HR", review_note="Approved — enjoy!",
+        private_notes="Third request this quarter",
+        submitted_at="2026-08-10T08:00:00",
+    )
+    db.session.add(leave)
+    db.session.commit()
+
+    row = c.get("/api/portal/me/leave").get_json()[0]
+    assert row["status"] == "approved"
+    assert row["reviewedByName"] == "Dana HR"
+    assert row["reviewNote"] == "Approved — enjoy!"
+    assert row["reason"] == "Family trip"
+    # HR's private notes and the raw reviewer id never reach the employee.
+    assert "privateNotes" not in row
+    assert "reviewedBy" not in row
+
+
+def test_my_own_sensitive_leave_type_is_shown_in_full(app):
+    # "scheduling" collapses sick/bereavement to "unavailable"; the employee's own
+    # "self" view keeps their real type — it is their own record.
+    c, emp = portal_client(app)
+    db.session.add(EmployeeLeaveRequest(
+        employee_id=emp.id, leave_type="sick",
+        start_date="2026-09-10", end_date="2026-09-10", status="pending",
+    ))
+    db.session.commit()
+    row = c.get("/api/portal/me/leave").get_json()[0]
+    assert row["leaveType"] == "sick"
+
+
 # ── Account linking (user admin) ─────────────────────────────────────────────
 
 def test_creating_an_employee_login_requires_a_linked_employee(clients):
