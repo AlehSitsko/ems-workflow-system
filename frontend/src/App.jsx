@@ -58,6 +58,7 @@ import {
   fetchCurrentUser,
   saveCurrentUser,
   logoutUser,
+  clearLocalSession,
   hasSupervisorAccess,
   hasPatientAccess,
   hasEmployeeAccess,
@@ -68,6 +69,7 @@ import {
   hasFleetAccess,
   isEmployeePortalUser,
 } from "./api/authApi";
+import { onSessionExpired, resetSessionExpiry } from "./api/sessionExpiry";
 
 function App() {
   // The cached user gives the shell something to render immediately; the
@@ -92,8 +94,20 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
+  // A 401 from the API means the session was revoked server-side (account
+  // disabled/deleted or role changed): drop the local session so the router
+  // sends this tab to /login immediately, instead of on the next navigation.
+  useEffect(() => {
+    onSessionExpired(() => {
+      clearLocalSession();
+      setCurrentUser(null);
+    });
+  }, []);
+
   // Save logged-in user in application state.
   const handleLogin = (user) => {
+    // Re-arm the expiry watch so a future revocation of this new session fires.
+    resetSessionExpiry();
     setCurrentUser(user);
   };
 

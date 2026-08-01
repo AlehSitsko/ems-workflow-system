@@ -447,10 +447,17 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   `test_auth.py`. Still open: password expiry/rotation and a breach-corpus check
 - [x] Server-side revocation for the common case: the user is re-validated
   against the DB every request, so disable/delete/role-change takes effect on the
-  next request (not at cookie expiry). Still open: revoking one specific device's
-  session (needs a session store with per-session ids), and a global frontend
-  401-interceptor to redirect a mid-session-revoked tab to login instantly
-  (today it redirects on the next navigation/reload via /me)
+  next request (not at cookie expiry).
+  - [x] Follow-up: **global 401-interceptor** — a second `window.fetch` wrapper
+    (`api/sessionExpiry.js`, layered over the CSRF one) watches every API response
+    and, on a 401 from a revoked session, drops the local session so the router
+    sends the tab to `/login` at once instead of on the next navigation/reload.
+    Exempts login / `/me` / logout (a 401 there is expected, not a revocation),
+    fires once across a burst of concurrent 401s, and re-arms on the next login.
+    `sessionExpiry.test.js` (7). Verified live (killed the session server-side →
+    the next API call bounced the tab straight to the login form)
+  - [ ] Still open: revoking one specific device's session (needs a session store
+    with per-session ids)
 - [x] **Audit role correctness per route.** All 142 routes enumerated against
   their guard; the "any signed-in" ones checked against the documented policy.
   Tightened patients (HR out), payroll + pay-config (dispatcher out), employee
