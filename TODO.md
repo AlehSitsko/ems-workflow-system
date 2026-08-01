@@ -522,8 +522,18 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   image's migrations run against it on startup. Verified end to end: all 26
   migrations apply on Postgres, seed + ORM read-back work, and a login through the
   full prod stack (Postgres → Gunicorn → Nginx) succeeds with the data confirmed in
-  Postgres. Dev/CI stay on SQLite. Still open: a SQLite→Postgres data-copy script
-  (only needed to carry an existing SQLite deployment over)
+  Postgres. Dev/CI stay on SQLite.
+  - [x] Follow-up: **SQLite→Postgres data-copy script**
+    (`scripts/copy_sqlite_to_postgres.py`) for carrying an existing SQLite
+    deployment's data over. Schema-driven and Core-level (so the ORM tenant events
+    never fire and rows land verbatim, org_id and all): copies every declared table
+    in `db.metadata.sorted_tables` FK order, refuses a non-empty target unless
+    `--force` (which does a clean reload, since copied rows keep their primary
+    keys), and fast-forwards Postgres sequences past the copied max id. The target
+    must already have the schema (`DATABASE_URL=<target> flask db upgrade`).
+    `test_copy_db.py` (4, SQLite→SQLite with FK enforcement on the target). Verified
+    on the real dev DB → a throwaway SQLite target: 6,280 rows across 32 tables, the
+    non-empty guard and `--force` reload both confirmed
 - [x] **Production Docker images.** `backend/Dockerfile.prod` (Gunicorn via
   `wsgi:app`, non-root user, gthread workers, migrations-then-serve) and
   `frontend/Dockerfile.prod` (multi-stage Node build → unprivileged Nginx serving

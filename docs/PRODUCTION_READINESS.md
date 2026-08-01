@@ -107,7 +107,7 @@ documented policy, each after checking no excluded-role flow depended on it:
 
 **Backups:** `scripts/backup-db.sh` writes a timestamped, gzipped `pg_dump` (`--clean --if-exists`, so it restores onto a non-empty database) and `scripts/restore-db.sh` restores one. Both find the running `db` container by its Compose labels and dump over its local socket, so they need neither the app's secrets nor the DB password. Schedule the backup from cron/systemd for real use; the full cycle (backup → wipe → restore) is verified.
 
-**Still open:** a one-time SQLite→Postgres data-copy script, needed only to carry an existing SQLite deployment's data over (a fresh deployment just migrates + seeds).
+**SQLite→Postgres data copy.** `scripts/copy_sqlite_to_postgres.py` carries an existing SQLite deployment's data onto Postgres (a fresh deployment just migrates + seeds, so this is only for an in-place move). It is schema-driven and works at the SQLAlchemy Core level, so the ORM's tenant events never fire and every row lands verbatim — `org_id` included. It copies each table in `db.metadata.sorted_tables` (foreign-key) order, refuses a non-empty target unless `--force` (which clean-reloads, since the copied rows keep their primary keys), and fast-forwards each Postgres sequence past the copied maximum id so the next insert does not collide. The target must already carry the schema — create it exactly as production does, `DATABASE_URL=<target> flask db upgrade`, so its `alembic_version` matches. Tested SQLite→SQLite with foreign keys enforced on the target (`test_copy_db.py`); verified against the real dev database copying 6,280 rows across 32 tables.
 
 ## Server
 
