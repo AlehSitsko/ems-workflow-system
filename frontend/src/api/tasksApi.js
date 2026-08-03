@@ -56,6 +56,18 @@ export async function createTask(taskData, currentUser) {
   return data;
 }
 
+// One task by id — used by the /tasks/:taskId deep link so a shared or bookmarked
+// link opens that task even when it isn't in the current filtered list.
+export async function getTask(taskId, currentUser) {
+  const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    credentials: "include",
+    headers: jsonHeaders(currentUser),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to load task");
+  return data;
+}
+
 export async function updateTask(taskId, taskData, currentUser) {
   const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
     credentials: "include",

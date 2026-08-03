@@ -372,6 +372,8 @@ function App() {
         { path: "/compliance", element: <EmployeeRoute><ComplianceDashboardPage currentUser={currentUser} /></EmployeeRoute> },
         { path: "/audit", element: <EmployeeRoute><AuditLogPage currentUser={currentUser} /></EmployeeRoute> },
         { path: "/tasks", element: <TasksRoute><TasksPage currentUser={currentUser} /></TasksRoute> },
+        // Deep link straight to a task (shareable / bookmarkable) — opens its drawer.
+        { path: "/tasks/:taskId", element: <TasksRoute><TasksPage currentUser={currentUser} /></TasksRoute> },
 
         { path: "/fleet/vehicles", element: <FleetRoute><VehiclesListPage currentUser={currentUser} /></FleetRoute> },
         // "new" must precede ":vehicleId".

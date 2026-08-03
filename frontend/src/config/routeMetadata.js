@@ -205,6 +205,17 @@ export const ROUTE_METADATA = [
     badgeKey: "tasks",   // my overdue / due-today tasks
   },
   {
+    path: "/tasks/:taskId",
+    title: "Task",
+    subtitle: "Assign and track staff work",
+    icon: FaTasks,
+    group: "Staff",
+    canAccess: hasTaskAccess,
+    width: "standard",
+    hidden: true,
+    parent: "/tasks",
+  },
+  {
     path: "/calls/:callId",
     title: "Call",
     subtitle: "Trip details and confirmation",
