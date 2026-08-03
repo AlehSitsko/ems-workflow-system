@@ -15,8 +15,16 @@ from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
 
 from models import db, Organization, User
-from utils.auth_utils import require_platform_admin, append_password_history
+from utils.auth_utils import (
+    require_platform_admin, append_password_history,
+    get_request_user_id, get_request_user_name,
+)
 from utils.validation_utils import validate_password_strength
+from audit_utils import log_action
+
+
+def _actor():
+    return get_request_user_id(), get_request_user_name()
 
 
 platform_bp = Blueprint("platform", __name__, url_prefix="/api/platform")
@@ -90,6 +98,11 @@ def create_org():
     db.session.add(admin)
     db.session.flush()
     append_password_history(admin)
+
+    uid, uname = _actor()
+    log_action("org.created", "organization", org.id, org.name,
+               {"slug": slug, "firstAdmin": admin.username},
+               user_id=uid, user_name=uname, org_id=org.id)
     db.session.commit()
 
     return jsonify({"org": _org_dict(org), "adminUsername": admin.username}), 201
@@ -104,14 +117,24 @@ def update_org(org_id):
         return jsonify({"error": "Organisation not found"}), 404
 
     data = request.get_json() or {}
+    actions = []
     if "name" in data:
         name = (data.get("name") or "").strip()
         if not name:
             return jsonify({"error": "Organisation name cannot be empty"}), 400
-        org.name = name
+        if name != org.name:
+            actions.append(("org.renamed", {"from": org.name, "to": name}))
+            org.name = name
     if "isActive" in data:
-        org.is_active = bool(data.get("isActive"))
+        active = bool(data.get("isActive"))
+        if active != org.is_active:
+            actions.append(("org.reactivated" if active else "org.suspended", {}))
+            org.is_active = active
 
+    uid, uname = _actor()
+    for action, details in actions:
+        log_action(action, "organization", org.id, org.name, details,
+                   user_id=uid, user_name=uname, org_id=org.id)
     db.session.commit()
     return jsonify(_org_dict(org))
 
@@ -141,5 +164,9 @@ def reset_org_admin(org_id):
     admin.password_hash = generate_password_hash(new_password)
     admin.password_changed_at = _now()
     append_password_history(admin)
+
+    uid, uname = _actor()
+    log_action("org.admin_reset", "user", admin.id, admin.username,
+               {"org": org.name}, user_id=uid, user_name=uname, org_id=org.id)
     db.session.commit()
     return jsonify({"message": "Password reset", "username": admin.username})
