@@ -51,6 +51,13 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ems}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ems}
       # Secure (HTTPS-only) cookies by default; set 0 to smoke-test over HTTP.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-1}
+      # Multi-tenancy: the apex the org subdomains live under, and the host of the
+      # cross-org platform console. MUST be set to the real domain — the default is
+      # `localhost`, under which no production subdomain would resolve and every
+      # org would look like a bare (single-tenant) host. CORS reflects any
+      # `*.${BASE_DOMAIN}` origin, so no separate allowlist entry is needed per org.
+      BASE_DOMAIN: ${BASE_DOMAIN:?set BASE_DOMAIN, e.g. ems.example.com}
+      PLATFORM_HOST: ${PLATFORM_HOST:-admin.${BASE_DOMAIN:-example.com}}
     depends_on:
       db:
         condition: service_healthy

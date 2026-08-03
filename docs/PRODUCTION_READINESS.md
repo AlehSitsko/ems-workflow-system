@@ -220,6 +220,34 @@ Tests: `test_tenant_host`, `test_multitenancy_login`, `test_multitenancy_session
 production needs DNS records and a wildcard TLS certificate (infrastructure, not
 application code); platform-admin impersonation was deliberately left out.
 
+### Deploying multi-tenancy (operator runbook)
+
+The app code is ready; standing it up multi-tenant is configuration and infra:
+
+1. **Config.** Set `BASE_DOMAIN` to the real apex (e.g. `ems.example.com`) — it is
+   required in `docker-compose.prod.yml` and defaults to `localhost`, under which
+   **no subdomain resolves** and every host looks single-tenant. `PLATFORM_HOST`
+   defaults to `admin.<BASE_DOMAIN>`; override only to move the console.
+2. **DNS.** A wildcard `*.ems.example.com` (and `admin.ems.example.com`) A/AAAA
+   record pointing at the ingress, so every org's subdomain reaches the same stack.
+3. **TLS.** A **wildcard certificate** for `*.ems.example.com`, terminated at the
+   edge (LB / ingress / a TLS-terminating Nginx in front of the app's Nginx, which
+   listens on 8080). The app already trusts `X-Forwarded-Proto` and sets Secure
+   cookies under `EMS_ENV=production`. `frontend/nginx.conf` uses `server_name _`
+   and passes the Host through, so it serves every subdomain unchanged — no
+   per-org server block. CORS reflects any `*.BASE_DOMAIN` origin automatically.
+4. **Bootstrap.** Create the platform operator and the first org from the CLI (no
+   chicken-and-egg UI):
+   ```
+   flask --app app create-platform-admin <user> <password>
+   flask --app app create-org acme "Acme EMS" --admin-user admin --admin-pass <pw>
+   ```
+   Then the operator signs in at `https://admin.ems.example.com` to create the rest,
+   and each org's admin signs in at `https://<slug>.ems.example.com`.
+5. **Local dev.** `*.localhost` resolves to 127.0.0.1 on most systems, so
+   `acme.localhost:5173` (and `admin.localhost:5173`) work with no `hosts` edits;
+   add entries to `/etc/hosts` if your resolver does not do this.
+
 ## File storage
 
 **Current state:** local filesystem, behind a storage abstraction (`backend/storage.py`).
