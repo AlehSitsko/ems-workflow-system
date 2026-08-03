@@ -68,4 +68,4 @@ jobs:
       - name: Validate dev compose file
         run: docker compose config --quiet
       - name: Validate prod compose file
-        run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate docker compose -f docker-compose.prod.yml config --quiet
+        run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate BASE_DOMAIN=ems.example.com docker compose -f docker-compose.prod.yml config --quiet
