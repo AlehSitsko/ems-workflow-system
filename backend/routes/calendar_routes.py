@@ -20,6 +20,7 @@ from sqlalchemy.orm import joinedload
 from models import (db, Call, DailyCrewUnit, CallAssignment, Patient, Employee, Vehicle, Task, User,
                     EmployeeLeaveRequest)
 from utils.auth_utils import get_request_role, get_request_user_id, ALL_ROLES
+from utils.capability_match import assignment_mismatch
 from routes.task_routes import _visible_tasks_query
 from utils.taxonomy import LEAVE_TYPE_LABELS, is_sensitive_leave_type
 
@@ -261,14 +262,11 @@ def _build_call_event(call, unit, include_phi):
     start = f"{call.trip_date}T{pickup}:00" if pickup else None
     status = _call_status(call, is_assigned)
 
-    # Severity: critical for an ALS call on a BLS unit; warning for an
-    # unassigned active call or a missing pickup time; otherwise normal.
-    als_on_bls = (
-        is_assigned
-        and (call.service_level or "").upper() == "ALS"
-        and (unit.unit_type or "").upper().startswith("BLS")
-    )
-    if als_on_bls:
+    # Severity: critical when the assigned unit's vehicle can't serve the call
+    # (a care tier short, or a missing special); warning for an unassigned active
+    # call or a missing pickup time; otherwise normal.
+    mismatch = assignment_mismatch(unit, call) if (is_assigned and unit) else None
+    if mismatch:
         severity = "critical"
     elif status == "unassigned" or pickup is None:
         severity = "warning"
@@ -281,7 +279,8 @@ def _build_call_event(call, unit, include_phi):
         "priority": _call_priority(call),
         "isAssigned": is_assigned,
         "missingPickupTime": pickup is None,
-        "alsOnBls": als_on_bls,
+        "alsOnBls": bool(mismatch),        # kept key: now any capability mismatch
+        "mismatchReason": mismatch or "",  # the specific reason, for the UI
     }
     if include_phi:
         metadata["patientLabel"] = _minimized_patient_label(getattr(call, "patient", None))

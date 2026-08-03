@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from models import db, Call, DailyCrewUnit, CallAssignment, Patient, PatientAlert, Employee
 from notification_utils import create_notification
 from audit_utils import log_action
+from utils.capability_match import assignment_mismatch
 from utils.auth_utils import get_request_user_id, get_request_user_name, require_role
 from utils.operational_dates import (
     require_valid_date,
@@ -196,12 +197,16 @@ def get_board():
     if crew_ids:
         emp_cache = {e.id: e for e in Employee.query.filter(Employee.id.in_(crew_ids)).all()}
 
+    units_by_id = {u.id: u for u in units}
     calls_by_unit = {}
     for a in active_assignments:
         call = calls_bulk.get(a.call_id)
         if call:
             cd = _call_with_patient(call, alerts_by_patient)
             cd["assignment_id"] = a.id
+            # Advisory: does this unit's vehicle actually meet the call's need?
+            unit_obj = units_by_id.get(a.unit_id)
+            cd["mismatch"] = assignment_mismatch(unit_obj, call) if unit_obj else None
             calls_by_unit.setdefault(a.unit_id, []).append(cd)
 
     completed_by_unit = {}
@@ -338,12 +343,14 @@ def assign_call():
                user_id=uid, user_name=uname or data.get("assigned_by"))
     db.session.commit()
 
-    # Warn if ALS call assigned to BLS unit.
-    if (call.service_level or "").lower() == "als" and unit.unit_type.upper() == "BLS":
+    # Warn if the unit's vehicle can't serve what the call needs (advisory, never a
+    # block): a lower care tier than required, or a missing special capability.
+    mismatch = assignment_mismatch(unit, call)
+    if mismatch:
         create_notification(
             "call_als_on_bls", "warning",
-            f"ALS call #{call.id} assigned to BLS unit {unit.truck_number}",
-            f"{call.pickup_address or '?'} → {call.dropoff_address or '?'}",
+            f"Call #{call.id} assigned to unsuitable unit {unit.truck_number}",
+            f"{mismatch} — {call.pickup_address or '?'} → {call.dropoff_address or '?'}",
             entity_type="call", entity_id=call.id,
         )
 

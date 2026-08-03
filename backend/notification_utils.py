@@ -36,7 +36,7 @@ ROLE_EVENT_TYPES = {
 NOTIFICATION_LABELS = {
     "call_new_today":        "New calls today",
     "call_unassigned_soon":  "Unassigned call soon",
-    "call_als_on_bls":       "ALS call assigned to BLS unit",
+    "call_als_on_bls":       "Call assigned to an unsuitable unit",
     "unit_stuck_status":     "Unit status stuck",
     "unit_understaffed":     "Understaffed unit",
     "cert_expiring":         "Certification expiring",

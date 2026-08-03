@@ -251,8 +251,21 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   eligibility reads `qualification`, and the workspace shows both axes.
 - [x] **Call #27** resolved: `service_level='emergency'` (the last orphaned emergency-as-service-level) set to NULL, matching its outbound pair #26. The emergency nature stays on #26 (`call_type='emergency'`) and in the note.
 - [x] Empty-string service levels normalized to NULL — 3 calls (ids 1, 7, 8) and 3 patients (1, 5, 12). The column now has one 'empty' form (NULL), matching the 62 patients already on NULL. Dev-DB only (not in the repo); backup taken.
-- [ ] `Vehicle.unit_type` is a single value; real multi-capability support lands
-  with Fleet Management.
+- [x] **Vehicle multi-capability drives assignment suitability.** Vehicles already
+  stored multiple `capabilities` (model + a picker in `VehicleFormPage`), but nothing
+  used them — suitability was a single hardcoded ALS-vs-BLS check on the shift's
+  `unit_type`. New `utils/capability_match.py` is the one source of truth: a unit's
+  effective capabilities come from its linked **vehicle** (`DailyCrewUnit.vehicle`,
+  relationship added; falls back to `unit_type` for legacy shifts), and
+  `assignment_mismatch(unit, call)` decides "can this unit serve this call?" —
+  **tiered care** (CCT⊇ALS⊇BLS; BLS-4/6 = BLS) plus **exact specials** (Bariatric /
+  Stretcher / Wheelchair). Used in dispatch (assign → `call_als_on_bls` warning,
+  generalized; the board stamps `mismatch` per assigned call) and the calendar
+  (mismatch → critical severity + `mismatchReason`). Warn-only — never blocks.
+  `AssignedCallCard` shows a warning badge with the reason. `test_capability_match`
+  (18), `test_capability_dispatch` (4), calendar (+1); `AssignedCallCard.test.jsx`
+  (2). Backend 844, frontend 426. Verified live (a BLS-only vehicle on an ALS call
+  shows `mismatch: "BLS unit for an ALS call"` on the board).
 - [x] HR no longer gets Calendar links into `/dispatch` it cannot open: the page
   withholds the open handlers for roles without Dispatch access, so rows and the
   drawer footer render as a read-only day summary instead of a dead link.
