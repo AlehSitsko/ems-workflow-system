@@ -73,6 +73,15 @@ export default function AssignedCallCard({ call, unitStatus, isCurrent, onUnassi
               )}
               {als && <span className="badge badge-als" style={{ fontSize: 10 }}>ALS</span>}
               {emergency && <span className="badge bg-danger" style={{ fontSize: 10 }}>EMRG</span>}
+              {call.mismatch && (
+                <span
+                  title={call.mismatch}
+                  className="badge"
+                  style={{ fontSize: 10, color: "var(--color-warning)", background: "rgba(var(--color-warning-rgb),0.18)", border: "1px solid rgba(var(--color-warning-rgb),0.4)" }}
+                >
+                  <FaExclamationTriangle style={{ fontSize: 9 }} /> unit
+                </span>
+              )}
               {call.patient_alert_severity && (
                 <span
                   title={`${call.patient_alert_count} active patient alert(s)`}

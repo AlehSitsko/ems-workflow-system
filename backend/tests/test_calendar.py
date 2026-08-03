@@ -200,6 +200,25 @@ def test_als_call_on_bls_unit_is_critical(client, roles):
     assert day["readiness"] == "critical"
 
 
+def test_capability_mismatch_from_the_vehicle_is_critical_with_a_reason(client, roles):
+    import json
+    v = Vehicle(unit_name="Van", unit_number="VC1", unit_type="ALS", is_retired=False,
+                capabilities=json.dumps(["ALS", "BLS"]))   # capable, but not Bariatric
+    db.session.add(v)
+    db.session.commit()
+    call = mk_call(trip_date=FUTURE, status="assigned", service_level="Bariatric")
+    unit = mk_unit(shift_date=FUTURE, unit_type="ALS", truck_number="9")
+    unit.vehicle_id = v.id
+    db.session.add(CallAssignment(call_id=call.id, unit_id=unit.id, is_active=True))
+    db.session.commit()
+
+    body = roles["admin"].get(f"/api/calendar/events?start={TODAY}&end={FUTURE}").get_json()
+    ev = next(e for e in body["events"]
+              if e["type"] == "scheduled_call" and e["sourceId"] == call.id)
+    assert ev["severity"] == "critical"
+    assert ev["metadata"]["mismatchReason"] == "vehicle is not Bariatric-capable"
+
+
 def test_ready_day_has_ready_readiness(client, roles, employees):
     call = mk_call(trip_date=FUTURE, status="assigned")
     unit = mk_unit(shift_date=FUTURE, crew=employees[:2])

@@ -539,6 +539,9 @@ class DailyCrewUnit(db.Model):
     # recorded only a free-text truck_number that often does not correspond to
     # any fleet record, and history must not be rewritten to fit a new FK.
     vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=True)
+    # The physical vehicle behind this shift, so a unit's real capabilities (for
+    # assignment suitability) come from what the vehicle can actually do.
+    vehicle = db.relationship("Vehicle", foreign_keys=[vehicle_id])
 
     # Kept for backward compatibility and as the display/snapshot value. New
     # shifts fill it from the selected vehicle; legacy rows keep whatever was typed.
