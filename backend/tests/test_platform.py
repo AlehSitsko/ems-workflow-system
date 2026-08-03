@@ -153,3 +153,46 @@ def test_platform_admin_cannot_read_a_tenant_endpoint(app):
 
 def test_anonymous_cannot_reach_the_platform_console(anon):
     assert anon.get("/api/platform/orgs").status_code == 401
+
+
+# ── Audit trail ──────────────────────────────────────────────────────────────
+
+def test_platform_actions_land_in_the_target_orgs_audit_trail(app):
+    from models import AuditLog
+    from tenant import unfiltered
+
+    c = platform_client(app)
+    c.post("/api/platform/orgs", json={
+        "name": "Acme EMS", "slug": "acme",
+        "adminUsername": "admin", "adminPassword": "AcmeAdmin123",
+    })
+    org_id = next(o["id"] for o in c.get("/api/platform/orgs").get_json() if o["slug"] == "acme")
+    c.patch(f"/api/platform/orgs/{org_id}", json={"isActive": False})
+    c.post(f"/api/platform/orgs/{org_id}/reset-admin",
+           json={"username": "admin", "newPassword": "ResetPass123"})
+
+    with unfiltered():
+        actions = {a.action for a in AuditLog.query.filter_by(org_id=org_id).all()}
+    assert {"org.created", "org.suspended", "org.admin_reset"} <= actions
+    # Every entry is attributed to the target org, so its own admin can see it.
+    with unfiltered():
+        assert all(a.org_id == org_id for a in AuditLog.query.filter(
+            AuditLog.action.like("org.%")).all())
+
+
+def test_the_org_admin_sees_platform_actions_in_their_own_audit_trail(app):
+    # A platform action on an active org shows up in that org's own audit view.
+    pc = platform_client(app)
+    pc.post("/api/platform/orgs", json={
+        "name": "Acme EMS", "slug": "acme",
+        "adminUsername": "admin", "adminPassword": "AcmeAdmin123",
+    })
+    org_id = next(o["id"] for o in pc.get("/api/platform/orgs").get_json() if o["slug"] == "acme")
+    pc.patch(f"/api/platform/orgs/{org_id}", json={"name": "Acme Medical"})
+
+    admin = app.test_client()
+    admin.post("/api/auth/login", json={"username": "admin", "password": "AcmeAdmin123"},
+               base_url="http://acme.localhost:5050")
+    body = admin.get("/api/audit", base_url="http://acme.localhost:5050").get_json()
+    actions = {e["action"] for e in body["entries"]}
+    assert {"org.created", "org.renamed"} <= actions

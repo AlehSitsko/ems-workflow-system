@@ -349,6 +349,10 @@ def create_org_command(slug, name, admin_user, admin_pass):
             is_active=True,
             org_id=org.id,
         ))
+        from audit_utils import log_action
+        log_action("org.created", "organization", org.id, org.name,
+                   {"slug": slug, "firstAdmin": admin_user.strip(), "via": "cli"},
+                   user_name="CLI", org_id=org.id)
         db.session.commit()
     click.echo(f"create-org: created {slug!r} ({name!r}) with admin {admin_user!r}")
 

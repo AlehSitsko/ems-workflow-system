@@ -15,8 +15,14 @@ def log_action(
     details: dict = None,
     user_id: int = None,
     user_name: str = None,
+    org_id: int = None,
 ):
-    """Append a row to audit_log. Never raises — audit must not break the main flow."""
+    """Append a row to audit_log. Never raises — audit must not break the main flow.
+
+    `org_id` is set explicitly only for cross-org actors (a platform super-admin has
+    no org of their own, so the tenant write-stamp can't attribute the entry). For
+    ordinary in-org actions it stays None and the stamp fills it from the caller's
+    org, exactly as before — so that entry lands in the acting org's trail."""
     try:
         entry = AuditLog(
             timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -28,6 +34,8 @@ def log_action(
             entity_label=entity_label,
             details=json.dumps(details) if details else None,
         )
+        if org_id is not None:
+            entry.org_id = org_id
         db.session.add(entry)
         db.session.flush()   # write within current transaction; caller commits
     except Exception:
