@@ -162,8 +162,12 @@ def update_prefs():
 
 
 @notif_bp.route("/vapid-public-key", methods=["GET"])
-def get_vapid_public_key():
-    return jsonify({"publicKey": os.environ.get("VAPID_PUBLIC_KEY", "")})
+def vapid_public_key():
+    # Public by design (the allowlist entry `notif.vapid_public_key` matches this
+    # function name). Derived from the private key (or the env override) so the key
+    # the browser subscribes with always matches the key the server signs with.
+    from push_utils import get_vapid_public_key
+    return jsonify({"publicKey": get_vapid_public_key()})
 
 
 @notif_bp.route("/push-subscribe", methods=["POST"])
