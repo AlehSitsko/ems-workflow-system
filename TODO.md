@@ -192,9 +192,12 @@ be implemented before the current Calendar slice is complete:
   in the event drawer; a ↻ indicator on recurring days. `test_event_recurrence.py`
   (11), `test_calendar_recurrence.py` (10), modal tests (3). Verified end to end
   on the running app (weekly event expanded across the month, RRULE in the .ics)
-- [ ] External (Google/Outlook) two-way sync — much later; must not export
-  patient data without a separate privacy/security policy
-- [ ] Route optimization — separate future research only
+- [ ] **Deferred (external dependency).** External (Google/Outlook) two-way sync —
+  needs an OAuth integration and a separate privacy/security policy before any
+  patient data could cross the boundary. Out of scope for the self-contained app;
+  parked deliberately, not an oversight.
+- [ ] **Deferred (research).** Route optimization — a research problem (routing
+  engine, constraints), not a near-term build. Parked deliberately.
 
 ## P1b — Entity Workspace migration (in progress)
 
@@ -208,7 +211,12 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   - [x] Follow-up: dedicated `EmployeeFormPage` (`/employees/new`, `/employees/:id/edit`) mirroring `VehicleFormPage`; the edit drawer is retired
   - [x] Follow-up: `GET /api/employees/<id>/shifts` (worked-shift history from `DailyCrewUnit` crew slots) — the Schedule tab is real
 - [x] Patient Workspace `/patients/:patientId` (Overview, Transport Profile, Contacts, Alerts, Calls/Trips, Activity) + `PatientFormPage`
-- [ ] Consider `/tasks/:taskId`, `/calls/:callId`, `/operations/days/:date`
+- [x] Entity deep-link routes — `/calls/:callId` (Call workspace) and
+  `/operations/days/:date` (Day timeline) already shipped; `/tasks/:taskId` now
+  opens the task drawer (shareable/bookmarkable), fetching the task directly so the
+  link works outside the current filter and returning to `/tasks` on close. A task
+  is a simple entity, so it stays a drawer (per UI_STANDARD) rather than a full
+  workspace. `routeMetadata` + guardrail test updated; verified live (open + close)
 - [x] **Migrated to a react-router data router** (`createHashRouter`); `useUnsavedGuard`
   wraps `useBlocker`, so sidebar navigation away from a dirty form is now blocked.
 
@@ -231,12 +239,16 @@ implementation — migrate the rest **incrementally**, not in one rewrite.
   reporting success). Those aborted rebuilds had also silently dropped six
   performance indexes, which `d1f5b8c47e29` restores idempotently.
 
-- [ ] The **dev database** carries its own historical drift beyond the above
+- [x] The **dev database** carries its own historical drift beyond the above
   (TEXT vs String(50) on the call lifecycle timestamps, `org_id` foreign keys,
   a `call.patient_order` column no longer on the model). Harmless in SQLite,
   which ignores declared string lengths, but it means the dev DB is not
-  byte-identical to a freshly migrated one. Decide before release: rebuild the
-  dev DB from migrations and re-import data, or accept it as dev-only.
+  byte-identical to a freshly migrated one. **Decided (project owner): accept as
+  dev-only.** Production builds from the migration chain on a fresh volume, the
+  test suite uses in-memory SQLite created from the models, and CI never touches
+  the dev file — so the drift is confined to one developer's local database and
+  needs no rebuild. (If a rebuild is ever wanted, `scripts/copy_sqlite_to_postgres.py`
+  copies data into a freshly migrated database of either dialect.)
 - [x] `getShiftAlertSeverity` (`dispatchBoardUtils`) now derives "today" from
   `todayStr()` (local). `setIsoTime` was also writing timestamps back through
   `toISOString()`, shifting every saved call time by the UTC offset — fixed with
@@ -315,8 +327,25 @@ Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
   jump into the employee's own workspace. Approving surfaces the shifts it just
   left short-handed. Supervisors get the same screen read-only — the API already
   withholds the detail, so the page simply has nothing to hide
-- [ ] Leave balances / PTO accrual / holiday policy — still deferred until the
-  business rules are agreed
+- [x] **Leave balances / PTO accrual / holiday policy.** A real PTO system behind
+  the leave module. The balance is a **ledger** (`PtoLedgerEntry` — sum of deltas,
+  never a stored number, so accruals/spends/carryover/corrections are all auditable
+  and reversible), plus a per-org **`Holiday`** calendar and a per-employee annual
+  allotment (`Employee.pto_annual_days`, else the org default). Engine `utils/pto.py`:
+  **monthly accrual** (annual/12, idempotent `accrue_through` with a year-end
+  **carryover cap**), holiday+weekend-aware `business_days`, and PTO-type-gated
+  deduction/reversal (vacation + personal draw; a partial day = 0.5). Approving such
+  a leave spends days (**over-draw is advisory, never blocked** — the balance may go
+  negative with a warning); denying/cancelling/deleting an approved one gives them
+  back. APIs: `/api/pto` (balance/ledger, run-accrual, adjust — HR), `/api/holidays`
+  (HR write / staff read), portal `/me/pto`; org PTO defaults via `/api/tenant/org`.
+  UI: an HR **PTO tab** in the employee workspace (balance, ledger, run-accrual,
+  adjust), a review-time over-draw warning, the employee's balance in the portal,
+  a **Holidays** admin and **PTO defaults** in Settings. Migration `e8a6c2f419d7`.
+  `test_pto.py` (12), `test_pto_routes.py` (9), `test_holidays.py` (6), portal (+1);
+  `EmployeePtoTab`/`HolidaySettings` frontend tests. Backend 871 / frontend 432.
+  Verified live: accrual → balance; a holiday inside a vacation is free; over-budget
+  approval warns; cancel restores.
 
 ## P4c — Confirmation calls + call detail page (done)
 
@@ -426,10 +455,10 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
     `private_notes` (nor the raw reviewer/submitter user ids). Pending reads as
     "Awaiting review". `test_portal.py` (+2, pinning that `privateNotes` never
     reaches the portal), `PortalPage.test.jsx` (+1)
-- [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
-- [ ] **Collapsed-rail flyout submenus.** Clicking a hub on the collapsed rail
-  expands the sidebar and opens it. A hover/focus flyout would need its own
-  touch, keyboard and screen-reader handling for little gain
+- [x] **Collapsed-rail flyout submenus — decided: not building.** Clicking a hub
+  on the collapsed rail already expands the sidebar and opens it, so the capability
+  is not lost. A hover/focus flyout would need its own touch, keyboard and
+  screen-reader handling for little gain — the project owner chose to leave it out.
 - [x] **Day Closeout permission — decided.** Closing the operational day stays
   open to dispatchers (`hasDispatchAccess`: admin/supervisor/dispatcher). The
   dispatcher runs the day, so signing it off is part of that job; restricting it
@@ -649,6 +678,7 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   in the README. Reproducible: `frontend/scripts/capture-screenshots.mjs`
   (Playwright) logs in and shoots each route; `npm run screenshots`. Images in
   `docs/screenshots/`.
-- [ ] A short workflow GIF in README (the still images are done; a recorded GIF
-  of a dispatch flow is still open)
+- [ ] **Deferred (tooling).** A short workflow GIF in README — the still images are
+  done; a recorded GIF of a dispatch flow needs a screen/video-capture step (e.g.
+  Playwright video → ffmpeg → GIF) that is not part of the app. Parked deliberately.
 - [x] Architecture diagram — two mermaid diagrams in the README (system layers + the auth/request flow), rendered and verified under mermaid 11 (GitHub's engine)

@@ -133,6 +133,9 @@ class Employee(db.Model):
     employee_number = db.Column(db.String(50))
     hire_date = db.Column(db.String(20))
     dob = db.Column(db.String(20))  # YYYY-MM-DD; drives employee birthday calendar events
+    # Annual PTO allotment in days; None falls back to the org default. Accrual is
+    # monthly (annual / 12) — see utils/pto.py.
+    pto_annual_days = db.Column(db.Float)
 
     # Operational employee information.
     # `role` used to conflate two independent axes. It is kept as a derived
@@ -190,6 +193,7 @@ class Employee(db.Model):
             "employeeNumber": self.employee_number or "",
             "hireDate": self.hire_date or "",
             "dob": self.dob or "",
+            "ptoAnnualDays": self.pto_annual_days,
             # Split axes are authoritative; `role` is the derived legacy mirror.
             "qualification": self.qualification,
             "adminRole": self.admin_role,
@@ -1738,6 +1742,60 @@ class EmployeeLeaveRequest(db.Model):
         return data
 
 
+class PtoLedgerEntry(db.Model):
+    """One entry in an employee's PTO ledger. The balance is the *sum* of deltas —
+    never a bare mutable number — so every change (a monthly accrual, a leave that
+    spent days, a year-end carryover trim, a manual correction) is auditable and
+    reversible. See utils/pto.py for the accrual/deduction logic."""
+    __tablename__ = "pto_ledger_entry"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False, index=True)
+    effective_date = db.Column(db.String(20), nullable=False)   # YYYY-MM-DD
+    delta_days = db.Column(db.Float, nullable=False)            # + earned, − spent
+    kind = db.Column(db.String(20), nullable=False)            # accrual|used|carryover|adjustment
+    # Links a `used` entry back to the leave that spent it, so a cancel/deny can
+    # reverse exactly what was taken.
+    leave_request_id = db.Column(db.Integer, db.ForeignKey("employee_leave_request.id"), nullable=True, index=True)
+    # YYYY-MM for an accrual/carryover, so re-running the accrual never double-posts.
+    period = db.Column(db.String(7))
+    note = db.Column(db.String(255))
+    created_at = db.Column(db.String(50))
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "employeeId": self.employee_id,
+            "effectiveDate": self.effective_date,
+            "deltaDays": self.delta_days,
+            "kind": self.kind,
+            "leaveRequestId": self.leave_request_id,
+            "note": self.note or "",
+            "createdAt": self.created_at or "",
+        }
+
+
+class Holiday(db.Model):
+    """A company-observed holiday. A holiday inside a leave range does not spend PTO
+    (excluded, with weekends, from the business-day count). Org-scoped so each
+    organisation keeps its own calendar."""
+    __tablename__ = "holiday"
+    __table_args__ = (db.UniqueConstraint("org_id", "date", name="uq_holiday_org_date"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(20), nullable=False, index=True)   # YYYY-MM-DD
+    name = db.Column(db.String(150), nullable=False)
+    created_at = db.Column(db.String(50))
+
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    def to_dict(self):
+        return {"id": self.id, "date": self.date, "name": self.name}
+
+
 class OperationalDayClosure(db.Model):
     """A day someone has reviewed and signed off.
 
@@ -1987,5 +2045,5 @@ class CalendarEventParticipant(db.Model):
 ORG_SCOPED_MODELS = (
     User, Employee, Vehicle, DailyCrewUnit, CrewPreset, Patient, Call,
     NotificationEvent, PayPeriod, EmployeeLeaveRequest, OperationalDayClosure,
-    RecurringTrip, CalendarEvent, Task, AuditLog,
+    RecurringTrip, CalendarEvent, Task, AuditLog, PtoLedgerEntry, Holiday,
 )

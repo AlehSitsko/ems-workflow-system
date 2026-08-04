@@ -12,6 +12,7 @@ import DocumentsTab from "../../components/DocumentsTab";
 import TimePayTab from "../../components/TimePayTab";
 import EmployeeEmploymentTab from "../../components/employees/EmployeeEmploymentTab";
 import EmployeeDisciplinaryTab from "../../components/employees/EmployeeDisciplinaryTab";
+import EmployeePtoTab from "../../components/employees/EmployeePtoTab";
 import { useUserSettings } from "../../context/useUserSettings";
 import EmployeeLeaveTab from "../../components/employees/EmployeeLeaveTab";
 import {
@@ -89,6 +90,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
 
   const [tabData, setTabData] = useState({ tasks: null, activity: null, shifts: null, leave: null });
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [ptoNotice, setPtoNotice] = useState("");
   const [tabState, setTabState] = useState({});
 
 
@@ -154,6 +156,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
     { key: "schedule", label: "Schedule" },
     { key: "activity", label: "Activity" },
     { key: "leave", label: "Leave" },
+    ...(canSeeDisciplinary ? [{ key: "pto", label: "PTO" }] : []),
     ...(canSeeDisciplinary ? [{ key: "disciplinary", label: "Disciplinary" }] : []),
   ];
 
@@ -179,8 +182,11 @@ export default function EmployeeWorkspacePage({ currentUser }) {
 
   const decideLeave = async (id, status) => {
     setLeaveBusy(true);
+    setPtoNotice("");
     try {
-      await decideLeaveRequest(id, status);
+      const result = await decideLeaveRequest(id, status);
+      // Advisory: approving over the PTO budget is allowed but flagged.
+      if (result?.balanceWarning) setPtoNotice(result.balanceWarning);
       reloadLeave();
       loadTab("shifts", () => getEmployeeShifts(employeeId));   // approval can affect rostering
     } catch (err) {
@@ -283,6 +289,10 @@ export default function EmployeeWorkspacePage({ currentUser }) {
       return <EmployeeEmploymentTab employeeId={employee.id} currentUser={currentUser} />;
     }
 
+    if (activeTab === "pto") {
+      return <EmployeePtoTab employeeId={employee.id} />;
+    }
+
     if (activeTab === "disciplinary") {
       if (!canSeeDisciplinary) return null;
       return <EmployeeDisciplinaryTab employeeId={employee.id} />;
@@ -376,6 +386,10 @@ export default function EmployeeWorkspacePage({ currentUser }) {
       }
       const role = currentUser?.role;
       return (
+        <>
+        {ptoNotice && (
+          <div className="alert alert-warning py-2" role="alert">{ptoNotice}</div>
+        )}
         <EmployeeLeaveTab
           requests={tabData.leave || []}
           employeeName={fullName}
@@ -386,6 +400,7 @@ export default function EmployeeWorkspacePage({ currentUser }) {
           onCancel={cancelLeave}
           busy={leaveBusy}
         />
+        </>
       );
     }
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import {
   FaCheckCircle,
   FaClipboardCheck,
@@ -19,6 +19,7 @@ import StatusBadge from "../components/ui/StatusBadge";
 
 import {
   getTasks,
+  getTask,
   createTask,
   updateTask,
   updateTaskStatus,
@@ -142,6 +143,11 @@ const TasksPage = ({ currentUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
 
+  // /tasks/:taskId deep-links straight to a task's drawer.
+  const { taskId: routeTaskId } = useParams();
+  const navigate = useNavigate();
+  const deepLinkOpenedRef = useRef(null);
+
   const setFilter = (patch) => {
     const next = { ...filters, ...patch };
     setSearchParams(
@@ -206,6 +212,11 @@ const TasksPage = ({ currentUser }) => {
     setComments([]);
     setActivity([]);
     setNewComment("");
+    // If we arrived via /tasks/:taskId, closing returns to the list URL.
+    if (routeTaskId) {
+      deepLinkOpenedRef.current = null;
+      navigate("/tasks", { replace: true });
+    }
   };
 
   const isFormDirty = () => {
@@ -258,6 +269,16 @@ const TasksPage = ({ currentUser }) => {
     setActivity([]);
     setDrawerOpen(true);
   };
+
+  // Open the deep-linked task once, fetching it directly so the link works even
+  // when the task is outside the current filter.
+  useEffect(() => {
+    if (!routeTaskId || deepLinkOpenedRef.current === routeTaskId) return;
+    deepLinkOpenedRef.current = routeTaskId;
+    getTask(routeTaskId, currentUser)
+      .then((task) => openEditDrawer(task))
+      .catch(() => setError("That task could not be opened."));
+  }, [routeTaskId, currentUser]);
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;

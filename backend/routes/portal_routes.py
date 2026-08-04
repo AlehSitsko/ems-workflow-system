@@ -10,7 +10,7 @@ request leave.
 
 from flask import Blueprint, jsonify, request
 
-from models import db, User, Employee, Task, EmployeeLeaveRequest, TimeEntry, EmployeeDocument
+from models import db, User, Employee, Task, EmployeeLeaveRequest, TimeEntry, EmployeeDocument, PtoLedgerEntry
 from utils.auth_utils import (
     require_role, get_request_user_id, get_request_user_name,
 )
@@ -122,6 +122,29 @@ def my_leave():
     # "self" visibility: the employee's own request in full, plus the review
     # decision and the note left for them — but not HR's private notes.
     return jsonify([r.to_dict("self") for r in requests])
+
+
+@portal_bp.route("/me/pto", methods=["GET"])
+@require_role("employee")
+def my_pto():
+    """My PTO balance and recent ledger — self-scoped, resolved from the session."""
+    from utils import pto
+
+    employee, err = _me()
+    if err:
+        return err
+    ledger = (
+        PtoLedgerEntry.query
+        .filter_by(employee_id=employee.id)
+        .order_by(PtoLedgerEntry.effective_date.desc(), PtoLedgerEntry.id.desc())
+        .limit(50)
+        .all()
+    )
+    return jsonify({
+        "balance": pto.pto_balance(employee.id),
+        "annualDays": pto.annual_days(employee),
+        "ledger": [e.to_dict() for e in ledger],
+    })
 
 
 @portal_bp.route("/me/leave", methods=["POST"])

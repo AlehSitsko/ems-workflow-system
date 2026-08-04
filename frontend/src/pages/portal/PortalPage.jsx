@@ -9,7 +9,7 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import { formatDate, formatDateTime } from "../../utils/dateDisplay";
 import {
   getMyProfile, getMySchedule, getMyTasks, updateMyTask, getMyLeave, requestLeave,
-  getMyClock, clockIn, clockOut, getMyHours, getMyDocuments, myDocumentFileUrl,
+  getMyClock, clockIn, clockOut, getMyHours, getMyDocuments, myDocumentFileUrl, getMyPto,
 } from "../../api/portalApi";
 
 const TABS = [
@@ -177,6 +177,7 @@ function TasksTab() {
 
 function LeaveTab() {
   const { data, error, reload } = useLoad(getMyLeave);
+  const { data: pto } = useLoad(getMyPto);
   const [form, setForm] = useState({ leaveType: "vacation", startDate: "", endDate: "", reason: "" });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
@@ -199,6 +200,12 @@ function LeaveTab() {
 
   return (
     <>
+      {pto && (
+        <div className="alert alert-info py-2">
+          PTO balance: <strong>{pto.balance}</strong> day(s)
+          <span className="text-muted"> · {pto.annualDays} days/year</span>
+        </div>
+      )}
       <PageSection title="Request time off" description="Submitted as pending for HR to review.">
         <form className="row g-2 align-items-end" onSubmit={submit}>
           <div className="col-sm-3">

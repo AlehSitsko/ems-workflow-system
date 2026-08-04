@@ -37,6 +37,10 @@ export async function getMyLeave() {
   return handle(await fetch(`${BASE}/me/leave`, { credentials: "include" }), "Failed to load your leave");
 }
 
+export async function getMyPto() {
+  return handle(await fetch(`${BASE}/me/pto`, { credentials: "include" }), "Failed to load your PTO");
+}
+
 export async function requestLeave(payload) {
   const res = await fetch(`${BASE}/me/leave`, {
     method: "POST",

@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, request
 
 from models import db, Employee, EmployeeLeaveRequest, DailyCrewUnit
 from utils.auth_utils import require_role, get_request_role, get_request_user_id, get_request_user_name
+from utils import pto
 from utils.validation_utils import is_valid_date, is_valid_time, check_length
 from utils.taxonomy import (
     normalize_leave_type, normalize_leave_status,
@@ -323,6 +324,7 @@ def decide_leave_request(id):
     if decision == "approved":
         rostered = _rostered_shifts(leave)
 
+    was_approved = leave.status == "approved"
     leave.status = decision
     leave.reviewed_at = _now()
     leave.reviewed_by = get_request_user_id()
@@ -330,11 +332,28 @@ def decide_leave_request(id):
     leave.review_note = (data.get("reviewNote") or "").strip() or None
     leave.updated_at = leave.reviewed_at
 
+    # PTO ledger: approving a vacation/personal leave spends days (advisory — it
+    # may take the balance negative); denying one that had been approved gives them
+    # back. Non-PTO leave types are untouched.
+    spent = None
+    if decision == "approved":
+        spent = pto.deduct_for_leave(leave, created_by=get_request_user_id())
+    elif was_approved:
+        pto.reverse_leave(leave)
+
     db.session.commit()
 
     body = leave.to_dict("hr")
     if rostered:
         body["rosteredShifts"] = rostered
+    if spent:
+        balance = pto.pto_balance(leave.employee_id)
+        body["ptoSpent"] = spent
+        body["ptoBalance"] = balance
+        if balance < 0:
+            body["balanceWarning"] = (
+                f"Approved over budget — PTO balance is now {balance} day(s)."
+            )
     return jsonify(body)
 
 
@@ -345,6 +364,9 @@ def cancel_leave_request(id):
     if not leave:
         return jsonify({"error": "Leave request not found"}), 404
 
+    # Cancelling an approved PTO leave returns the days it spent.
+    if leave.status == "approved":
+        pto.reverse_leave(leave)
     leave.status = "cancelled"
     leave.updated_at = _now()
     db.session.commit()
@@ -360,6 +382,9 @@ def delete_leave_request(id):
     if not leave:
         return jsonify({"error": "Leave request not found"}), 404
 
+    # Remove any PTO ledger entries that reference this leave first (their FK would
+    # otherwise block the delete and orphan the balance).
+    pto.reverse_leave(leave)
     db.session.delete(leave)
     db.session.commit()
     return jsonify({"message": "Leave request deleted"})
