@@ -135,6 +135,12 @@ recurring staff meeting, all dated relative to *today*:
 flask --app app seed-demo-data   # local/demo only; see "Demo Users / Demo Mode"
 ```
 
+### Workflow
+A dispatcher's path through the app — dashboard, the live Dispatch Board, and the
+operational calendar:
+
+![Workflow walkthrough](docs/workflow.gif)
+
 ### Dashboard
 Role-aware "needs attention" plus today's operational snapshot.
 
@@ -163,7 +169,8 @@ Certifications across the roster, colour-coded by expiry.
 > Regenerate these from the seeded demo: run the backend (against a demo DB) and
 > the frontend dev server, then `cd frontend && npm run screenshots`
 > (`scripts/capture-screenshots.mjs`, Playwright — `npx playwright install chromium` once).
-> A short workflow GIF is still tracked in [docs/ROADMAP.md](docs/ROADMAP.md), Priority 5.
+> The workflow GIF regenerates the same way via `cd frontend && npm run record-gif`
+> (`scripts/record-workflow-gif.mjs`; needs `ffmpeg` on PATH or `FFMPEG=…`).
 
 ## Tech Stack
 
