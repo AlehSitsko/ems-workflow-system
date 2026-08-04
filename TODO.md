@@ -683,7 +683,8 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   in the README. Reproducible: `frontend/scripts/capture-screenshots.mjs`
   (Playwright) logs in and shoots each route; `npm run screenshots`. Images in
   `docs/screenshots/`.
-- [ ] **Deferred (tooling).** A short workflow GIF in README — the still images are
-  done; a recorded GIF of a dispatch flow needs a screen/video-capture step (e.g.
-  Playwright video → ffmpeg → GIF) that is not part of the app. Parked deliberately.
+- [x] **Workflow GIF in README** — a recorded dispatcher walkthrough (dashboard →
+  Dispatch Board → calendar) at `docs/workflow.gif`. Reproducible:
+  `frontend/scripts/record-workflow-gif.mjs` (Playwright video → ffmpeg two-pass
+  palette GIF); `npm run record-gif` (needs `ffmpeg` on PATH or `FFMPEG=…`).
 - [x] Architecture diagram — two mermaid diagrams in the README (system layers + the auth/request flow), rendered and verified under mermaid 11 (GitHub's engine)

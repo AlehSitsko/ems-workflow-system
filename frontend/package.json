@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "screenshots": "node scripts/capture-screenshots.mjs",
+    "record-gif": "node scripts/record-workflow-gif.mjs",
     "preview": "vite preview",
     "predeploy": "vite build",
     "deploy": "gh-pages -d dist"
