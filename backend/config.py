@@ -56,6 +56,33 @@ def _dev_secret_key():
     return secrets.token_hex(32)
 
 
+def _secret_key_fallbacks():
+    """Old signing keys still accepted for *verifying* existing cookies, so
+    `SECRET_KEY` can be rotated without signing everyone out at once (Flask ≥3.1).
+
+    New cookies are always signed with the current `SECRET_KEY`; each key here is
+    tried, in order, only when the current key fails to unsign a cookie. Rotate by
+    moving the outgoing key into this list, then dropping it once the session
+    lifetime has elapsed. Read from `SECRET_KEY_FALLBACKS_FILE` (one key per line, a
+    mounted secret) or the comma-separated `SECRET_KEY_FALLBACKS` env var.
+    """
+    raw_file = os.environ.get("SECRET_KEY_FALLBACKS_FILE")
+    if raw_file:
+        try:
+            with open(raw_file, "r", encoding="utf-8") as handle:
+                keys = [line.strip() for line in handle if line.strip()]
+            if keys:
+                return keys
+        except OSError:
+            pass
+    raw = os.environ.get("SECRET_KEY_FALLBACKS")
+    if raw:
+        keys = [k.strip() for k in raw.split(",") if k.strip()]
+        if keys:
+            return keys
+    return None
+
+
 class Config:
     # DATABASE_URL lets tests / Docker point this elsewhere without touching the
     # local dev default; DATABASE_URL_FILE (a mounted secret) takes precedence, so
@@ -74,6 +101,9 @@ class Config:
     # Signs the session cookie. See _dev_secret_key for why there is no
     # committed default.
     SECRET_KEY = _dev_secret_key()
+    # Old keys still accepted for verifying (not signing) cookies during a rotation
+    # window — see _secret_key_fallbacks. Flask ignores this when it is None.
+    SECRET_KEY_FALLBACKS = _secret_key_fallbacks()
 
     # The cookie is unreadable from JavaScript, so a cross-site scripting bug
     # cannot walk off with the session the way it could with a token in
