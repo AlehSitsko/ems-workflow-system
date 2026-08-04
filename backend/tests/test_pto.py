@@ -121,3 +121,13 @@ def test_reverse_restores_the_balance(app):
     pto.reverse_leave(lv)
     db.session.commit()
     assert pto.pto_balance(emp.id) == 0.0
+
+
+def test_per_employee_allotment_overrides_the_org_default(app):
+    from utils.employee_utils import apply_employee_data
+    emp = Employee(first_name="A", last_name="B", role="EMT", status="active", is_active=True)
+    apply_employee_data(emp, {"ptoAnnualDays": 20})
+    assert emp.pto_annual_days == 20.0
+    assert pto.annual_days(emp) == 20.0          # its own value, not the default 15
+    apply_employee_data(emp, {"ptoAnnualDays": ""})
+    assert emp.pto_annual_days is None            # blank clears it → org default

@@ -31,9 +31,10 @@ describe("OrgSettings", () => {
     fireEvent.change(screen.getByLabelText("Timezone"), { target: { value: "America/Chicago" } });
     fireEvent.click(screen.getByRole("button", { name: /save organisation/i }));
 
-    await waitFor(() => expect(api.updateMyOrg).toHaveBeenCalledWith({
-      name: "Acme Medical", settings: { timezone: "America/Chicago" },
-    }));
+    await waitFor(() => expect(api.updateMyOrg).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Acme Medical",
+      settings: expect.objectContaining({ timezone: "America/Chicago" }),
+    })));
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
   });
 });

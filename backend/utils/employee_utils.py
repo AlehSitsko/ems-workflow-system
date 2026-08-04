@@ -35,6 +35,14 @@ def apply_employee_data(employee, data):
 
     employee.dob = (data.get("dob") or "").strip() or None  # YYYY-MM-DD, drives birthday events
 
+    # Per-employee annual PTO allotment (days); blank/None → the org default applies.
+    if "ptoAnnualDays" in data:
+        raw = data.get("ptoAnnualDays")
+        try:
+            employee.pto_annual_days = float(raw) if raw not in (None, "") else None
+        except (TypeError, ValueError):
+            employee.pto_annual_days = None
+
     # Role split: `qualification` (clinical/operational) and `admin_role`
     # (organisational) are authoritative. If the client sends them, they win;
     # otherwise fall back to splitting the legacy single `role` field so old

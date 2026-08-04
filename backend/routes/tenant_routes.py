@@ -74,14 +74,29 @@ def update_my_org():
         settings = data.get("settings")
         if not isinstance(settings, dict):
             return jsonify({"error": "settings must be an object"}), 400
-        # A small, closed set of light branding fields — never the slug (that is
-        # the tenant's identity) or is_active (a platform decision).
+        # A small, closed set of light branding + policy fields — never the slug
+        # (the tenant's identity) or is_active (a platform decision).
         cleaned = {}
         for key, limit in (("timezone", 64), ("logoUrl", 500)):
             if key in settings:
                 value = (settings.get(key) or "").strip()
                 check_length(value, limit, key)
                 cleaned[key] = value
+        if "pto" in settings:
+            pto = settings.get("pto")
+            if not isinstance(pto, dict):
+                return jsonify({"error": "settings.pto must be an object"}), 400
+            pto_clean = {}
+            for key in ("annualDays", "carryoverCapDays"):
+                if key in pto and pto.get(key) is not None:
+                    try:
+                        n = float(pto[key])
+                    except (TypeError, ValueError):
+                        return jsonify({"error": f"settings.pto.{key} must be a number"}), 400
+                    if n < 0 or n > 365:
+                        return jsonify({"error": f"settings.pto.{key} must be between 0 and 365"}), 400
+                    pto_clean[key] = n
+            cleaned["pto"] = pto_clean
         org.settings_json = json.dumps(cleaned)
 
     db.session.commit()

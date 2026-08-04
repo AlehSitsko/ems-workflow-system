@@ -9,6 +9,8 @@ export default function OrgSettings() {
   const [org, setOrg] = useState(null);
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState("");
+  const [ptoAnnual, setPtoAnnual] = useState("");
+  const [ptoCarryover, setPtoCarryover] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,6 +21,8 @@ export default function OrgSettings() {
         setOrg(o);
         setName(o.name || "");
         setTimezone(o.settings?.timezone || "");
+        setPtoAnnual(o.settings?.pto?.annualDays ?? "");
+        setPtoCarryover(o.settings?.pto?.carryoverCapDays ?? "");
       })
       .catch((e) => setError(e.message));
   }, []);
@@ -26,8 +30,14 @@ export default function OrgSettings() {
   const save = async (e) => {
     e.preventDefault();
     setError(""); setSaved(false); setBusy(true);
+    const pto = {};
+    if (ptoAnnual !== "") pto.annualDays = Number(ptoAnnual);
+    if (ptoCarryover !== "") pto.carryoverCapDays = Number(ptoCarryover);
     try {
-      const updated = await updateMyOrg({ name: name.trim(), settings: { timezone: timezone.trim() } });
+      const updated = await updateMyOrg({
+        name: name.trim(),
+        settings: { timezone: timezone.trim(), pto },
+      });
       setOrg(updated);
       setSaved(true);
     } catch (err) {
@@ -61,6 +71,21 @@ export default function OrgSettings() {
                    onChange={(e) => { setTimezone(e.target.value); setSaved(false); }} disabled={busy}
                    placeholder="America/New_York" />
           </div>
+
+          <div className="col-12"><hr className="my-1" /><span className="text-muted small">PTO policy (defaults for staff without a personal allotment)</span></div>
+          <div className="col-md-6">
+            <label className="form-label" htmlFor="org-pto-annual">Annual PTO (days/year)</label>
+            <input id="org-pto-annual" type="number" step="0.5" min="0" className="form-control" value={ptoAnnual}
+                   onChange={(e) => { setPtoAnnual(e.target.value); setSaved(false); }} disabled={busy}
+                   placeholder="15" />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label" htmlFor="org-pto-cap">Carryover cap (days)</label>
+            <input id="org-pto-cap" type="number" step="0.5" min="0" className="form-control" value={ptoCarryover}
+                   onChange={(e) => { setPtoCarryover(e.target.value); setSaved(false); }} disabled={busy}
+                   placeholder="5" />
+          </div>
+
           <div className="col-12">
             <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
               {busy ? "Saving…" : "Save organisation"}

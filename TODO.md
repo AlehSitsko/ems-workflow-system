@@ -327,8 +327,25 @@ Full spec in [docs/ROADMAP.md](docs/ROADMAP.md) → Phase 4d.
   jump into the employee's own workspace. Approving surfaces the shifts it just
   left short-handed. Supervisors get the same screen read-only — the API already
   withholds the detail, so the page simply has nothing to hide
-- [ ] Leave balances / PTO accrual / holiday policy — still deferred until the
-  business rules are agreed
+- [x] **Leave balances / PTO accrual / holiday policy.** A real PTO system behind
+  the leave module. The balance is a **ledger** (`PtoLedgerEntry` — sum of deltas,
+  never a stored number, so accruals/spends/carryover/corrections are all auditable
+  and reversible), plus a per-org **`Holiday`** calendar and a per-employee annual
+  allotment (`Employee.pto_annual_days`, else the org default). Engine `utils/pto.py`:
+  **monthly accrual** (annual/12, idempotent `accrue_through` with a year-end
+  **carryover cap**), holiday+weekend-aware `business_days`, and PTO-type-gated
+  deduction/reversal (vacation + personal draw; a partial day = 0.5). Approving such
+  a leave spends days (**over-draw is advisory, never blocked** — the balance may go
+  negative with a warning); denying/cancelling/deleting an approved one gives them
+  back. APIs: `/api/pto` (balance/ledger, run-accrual, adjust — HR), `/api/holidays`
+  (HR write / staff read), portal `/me/pto`; org PTO defaults via `/api/tenant/org`.
+  UI: an HR **PTO tab** in the employee workspace (balance, ledger, run-accrual,
+  adjust), a review-time over-draw warning, the employee's balance in the portal,
+  a **Holidays** admin and **PTO defaults** in Settings. Migration `e8a6c2f419d7`.
+  `test_pto.py` (12), `test_pto_routes.py` (9), `test_holidays.py` (6), portal (+1);
+  `EmployeePtoTab`/`HolidaySettings` frontend tests. Backend 871 / frontend 432.
+  Verified live: accrual → balance; a holiday inside a vacation is free; over-budget
+  approval warns; cancel restores.
 
 ## P4c — Confirmation calls + call detail page (done)
 

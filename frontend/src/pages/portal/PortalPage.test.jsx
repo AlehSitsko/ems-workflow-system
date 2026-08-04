@@ -19,6 +19,7 @@ beforeEach(() => {
   ]);
   api.updateMyTask.mockResolvedValue({ id: 5, status: "In Progress" });
   api.getMyLeave.mockResolvedValue([]);
+  api.getMyPto.mockResolvedValue({ balance: 10, annualDays: 15, ledger: [] });
   api.requestLeave.mockResolvedValue({ id: 1, status: "pending" });
   api.getMyProfile.mockResolvedValue({
     firstName: "James", lastName: "Carter", employeeNumber: "E101", role: "Paramedic",

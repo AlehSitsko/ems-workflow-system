@@ -10,6 +10,7 @@ import CalendarDisplaySettings from "../components/settings/CalendarDisplaySetti
 import DashboardSettings from "../components/settings/DashboardSettings";
 import ActiveSessions from "../components/settings/ActiveSessions";
 import OrgSettings from "../components/settings/OrgSettings";
+import HolidaySettings from "../components/settings/HolidaySettings";
 import { getNavigationItems } from "../config/routeMetadata";
 import { roleQuickLinks } from "../config/dashboardDefaults";
 import API_BASE from "../api/config.js";
@@ -190,6 +191,12 @@ function NotificationSettingsPage({ currentUser }) {
       {currentUser?.role === "admin" && (
         <section className="mt-4">
           <OrgSettings />
+        </section>
+      )}
+
+      {["admin", "hr"].includes(currentUser?.role) && (
+        <section className="mt-4">
+          <HolidaySettings />
         </section>
       )}
 
