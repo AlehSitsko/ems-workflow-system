@@ -39,10 +39,11 @@ services:
     build: ./frontend
     ports:
       - "5173:5173"
-    environment:
-      # The browser resolves this, not the container, so it is the host's
-      # published port rather than the compose service name.
-      VITE_API_BASE_URL: http://127.0.0.1:5050
+    # No VITE_API_BASE_URL on purpose: the SPA derives the API base from the page's
+    # own hostname (frontend/src/api/config.js → defaultApiBase, :5050), so it works
+    # whether you open the app on localhost:5173 or 127.0.0.1:5173 — and the browser
+    # keeps app and API on the *same* site, which is what lets the SameSite=Lax
+    # session cookie be sent. Hard-coding one host here broke the other.
     volumes:
       - ./frontend:/app
       # Keeps the image's node_modules: the bind mount above would otherwise
