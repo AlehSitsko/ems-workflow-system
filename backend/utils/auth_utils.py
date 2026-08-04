@@ -331,8 +331,8 @@ PUBLIC_ENDPOINTS = {
     "time.kiosk_clock_in",
     "time.kiosk_clock_out",
     "time.kiosk_status",
-    # Push notifications need this before a subscription exists.
-    "notif.vapid_public_key",
+    # Push notifications need the (public) VAPID key before a subscription exists.
+    "notifications.vapid_public_key",
     # The login screen greets the workspace by its subdomain before anyone signs in.
     "tenant.current_tenant",
 }

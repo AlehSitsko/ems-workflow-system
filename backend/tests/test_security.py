@@ -305,7 +305,7 @@ def test_the_public_allowlist_stays_small_and_deliberate(app):
         "health_check", "home",               # liveness, used before login
         "time.kiosk_employee_list", "time.kiosk_verify_pin",
         "time.kiosk_clock_in", "time.kiosk_clock_out", "time.kiosk_status",
-        "notif.vapid_public_key",             # needed before a subscription
+        "notifications.vapid_public_key",     # the public VAPID key
         "tenant.current_tenant",              # login-screen workspace greeting
     }
     assert PUBLIC_ENDPOINTS == expected, (
