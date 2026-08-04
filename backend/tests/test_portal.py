@@ -9,7 +9,7 @@ import pytest
 
 from models import (
     db, Employee, User, DailyCrewUnit, Task, EmployeeLeaveRequest,
-    TimeEntry, EmployeeDocument,
+    TimeEntry, EmployeeDocument, PtoLedgerEntry,
 )
 from conftest import make_user, login, TEST_PASSWORD
 
@@ -286,3 +286,15 @@ def test_download_of_a_fileless_document_is_404(app):
     c, emp = portal_client(app)
     doc = mk_document(emp.id, file_path=None)
     assert c.get(f"/api/portal/me/documents/{doc.id}/file").status_code == 404
+
+
+def test_me_pto_shows_my_own_balance(app):
+    c, emp = portal_client(app)
+    db.session.add(PtoLedgerEntry(employee_id=emp.id, delta_days=5, kind="accrual",
+                                  effective_date="2026-01-31"))
+    db.session.add(PtoLedgerEntry(employee_id=emp.id, delta_days=-2, kind="used",
+                                  effective_date="2026-02-10"))
+    db.session.commit()
+    body = c.get("/api/portal/me/pto").get_json()
+    assert body["balance"] == 3.0
+    assert len(body["ledger"]) == 2

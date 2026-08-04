@@ -147,6 +147,12 @@ def reverse_leave(leave):
     return len(rows)
 
 
+def record_adjustment(employee_id, delta_days, note=None, created_by=None):
+    """Post a manual balance correction. Flushes only — the caller commits."""
+    return _post(employee_id, delta_days, "adjustment", date.today().isoformat(),
+                 note=note, created_by=created_by)
+
+
 # ── Monthly accrual + carryover ───────────────────────────────────────────────
 
 def _month_iter(start, end):
