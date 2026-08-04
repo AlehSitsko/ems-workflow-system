@@ -28,3 +28,11 @@ def test_endpoint_serves_the_derived_key(client):
     body = client.get("/api/notifications/vapid-public-key").get_json()
     assert body["publicKey"] == get_vapid_public_key()
     assert body["publicKey"]        # non-empty → the UI reads push as configured
+
+
+def test_test_push_accepts_a_bodyless_post(clients):
+    # The UI POSTs with no body / no JSON content-type; that must not 415. With no
+    # subscription the route returns a clean 400, proving the media-type error is gone.
+    resp = clients["admin"].post("/api/notifications/test-push")
+    assert resp.status_code == 400
+    assert "subscription" in resp.get_json()["error"].lower()

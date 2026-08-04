@@ -189,7 +189,7 @@ def push_subscribe():
 
 @notif_bp.route("/push-unsubscribe", methods=["POST"])
 def push_unsubscribe():
-    data = request.get_json() or {}
+    # No body needed — clears the caller's own subscription (from the session).
     user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
@@ -203,7 +203,8 @@ def push_unsubscribe():
 
 @notif_bp.route("/test-push", methods=["POST"])
 def test_push():
-    data = request.get_json() or {}
+    # No body: the target is the caller's own subscription, resolved from the
+    # session. (Reading a JSON body here would 415 the bodyless POST the UI sends.)
     user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
