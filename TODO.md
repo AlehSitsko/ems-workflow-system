@@ -558,7 +558,12 @@ and the role-aware dashboard shipped. These are the deliberately-deferred parts:
   and the `DATABASE_URL` (which carries the DB password) can stay out of the
   process environment. Postgres's own `POSTGRES_PASSWORD_FILE` is supported by its
   image. `test_config.py` (5) pins file-over-env precedence; verified the app boots
-  in production mode from a `SECRET_KEY_FILE`. Still open: rotation tooling
+  in production mode from a `SECRET_KEY_FILE`.
+  - [x] **Key rotation.** `SECRET_KEY_FALLBACKS` (Flask ≥3.1) — old keys still verify
+    a cookie but never sign a new one — from `SECRET_KEY_FALLBACKS_FILE` (one per
+    line) or the comma-separated env var. Rotate by moving the outgoing key into the
+    fallbacks, then dropping it after the session lifetime; no forced sign-out.
+    `test_secret_rotation.py` (3); runbook in PRODUCTION_READINESS → Secrets.
 - [~] **Security review — dependency audit done.** `pip-audit` + `npm audit`:
   fixed `postcss` (→8.5.25, build-time path traversal) and `pytest` (→9.0.3,
   test-only; suite re-verified). Assessed and accepted with rationale (see

@@ -270,7 +270,13 @@ The app code is ready; standing it up multi-tenant is configuration and infra:
 
 **Current state:** the two production secrets — `SECRET_KEY` (signs session cookies; the app refuses to start in production without it) and the database password inside `DATABASE_URL` — are read via `config.py._secret()`, which prefers a `{NAME}_FILE` (a mounted Docker/Kubernetes secret) over the `{NAME}` environment variable. That keeps them out of the process environment, where they would otherwise be visible to `docker inspect`, crash dumps and child processes. The Postgres image reads `POSTGRES_PASSWORD_FILE` the same way.
 
-**Still open:** a rotation story (swapping `SECRET_KEY` invalidates live sessions; a real deployment needs a documented, low-disruption rotation).
+**Key rotation:** swapping `SECRET_KEY` on its own would sign every live session out (their cookies no longer verify). `config.py` supports `SECRET_KEY_FALLBACKS` (Flask ≥3.1) — old keys still accepted for *verifying* a cookie, never for signing a new one — read from `SECRET_KEY_FALLBACKS_FILE` (one key per line) or the comma-separated `SECRET_KEY_FALLBACKS` env var. To rotate with no forced logout:
+
+1. Generate a new key: `openssl rand -hex 32`.
+2. Move the current key into the fallbacks: set `SECRET_KEY` = new key **and** `SECRET_KEY_FALLBACKS` = the old key, then roll the deployment. New cookies are signed with the new key; existing cookies still verify against the fallback.
+3. After the session lifetime has elapsed (`SESSION_LIFETIME_SECONDS`, default 12h), remove the old key from `SECRET_KEY_FALLBACKS`. The rotation is complete and the old key is dead.
+
+Verified by `test_secret_rotation.py`: a cookie signed with the old key authenticates under the new key while the old one is a fallback, and is rejected once it is dropped.
 
 ## Security review
 
