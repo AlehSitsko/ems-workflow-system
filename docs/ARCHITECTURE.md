@@ -27,9 +27,9 @@ ems-workflow-system/
 │   ├── utils/
 │   │   ├── employee_utils.py
 │   │   └── validation_utils.py           (check_length, is_valid_date, is_valid_time, etc.)
-│   └── routes/                           (one blueprint per module; each duplicates its own small
-│                                           X-User-Id/X-User-Role header-parsing helpers rather than
-│                                           sharing one — see "Authentication" below for why)
+│   └── routes/                           (one blueprint per module; identity + role come from the
+│                                           shared session guard + @require_role, not per-route
+│                                           header parsing — see "Authentication" below)
 │       ├── auth_routes.py                (login, user CRUD)
 │       ├── employee_routes.py
 │       ├── crew_routes.py                (crew units + shift alert computation)
@@ -181,22 +181,37 @@ for quick peek / short create-edit forms.
 
 ## Authentication
 
-**Current state (intentional MVP, not an oversight):** header-based pseudo-auth. The frontend stores the logged-in user in `localStorage` after `POST /api/auth/login` and sends `X-User-Id` / `X-User-Role` / `X-User-Name` headers on subsequent requests; each route blueprint reads and trusts these headers directly (no JWT, no server-side session, no signed token). Role checks are inline per-route (`if role not in (...): return 403`), duplicated across files rather than centralized in a decorator.
+**Session-cookie authentication.** `POST /api/auth/login` verifies the password and
+starts a **server-side session**; identity lives in a signed, `HttpOnly`,
+`SameSite=Lax` cookie (signed with `SECRET_KEY`) and the API reads the user from the
+session alone — never from a client header. The old `X-User-*` trust headers are
+gone and inert. The session id is regenerated on login (fixation defence), each
+login is registered in a `UserSession` row so a device can be revoked server-side,
+and the user is re-validated against the DB every request (a disable/delete/role
+change takes effect on the next call).
 
-This is a deliberate choice for local development and demo/portfolio use, not accidental weakness — see the Security Note in the main README and [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the planned final hardening phase (JWT/session auth, centralized role decorators, protected-route audit). One defensive measure already in place: routes that write a header-supplied user id into a foreign-key column first verify the user actually exists (`_verified_user_id()` in `task_routes.py`, equivalent validation in `auth_routes.py`'s `update_user`) — added during the post-QA fix-pass after a stale/invalid `X-User-Id` caused `sqlite3.IntegrityError` crashes.
+Every `/api/` route is **default-deny**: the guard (`register_api_auth_guard`)
+requires a session unless the endpoint is on a small, tested `PUBLIC_ENDPOINTS`
+allowlist (login, health, the kiosk PIN), so a new route is protected by omission.
+Role checks go through a shared `@require_role(...)` decorator. **CSRF:** a
+per-session token is delivered in a JS-readable cookie and must be echoed in an
+`X-CSRF-Token` header on every mutation (a fetch interceptor does this in the SPA).
+A password policy (complexity, optional expiry, no-reuse history) and rate limiting
+on login and the kiosk PIN complete the picture. See the README Security Note and
+[PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
 
 ## Database & migrations
 
 - SQLite for local development. `db.create_all()` is intentionally disabled — the schema is managed **entirely** through Flask-Migrate/Alembic. Running the app against a fresh database without first running `flask --app app db upgrade` fails with `no such table: ...` errors; this is expected, not a bug (see Quick Start in the README).
-- PostgreSQL is planned for production (see [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md)) — no model changes are required, since everything already goes through the SQLAlchemy abstraction; only `SQLALCHEMY_DATABASE_URI` and a data-migration script are needed.
-- Default demo users (`admin`, `supervisor`, `dispatcher`, `hr` — all `username`/`username` passwords) are seeded automatically on first successful startup by `create_default_users()` in `app.py`, skipped if a username already exists.
+- PostgreSQL is **supported for production** (see [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) and the production Docker stack) — no model changes are required, since everything goes through the SQLAlchemy abstraction; point `DATABASE_URL` at `postgresql+psycopg://…`. `scripts/copy_sqlite_to_postgres.py` carries existing data over.
+- Demo users (`admin`, `supervisor`, `dispatcher`, `hr`) are **never** seeded automatically — importing or serving the app has no DB side effects. They are created explicitly by the `flask --app app seed-demo` / `seed-demo-data` CLI commands, for local/demo use only.
 - Performance indexes (17 total, added in migration `a1b2c3d4e5f7`) cover the hot query paths: `call` (trip_date, status, patient_id), `patient` (last_name, dob), `call_assignment` (unit_id, call_id, is_active), `daily_crew_unit` (shift_date), `user_notification` (user_id, is_read), `notification_event` (created_at), `time_entry` (employee_id), `audit_log` (entity_type, timestamp), `employee_document` (employee_id, expiry_date).
 
 ## Multi-tenancy foundation
 
-An `Organization` model (id, name, slug, is_active, settings_json) exists, and a nullable `org_id` foreign key has been added to every tenant-scoped table (`User`, `Employee`, `Patient`, `Call`, `DailyCrewUnit`, `PayPeriod`, `EmployeeDocument`, `TimeEntry`, and others). The `organization` table is not seeded — there is no default-organization creation logic anywhere in `app.py` (only demo users are seeded on first startup), and no row's `org_id` is backfilled.
+An `Organization` model (id, name, slug, is_active, settings_json) exists and a nullable `org_id` foreign key is on every tenant-scoped table (the 14 models in `models.ORG_SCOPED_MODELS`). A default organization is created and all existing rows backfilled by migration; new rows are stamped with the caller's org.
 
-**This is a schema foundation only — runtime tenant isolation is not active.** No query in the codebase currently filters by `org_id`. Full organization seeding, tenant resolution (subdomain routing → `g.current_org`), `org_id` backfill, tenant-safe query enforcement, and a superadmin UI are all deferred to the production hardening phase — see [ROADMAP.md](ROADMAP.md) Priority 6 and [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Enabling tenant-scoped queries without first adding the isolation tests described in [ROADMAP.md](ROADMAP.md) Priority 3 would risk shipping a cross-tenant data leak.
+**Runtime tenant isolation is active.** It is enforced globally at the ORM layer (`tenant.py`): a `do_orm_execute` hook filters every SELECT of an org-owned model by the caller's `org_id`, and a `before_flush` hook stamps `org_id` on new rows — so no per-route query change is needed and a missed filter cannot leak. The current org is set by the auth guard from the session (multi-tenant v2 also resolves it from the request subdomain via `utils/tenant_host.py`); with no org context (CLI, seeding, tests) the hooks are inert. A platform super-admin (`is_platform_admin`, no org) runs a cross-org console (`/api/platform`). Cross-org isolation and the child-by-id IDOR paths are pinned by `test_tenant_isolation.py`.
 
 ## UI architecture
 
