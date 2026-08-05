@@ -125,7 +125,16 @@ def create_app(config_overrides=None):
     `config_overrides` (a dict) is applied after the base Config — tests use it
     to point at an in-memory database and disable rate limiting.
     """
-    app = Flask(__name__)
+    # The desktop (Electron) build points the instance folder at the Windows
+    # user-data directory so the database and uploads live outside the install
+    # dir / app.asar and survive updates. EMS_INSTANCE_PATH must be absolute; the
+    # web/dev/test paths are unaffected when it is unset. Relative sqlite URLs and
+    # storage.py both resolve under instance_path, so this one knob relocates both.
+    instance_path = os.environ.get("EMS_INSTANCE_PATH")
+    if instance_path:
+        app = Flask(__name__, instance_path=os.path.abspath(instance_path))
+    else:
+        app = Flask(__name__)
     app.config.from_object(Config)
     if config_overrides:
         app.config.update(config_overrides)
