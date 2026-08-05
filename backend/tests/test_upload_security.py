@@ -158,6 +158,14 @@ def test_upload_route_rejects_fake_pdf_and_accepts_real_one(clients, tmp_path, m
     doc = good.get_json()
     assert doc["mime_type"] == "application/pdf"
 
+    # uploaded_at is stored in LOCAL time (datetime.now()), consistent with the
+    # rest of the app — not naive UTC, which would display shifted by the offset.
+    from datetime import datetime
+    uploaded = datetime.fromisoformat(doc["uploaded_at"])
+    assert abs((datetime.now() - uploaded).total_seconds()) < 300, (
+        "uploaded_at should match local datetime.now(), not naive UTC"
+    )
+
     # The download is forced as an attachment with nosniff.
     dl = admin.get(f"/api/documents/{doc['id']}/file")
     assert dl.status_code == 200

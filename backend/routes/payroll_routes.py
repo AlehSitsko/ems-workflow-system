@@ -143,7 +143,7 @@ def create_period():
         status="open",
         notes=data.get("notes", ""),
         created_by=data.get("created_by"),
-        created_at=datetime.utcnow().isoformat(),
+        created_at=datetime.now().isoformat(),
     )
     db.session.add(period)
     db.session.commit()
@@ -182,7 +182,7 @@ def update_period_status(period_id):
         return jsonify({"error": f"status must be one of {sorted(allowed)}"}), 400
     period.status = new_status
     if new_status == "exported":
-        period.exported_at = datetime.utcnow().isoformat()
+        period.exported_at = datetime.now().isoformat()
         period.exported_to = data.get("exported_to", "csv")
     db.session.commit()
     return jsonify(period.to_dict())

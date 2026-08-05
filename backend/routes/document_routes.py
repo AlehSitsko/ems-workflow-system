@@ -111,7 +111,9 @@ def upload_document(employee_id):
             file_name = safe_display_name(f.filename)
             mime_type = detected.mime
 
-    now = datetime.utcnow().isoformat()
+    # Local time, matching the app's dominant datetime.now() convention — a naive
+    # UTC timestamp here would display an upload time shifted by the local offset.
+    now = datetime.now().isoformat()
     doc = EmployeeDocument(
         employee_id=employee_id,
         doc_type=doc_type,
@@ -196,7 +198,7 @@ def update_document(doc_id):
             setattr(doc, field, data[field] or None if field in ("expiry_date",) else data[field])
 
     doc.updated_by = _user_id_from_request()
-    doc.updated_at = datetime.utcnow().isoformat()
+    doc.updated_at = datetime.now().isoformat()
     db.session.commit()
     _notify_if_expiring(doc)
     return jsonify(doc.to_dict())
