@@ -1,4 +1,5 @@
-/* eslint-env serviceworker */
+// Push service worker. Runs in the ServiceWorkerGlobalScope; its globals are
+// declared for ESLint in eslint.config.js (the `public/sw.js` override).
 self.addEventListener("push", (event) => {
   let data = { title: "EMS Alert", body: "" };
   try {

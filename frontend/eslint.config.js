@@ -38,4 +38,13 @@ export default defineConfig([
       globals: { ...globals.browser, ...globals.node },
     },
   },
+  {
+    // The push service worker runs in the ServiceWorkerGlobalScope, not a window.
+    // Declaring its globals here (rather than a deprecated /* eslint-env */ comment,
+    // which flat config drops in ESLint 10) keeps `self`, `clients`, etc. defined.
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: { ...globals.serviceworker },
+    },
+  },
 ])
