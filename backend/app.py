@@ -109,7 +109,14 @@ def register_core_routes(app):
 
     @app.route("/api/health")
     def health_check():
-        return jsonify({"status": "ok", "service": "ems-workflow-system-backend"})
+        # `qa_mode` is a diagnostic flag (Config.QA_MODE): it lets the live QA and
+        # stress runners confirm they are pointed at a disposable QA backend before
+        # they write anything, and is False for every normal dev/production server.
+        return jsonify({
+            "status": "ok",
+            "service": "ems-workflow-system-backend",
+            "qa_mode": bool(app.config.get("QA_MODE")),
+        })
 
 
 def create_app(config_overrides=None):

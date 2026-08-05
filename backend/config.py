@@ -139,6 +139,13 @@ class Config:
     # this later takes effect immediately with the history already on hand.
     PASSWORD_HISTORY_DEPTH = int(os.environ.get("PASSWORD_HISTORY_DEPTH", "0"))
 
+    # Diagnostic marker only: True when this backend is deliberately running a
+    # *disposable* QA/stress database (start it with EMS_QA=1). It changes no
+    # application behaviour — it exists so the live QA and stress runners can
+    # refuse to run against a real, non-QA backend, so those tools can never seed
+    # into or delete real dev/production data. Surfaced on /api/health.
+    QA_MODE = os.environ.get("EMS_QA") == "1"
+
     # ── Multi-tenancy (subdomain routing) ────────────────────────────────────
     # The apex the org subdomains sit under (`acme.<BASE_DOMAIN>` → org "acme").
     # `localhost` is the dev default because *.localhost resolves to 127.0.0.1 on
