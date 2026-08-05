@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 import NewCalendarEventModal from "./NewCalendarEventModal";
 import * as api from "../../api/calendarEventsApi";
@@ -8,7 +8,7 @@ import * as employeesApi from "../../api/employeesApi";
 vi.mock("../../api/calendarEventsApi");
 vi.mock("../../api/employeesApi");
 
-function setup(user = { role: "dispatcher" }, extra = {}) {
+async function setup(user = { role: "dispatcher" }, extra = {}) {
   const onCreated = vi.fn();
   const onClose = vi.fn();
   render(
@@ -21,6 +21,9 @@ function setup(user = { role: "dispatcher" }, extra = {}) {
       {...extra}
     />,
   );
+  // The modal loads the participant roster on mount (getEmployees). Settle that
+  // async state update inside act() so it doesn't leak past a synchronous test.
+  await act(async () => {});
   return { onCreated, onClose };
 }
 
@@ -35,15 +38,15 @@ describe("NewCalendarEventModal", () => {
     ]);
   });
 
-  it("hides role/company options from a dispatcher", () => {
-    setup({ role: "dispatcher" });
+  it("hides role/company options from a dispatcher", async () => {
+    await setup({ role: "dispatcher" });
     const options = Array.from(screen.getByLabelText("Visibility").querySelectorAll("option")).map((o) => o.value);
     expect(options).toEqual(["personal"]);
     expect(screen.getByText(/Only admins and supervisors can share/i)).toBeInTheDocument();
   });
 
   it("creates a weekly recurring event with an until date", async () => {
-    setup({ role: "admin" });
+    await setup({ role: "admin" });
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Weekly sync" } });
     fireEvent.change(screen.getByLabelText("Repeats"), { target: { value: "weekly" } });
     // The 'Until' field only appears once it repeats.
@@ -55,38 +58,38 @@ describe("NewCalendarEventModal", () => {
     ));
   });
 
-  it("hides the until field until an event repeats", () => {
-    setup({ role: "admin" });
+  it("hides the until field until an event repeats", async () => {
+    await setup({ role: "admin" });
     expect(screen.queryByLabelText(/Until/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Repeats"), { target: { value: "monthly" } });
     expect(screen.getByLabelText(/Until/)).toBeInTheDocument();
   });
 
-  it("prefills recurrence when editing a repeating event", () => {
+  it("prefills recurrence when editing a repeating event", async () => {
     const event = {
       id: "calendar_event:5:2026-08-03", sourceId: 5, title: "Standup", date: "2026-08-03",
       allDay: true, metadata: { recurrence: "weekly", recurrenceUntil: "2026-09-30", visibility: "company" },
     };
-    setup({ role: "admin" }, { event });
+    await setup({ role: "admin" }, { event });
     expect(screen.getByLabelText("Repeats")).toHaveValue("weekly");
     expect(screen.getByLabelText(/Until/)).toHaveValue("2026-09-30");
   });
 
-  it("offers role and company to a supervisor", () => {
-    setup({ role: "supervisor" });
+  it("offers role and company to a supervisor", async () => {
+    await setup({ role: "supervisor" });
     const options = Array.from(screen.getByLabelText("Visibility").querySelectorAll("option")).map((o) => o.value);
     expect(options).toEqual(["personal", "role", "company"]);
   });
 
   it("requires a title", async () => {
-    setup();
+    await setup();
     fireEvent.click(screen.getByRole("button", { name: /create event/i }));
     expect(await screen.findByText(/Title and date are required/i)).toBeInTheDocument();
     expect(api.createCalendarEvent).not.toHaveBeenCalled();
   });
 
   it("creates a personal event and signals success", async () => {
-    const { onCreated, onClose } = setup();
+    const { onCreated, onClose } = await setup();
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dentist" } });
     fireEvent.click(screen.getByRole("button", { name: /create event/i }));
 
@@ -103,7 +106,7 @@ describe("NewCalendarEventModal", () => {
       allDay: true,
       metadata: { category: "meeting", visibility: "company", description: "Q3 review" },
     };
-    setup({ role: "admin" }, { event });
+    await setup({ role: "admin" }, { event });
 
     expect(screen.getByText("Edit calendar event")).toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toHaveValue("All-hands");
@@ -118,15 +121,15 @@ describe("NewCalendarEventModal", () => {
     expect(api.createCalendarEvent).not.toHaveBeenCalled();
   });
 
-  it("shows the role picker only for a role-scoped event", () => {
-    setup({ role: "admin" });
+  it("shows the role picker only for a role-scoped event", async () => {
+    await setup({ role: "admin" });
     expect(screen.queryByLabelText("Which role")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Visibility"), { target: { value: "role" } });
     expect(screen.getByLabelText("Which role")).toBeInTheDocument();
   });
 
   it("sends the reminder and chosen participants in the payload", async () => {
-    setup({ role: "admin" });
+    await setup({ role: "admin" });
     // The roster loads asynchronously.
     await screen.findByRole("option", { name: "Sam Cruz" });
 
@@ -148,7 +151,7 @@ describe("NewCalendarEventModal", () => {
       id: "calendar_event:9", sourceId: 9, title: "Review", date: "2026-08-15", allDay: true,
       metadata: { visibility: "personal", reminderMinutes: 30, participants: [{ employeeId: 8, name: "Rae Ng" }] },
     };
-    setup({ role: "admin" }, { event });
+    await setup({ role: "admin" }, { event });
     await screen.findByRole("option", { name: "Rae Ng" });
 
     expect(screen.getByLabelText("Remind")).toHaveValue("30");

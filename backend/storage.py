@@ -14,16 +14,21 @@ def _base_path():
     return os.path.join(current_app.instance_path, _UPLOAD_FOLDER)
 
 
-def save_file(file_storage, employee_id: int) -> tuple[str, str, int]:
+def save_file(file_storage, employee_id: int, ext: str = None) -> tuple[str, str, int]:
     """
     Save an uploaded FileStorage object.
     Returns (relative_path, stored_filename, file_size_bytes).
+
+    ``ext`` is the canonical extension to store (e.g. ".pdf") as determined by
+    content validation. It is preferred over the client-supplied filename's
+    extension so the stored name reflects the file's *actual* type, never an
+    attacker-chosen one. Falls back to the filename extension only if not given.
     """
     base = _base_path()
     folder = os.path.join(base, str(employee_id))
     os.makedirs(folder, exist_ok=True)
 
-    ext = os.path.splitext(file_storage.filename)[1].lower()
+    ext = (ext or os.path.splitext(file_storage.filename)[1]).lower()
     stored_name = f"{uuid.uuid4().hex}{ext}"
     full_path = os.path.join(folder, stored_name)
 

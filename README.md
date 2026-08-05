@@ -178,7 +178,7 @@ Certifications across the roster, colour-coded by expiry.
 
 **Backend:** Python, Flask, Flask Blueprints, Flask-CORS, Flask-Limiter, Flask-Migrate (Alembic), SQLAlchemy.
 
-**Database:** SQLite (current, local development). PostgreSQL planned for production — see [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+**Database:** SQLite for local development and the desktop build; PostgreSQL for production (supported via the production Docker stack) — see [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 Full module map and data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -341,35 +341,46 @@ Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 
 ## Current Development Direction
 
-Sequential phases — each starts only after the previous one lands. Full detail in
-[docs/ROADMAP.md](docs/ROADMAP.md); near-term items in [TODO.md](TODO.md).
+The core product and the production-hardening phase have shipped; what remains is
+deliberately-deferred, externally-dependent work plus a standalone desktop build.
+Full detail in [docs/ROADMAP.md](docs/ROADMAP.md); near-term items in
+[TODO.md](TODO.md).
 
-**Current — stabilization** (mostly done): application factory, explicit demo
-seeding, CI, Patients & Payroll tests, frontend test foundation, and the
-in-progress PatientsPage decomposition.
+**Shipped** (much of the early docs' "planned" work is now done):
+* The full operational **Calendar** — calls, crew shifts, birthdays,
+  certifications, task deadlines, vehicle dates, and manual events with recurrence
+  and ICS export; **Month / Week / Agenda** views; time-overlap double-booking and
+  vehicle-availability **conflict detection**.
+* A **Docker** development environment *and* a production stack
+  (Gunicorn / Nginx / PostgreSQL) with backup/restore, structured logging and
+  Prometheus metrics.
+* A full **security** line — CSRF tokens, a password policy (complexity, optional
+  expiry, no-reuse history), per-device server-side session revocation,
+  `SECRET_KEY` rotation, rate limiting, content-based upload validation, and
+  **active runtime tenant isolation** with subdomain multi-tenancy and a platform
+  super-admin console.
 
-**Current — operational Calendar (in progress):** the Calendar foundation and the
-first Calendar ↔ Dispatch integration slice have **shipped** — a role-filtered
-`GET /api/calendar/events` API, a month view with per-day readiness, a Day
-Operations drawer, and Planning/Live/History date modes on the Dispatch Board.
-Remaining Calendar work: more event sources (birthdays, certifications, task
-deadlines, vehicle dates), Week/Agenda views, and saved filters.
+**In progress:** a standalone **Windows desktop build** (an Electron shell over
+the same React frontend and Flask backend, local SQLite, offline-capable), living
+alongside the web version.
 
-**Next — infrastructure (planned):** a Docker development environment — backend
-and frontend Dockerfiles, Docker Compose, a named SQLite volume, health checks,
-and a reproducible setup. *Docker is planned, not yet implemented, and a Docker
-development environment does not make the project production-ready.*
+**Deferred (external dependency / research):** Google/Outlook two-way calendar
+sync (needs OAuth + a privacy policy) and route optimization.
 
 ## Known Limitations
 
-* Current authentication is intentionally simplified for development and demo use, not an oversight — see Security Note below.
-* Multi-tenancy exists as a schema foundation only (`Organization` model, nullable `org_id` columns) — the organization table isn't seeded, no row has an `org_id`, and runtime tenant isolation is not active. Full activation is deferred to the production hardening phase.
-* SQLite is used for local development and is not intended for concurrent production dispatch usage.
-* The system does not include full clinical ePCR, NEMSIS export, insurance claims processing, or live GPS routing.
-* Docker is **planned, not implemented** — see Current Development Direction above. The operational Calendar is implemented for calls + crew shifts; additional event sources (birthdays, certifications, tasks, vehicles) and Week/Agenda views are still to come.
-* Calendar readiness uses only reliably-computable conflicts today; shift time-overlap double-booking and vehicle out-of-service checks are deferred (see [TODO.md](TODO.md) → Tech debt / follow-ups).
-* Test coverage is 206 backend pytest + 127 frontend Vitest tests plus live QA scripts (`qa_test.py`, 104 checks); some domains (crew, notifications) still have isolated coverage only through the live `qa_test.py` script. See [docs/TESTING.md](docs/TESTING.md).
-* Some production-readiness tasks are intentionally deferred until the feature set stabilizes — see [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+* SQLite is the datastore for local development and the desktop build; production
+  web deployments use PostgreSQL (see the production Docker stack).
+* The system is not a clinical ePCR and does not do NEMSIS export, insurance
+  claims processing, or live GPS routing — out of scope by design.
+* External calendar sync (Google/Outlook) and route optimization are deferred;
+  ICS **export** of manual events is supported.
+* Production web deployment still requires the operator to supply TLS termination
+  and, for subdomain multi-tenancy, DNS plus a wildcard certificate.
+* Test coverage spans the backend pytest and frontend Vitest suites (both run in
+  CI) plus the live `qa_test.py` / `stress_test.py` runners — see
+  [docs/TESTING.md](docs/TESTING.md) for the current breakdown rather than a
+  hard-coded count that drifts.
 
 ## Security Note
 
@@ -386,11 +397,17 @@ administration had no gate at all (an anonymous POST could create an admin
 account), and 74 routes were reachable anonymously — including patient and call
 records. Both are pinned by regression tests.
 
-**Still not production-ready:** no CSRF tokens (SameSite covers the common case,
-not every case), no password policy or lockout, no server-side session
-revocation, and role-per-route correctness has not yet been audited. SQLite and
-the Flask development server remain in place. See
-[docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+**Implemented and regression-tested:** **CSRF** double-submit tokens on every
+mutation; a **password policy** (complexity, optional expiry, no-reuse history);
+**per-device server-side session revocation**; **`SECRET_KEY` rotation** via
+fallback keys; **rate limiting** on login and the kiosk PIN; **content-based
+upload validation** with download-only serving; a per-route **authorization
+audit**; and **active runtime tenant isolation** (an ORM-layer filter on every
+org-scoped query, subdomain org routing, and a platform super-admin console).
+
+**Deployment-dependent, not code:** TLS termination, a real `SECRET_KEY` from a
+secret store, and — for subdomain multi-tenancy — DNS plus a wildcard TLS
+certificate. See [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## Documentation
 

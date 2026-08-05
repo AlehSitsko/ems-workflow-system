@@ -4,9 +4,11 @@
 
 Three layers of tests, in order of reliability:
 
-1. **Backend pytest (isolated) — 206 tests.** Run under `pytest` against an
+1. **Backend pytest (isolated).** Run under `pytest` against an
    in-memory SQLite database built by the application factory; no live server,
-   no dev database touched. Domains covered:
+   no dev database touched. The suite runs on every CI build — **CI is the
+   authoritative count**, not the per-file numbers below, which are illustrative
+   and drift as features land. Domains covered:
    - `test_auth.py` (6) — login success/failure, unknown/inactive user, bad body
    - `test_tasks.py` (37) — Task Management CRUD, close-permission workflow,
      comments/activity, list/filter, dispatcher + HR permission matrices, archive,
@@ -45,7 +47,7 @@ Three layers of tests, in order of reliability:
    - `test_fleet.py` (16) — Fleet permission matrix (dispatcher read-only, HR
      `403`, unknown role `403`), taxonomy-on-write (`BARI` → `Bariatric`,
      invalid type `400`), and the audit trail behind the Workspace Activity tab
-2. **Frontend Vitest (isolated) — 127 tests.** Vitest + React Testing Library +
+2. **Frontend Vitest (isolated).** Vitest + React Testing Library +
    jsdom. Utility coverage (`timeUtils`, `dispatchBoardUtils` incl.
    `getShiftAlertSeverity` with a faked clock, date-mode helpers + timezone-safe
    `addDays` month/year/leap boundaries, `licenseUtils`, `holidayUtils`,
@@ -56,23 +58,21 @@ Three layers of tests, in order of reliability:
    badge — and `EntityWorkspace` routing: URL-synced tabs, deep link,
    loading/error/not-found/permission states, back-to-list, unsaved-changes).
 3. **Live QA scripts (`qa_test.py`, `stress_test.py`).** Standalone Python scripts
-   that hit a **running** backend over HTTP. They create real rows and clean most
-   up afterward, so they are smoke/regression tools, **not** isolated unit tests.
+   that sign in for real (session cookie + CSRF) and hit a backend over HTTP. By
+   default each **boots its own disposable backend** on a temp SQLite database
+   (deleted on exit), so they can never touch real data; `qa_test.py` exits
+   non-zero on any failed check. Smoke/regression tools, **not** isolated unit
+   tests. See "Running the live QA scripts" below.
 
 ### Not yet covered
 
-- Notifications and analytics have isolated coverage only through the live
-  `qa_test.py` script, not pytest. Dispatch and crew-unit date rules are now
-  covered by `test_date_modes.py` (including the live assign → complete → reopen
-  → unassign loop); the remaining crew/notification happy paths still rely on
-  `qa_test.py`.
 - Frontend integration coverage of the full Dispatch Board page (URL param
   parsing → board load → linked selection) is exercised manually / via the
   browser preview; the unit-level pieces (mode helpers, link builder, toolbar,
   unit panel) are covered by Vitest.
-- No tenant-isolation tests (`org_id` exists on tenant-scoped tables but nothing
-  filters by it yet; a cross-tenant-leakage test should exist before filtering is
-  turned on).
+- Tenant isolation **is** covered — `test_tenant_isolation.py` pins the global
+  ORM filter and the child-by-id IDOR paths; runtime isolation is active (see
+  ARCHITECTURE.md → Multi-tenancy).
 
 ## Running backend pytest
 
@@ -109,42 +109,47 @@ matchers are wired up in `src/test/setup.js`.
   `python -m compileall backend`, `pytest`
 - **Frontend job:** `npm ci`, `npm run lint`, `npm test`, `npm run build`
 
-The live QA scripts are **intentionally excluded** from CI — they need a running
-server and write to a database, which does not belong in CI.
+The live QA scripts are **intentionally excluded** from CI — although they now
+self-boot a disposable backend (so they *could* run), they are heavier HTTP smoke
+tools and the isolated pytest/Vitest suites are the CI gate. `test_qa_runner.py`
+does run in CI and verifies the runner's non-zero-exit-on-failure contract.
 
-## Running the live QA scripts (disposable database only)
+## Running the live QA scripts (self-booting, safe by default)
 
-`qa_test.py` / `stress_test.py` need the backend already running and hit
-`http://127.0.0.1:5050` directly. **Run them against a throwaway database, never
-your primary dev database** — they create and (mostly) delete rows:
-
-```powershell
-cd backend
-$env:DATABASE_URL = "sqlite:///qa_disposable.db"   # a scratch file, not database.db
-.\venv\Scripts\Activate.ps1
-flask --app app db upgrade                          # build the schema
-flask --app app seed-demo                           # demo users for the run
-python app.py                                       # leave running in this terminal
-```
+`qa_test.py` / `stress_test.py` **boot their own disposable backend** on a temp
+SQLite database and tear it down on exit — no manual server, no risk to your dev
+database. Just run them from the project root:
 
 ```powershell
-cd ..
-python qa_test.py       # functional QA
-python stress_test.py   # concurrent load smoke
+python qa_test.py       # functional QA (exits non-zero on any failure)
+python stress_test.py   # seed + concurrent load smoke
 ```
 
-Syntax-check without a server:
+To target an already-running backend instead, point `EMS_QA_BASE` at it — but the
+runner **refuses** unless that backend reports `qa_mode: true` on `/api/health`
+(start it with `EMS_QA=1`), so it can never seed into or delete real data:
 
 ```powershell
-python -m compileall backend qa_test.py stress_test.py
+$env:EMS_QA_BASE = "http://127.0.0.1:5099"
+python qa_test.py
 ```
+
+Syntax-check without running:
+
+```powershell
+python -m compileall backend qa_test.py stress_test.py qa_harness.py
+```
+
+The exit-code contract is itself pinned by `backend/tests/test_qa_runner.py`.
 
 ### What `qa_test.py` covers
 
-10 sections / **104 checks** against the live backend, cleaned up at the end: Vehicles, Crew Units
-(shift timing, midnight crossover), Shift Alerts, Dispatch Board, Notifications,
-Data Integrity (rollback), a light concurrent Load Test, Edge Cases (SQL-injection
-safety, malformed params), Patient Module, and Task Management.
+Signed-in checks per role (admin/supervisor/dispatcher/hr) across: Vehicles,
+Crew Units (shift timing, midnight crossover), Shift Alerts, Dispatch Board,
+Notifications (session-scoped), Data Integrity (rollback), a light concurrent Load
+Test, Edge Cases (SQL-injection safety, malformed params, fail-closed 401),
+Patient Module, and Task Management (permission matrix). It fails the run — and
+exits non-zero — on any failed check.
 
 ### What `stress_test.py` covers
 

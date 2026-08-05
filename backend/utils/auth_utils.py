@@ -320,6 +320,11 @@ PUBLIC_ENDPOINTS = {
     # Signing in, and ending a session that may already be gone.
     "auth.login",
     "auth.logout",
+    # Desktop first-run: is the local database empty, and create the first admin.
+    # Both are self-closing — once any user exists, needs-setup is False and setup
+    # returns 409 — so they are inert on any provisioned (web) deployment.
+    "auth.needs_setup",
+    "auth.setup",
     # Liveness — used by container healthchecks before anyone can log in.
     "health_check",
     "home",

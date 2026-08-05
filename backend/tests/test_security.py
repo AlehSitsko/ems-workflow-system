@@ -302,6 +302,7 @@ def test_the_public_allowlist_stays_small_and_deliberate(app):
 
     expected = {
         "auth.login", "auth.logout",          # signing in and out
+        "auth.needs_setup", "auth.setup",     # desktop first-run (self-closing once a user exists)
         "health_check", "home",               # liveness, used before login
         "time.kiosk_employee_list", "time.kiosk_verify_pin",
         "time.kiosk_clock_in", "time.kiosk_clock_out", "time.kiosk_status",

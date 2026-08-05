@@ -6,6 +6,7 @@ from models import db, EmployeeDocument, Employee, DOC_TYPES
 from storage import save_file, delete_file, get_file_response
 from notification_utils import create_notification
 from utils.validation_utils import check_length
+from utils.file_validation import validate_upload, UploadValidationError, safe_display_name, scan_upload
 from utils.auth_utils import get_request_user_id, require_role
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
@@ -90,19 +91,29 @@ def upload_document(employee_id):
     if "file" in request.files:
         f = request.files["file"]
         if f.filename:
-            mime = f.mimetype or ""
-            if mime not in ALLOWED_MIME:
-                return jsonify({"error": "File type not allowed. Use PDF, JPG, PNG, or DOCX."}), 400
             f.seek(0, 2)
             size = f.tell()
             f.seek(0)
             if size > MAX_SIZE:
                 return jsonify({"error": "File too large. Maximum 10 MB."}), 400
-            file_path, file_name, file_size = save_file(f, employee_id)
-            file_name = f.filename
-            mime_type = mime
+            # Validate by *content*, not the client-declared MIME or the filename
+            # extension (both attacker-controlled): magic-byte detection, a real
+            # OOXML check for .docx, and a cross-check of extension/declared/detected
+            # — rejecting HTML/SVG/script polyglots dressed up as documents.
+            try:
+                detected = validate_upload(f)
+                scan_upload(f)  # future malware-scan seam (no-op in this MVP)
+            except UploadValidationError as e:
+                return jsonify({"error": str(e)}), 400
+            # Store under the *detected* canonical extension, and keep only a
+            # sanitised display name (the on-disk name is a server UUID).
+            file_path, _stored, file_size = save_file(f, employee_id, ext=detected.ext)
+            file_name = safe_display_name(f.filename)
+            mime_type = detected.mime
 
-    now = datetime.utcnow().isoformat()
+    # Local time, matching the app's dominant datetime.now() convention — a naive
+    # UTC timestamp here would display an upload time shifted by the local offset.
+    now = datetime.now().isoformat()
     doc = EmployeeDocument(
         employee_id=employee_id,
         doc_type=doc_type,
@@ -187,7 +198,7 @@ def update_document(doc_id):
             setattr(doc, field, data[field] or None if field in ("expiry_date",) else data[field])
 
     doc.updated_by = _user_id_from_request()
-    doc.updated_at = datetime.utcnow().isoformat()
+    doc.updated_at = datetime.now().isoformat()
     db.session.commit()
     _notify_if_expiring(doc)
     return jsonify(doc.to_dict())

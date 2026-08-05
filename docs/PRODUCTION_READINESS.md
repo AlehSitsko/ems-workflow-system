@@ -282,11 +282,16 @@ Verified by `test_secret_rotation.py`: a cookie signed with the old key authenti
 
 Once the above are in place, a dedicated pass over the whole application — auth, tenant isolation, file upload handling, rate limiting, dependency audit — before calling any of this production-ready. Not a checkbox to rush through at the end; the actual gate.
 
-**Dependency audit (done):** `pip-audit` on the backend and `npm audit` on the frontend.
-- **Fixed:** `postcss` → 8.5.25 (build-time path-traversal advisory); `pytest` → 9.0.3 (test-only; full suite re-verified green). Backend runtime and prod dependency sets: no known vulnerabilities.
+**Dependency audit (re-run 2026-08):** `pip-audit` on the backend and `npm audit` on the frontend.
+- **Fixed (runtime, shipped):**
+  - `aiohttp` 3.14.1 → **3.14.3** (PYSEC-2026-3545/3546/3547) and `cryptography` 49.0.0 → **50.0.0** (PYSEC-2026-3552). Both are pulled by `pywebpush` / `py-vapid` / `http_ece` — the Web Push / VAPID crypto path — so after the bump the VAPID public-key derivation and the push + secret-rotation tests were re-verified green, then the full backend suite (880 passed).
+  - `postcss` → 8.5.25 (build-time path-traversal advisory); `pytest` → 9.0.3 (test-only; suite re-verified).
+  - `undici` 7.28.0 → **7.29.0** via `npm audit fix` — reached only through `jsdom` (the Vitest DOM), a **dev/test-only** dependency that is never in the browser bundle.
+  - After these bumps: backend runtime + prod dependency sets report **no known vulnerabilities**.
 - **Assessed and accepted, no code change:**
-  - `react-router` — the flagged advisory is an *RSC-mode* CSRF bypass. This app is a client-only SPA (Vite build, `HashRouter`, no React Server Components or router server actions), so it is not exploitable; the only offered "fix" is a breaking downgrade to 7.11.0, which would be a regression for a non-applicable issue.
+  - `react-router` — the flagged advisory (GHSA-qwww-vcr4-c8h2) is an *RSC-mode* CSRF bypass in the Server-Component "Action" flow. This app is a client-only SPA (Vite build, `createHashRouter`, no React Server Components and no router server actions), so the vulnerable mode is never loaded; the only offered "fix" is a breaking downgrade to 7.11.0, a regression for a non-applicable issue. Kept at 7.18.2.
   - `brace-expansion` — an OOM/ReDoS advisory with no published patch for any version; reached only through the dev toolchain (ESLint's glob matching over trusted local files), never the app or the shipped bundle.
+  - `pip` itself is flagged (PYSEC-2026-196/1795/1796/2875/2876) — the installer, not a project dependency (it is not in `requirements*.txt` and never ships in an image or the Electron package). Upgrade the developer/CI `pip` out of band; nothing to pin in the app.
 
 **File upload handling (reviewed & hardened):** employee document uploads (`storage.py`, `routes/document_routes.py`).
 - **Fixed — stored XSS:** the upload type check trusts the client-supplied `Content-Type`, but the file was stored with its original extension and served **inline** (`as_attachment=False`). An attacker could upload `evil.html` labelled `application/pdf`, which landed as `<uuid>.html` and rendered as HTML same-origin when viewed — script execution in the app's origin (and the CSRF-token cookie is JS-readable by design). Files are now served **as downloads** with `X-Content-Type-Options: nosniff`, so the browser saves rather than executes them. Filenames are already server-generated UUIDs (no path-traversal from the client), and the on-disk path stays under the upload base.

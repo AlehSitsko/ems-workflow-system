@@ -102,14 +102,49 @@ def register_error_handlers(app):
         return jsonify({"error": "Internal server error"}), 500
 
 
+def register_spa(app, spa_dir):
+    """Serve the built frontend (dist/) from the backend, under its base path.
+
+    Only used by the desktop build (env EMS_SERVE_SPA = absolute path to dist), so
+    the Electron window can load the SPA and call the API on **one** loopback
+    origin — keeping the SameSite=Lax session cookie and CSRF exactly as they work
+    in the web build, instead of a second origin that would silently drop cookies.
+    The web deployments are unaffected (Nginx serves the SPA in prod, Vite in dev).
+    The app uses HashRouter, so the server only ever serves index.html and the
+    static assets under the base path — client routes live after the URL '#'.
+    """
+    from flask import send_from_directory
+
+    base = "/ems-workflow-system"
+
+    @app.route(f"{base}/")
+    @app.route(f"{base}/<path:path>")
+    def _spa(path=""):
+        candidate = os.path.join(spa_dir, path)
+        if path and os.path.isfile(candidate):
+            return send_from_directory(spa_dir, path)
+        return send_from_directory(spa_dir, "index.html")
+
+
 def register_core_routes(app):
     @app.route("/")
     def home():
+        # In the desktop build, land on the app instead of the JSON banner.
+        if app.config.get("SERVE_SPA_DIR"):
+            from flask import redirect
+            return redirect("/ems-workflow-system/")
         return jsonify({"message": "EMS Workflow System backend is running"})
 
     @app.route("/api/health")
     def health_check():
-        return jsonify({"status": "ok", "service": "ems-workflow-system-backend"})
+        # `qa_mode` is a diagnostic flag (Config.QA_MODE): it lets the live QA and
+        # stress runners confirm they are pointed at a disposable QA backend before
+        # they write anything, and is False for every normal dev/production server.
+        return jsonify({
+            "status": "ok",
+            "service": "ems-workflow-system-backend",
+            "qa_mode": bool(app.config.get("QA_MODE")),
+        })
 
 
 def create_app(config_overrides=None):
@@ -118,7 +153,16 @@ def create_app(config_overrides=None):
     `config_overrides` (a dict) is applied after the base Config — tests use it
     to point at an in-memory database and disable rate limiting.
     """
-    app = Flask(__name__)
+    # The desktop (Electron) build points the instance folder at the Windows
+    # user-data directory so the database and uploads live outside the install
+    # dir / app.asar and survive updates. EMS_INSTANCE_PATH must be absolute; the
+    # web/dev/test paths are unaffected when it is unset. Relative sqlite URLs and
+    # storage.py both resolve under instance_path, so this one knob relocates both.
+    instance_path = os.environ.get("EMS_INSTANCE_PATH")
+    if instance_path:
+        app = Flask(__name__, instance_path=os.path.abspath(instance_path))
+    else:
+        app = Flask(__name__)
     app.config.from_object(Config)
     if config_overrides:
         app.config.update(config_overrides)
@@ -129,10 +173,18 @@ def create_app(config_overrides=None):
     # Metrics hooks (request count + latency) and the /metrics scrape endpoint.
     configure_metrics(app)
 
+    # Desktop build only: serve the bundled SPA from this backend so the UI and
+    # the API share one loopback origin (see register_spa). Unset for web/dev/test.
+    spa_dir = os.environ.get("EMS_SERVE_SPA")
+    if spa_dir:
+        app.config["SERVE_SPA_DIR"] = os.path.abspath(spa_dir)
+
     init_extensions(app)
     register_blueprints(app)
     register_error_handlers(app)
     register_core_routes(app)
+    if app.config.get("SERVE_SPA_DIR"):
+        register_spa(app, app.config["SERVE_SPA_DIR"])
     register_cli_commands(app)
 
     # Authentication is the default for /api/: a route is protected unless it is

@@ -1,0 +1,8 @@
+# Dependencies for the standalone (Electron) desktop build = the app's runtime
+# deps plus a production WSGI server that runs on Windows. gunicorn (in
+# requirements-prod.txt) is POSIX-only, so the desktop build uses waitress
+# instead. PyInstaller is a *build-time* tool and is installed separately by the
+# packaging step (see desktop/README), not pinned as a runtime dependency here.
+-r requirements.txt
+
+waitress==3.0.2

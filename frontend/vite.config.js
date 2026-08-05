@@ -13,6 +13,24 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the rarely-changing vendor libraries out of the app chunk so they
+        // cache independently of app code (a UI change no longer re-downloads
+        // React) and the main chunk shrinks. Routes are already lazy-loaded, so
+        // this is caching/structure, not a change to what loads on first paint.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react-icons")) return "icons";
+          if (/[\\/]react-router/.test(id) || /[\\/]react-dom[\\/]/.test(id) || /[\\/]react[\\/]/.test(id)) {
+            return "react-vendor";
+          }
+          return "vendor";
+        },
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     globals: true,

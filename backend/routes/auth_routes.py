@@ -136,6 +136,66 @@ def logout():
     return jsonify({"message": "Logged out"})
 
 
+@auth_bp.route("/needs-setup", methods=["GET"])
+def needs_setup():
+    """True when the database has no users yet — the desktop first-run state.
+
+    Public and self-closing: once any user exists this is always False, so it
+    discloses nothing on a provisioned system (web deployments seed users, so it
+    reads False there from the start). The desktop first-run screen uses it to
+    decide between the login form and the create-first-admin form.
+    """
+    from tenant import unfiltered
+    with unfiltered():
+        empty = User.query.first() is None
+    return jsonify({"needsSetup": empty})
+
+
+@auth_bp.route("/setup", methods=["POST"])
+@limiter.limit("10 per minute")
+def setup():
+    """Create the first administrator — only while the database has no users.
+
+    The standalone desktop build starts with an empty local database and nobody
+    to sign in as, so it offers to create the initial admin. This refuses (409)
+    the instant any user exists, so it can never add an account to an already
+    provisioned system (web or desktop). The new admin is signed in on success.
+    """
+    from tenant import unfiltered, ensure_default_org, set_current_org
+    with unfiltered():
+        if User.query.first() is not None:
+            return jsonify({"error": "Setup has already been completed"}), 409
+
+    data = request.get_json() or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    display_name = (data.get("displayName") or username).strip()
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+    pw_error = validate_password_strength(password, username)
+    if pw_error:
+        return jsonify({"error": pw_error}), 400
+
+    # Bind to the default org so the write-stamp gives the admin an org_id (matches
+    # how the seed CLI creates users); without one they would see every tenant.
+    set_current_org(ensure_default_org())
+    user = User(
+        username=username,
+        password_hash=generate_password_hash(password),
+        password_changed_at=_now_iso(),
+        display_name=display_name,
+        role="admin",
+        is_active=True,
+    )
+    db.session.add(user)
+    db.session.flush()
+    append_password_history(user)
+    log_action("user.setup", "user", user.id, user.username, {"via": "first-run setup"})
+    db.session.commit()
+    start_session(user)
+    return jsonify({"user": _user_payload(user), "csrfToken": get_csrf_token()})
+
+
 @auth_bp.route("/me", methods=["GET"])
 @require_auth
 def current_user():
