@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Startup error</title>
+    <style>
+      html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: #f8f9fa; color: #1b1f24; }
+      .wrap { max-width: 560px; margin: 0 auto; padding: 2rem; }
+      h1 { font-size: 1.3rem; }
+      pre { white-space: pre-wrap; word-break: break-word; background: #eceff2; padding: .75rem; border-radius: 6px; font-size: .82rem; max-height: 200px; overflow: auto; }
+      button { padding: .55rem 1.1rem; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid #0d6efd; background: #0d6efd; color: #fff; }
+      .muted { opacity: .8; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>The app could not start</h1>
+      <p class="muted">The local server did not come up. Your data has not been changed. You can retry, or open the data folder to check the logs.</p>
+      <pre id="msg">Unknown error.</pre>
+      <p>
+        <button id="retry">Retry</button>
+      </p>
+    </div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      document.getElementById("msg").textContent = params.get("message") || "Unknown error.";
+      document.getElementById("retry").addEventListener("click", () => {
+        if (window.emsDesktop && window.emsDesktop.retry) window.emsDesktop.retry();
+      });
+    </script>
+  </body>
+</html>

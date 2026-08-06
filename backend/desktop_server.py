@@ -27,9 +27,17 @@ def _log(msg):
     print(f"[desktop_server] {msg}", flush=True)
 
 
+def _base_dir():
+    # When frozen by PyInstaller the migrations are bundled under _MEIPASS; in a
+    # normal checkout they sit next to this file.
+    if getattr(sys, "frozen", False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 def _apply_migrations(app):
     from flask_migrate import upgrade
-    migrations_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
+    migrations_dir = os.path.join(_base_dir(), "migrations")
     with app.app_context():
         upgrade(directory=migrations_dir)
 

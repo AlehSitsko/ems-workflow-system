@@ -47,6 +47,36 @@ export async function loginUser(username, password) {
   return data.user;
 }
 
+// Does the backend have zero users yet? (desktop first-run). Never throws — a
+// failure just means "assume normal login", so the web app is unaffected.
+export async function checkNeedsSetup() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/needs-setup`, { credentials: "include" });
+    if (!response.ok) return false;
+    const data = await response.json();
+    return !!data.needsSetup;
+  } catch {
+    return false;
+  }
+}
+
+// Create the first administrator on a fresh (desktop) install and sign them in.
+// Mirrors loginUser: the response sets the session cookie and returns the user.
+export async function setupFirstAdmin(username, password, displayName) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/setup`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, displayName }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Setup failed");
+  }
+  setCsrfToken(data.csrfToken);
+  return data.user;
+}
+
 // Change my own password. Returns the updated user (with passwordExpired cleared)
 // so the caller can drop any forced-rotation screen. Throws the server's message
 // on failure (wrong current password, too weak, or unchanged).
