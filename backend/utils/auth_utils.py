@@ -133,8 +133,14 @@ def password_in_history(user, raw_password, depth):
     return any(check_password_hash(r.password_hash, raw_password) for r in recent)
 
 
-def start_session(user):
-    """Record a signed-in user. Called only after the password is verified."""
+def start_session(user, remember=True):
+    """Record a signed-in user. Called only after the password is verified.
+
+    ``remember`` controls cookie persistence: True (the default, used by first-run
+    setup) keeps the user signed in across restarts for PERMANENT_SESSION_LIFETIME;
+    False makes it a browser-session cookie that is cleared when the browser or the
+    desktop app closes, so a shared machine does not stay signed in.
+    """
     from datetime import datetime
     from models import db, UserSession
 
@@ -161,7 +167,8 @@ def start_session(user):
     ))
     db.session.commit()
 
-    session.permanent = True
+    # Persistent (remembered) vs a browser-session cookie that dies on close.
+    session.permanent = bool(remember)
 
 
 def end_session():

@@ -56,6 +56,34 @@ def test_cookie_is_httponly_and_samesite(app, client):
     assert "SameSite=Lax" in csrf_cookie, csrf_cookie
 
 
+def test_remember_me_controls_cookie_persistence(app, client):
+    """Unchecked -> a browser-session cookie (dies on close); checked/default ->
+    a persistent cookie with an expiry, so a restart keeps the user signed in."""
+    make_user("admin", username="rm")
+
+    def session_cookie(resp):
+        return next(c for c in resp.headers.getlist("Set-Cookie") if c.startswith("session="))
+
+    # remember=False -> no Expires/Max-Age (a session cookie).
+    resp = client.post("/api/auth/login",
+                       json={"username": "rm", "password": TEST_PASSWORD, "remember": False})
+    c = session_cookie(resp)
+    assert "Expires=" not in c and "Max-Age=" not in c, c
+
+    # remember=True -> persistent (has an expiry).
+    client.post("/api/auth/logout")
+    resp = client.post("/api/auth/login",
+                       json={"username": "rm", "password": TEST_PASSWORD, "remember": True})
+    c = session_cookie(resp)
+    assert "Expires=" in c or "Max-Age=" in c, c
+
+    # Default (no field) stays persistent, so existing clients keep staying signed in.
+    client.post("/api/auth/logout")
+    resp = client.post("/api/auth/login", json={"username": "rm", "password": TEST_PASSWORD})
+    c = session_cookie(resp)
+    assert "Expires=" in c or "Max-Age=" in c, c
+
+
 def test_session_id_changes_on_login(app, client):
     """Session fixation: the pre-login cookie must not be reused."""
     make_user("admin", username="a3")

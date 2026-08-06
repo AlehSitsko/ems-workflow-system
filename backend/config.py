@@ -123,9 +123,13 @@ class Config:
         "1" if os.environ.get("EMS_ENV") == "production" else "0",
     ).lower() in ("1", "true", "yes")
 
-    # Sessions expire rather than living forever; an EMS console is often left
-    # signed in on a shared machine.
-    PERMANENT_SESSION_LIFETIME = int(os.environ.get("SESSION_LIFETIME_SECONDS", 12 * 60 * 60))
+    # How long a "remember me" login lasts. When the login checkbox is left
+    # unchecked the session cookie is a *browser-session* cookie instead (no
+    # expiry, cleared when the browser or the desktop app closes), so an
+    # unattended or shared machine does not stay signed in. When it is checked the
+    # cookie persists for this long. 30 days by default; override with
+    # SESSION_LIFETIME_SECONDS.
+    PERMANENT_SESSION_LIFETIME = int(os.environ.get("SESSION_LIFETIME_SECONDS", 30 * 24 * 60 * 60))
 
     # Force a password change once it reaches this age in days. 0 disables rotation
     # (the default, so dev and existing deployments are unchanged); set e.g. 90 in

@@ -22,7 +22,7 @@ const CURRENT_USER_STORAGE_KEY = "ems_current_user";
 export const withCredentials = { credentials: "include" };
 
 // Send login credentials to the backend. The response sets the session cookie.
-export async function loginUser(username, password) {
+export async function loginUser(username, password, remember = true) {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
     credentials: "include",
@@ -32,6 +32,7 @@ export async function loginUser(username, password) {
     body: JSON.stringify({
       username,
       password,
+      remember,
     }),
   });
 
