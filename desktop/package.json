@@ -1,0 +1,51 @@
+{
+  "name": "ems-workflow-desktop",
+  "version": "1.0.0",
+  "description": "EMS Workflow System — standalone Windows desktop app (Electron shell over the Flask backend + React frontend).",
+  "author": "AlehSitsko",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.emsworkflow.desktop",
+    "productName": "EMS Workflow System",
+    "copyright": "Copyright © 2026 AlehSitsko",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!release/**",
+      "!**/*.md"
+    ],
+    "extraResources": [
+      { "from": "../backend/dist/ems-backend", "to": "backend" },
+      { "from": "../frontend/dist", "to": "frontend" }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "EMS-Workflow-System-Setup-${version}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "EMS Workflow System",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

@@ -19,3 +19,11 @@ backend/instance/database.backup-*.db
 
 # Database dumps produced by scripts/backup-db.sh
 backups/
+
+# Electron desktop build
+desktop/node_modules/
+desktop/release/
+desktop/build/icon.ico
+backend/build/
+backend/dist/
+*.spec.bak
