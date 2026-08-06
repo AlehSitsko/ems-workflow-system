@@ -99,12 +99,14 @@ cd frontend; npm run build
 # 2. Package the backend into a self-contained exe (onedir) → backend/dist/ems-backend/.
 cd ..\backend; .\venv\Scripts\python.exe -m PyInstaller --clean --noconfirm ems-backend.spec
 
-# 3. Build the installer → desktop/release/EMS-Workflow-System-Setup-<version>.exe
+# 3. Build the installer → desktop/release/EMS-Workflow-System-Setup.exe
 cd ..\desktop; npm run dist
 ```
 
 **Artifacts** land in `desktop\release\`:
-- `EMS-Workflow-System-Setup-<version>.exe` — the NSIS installer (~103 MB)
+- `EMS-Workflow-System-Setup.exe` — the NSIS installer (~103 MB). The name is
+  intentionally version-less so the GitHub `releases/latest/download/` URL is a
+  stable direct-download link; the release *tag* carries the version.
 - `win-unpacked\` — the unpacked app (useful for a quick `--dir` smoke test)
 
 Installer behaviour: per-user (no admin required), lets the user change the

@@ -16,7 +16,7 @@ It is not intended to replace primary dispatch software, CAD systems, EMR system
 
 A standalone, **offline-capable Windows desktop build** is available — an Electron shell over the *same* Flask backend and React frontend, with a local SQLite database. No Python, Node, Docker, or internet required.
 
-* **[Download the latest installer](https://github.com/AlehSitsko/ems-workflow-system/releases/latest)** — `EMS-Workflow-System-Setup-<version>.exe` (~103 MB).
+* **[⬇ Download the installer (direct)](https://github.com/AlehSitsko/ems-workflow-system/releases/latest/download/EMS-Workflow-System-Setup.exe)** — `EMS-Workflow-System-Setup.exe` (~103 MB), always the latest release. Or browse **[all releases](https://github.com/AlehSitsko/ems-workflow-system/releases/latest)**.
 * Installs **per-user** (no administrator rights). On first run it asks you to create a local administrator account; no demo data is seeded.
 * The build is **unsigned**, so Windows SmartScreen warns on first launch — click *More info → Run anyway*. (See [desktop/README.md](desktop/README.md) for the code-signing path.)
 * Your data (database, uploads, logs, backups) lives under `%APPDATA%`, **outside** the install folder, and survives updates and uninstalls. Backup/restore is in the app's **File** menu.
