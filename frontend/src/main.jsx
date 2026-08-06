@@ -1,5 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+// Bootstrap + icons are bundled locally (not from a CDN) so the desktop build is
+// fully styled offline and complies with its strict same-origin CSP. Imported
+// first, so the app's own tokens/theme below can override Bootstrap.
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap-icons/font/bootstrap-icons.css'
 import './styles/tokens.css'
 import './styles/theme.css'
 import './styles/components.css'
