@@ -23,7 +23,6 @@ backups/
 # Electron desktop build
 desktop/node_modules/
 desktop/release/
-desktop/build/icon.ico
 backend/build/
 backend/dist/
 *.spec.bak
