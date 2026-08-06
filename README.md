@@ -12,6 +12,17 @@ A lightweight EMS/NEMT operations management platform focused on call intake, di
 
 It is not intended to replace primary dispatch software, CAD systems, EMR systems, clinical documentation systems, or billing platforms — see [Current Scope](#current-scope) below for the precise boundary.
 
+## Download (Windows desktop)
+
+A standalone, **offline-capable Windows desktop build** is available — an Electron shell over the *same* Flask backend and React frontend, with a local SQLite database. No Python, Node, Docker, or internet required.
+
+* **[Download the latest installer](https://github.com/AlehSitsko/ems-workflow-system/releases/latest)** — `EMS-Workflow-System-Setup-<version>.exe` (~103 MB).
+* Installs **per-user** (no administrator rights). On first run it asks you to create a local administrator account; no demo data is seeded.
+* The build is **unsigned**, so Windows SmartScreen warns on first launch — click *More info → Run anyway*. (See [desktop/README.md](desktop/README.md) for the code-signing path.)
+* Your data (database, uploads, logs, backups) lives under `%APPDATA%`, **outside** the install folder, and survives updates and uninstalls. Backup/restore is in the app's **File** menu.
+
+Architecture, data locations, backup/restore, offline behaviour, and building the installer from source are documented in **[desktop/README.md](desktop/README.md)**. The web version is unaffected and continues to build and deploy as before.
+
 ## Current Scope
 
 **In scope:**
@@ -360,9 +371,10 @@ Full detail in [docs/ROADMAP.md](docs/ROADMAP.md); near-term items in
   **active runtime tenant isolation** with subdomain multi-tenancy and a platform
   super-admin console.
 
-**In progress:** a standalone **Windows desktop build** (an Electron shell over
-the same React frontend and Flask backend, local SQLite, offline-capable), living
-alongside the web version.
+**Shipped:** a standalone **Windows desktop build** (an Electron shell over the
+same React frontend and Flask backend, local SQLite, offline-capable), living
+alongside the web version — see [Download](#download-windows-desktop) and
+[desktop/README.md](desktop/README.md).
 
 **Deferred (external dependency / research):** Google/Outlook two-way calendar
 sync (needs OAuth + a privacy policy) and route optimization.

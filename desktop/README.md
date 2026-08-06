@@ -152,10 +152,13 @@ release can add `electron-updater` against a real release feed.
 
 ## Known limitations
 
-- Unsigned (SmartScreen warning); generic exe file metadata (see above).
-- Default Electron window/taskbar icon — a branded `build/icon.ico` can be dropped
-  in and `win.icon` set once available.
+- Unsigned (SmartScreen warning); because `signAndEditExecutable: false`, the raw
+  app `.exe` keeps generic Electron file metadata in Explorer (the installer,
+  window, taskbar, Start-Menu/desktop shortcuts and About dialog all carry the
+  real icon and "EMS Workflow System" name — only the bare `.exe` icon is generic
+  until code-signing is configured).
 - Web push, external calendar sync, and breach-corpus checks need the internet and
-  are inert offline (by design); the rest of the app is fully local.
+  are inert offline (by design); the rest of the app — including all fonts, icons
+  and Bootstrap — is bundled locally and fully offline.
 - No malware scanning of uploads in this MVP — `backend/utils/file_validation.py`
   exposes a `scan_upload()` seam for a future scanner.
