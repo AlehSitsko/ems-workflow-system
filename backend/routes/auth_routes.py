@@ -119,7 +119,9 @@ def login():
     # Identity now lives in a signed, HttpOnly cookie. The user object is still
     # returned so the client can render a name and scope its UI, but nothing the
     # client sends back is trusted for authorisation.
-    start_session(user)
+    # "Remember me" (default on): persist the cookie so a restart keeps the user
+    # signed in; unchecked makes it a browser-session cookie that dies on close.
+    start_session(user, remember=bool(data.get("remember", True)))
 
     return jsonify({
         "message": "Login successful",

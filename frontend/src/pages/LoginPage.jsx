@@ -15,6 +15,9 @@ const LoginPage = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [workspace, setWorkspace] = useState(null);
+  // Keep the user signed in across restarts (default on). Unchecking makes the
+  // session end when the browser or desktop app closes.
+  const [remember, setRemember] = useState(true);
 
   // First-run state (a fresh local database with no users yet).
   const [needsSetup, setNeedsSetup] = useState(false);
@@ -40,7 +43,7 @@ const LoginPage = ({ onLogin }) => {
     setLoading(true);
     setError("");
     try {
-      finish(await loginUser(username, password));
+      finish(await loginUser(username, password, remember));
     } catch (err) {
       setError(err.message || "Login failed.");
     } finally {
@@ -140,6 +143,14 @@ const LoginPage = ({ onLogin }) => {
                       <input type="password" className="form-control" id="password" value={password}
                         onChange={(e) => setPassword(e.target.value)} disabled={loading}
                         autoComplete="current-password" />
+                    </div>
+                    <div className="form-check mb-3">
+                      <input className="form-check-input" type="checkbox" id="remember"
+                        checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                        disabled={loading} />
+                      <label className="form-check-label" htmlFor="remember">
+                        Keep me signed in on this computer
+                      </label>
                     </div>
                     <button type="submit" className="btn btn-primary w-100" disabled={loading}>
                       {loading ? "Logging in..." : "Login"}
