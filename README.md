@@ -433,6 +433,17 @@ certificate. See [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 * [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md) — full changelog
 * [TODO.md](TODO.md) — actionable near-term backlog
 
+## License
+
+Released under the [MIT License](LICENSE) — free to use, modify, and distribute
+with the copyright notice retained. The software is provided **as is, without
+warranty of any kind**.
+
+**Not for clinical or production use.** This is a portfolio project and must not
+be used to manage real patients or store real patient data (PHI). It is not a
+clinical ePCR, does not implement NEMSIS or HIPAA-grade safeguards, and carries
+no warranty or fitness for medical operations.
+
 ## Author
 
 Created by Aleh Sitsko.
