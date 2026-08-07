@@ -229,7 +229,10 @@ function buildMenu() {
                 `Electron: ${process.versions.electron}\n` +
                 `Chromium: ${process.versions.chrome}\n` +
                 `Node: ${process.versions.node}\n` +
-                `Data folder: ${paths.root}`,
+                `Data folder: ${paths.root}\n\n` +
+                `License: MIT — © 2026 Aleh Sitsko. Provided "as is", without warranty.\n\n` +
+                `Not for clinical or production use. This is a portfolio project and ` +
+                `must not be used to manage real patients or store real patient data (PHI).`,
             });
           },
         },

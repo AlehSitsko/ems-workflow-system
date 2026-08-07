@@ -5,7 +5,7 @@ import {
   FaUserMd, FaFileAlt, FaMoneyBillWave, FaShieldAlt, FaHistory,
   FaLightbulb, FaExclamationTriangle, FaInfoCircle, FaStar,
   FaKeyboard, FaUserCog, FaRoute, FaClipboardCheck, FaTruck,
-  FaChartBar, FaTasks, FaLifeRing, FaRocket,
+  FaChartBar, FaTasks, FaLifeRing, FaRocket, FaDesktop, FaBalanceScale,
 } from "react-icons/fa";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -166,11 +166,32 @@ const SECTIONS = [
     content: <TroubleshootingSection />,
   },
   {
+    id: "more-modules",
+    icon: <FaClipboardList />,
+    title: "More Modules",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <MoreModulesSection />,
+  },
+  {
+    id: "desktop",
+    icon: <FaDesktop />,
+    title: "Desktop App (Windows)",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <DesktopSection />,
+  },
+  {
     id: "planned",
     icon: <FaRocket />,
     title: "Planned / Future Features",
     roles: ["admin", "supervisor", "dispatcher", "hr"],
     content: <PlannedFeaturesSection />,
+  },
+  {
+    id: "license",
+    icon: <FaBalanceScale />,
+    title: "License & Disclaimer",
+    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    content: <LicenseSection />,
   },
   {
     id: "shortcuts",
@@ -1108,19 +1129,120 @@ function TroubleshootingSection() {
   );
 }
 
+function MoreModulesSection() {
+  return (
+    <>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Modules that support the core dispatch flow. Availability still follows your role.</p>
+
+      <Sub title="Scheduling & Confirmation">
+        <List items={[
+          "Scheduling Inbox — calls saved without a trip date land here so they are never lost; schedule them onto a day from one place (oldest intake first).",
+          "Recurring Trips — a standing order (e.g. dialysis three times a week) materializes ordinary calls a few weeks ahead; a call a human has touched is never rewritten.",
+          "Confirmation Round — work tomorrow's trips as a call list: mark each Confirmed, No answer, or Declined (a declined trip is cancelled with the reason kept).",
+        ]} />
+      </Sub>
+
+      <Sub title="Day Closeout">
+        <List items={[
+          "Review the day as it ended: loose ends (a call left assigned, a shift with no actual end time), a sign-off with your name, and a stored snapshot that stays true even if a call is edited later.",
+          "Supervisors and admins close the day; dispatchers can read it; only an admin reopens.",
+        ]} />
+      </Sub>
+
+      <Sub title="Leave, PTO & Tasks">
+        <List items={[
+          "Leave / Absence — staff request time off; HR approves or denies. Sensitive types (sick, medical, bereavement) show only as 'unavailable' to non-HR roles.",
+          "PTO & Holidays — a real balance behind leave: monthly accrual, a per-org holiday calendar, and holiday/weekend-aware deductions. Over-drawing warns but never blocks.",
+          "Tasks — assign work to staff (or everyone), with comments, an activity log, priorities and due dates; overdue/today tasks raise a sidebar badge.",
+        ]} />
+      </Sub>
+
+      <Sub title="Time, Kiosk & Portal">
+        <List items={[
+          "Time tracking & the PIN kiosk — clock in/out at a shared wall kiosk by a 4-digit PIN, feeding the same time entries payroll uses.",
+          "Employee Portal — a self-service area (My Schedule, My Tasks, My Leave, My Hours, My Documents) for the 'employee' login role, isolated from the operations app.",
+          "Reports & Analytics — under Management: call volume and outcomes, fleet utilization, and staff hours, each with CSV export.",
+        ]} />
+      </Sub>
+    </>
+  );
+}
+
+function DesktopSection() {
+  return (
+    <>
+      <p style={{ fontSize: 14, color: "var(--ems-text-secondary)", marginBottom: 12 }}>
+        EMS Workflow System also ships as a standalone <strong>Windows desktop app</strong> — the same application as the web version, packaged so it runs entirely on one computer with a local database. No Python, Node, Docker, or internet connection is required.
+      </p>
+
+      <Sub title="First run">
+        <List items={[
+          "The database starts empty — the app asks you to create the first local administrator account. No demo data is added.",
+          "After that, sign in normally. Tick 'Remember me' to stay signed in across restarts; leave it off to sign in each launch.",
+        ]} />
+      </Sub>
+
+      <Sub title="Works offline">
+        <List items={[
+          "Everything runs locally, so the app works with no internet.",
+          "Features that need the internet (browser push notifications, external calendar sync, breach-corpus password checks) are simply inert offline — they never block the app.",
+        ]} />
+      </Sub>
+
+      <Sub title="Your data & backups">
+        <List items={[
+          "Your database, uploads, logs and backups live in your Windows user profile (%APPDATA%), outside the install folder — so they survive updating or reinstalling the app.",
+          "File → Open data folder opens that location in Explorer.",
+          "File → Create backup / Export backup to folder makes a timestamped, validated copy; the app also auto-backs-up before any launch that might migrate the database.",
+          "File → Restore from backup validates the chosen file, snapshots your current database first, then restarts on the restored copy — so a restore is itself reversible.",
+        ]} />
+        <Warning>Uninstalling does not delete your data folder. To remove your data, delete it yourself from the data folder above.</Warning>
+      </Sub>
+
+      <Sub title="Good to know">
+        <List items={[
+          "Only one copy runs at a time (a single-instance lock protects the database file).",
+          "Help → About shows the app, Electron and Chromium versions, your data-folder path, and the license.",
+          "The build is unsigned, so on first launch Windows SmartScreen may warn — choose 'More info' → 'Run anyway'.",
+        ]} />
+      </Sub>
+    </>
+  );
+}
+
+function LicenseSection() {
+  return (
+    <>
+      <Sub title="License">
+        <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", lineHeight: 1.6, marginBottom: 10 }}>
+          EMS Workflow System is released under the <strong>MIT License</strong> (© 2026 Aleh Sitsko). You are free to use, copy, modify, and distribute it, provided the copyright and license notice are retained. The software is provided <strong>“as is”, without warranty of any kind</strong>.
+        </p>
+      </Sub>
+      <Sub title="Disclaimer">
+        <Warning>
+          <strong>Not for clinical or production use.</strong> This is a portfolio project and must not be used to manage real patients or store real patient data (PHI). It is not a clinical ePCR, does not implement NEMSIS or HIPAA-grade safeguards, and carries no warranty or fitness for medical operations.
+        </Warning>
+      </Sub>
+    </>
+  );
+}
+
 function PlannedFeaturesSection() {
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>These features are planned but not yet available. They are listed here so expectations stay accurate — nothing below is active in the current system.</p>
-      <Sub title="Planned">
-        <Planned>Assignment conflict validation — warn when a unit's shift overlaps another assignment.</Planned>
-        <Planned>Call Timeline / Daily Operations view — a full per-call event history (who did what, when).</Planned>
-        <Planned>Call export to CSV directly from the Calls page.</Planned>
-        <Planned>Repeat Call — duplicate a past call into a new intake for review before saving.</Planned>
-        <Planned>Call Notes — an append-only communication log attached to each call.</Planned>
-        <Planned>Reports — response time, transport time, and unit utilization analytics built on call event history.</Planned>
-        <Planned>Patient Locations — multiple saved addresses per patient (beyond the single home address).</Planned>
-        <Planned>Production authorization hardening — session/token-based login and a full role-permission review, planned as a final phase.</Planned>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>Most features once listed here have shipped. What remains below is deliberately deferred — it needs an external service or is a research problem — not overlooked.</p>
+      <Sub title="Deferred (external dependency / research)">
+        <Planned>Two-way Google / Outlook calendar sync — needs an OAuth integration and a separate privacy policy before any data could cross the boundary. One-way ICS export of manual events is available today.</Planned>
+        <Planned>Route optimization — automatic trip routing and sequencing is a research problem (a routing engine plus constraints), not a near-term build.</Planned>
+      </Sub>
+      <Sub title="Now available (previously listed as planned)">
+        <List items={[
+          "Assignment conflict detection — crew and vehicle double-booking by overlapping time, surfaced on the Dispatch Board and Calendar.",
+          "Day / Operations timeline — per-trip planned-vs-actual milestones, plus a Day Closeout sign-off.",
+          "Reports & Analytics — call volume and outcome mix, fleet utilization, and staff hours, with CSV export.",
+          "Recurring trips, a Scheduling Inbox for undated calls, and a Confirmation Round for tomorrow's trips.",
+          "Session-cookie authentication with CSRF, a password policy, per-device session revocation, and a full role/permission review.",
+        ]} />
       </Sub>
     </>
   );
