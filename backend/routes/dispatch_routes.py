@@ -326,6 +326,31 @@ def assign_call():
         }), 409
 
     existing = CallAssignment.query.filter_by(call_id=call_id, is_active=True).first()
+
+    # Optimistic concurrency (opt-in, backward-compatible): if the caller tells us
+    # which active assignment it believed the call had, and that no longer matches,
+    # another dispatcher changed it first — refuse with a clear 409 instead of
+    # silently overwriting their assignment. Callers that omit the field keep the
+    # previous last-write-wins behaviour.
+    if "expected_assignment_id" in data:
+        expected = data.get("expected_assignment_id")
+        try:
+            expected = int(expected) if expected not in (None, "") else None
+        except (TypeError, ValueError):
+            return jsonify({"error": "expected_assignment_id must be an integer or null"}), 400
+        current_id = existing.id if existing else None
+        if expected != current_id:
+            if existing:
+                other = db.session.get(DailyCrewUnit, existing.unit_id)
+                where = f" to unit {other.truck_number}" if other else ""
+                message = (f"Call #{call.id} was just assigned{where} by someone else. "
+                           f"Refresh the board and try again.")
+            else:
+                message = (f"Call #{call.id} is no longer assigned as your screen showed. "
+                           f"Refresh the board and try again.")
+            return jsonify({"error": message, "code": "assignment_conflict",
+                            "currentAssignmentId": current_id}), 409
+
     if existing:
         existing.is_active = False
 
