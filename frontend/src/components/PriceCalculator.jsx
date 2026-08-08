@@ -1,5 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useState } from "react";
 import { FaCalculator, FaDollarSign, FaRedo } from "react-icons/fa";
+import { computeEstimate } from "../utils/priceEstimate";
 
 const PriceCalculator = forwardRef((props, ref) => {
   const initialCalculatorData = {
@@ -15,6 +16,7 @@ const PriceCalculator = forwardRef((props, ref) => {
   const [calculatorData, setCalculatorData] = useState(initialCalculatorData);
   const [calculatedPrice, setCalculatedPrice] = useState(null);
   const [priceBreakdown, setPriceBreakdown] = useState(null);
+  const [priceError, setPriceError] = useState(null);
 
   // Handle text, number, select, and checkbox changes.
   const handleChange = (event) => {
@@ -31,6 +33,7 @@ const PriceCalculator = forwardRef((props, ref) => {
     setCalculatorData(initialCalculatorData);
     setCalculatedPrice(null);
     setPriceBreakdown(null);
+    setPriceError(null);
   };
 
   // Expose clearCalculator to the parent page.
@@ -40,45 +43,19 @@ const PriceCalculator = forwardRef((props, ref) => {
     },
   }));
 
-  // Calculate estimated trip price.
+  // Calculate estimated trip price. The math lives in a pure, tested util so the
+  // estimate is a single source of truth. Crew size does NOT affect the price.
   const calculatePrice = () => {
-    const basePrice = Number(calculatorData.basePrice) || 0;
-    const mileage = Number(calculatorData.mileage) || 0;
-    const ratePerMile = Number(calculatorData.ratePerMile) || 0;
-    const crewSize = Number(calculatorData.crewSize) || 2;
-
-    const mileageFee = mileage * ratePerMile;
-
-    // Simple crew adjustment placeholder.
-    // Larger crews can increase the estimate if needed.
-    const crewAdjustment = crewSize > 2 ? (crewSize - 2) * 25 : 0;
-
-    // Waiting fee is added once and is not multiplied by return ride.
-    const waitingFee = calculatorData.waitingTimeRequested
-      ? Number(calculatorData.waitingFee) || 0
-      : 0;
-
-    const oneWayTripTotal = basePrice + mileageFee + crewAdjustment;
-
-    // Return ride is estimated as a round trip for trip-related charges only.
-    const tripSubtotal = calculatorData.returnRide
-      ? oneWayTripTotal * 2
-      : oneWayTripTotal;
-
-    const total = tripSubtotal + waitingFee;
-
-    setCalculatedPrice(total.toFixed(2));
-
-    setPriceBreakdown({
-      basePrice: basePrice.toFixed(2),
-      mileageFee: mileageFee.toFixed(2),
-      crewAdjustment: crewAdjustment.toFixed(2),
-      oneWayTripTotal: oneWayTripTotal.toFixed(2),
-      tripSubtotal: tripSubtotal.toFixed(2),
-      waitingFee: waitingFee.toFixed(2),
-      returnRide: calculatorData.returnRide,
-      waitingTimeRequested: calculatorData.waitingTimeRequested,
-    });
+    const result = computeEstimate(calculatorData);
+    if (result.error) {
+      setPriceError(result.error);
+      setCalculatedPrice(null);
+      setPriceBreakdown(null);
+      return;
+    }
+    setPriceError(null);
+    setCalculatedPrice(result.total);
+    setPriceBreakdown(result.breakdown);
   };
 
   return (
@@ -91,8 +68,9 @@ const PriceCalculator = forwardRef((props, ref) => {
         <div>
           <h5>Price Calculator</h5>
           <p>
-            Estimate trip pricing based on base rate, mileage, crew size,
-            waiting time, and return ride.
+            Estimate trip pricing from base rate, mileage, waiting time, and
+            return ride. Crew size is operational information only and does not
+            change the estimate.
           </p>
         </div>
       </div>
@@ -244,6 +222,12 @@ const PriceCalculator = forwardRef((props, ref) => {
         </div>
       </div>
 
+      {priceError && (
+        <div className="alert alert-danger mt-3 mb-0 py-2" role="alert">
+          {priceError}
+        </div>
+      )}
+
       {calculatedPrice !== null && (
         <div className="price-calculator-result">
           <div>
@@ -260,12 +244,6 @@ const PriceCalculator = forwardRef((props, ref) => {
                 <div>Base price: ${priceBreakdown.basePrice}</div>
                 <div>Mileage fee: ${priceBreakdown.mileageFee}</div>
 
-                {Number(priceBreakdown.crewAdjustment) > 0 && (
-                  <div>
-                    Crew adjustment: ${priceBreakdown.crewAdjustment}
-                  </div>
-                )}
-
                 {priceBreakdown.returnRide ? (
                   <div>
                     Round trip subtotal: ${priceBreakdown.tripSubtotal}
@@ -281,6 +259,11 @@ const PriceCalculator = forwardRef((props, ref) => {
                     Waiting time fee: ${priceBreakdown.waitingFee}
                   </div>
                 )}
+
+                <div className="text-muted mt-1">
+                  Crew size: {priceBreakdown.crewSize} (operational only — not
+                  priced)
+                </div>
               </div>
             )}
           </div>
