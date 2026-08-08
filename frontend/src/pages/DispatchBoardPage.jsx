@@ -233,9 +233,16 @@ export default function DispatchBoardPage() {
       return;
     }
     try {
-      await assignCall(call.id, unit.id, currentUser?.display_name || "");
+      // Pass the assignment we last saw for this call (null when it looked
+      // unassigned) so the backend can reject a stale overwrite with a clear 409.
+      await assignCall(call.id, unit.id, currentUser?.display_name || "", call.assignment_id ?? null);
       await loadBoard(date);
-    } catch (e) { toast.error("Assignment failed", e.message); }
+    } catch (e) {
+      toast.error("Assignment failed", e.message);
+      // On a conflict the board is out of date — reload so the user sees the
+      // current assignment before retrying.
+      await loadBoard(date);
+    }
   }
 
   function handleWarningConfirm() {

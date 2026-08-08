@@ -237,3 +237,62 @@ def test_live_workflow_unchanged(client, roles):
     assert db.session.get(Call, call.id).status == "completed"
     assert roles["dispatcher"].patch(f"/api/dispatch/assign/{aid}/reopen").status_code == 200
     assert roles["dispatcher"].delete(f"/api/dispatch/assign/{aid}").status_code == 200
+
+
+# ── Optimistic concurrency: no silent overwrite of another dispatcher's assign ──
+
+def test_stale_assign_conflicts_instead_of_overwriting(client, roles):
+    """Two dispatchers, one call. The first assigns it; the second, on a stale
+    screen that still shows it unassigned, must get a 409 conflict — not a silent
+    overwrite of the first assignment."""
+    call = mk_call(TODAY)
+    unit_a = mk_unit(TODAY, truck_number="A1")
+    unit_b = mk_unit(TODAY, truck_number="B2")
+
+    r1 = roles["dispatcher"].post("/api/dispatch/assign",
+        json={"call_id": call.id, "unit_id": unit_a.id, "expected_assignment_id": None})
+    assert r1.status_code == 201, r1.get_json()
+
+    r2 = roles["supervisor"].post("/api/dispatch/assign",
+        json={"call_id": call.id, "unit_id": unit_b.id, "expected_assignment_id": None})
+    assert r2.status_code == 409, r2.get_json()
+    body = r2.get_json()
+    assert body.get("code") == "assignment_conflict"
+    assert "someone else" in body.get("error", "").lower()
+
+    active = CallAssignment.query.filter_by(call_id=call.id, is_active=True).all()
+    assert len(active) == 1 and active[0].unit_id == unit_a.id
+
+
+def test_deliberate_reassign_with_matching_expected_id_succeeds(client, roles):
+    """A real reassignment that knows the current assignment is allowed."""
+    call = mk_call(TODAY)
+    unit_a = mk_unit(TODAY, truck_number="A1")
+    unit_b = mk_unit(TODAY, truck_number="B2")
+
+    r1 = roles["dispatcher"].post("/api/dispatch/assign",
+        json={"call_id": call.id, "unit_id": unit_a.id, "expected_assignment_id": None})
+    aid = r1.get_json()["id"]
+
+    r2 = roles["dispatcher"].post("/api/dispatch/assign",
+        json={"call_id": call.id, "unit_id": unit_b.id, "expected_assignment_id": aid})
+    assert r2.status_code == 201, r2.get_json()
+
+    active = CallAssignment.query.filter_by(call_id=call.id, is_active=True).all()
+    assert len(active) == 1 and active[0].unit_id == unit_b.id
+
+
+def test_assign_without_expected_id_is_backward_compatible(client, roles):
+    """Omitting expected_assignment_id keeps the previous last-write-wins path, so
+    existing callers and tests are unaffected."""
+    call = mk_call(TODAY)
+    unit_a = mk_unit(TODAY, truck_number="A1")
+    unit_b = mk_unit(TODAY, truck_number="B2")
+
+    assert roles["dispatcher"].post("/api/dispatch/assign",
+        json={"call_id": call.id, "unit_id": unit_a.id}).status_code == 201
+    assert roles["dispatcher"].post("/api/dispatch/assign",
+        json={"call_id": call.id, "unit_id": unit_b.id}).status_code == 201
+
+    active = CallAssignment.query.filter_by(call_id=call.id, is_active=True).all()
+    assert len(active) == 1 and active[0].unit_id == unit_b.id

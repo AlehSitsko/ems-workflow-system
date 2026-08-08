@@ -39,12 +39,17 @@ export async function fetchBoard(date) {
   return readJsonOrThrow(res, "Failed to load dispatch board");
 }
 
-export async function assignCall(callId, unitId, assignedBy = "") {
+export async function assignCall(callId, unitId, assignedBy = "", expectedAssignmentId = undefined) {
+  // expected_assignment_id is the active assignment the caller saw for this call
+  // (null when it looked unassigned). The backend refuses with 409 if it no longer
+  // matches — so a stale second dispatcher can't silently overwrite the first.
+  const body = { call_id: callId, unit_id: unitId, assigned_by: assignedBy };
+  if (expectedAssignmentId !== undefined) body.expected_assignment_id = expectedAssignmentId;
   const res = await fetch(`${BASE}/assign`, {
     credentials: "include",
     method: "POST",
     headers: jsonHeaders(),
-    body: JSON.stringify({ call_id: callId, unit_id: unitId, assigned_by: assignedBy }),
+    body: JSON.stringify(body),
   });
   return readJsonOrThrow(res, "Failed to assign call");
 }
