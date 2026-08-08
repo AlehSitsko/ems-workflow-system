@@ -198,6 +198,15 @@ be implemented before the current Calendar slice is complete:
   parked deliberately, not an oversight.
 - [ ] **Deferred (research).** Route optimization — a research problem (routing
   engine, constraints), not a near-term build. Parked deliberately.
+- [ ] **Deferred (feature).** Configurable **rate engine** for trip pricing. The
+  Call Intake Price Calculator is currently a client-side *estimate helper* only
+  (base price + mileage×rate, ±return ride, one-time waiting fee) and is not
+  persisted to a call. A hardcoded "$25 per extra crew member" placeholder was
+  **removed** (it was never a real, configured rate); crew size is now shown as
+  operational information without affecting the estimate. A real rate engine —
+  per-organization rate tables, service-level pricing, mileage tiers, and (if the
+  business confirms it) a staffing charge — would live in the backend and be the
+  source of truth for a persisted, billable amount. Not started.
 
 ## P1b — Entity Workspace migration (in progress)
 

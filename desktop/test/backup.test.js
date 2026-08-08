@@ -95,3 +95,76 @@ test("autoBackup keeps only the last N prelaunch snapshots", () => {
   const autos = fs.readdirSync(p.backups).filter((n) => n.startsWith("ems-backup-prelaunch-"));
   assert.strictEqual(autos.length, 5);
 });
+
+// ── Collision safety, atomicity, rotation policy, traversal (P0 fix) ──────────
+
+test("five back-to-back backups produce five distinct, unique folders", () => {
+  const p = makePaths();
+  const folders = [];
+  for (let i = 0; i < 5; i++) folders.push(backup.backupTo(p, p.backups, "manual", "1.0.0"));
+  const names = folders.map((f) => path.basename(f));
+  assert.strictEqual(new Set(names).size, 5, "all five folder names must be unique");
+  for (const f of folders) assert.ok(fs.existsSync(path.join(f, "ems.sqlite")));
+  // Every real backup is listed exactly once.
+  assert.strictEqual(backup.listBackups(p).length, 5);
+});
+
+test("listBackups returns real backups newest-first", () => {
+  const p = makePaths();
+  backup.backupTo(p, p.backups, "manual", "1.0.0");
+  backup.backupTo(p, p.backups, "manual", "1.0.0");
+  const names = backup.listBackups(p).map((b) => b.name);
+  assert.deepStrictEqual(names, [...names].sort().reverse());
+});
+
+test("automatic rotation keeps manual and prerestore backups", () => {
+  const p = makePaths();
+  const manual = backup.backupTo(p, p.backups, "manual", "1.0.0");
+  const prerestore = backup.backupTo(p, p.backups, "prerestore", "1.0.0");
+  for (let i = 0; i < 8; i++) backup.autoBackup(p, "1.0.0", 3);
+  assert.ok(fs.existsSync(manual), "manual backup must survive automatic rotation");
+  assert.ok(fs.existsSync(prerestore), "prerestore backup must survive automatic rotation");
+  const autos = fs.readdirSync(p.backups).filter((n) => n.startsWith("ems-backup-prelaunch-"));
+  assert.strictEqual(autos.length, 3, "exactly the last 3 automatic backups remain");
+});
+
+test("a failed backup leaves no valid restore point and no temp dir", () => {
+  const p = makePaths(Buffer.from("not a sqlite database")); // invalid source content
+  assert.throws(() => backup.backupTo(p, p.backups, "manual", "1.0.0"), /verification failed/i);
+  const promoted = fs.readdirSync(p.backups).filter((n) => n.startsWith("ems-backup-"));
+  assert.strictEqual(promoted.length, 0, "no promoted backup after a failed write");
+  const temps = fs.readdirSync(p.backups).filter((n) => n.startsWith(".ems-backup-tmp-"));
+  assert.strictEqual(temps.length, 0, "temp dir must be cleaned up");
+});
+
+test("a leftover temp dir is not a restore point and gets swept", () => {
+  const p = makePaths();
+  const tmp = fs.mkdtempSync(path.join(p.backups, ".ems-backup-tmp-"));
+  fs.writeFileSync(path.join(tmp, "ems.sqlite"), SQLITE_HEADER);
+  assert.strictEqual(backup.listBackups(p).some((b) => b.path === tmp), false);
+  backup.autoBackup(p, "1.0.0", 5);
+  assert.strictEqual(fs.existsSync(tmp), false, "autoBackup should sweep stale temp dirs");
+});
+
+test("restore copies only the known db files (no traversal via extras)", () => {
+  const p = makePaths();
+  const src = backup.backupTo(p, p.backups, "manual", "1.0.0");
+  fs.writeFileSync(path.join(src, "evil.txt"), "pwned"); // planted extra file
+  backup.restoreFrom(p, src, "1.0.0");
+  assert.strictEqual(fs.existsSync(path.join(p.database, "evil.txt")), false);
+});
+
+test("restore brings back exactly the selected backup's state", () => {
+  const p = makePaths();
+  fs.writeFileSync(p.dbFile, Buffer.concat([SQLITE_HEADER, Buffer.from("STATE-A")]));
+  const a = backup.backupTo(p, p.backups, "manual", "1.0.0");
+  fs.writeFileSync(p.dbFile, Buffer.concat([SQLITE_HEADER, Buffer.from("STATE-B")]));
+  backup.backupTo(p, p.backups, "manual", "1.0.0");
+  fs.writeFileSync(p.dbFile, Buffer.concat([SQLITE_HEADER, Buffer.from("STATE-C")]));
+
+  backup.restoreFrom(p, a, "1.0.0"); // restore the oldest (STATE-A)
+
+  const restored = fs.readFileSync(p.dbFile);
+  assert.ok(restored.includes(Buffer.from("STATE-A")), "restored the selected state");
+  assert.ok(!restored.includes(Buffer.from("STATE-C")), "did not keep the newer state");
+});
