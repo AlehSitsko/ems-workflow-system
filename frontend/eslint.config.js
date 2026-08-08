@@ -39,6 +39,14 @@ export default defineConfig([
     },
   },
   {
+    // Playwright E2E specs, config and setup run under Node (fs/os/process), and
+    // import test/expect from @playwright/test rather than using globals.
+    files: ['e2e/**/*.js', 'playwright.config.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  {
     // The push service worker runs in the ServiceWorkerGlobalScope, not a window.
     // Declaring its globals here (rather than a deprecated /* eslint-env */ comment,
     // which flat config drops in ESLint 10) keeps `self`, `clients`, etc. defined.
