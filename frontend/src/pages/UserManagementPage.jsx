@@ -9,6 +9,7 @@ import {
 } from "../api/authApi";
 import { kioskEmployees } from "../api/timeApi";
 import EntityDrawer from "../components/ui/EntityDrawer";
+import InvitationsPanel from "../components/users/InvitationsPanel";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 
@@ -238,6 +239,8 @@ function UserManagementPage() {
           </div>
         )}
       </section>
+
+      <InvitationsPanel />
 
       <EntityDrawer
         open={drawerOpen}

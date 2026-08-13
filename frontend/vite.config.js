@@ -36,5 +36,9 @@ export default defineConfig({
     globals: true,
     setupFiles: "./src/test/setup.js",
     css: false,
+    // Unit/component tests live under src/. The Playwright browser E2E specs in
+    // e2e/ run with a different runner (@playwright/test) and must not be
+    // collected by Vitest.
+    include: ["src/**/*.{test,spec}.{js,jsx}"],
   },
 });
