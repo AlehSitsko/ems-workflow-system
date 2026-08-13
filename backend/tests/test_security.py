@@ -308,6 +308,10 @@ def test_the_public_allowlist_stays_small_and_deliberate(app):
         "time.kiosk_clock_in", "time.kiosk_clock_out", "time.kiosk_status",
         "notifications.vapid_public_key",     # the public VAPID key
         "tenant.current_tenant",              # login-screen workspace greeting
+        # Invite-only onboarding: an invitee validates/accepts before they have an
+        # account or session. Org and role are fixed by the hashed token, not the
+        # request, so these stay safe without a session (see routes/invitation_routes.py).
+        "invitations.validate_invitation", "invitations.accept_invitation",
     }
     assert PUBLIC_ENDPOINTS == expected, (
         "the set of unauthenticated endpoints changed — every entry here is "

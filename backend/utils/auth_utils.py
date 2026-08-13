@@ -347,6 +347,11 @@ PUBLIC_ENDPOINTS = {
     "notifications.vapid_public_key",
     # The login screen greets the workspace by its subdomain before anyone signs in.
     "tenant.current_tenant",
+    # Invite-only onboarding: an invitee validates and accepts their invitation
+    # before they have any account or session. The org and role are fixed by the
+    # (hashed) token, never the request, so this stays safe without a session.
+    "invitations.validate_invitation",
+    "invitations.accept_invitation",
 }
 
 
