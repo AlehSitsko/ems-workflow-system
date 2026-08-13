@@ -9,6 +9,7 @@ import DispatchVisualAlertsSettings from "../components/settings/DispatchVisualA
 import CalendarDisplaySettings from "../components/settings/CalendarDisplaySettings";
 import DashboardSettings from "../components/settings/DashboardSettings";
 import ActiveSessions from "../components/settings/ActiveSessions";
+import OrgSecurity from "../components/settings/OrgSecurity";
 import OrgSettings from "../components/settings/OrgSettings";
 import HolidaySettings from "../components/settings/HolidaySettings";
 import { getNavigationItems } from "../config/routeMetadata";
@@ -191,6 +192,12 @@ function NotificationSettingsPage({ currentUser }) {
       {currentUser?.role === "admin" && (
         <section className="mt-4">
           <OrgSettings />
+        </section>
+      )}
+
+      {currentUser?.role === "admin" && (
+        <section className="mt-4">
+          <OrgSecurity />
         </section>
       )}
 

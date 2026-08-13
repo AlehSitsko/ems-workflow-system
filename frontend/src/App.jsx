@@ -21,6 +21,7 @@ import PlatformConsolePage from "./pages/platform/PlatformConsolePage";
 import UserManagementPage from "./pages/UserManagementPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
 import PayrollPage from "./pages/PayrollPage";
 import ComplianceDashboardPage from "./pages/ComplianceDashboardPage";
 import AuditLogPage from "./pages/AuditLogPage";
@@ -331,6 +332,9 @@ function App() {
 
         // Kiosk — no auth required, but pass currentUser for the Back button.
         { path: "/kiosk", element: <KioskPage currentUser={currentUser} /> },
+
+        // Invite acceptance — public; the invitee has no account/session yet.
+        { path: "/accept-invite", element: <AcceptInvitePage /> },
 
         { path: "/login", element: <LoginRoute><LoginPage onLogin={handleLogin} /></LoginRoute> },
 
