@@ -312,6 +312,9 @@ def test_the_public_allowlist_stays_small_and_deliberate(app):
         # account or session. Org and role are fixed by the hashed token, not the
         # request, so these stay safe without a session (see routes/invitation_routes.py).
         "invitations.validate_invitation", "invitations.accept_invitation",
+        # Emergency org recovery — the code identifies the org, single-use, revokes
+        # all org sessions, fully audited (see routes/org_security_routes.py).
+        "org_security.redeem_recovery_code",
     }
     assert PUBLIC_ENDPOINTS == expected, (
         "the set of unauthenticated endpoints changed — every entry here is "

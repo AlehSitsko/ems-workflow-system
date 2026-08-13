@@ -352,6 +352,10 @@ PUBLIC_ENDPOINTS = {
     # (hashed) token, never the request, so this stays safe without a session.
     "invitations.validate_invitation",
     "invitations.accept_invitation",
+    # Emergency organisation recovery: the holder of a one-time recovery code has
+    # no session. The code identifies the org, is single-use, revokes all org
+    # sessions and is fully audited (see routes/org_security_routes.py).
+    "org_security.redeem_recovery_code",
 }
 
 
