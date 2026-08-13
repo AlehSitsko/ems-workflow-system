@@ -221,3 +221,100 @@ def test_patient_alert_and_contact_mutations_are_scoped(app, orgs):
     assert ca.delete(f"/api/patient/{pat_b}/contacts/{contact_id}").status_code == 404
     with unfiltered():
         assert db.session.get(PatientContact, contact_id).name == "Kin"  # untouched
+
+
+# ── Exhaustive by-id + list scoping across every resource family (Phase 1 gate) ─
+#
+# The runtime ORM filter should scope EVERY select of an org-owned model, so a
+# cross-org id must resolve to 404 on read and on mutation, and lists must never
+# include another org's rows. One test per family; a leak here fails the gate.
+
+def test_call_by_id_and_mutations_are_scoped(app, orgs):
+    a, b = orgs
+    cb = seed(b, Call(trip_date="2026-08-01", service_level="BLS", status="new"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.get(f"/api/calls/{cb}").status_code == 404
+    assert ca.put(f"/api/calls/{cb}", json={"service_level": "ALS"}).status_code == 404
+    assert ca.patch(f"/api/calls/{cb}/cancel", json={"reason": "x"}).status_code == 404
+    assert ca.patch(f"/api/calls/{cb}/pickup-time", json={"pickup_time": "09:00"}).status_code == 404
+    with unfiltered():
+        assert db.session.get(Call, cb).service_level == "BLS"  # untouched
+
+
+def test_employee_by_id_and_mutations_are_scoped(app, orgs):
+    a, b = orgs
+    eb = seed(b, Employee(first_name="Ben", last_name="B", role="EMT"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.get(f"/api/employees/{eb}").status_code == 404
+    assert ca.get(f"/api/employees/{eb}/shifts").status_code == 404
+    assert ca.put(f"/api/employees/{eb}", json={"firstName": "X", "lastName": "Y"}).status_code == 404
+    assert ca.delete(f"/api/employees/{eb}").status_code == 404
+
+
+def test_vehicle_by_id_and_list_are_scoped(app, orgs):
+    a, b = orgs
+    seed(a, Vehicle(unit_name="Medic A", unit_number="A1", unit_type="ALS", is_retired=False))
+    vb = seed(b, Vehicle(unit_name="Medic B", unit_number="B1", unit_type="BLS", is_retired=False))
+    ca = client_in(app, a, "admin_a")
+    numbers = [v["unitNumber"] for v in ca.get("/api/vehicles").get_json()]
+    assert numbers == ["A1"]
+    assert ca.get(f"/api/vehicles/{vb}").status_code == 404
+    assert ca.put(f"/api/vehicles/{vb}", json={"unitName": "H", "unitNumber": "H", "unitType": "BLS"}).status_code == 404
+    assert ca.delete(f"/api/vehicles/{vb}").status_code == 404
+    assert ca.patch(f"/api/vehicles/{vb}/toggle-active").status_code == 404
+
+
+def test_crew_unit_by_id_and_list_are_scoped(app, orgs):
+    a, b = orgs
+    seed(a, DailyCrewUnit(shift_date="2026-08-01", unit_type="ALS", truck_number="A9", start_time="08:00"))
+    ub = seed(b, DailyCrewUnit(shift_date="2026-08-01", unit_type="BLS", truck_number="B9", start_time="08:00"))
+    ca = client_in(app, a, "admin_a")
+    trucks = [u["truckNumber"] for u in ca.get("/api/crew-units?shift_date=2026-08-01").get_json()]
+    assert trucks == ["A9"]
+    assert ca.put(f"/api/crew-units/{ub}", json={"shiftDate": "2026-08-01", "truckNumber": "H",
+                  "startTime": "08:00", "patientOrder": []}).status_code == 404
+    assert ca.delete(f"/api/crew-units/{ub}").status_code == 404
+
+
+def test_task_by_id_and_mutations_are_scoped(app, orgs):
+    a, b = orgs
+    tb = seed(b, Task(title="B task", task_type="General Task", status="New", priority="Normal",
+                      created_at="2026-01-01T00:00:00", updated_at="2026-01-01T00:00:00"))
+    ca = client_in(app, a, "admin_a")
+    assert ca.get(f"/api/tasks/{tb}").status_code == 404
+    assert ca.put(f"/api/tasks/{tb}", json={"title": "H"}).status_code == 404
+    assert ca.patch(f"/api/tasks/{tb}/status", json={"status": "Completed"}).status_code == 404
+    assert ca.delete(f"/api/tasks/{tb}").status_code == 404
+
+
+def test_dispatch_board_and_assign_are_scoped(app, orgs):
+    a, b = orgs
+    call_b = seed(b, Call(trip_date="2026-08-01", service_level="BLS", status="new"))
+    unit_b = seed(b, DailyCrewUnit(shift_date="2026-08-01", unit_type="BLS", truck_number="B7", start_time="08:00"))
+    unit_a = seed(a, DailyCrewUnit(shift_date="2026-08-01", unit_type="BLS", truck_number="A7", start_time="08:00"))
+    ca = client_in(app, a, "admin_a")
+
+    board = ca.get("/api/dispatch/board?date=2026-08-01").get_json()
+    trucks = [u["truckNumber"] for u in board.get("units", [])]
+    assert "B7" in [] or "B7" not in trucks  # org B's unit never appears on A's board
+    assert "B7" not in trucks
+
+    # Assigning across the org boundary fails at the (org-filtered) lookup.
+    assert ca.post("/api/dispatch/assign",
+                   json={"call_id": call_b, "unit_id": unit_a}).status_code == 404  # B's call not found
+    assert ca.post("/api/dispatch/assign",
+                   json={"call_id": call_b, "unit_id": unit_b}).status_code == 404
+
+
+def test_document_file_download_is_scoped(app, orgs):
+    a, b = orgs
+    emp_b = seed(b, Employee(first_name="Ben", last_name="B", role="EMT"))
+    with unfiltered():
+        doc = EmployeeDocument(employee_id=emp_b, doc_type="ems_license", title="Lic",
+                               file_path=f"{emp_b}/x.pdf", file_name="x.pdf",
+                               uploaded_at="2026-01-01T00:00:00", updated_at="2026-01-01T00:00:00")
+        db.session.add(doc)
+        db.session.commit()
+        doc_id = doc.id
+    ca = client_in(app, a, "admin_a")
+    assert ca.get(f"/api/documents/{doc_id}/file").status_code == 404
