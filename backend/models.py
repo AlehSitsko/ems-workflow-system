@@ -2037,6 +2037,57 @@ class CalendarEventParticipant(db.Model):
 
 # ── Tenant scoping ────────────────────────────────────────────────────────────
 #
+class UserInvitation(db.Model):
+    """An invitation to join an organisation with a fixed role — invite-only
+    onboarding for server/cloud mode.
+
+    The organisation and role are fixed at creation, so an invitee can change
+    neither via the accept request. The raw token is never stored; only its
+    SHA-256 hash is kept, and the invitation is one-time, expiring and revocable.
+    """
+    __tablename__ = "user_invitation"
+
+    id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(50), nullable=False)
+    display_name = db.Column(db.String(150))
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
+    # SHA-256 hex of the raw token; the raw value is shown once and never stored.
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    created_by = db.Column(db.Integer)
+    created_at = db.Column(db.String(50), nullable=False)
+    expires_at = db.Column(db.String(50), nullable=False)
+    accepted_at = db.Column(db.String(50))
+    revoked_at = db.Column(db.String(50))
+
+    def status(self, now_iso=None):
+        from datetime import datetime, timezone
+        if self.revoked_at:
+            return "revoked"
+        if self.accepted_at:
+            return "accepted"
+        now = now_iso or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        if self.expires_at and now > self.expires_at:
+            return "expired"
+        return "pending"
+
+    def to_dict(self):
+        # Never includes the token or its hash.
+        return {
+            "id": self.id,
+            "email": self.email,
+            "role": self.role,
+            "displayName": self.display_name,
+            "employeeId": self.employee_id,
+            "status": self.status(),
+            "createdAt": self.created_at,
+            "expiresAt": self.expires_at,
+            "acceptedAt": self.accepted_at,
+            "revokedAt": self.revoked_at,
+        }
+
+
 # The models that carry an `org_id` and are therefore isolated per organisation.
 # Named once here so the tenant filter/stamp events (tenant.py) and any future
 # tooling share one authoritative list rather than drifting apart. Child/detail
@@ -2046,4 +2097,5 @@ ORG_SCOPED_MODELS = (
     User, Employee, Vehicle, DailyCrewUnit, CrewPreset, Patient, Call,
     NotificationEvent, PayPeriod, EmployeeLeaveRequest, OperationalDayClosure,
     RecurringTrip, CalendarEvent, Task, AuditLog, PtoLedgerEntry, Holiday,
+    UserInvitation,
 )
