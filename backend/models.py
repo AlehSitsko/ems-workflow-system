@@ -57,6 +57,11 @@ class User(db.Model):
     # Allows disabling users without deleting historical data.
     is_active = db.Column(db.Boolean, default=True)
 
+    # An organisation Owner is a distinguished admin responsible for ownership
+    # continuity and recovery. Ownership can be transferred to another admin, so
+    # losing one Owner never strands the organisation.
+    is_owner = db.Column(db.Boolean, nullable=False, default=False)
+
     # Optional link to an Employee record (for clock-in/out from dashboard).
     employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=True)
 
@@ -2088,6 +2093,25 @@ class UserInvitation(db.Model):
         }
 
 
+class OrgRecoveryCode(db.Model):
+    """A one-time emergency recovery code for an organisation.
+
+    Codes are an authorisation factor for the emergency owner-recovery process —
+    not an encryption key. Only the SHA-256 hash is stored; raw codes are shown
+    once at generation. Each code is single-use; regenerating a set invalidates any
+    unused prior codes.
+    """
+    __tablename__ = "org_recovery_code"
+
+    id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=False)
+    code_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    created_at = db.Column(db.String(50), nullable=False)
+    created_by = db.Column(db.Integer)
+    used_at = db.Column(db.String(50))
+    used_note = db.Column(db.String(255))
+
+
 # The models that carry an `org_id` and are therefore isolated per organisation.
 # Named once here so the tenant filter/stamp events (tenant.py) and any future
 # tooling share one authoritative list rather than drifting apart. Child/detail
@@ -2097,5 +2121,5 @@ ORG_SCOPED_MODELS = (
     User, Employee, Vehicle, DailyCrewUnit, CrewPreset, Patient, Call,
     NotificationEvent, PayPeriod, EmployeeLeaveRequest, OperationalDayClosure,
     RecurringTrip, CalendarEvent, Task, AuditLog, PtoLedgerEntry, Holiday,
-    UserInvitation,
+    UserInvitation, OrgRecoveryCode,
 )
