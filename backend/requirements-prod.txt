@@ -6,3 +6,8 @@ gunicorn==23.0.0
 
 # PostgreSQL driver (psycopg 3). Use a postgresql+psycopg:// DATABASE_URL.
 psycopg[binary]==3.3.4
+
+# S3-compatible object storage for employee documents (EMS_STORAGE=s3). Only the
+# server profile needs it — standalone/desktop uses local file storage and never
+# imports boto3.
+boto3>=1.34,<2.0

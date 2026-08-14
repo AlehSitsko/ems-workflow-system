@@ -8,6 +8,7 @@ from notification_utils import create_notification
 from utils.validation_utils import check_length
 from utils.file_validation import validate_upload, UploadValidationError, safe_display_name, scan_upload
 from utils.auth_utils import get_request_user_id, require_role
+from audit_utils import log_action
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
 
@@ -69,7 +70,8 @@ def list_documents(employee_id):
 @doc_bp.route("/employees/<int:employee_id>/documents", methods=["POST"])
 @require_role(*ALLOWED_ROLES)
 def upload_document(employee_id):
-    if _employee_in_scope(employee_id) is None:
+    employee = _employee_in_scope(employee_id)
+    if employee is None:
         return jsonify({"error": "Employee not found"}), 404
 
     doc_type = request.form.get("doc_type", "other")
@@ -107,7 +109,8 @@ def upload_document(employee_id):
                 return jsonify({"error": str(e)}), 400
             # Store under the *detected* canonical extension, and keep only a
             # sanitised display name (the on-disk name is a server UUID).
-            file_path, _stored, file_size = save_file(f, employee_id, ext=detected.ext)
+            file_path, _stored, file_size = save_file(
+                f, employee_id, ext=detected.ext, org_id=employee.org_id)
             file_name = safe_display_name(f.filename)
             mime_type = detected.mime
 
@@ -132,6 +135,11 @@ def upload_document(employee_id):
         updated_at=now,
     )
     db.session.add(doc)
+    db.session.commit()
+    log_action("document.uploaded", entity_type="employee_document", entity_id=doc.id,
+               entity_label=doc.title,
+               details={"employee_id": employee_id, "doc_type": doc_type,
+                        "has_file": bool(file_path)})
     db.session.commit()
     _notify_if_expiring(doc)
     return jsonify(doc.to_dict()), 201
@@ -212,6 +220,8 @@ def delete_document(doc_id):
         return jsonify({"error": "Document not found"}), 404
     if doc.file_path:
         delete_file(doc.file_path)
+    log_action("document.deleted", entity_type="employee_document", entity_id=doc.id,
+               entity_label=doc.title, details={"employee_id": doc.employee_id})
     db.session.delete(doc)
     db.session.commit()
     return jsonify({"ok": True})
@@ -228,6 +238,10 @@ def download_document_file(doc_id):
     if not doc.file_path:
         return jsonify({"error": "No file attached to this document"}), 404
 
+    # Auditing a *download* of a sensitive document: who accessed which file, when.
+    log_action("document.downloaded", entity_type="employee_document", entity_id=doc.id,
+               entity_label=doc.title, details={"employee_id": doc.employee_id})
+    db.session.commit()
     return get_file_response(doc.file_path, download_name=doc.file_name)
 
 

@@ -250,11 +250,33 @@ The app code is ready; standing it up multi-tenant is configuration and infra:
 
 ## File storage
 
-**Current state:** local filesystem, behind a storage abstraction (`backend/storage.py`).
+**Current state:** a storage-provider abstraction (`backend/storage.py`) with two
+implementations, selected at runtime — no change required outside this file:
 
-**Production plan:**
-- Swap the implementation for `boto3`/S3 — no changes required outside `storage.py`
-- Config via environment: `STORAGE_BACKEND`, `S3_BUCKET`, AWS credentials
+- **Local** (default, `EMS_STORAGE` unset or `local`): files under the Flask instance
+  dir. Standalone/desktop and dev need no external infrastructure.
+- **S3-compatible** (`EMS_STORAGE=s3`): AWS S3, MinIO, or any S3 API, for multi-instance
+  server deployments. `boto3` is an optional prod dependency, imported lazily so the
+  local/desktop profile never needs it.
+
+**Security properties (both providers):**
+- The object key is generated **server-side** and org-scoped —
+  `organizations/{org_id}/employees/{employee_id}/{uuid}.ext` — never taken from the
+  client, and validated against path escapes before use.
+- Downloads always go through **auth → tenant scope → role** in the route *before*
+  storage is touched; the S3 provider streams the object through the app rather than
+  handing out public or presigned URLs. Files are served as an attachment with
+  `nosniff` (neutralises stored XSS from an uploaded `.html`/`.svg`).
+- Upload, download, and delete of a document each emit an audit event
+  (`document.uploaded` / `document.downloaded` / `document.deleted`).
+
+**Config via environment (S3 mode):** `EMS_STORAGE=s3`, `EMS_S3_BUCKET`,
+`EMS_S3_ENDPOINT_URL` (for MinIO / non-AWS), `EMS_S3_REGION`, plus standard AWS
+credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, read by boto3).
+
+**Still to do:** migrate existing locally-stored files into the bucket when switching a
+running deployment from local to S3 (new deployments start clean); verify against a live
+S3/MinIO endpoint (the provider is unit-tested against a fake boto3 client).
 
 ## Deployment
 
@@ -318,3 +340,17 @@ Runtime tenant isolation filters every SELECT of an org-owning entity, but a chi
 - **Patient contact** — `PUT`/`DELETE …/contacts/<id>`.
 
 Each now resolves through an org-filtered parent (`Employee` / `Vehicle` / `Call` / `Patient` via `filter_by(id=…).first()`) and returns 404 when the parent is not in the caller's organisation. Org-scoped `.get(pk)` itself was confirmed to be correctly filtered per request — the leaks were only the org-less children reached without their parent. Regression tests: `test_tenant_isolation.py` (+5, each red before the fix).
+
+### Adversarial security pass (consolidated)
+
+A single attacker's-eye suite, `test_security_adversarial.py`, runs the multi-tenant / crypto / identity / realtime surface as attacks that must fail, and maps each scenario to where it is proven (this suite or the dedicated file). New cross-cutting attacks pinned down here:
+
+- **`org_id` injection on create** — an admin posting `org_id`/`organization_id` for another org in the create body is ignored; the tenant write-stamp lands the row in the caller's org, and the target org still 404s it.
+- **Ciphertext relocation (AAD binding)** — a field ciphertext moved (via direct DB write) into another org's row, or into a different field of the same row, fails to decrypt and reads back as `None` — never the original plaintext, never the raw token, never a 500.
+- **Stolen DB without the key** — with the master key gone, every encrypted field reads as `None`; the ciphertext is inert.
+- **Master-key rotation** — adding a new master version keeps existing (old-version-wrapped) DEKs readable with no field re-encryption, and newly provisioned orgs wrap under the newest version. Retiring an old version before re-wrapping the DEKs it protected makes those fields unrecoverable — so old versions must be retained until a re-wrap. The `flask rewrap-org-keys` CLI closes this: it re-wraps every org's DEK under the newest master version (field ciphertext untouched, safe to re-run), after which the old version can be dropped. A hardening fix landed here too: an unrecoverable DEK (missing master version) now degrades a *read* to `None` (`encrypted_fields._dek_for_read` swallows `KeyManagementError`) instead of surfacing a 500.
+- **Realtime isolation** — a subscriber of one org never receives another org's published events at the bus.
+- **Invite escalation** — an invitee posting `role`/`org_id`/`is_owner`/`is_platform_admin` at accept time is bound to the token's role and org; the client-supplied privilege fields are ignored.
+- **Concurrent edit contract** — two editors of the same row both succeed with last-write-wins (advisory concurrency, matching the app's warn-not-block philosophy); neither corrupts the row nor leaks across the tenant boundary.
+
+Master-key rotation is now fully supported end to end (add a version → `flask rewrap-org-keys` → drop the old version); see `test_org_crypto.py::test_rewrap_moves_dek_to_the_newest_master_version`.
