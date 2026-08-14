@@ -116,6 +116,21 @@ def get_patients():
     if dob:
         query = query.filter(Patient.dob == dob)
 
+    member_id = request.args.get("member_id", "").strip()
+    if member_id:
+        # Exact-match search over the encrypted field via its blind index — no
+        # decryption of the column. Falls back to plaintext equality when
+        # encryption is off (local/standalone or an unconfigured dev DB).
+        bidx = None
+        if encryption_configured():
+            from tenant import current_org_id
+            org = Organization.query.get(current_org_id()) if current_org_id() else None
+            bidx = index_value(member_id, org, "patient", "member_id")
+        if bidx is not None:
+            query = query.filter(Patient.member_id_bidx == bidx)
+        else:
+            query = query.filter(Patient.member_id == member_id)
+
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 25, type=int), 100)
 

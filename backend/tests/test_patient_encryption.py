@@ -65,6 +65,24 @@ def test_member_id_is_encrypted_at_rest_and_decrypted_through_the_api(app, maste
     assert ca.get(f"/api/patient/{pid}").get_json()["member_id"] == "MEM-9999"
 
 
+def test_search_by_member_id_uses_the_blind_index(app, master):
+    org_id = _org()
+    ca = _admin_in(app, org_id)
+    ca.post("/api/patients", json={"first_name": "Find", "last_name": "Me", "member_id": "MEM-777"})
+    ca.post("/api/patients", json={"first_name": "Other", "last_name": "One", "member_id": "MEM-888"})
+
+    # Exact-match search finds only the matching patient — via the blind index, with
+    # no decryption of the column.
+    items = ca.get("/api/patients?member_id=MEM-777").get_json()["items"]
+    assert len(items) == 1 and items[0]["last_name"] == "Me"
+    assert items[0]["member_id"] == "MEM-777"
+
+    # Normalised (case/space-insensitive).
+    assert len(ca.get("/api/patients?member_id=mem-777 ").get_json()["items"]) == 1
+    # A non-match returns nothing.
+    assert ca.get("/api/patients?member_id=MEM-000").get_json()["items"] == []
+
+
 def test_plaintext_mode_when_no_master_key(app, monkeypatch):
     monkeypatch.delenv("EMS_MASTER_KEY", raising=False)
     org_crypto.clear_cache()
