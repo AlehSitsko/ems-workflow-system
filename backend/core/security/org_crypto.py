@@ -90,3 +90,47 @@ def provision_all_orgs():
     if count:
         db.session.commit()
     return count
+
+
+def rewrap_org_dek(org, target_version=None):
+    """Re-wrap the org's DEK under the newest (or a given) master-key version.
+
+    Master-key rotation is otherwise additive: a DEK wrapped under an old version
+    stays readable only while that version is retained. Re-wrapping every DEK under
+    the current version lets the old version be dropped. The DEK itself (and so all
+    field ciphertext) is unchanged — only its wrapping changes. Written with
+    ``flush`` so it commits/rolls back with the caller's transaction. Returns the new
+    version, or None when there is nothing to do.
+    """
+    if not (org.data_key_wrapped and org.data_key_version is not None):
+        return None
+    target = target_version if target_version is not None else keyring.current_master_version()
+    if target is None or target == org.data_key_version:
+        return org.data_key_version
+    dek = keyring.unwrap_dek(org.data_key_wrapped, org.data_key_version)
+    wrapped, version = keyring.wrap_dek(dek, target)
+    org.data_key_wrapped = wrapped
+    org.data_key_version = version
+    db.session.add(org)
+    db.session.flush()
+    _cache_put(org.id, version, dek)
+    return version
+
+
+def rewrap_all_orgs(target_version=None):
+    """Re-wrap every org's DEK under the newest (or given) master version.
+    No-op when no master key is configured. Returns the count re-wrapped."""
+    if not keyring.encryption_configured():
+        return 0
+    target = target_version if target_version is not None else keyring.current_master_version()
+    count = 0
+    for org in Organization.query.filter(
+        Organization.data_key_wrapped.isnot(None),
+        Organization.data_key_version.isnot(None),
+        Organization.data_key_version != target,
+    ).all():
+        if rewrap_org_dek(org, target):
+            count += 1
+    if count:
+        db.session.commit()
+    return count

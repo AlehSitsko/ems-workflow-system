@@ -73,3 +73,32 @@ def test_provision_all_orgs_backfills_only_missing(app, master):
     assert provisioned == 2
     # Re-running provisions nothing new.
     assert org_crypto.provision_all_orgs() == 0
+
+
+def test_rewrap_moves_dek_to_the_newest_master_version(app, monkeypatch):
+    v1, v2 = _master(), _master()
+    monkeypatch.setenv("EMS_MASTER_KEY", f"v1:{v1}")
+    org_crypto.clear_cache()
+    o = _org()
+    dek = org_crypto.provision_org_dek(o)
+    db.session.commit()
+    assert o.data_key_version == 1
+
+    # Add v2, then re-wrap: the version advances, the DEK (and any field ciphertext)
+    # is unchanged, and the wrapped blob differs.
+    monkeypatch.setenv("EMS_MASTER_KEY", f"v1:{v1},v2:{v2}")
+    org_crypto.clear_cache()
+    old_wrapped = o.data_key_wrapped
+    assert org_crypto.rewrap_all_orgs() == 1
+    assert o.data_key_version == 2
+    assert o.data_key_wrapped != old_wrapped
+    org_crypto.clear_cache()
+    assert org_crypto.get_org_dek(o) == dek
+
+    # Re-running is a no-op now that everything is on the newest version.
+    assert org_crypto.rewrap_all_orgs() == 0
+
+    # And v1 can now be retired without losing access.
+    monkeypatch.setenv("EMS_MASTER_KEY", f"v2:{v2}")
+    org_crypto.clear_cache()
+    assert org_crypto.get_org_dek(o) == dek

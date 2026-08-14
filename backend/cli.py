@@ -375,6 +375,28 @@ def provision_org_keys_command():
     click.echo(f"provision-org-keys: provisioned {count} organisation key(s).")
 
 
+@click.command("rewrap-org-keys")
+@with_appcontext
+def rewrap_org_keys_command():
+    """Re-wrap every organisation's data key under the newest master-key version.
+
+    Run after adding a new EMS_MASTER_KEY version, once all app instances can see it.
+    Master-key rotation is otherwise additive — a DEK wrapped under an old version
+    stays readable only while that version is retained; re-wrapping lets the old
+    version be dropped afterwards. Field ciphertext is untouched (only the wrapped
+    DEK changes), and it is safe to re-run. Requires EMS_MASTER_KEY.
+    """
+    from core.security.org_crypto import rewrap_all_orgs
+    from core.security.keyring import encryption_configured, current_master_version
+
+    if not encryption_configured():
+        click.echo("rewrap-org-keys: EMS_MASTER_KEY is not configured — nothing to do.")
+        return
+    count = rewrap_all_orgs()
+    click.echo(f"rewrap-org-keys: re-wrapped {count} organisation key(s) under "
+               f"master version {current_master_version()}.")
+
+
 @click.command("encrypt-existing-fields")
 @click.option("--yes", is_flag=True, help="Confirm you have a DB backup and want to encrypt in place.")
 @with_appcontext
@@ -428,4 +450,5 @@ def register_cli_commands(app):
     app.cli.add_command(create_platform_admin_command)
     app.cli.add_command(create_org_command)
     app.cli.add_command(provision_org_keys_command)
+    app.cli.add_command(rewrap_org_keys_command)
     app.cli.add_command(encrypt_existing_fields_command)
