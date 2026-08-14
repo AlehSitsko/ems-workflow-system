@@ -368,6 +368,13 @@ def assign_call():
                user_id=uid, user_name=uname or data.get("assigned_by"))
     db.session.commit()
 
+    # Realtime: the org's live boards refresh on an assignment change (after commit).
+    from events import bus
+    from tenant import current_org_id
+    bus.publish("dispatch.assignment_changed", current_org_id(),
+                actor_user_id=uid, entity_type="call", entity_id=call_id,
+                payload={"callId": call_id, "unitId": unit_id, "date": unit.shift_date})
+
     # Warn if the unit's vehicle can't serve what the call needs (advisory, never a
     # block): a lower care tier than required, or a missing special capability.
     mismatch = assignment_mismatch(unit, call)
@@ -525,6 +532,13 @@ def update_unit_status(unit_id):
                {"from": old_status, "to": status},
                user_id=uid, user_name=uname)
     db.session.commit()
+
+    # Realtime: the org's live boards refresh on a unit status change (after commit).
+    from events import bus
+    from tenant import current_org_id
+    bus.publish("unit.status_changed", current_org_id(),
+                actor_user_id=uid, entity_type="unit", entity_id=unit_id,
+                payload={"unitId": unit_id, "status": status, "date": unit.shift_date})
 
     ud = unit.to_dict()
     ud["crewCount"] = _crew_count(unit)

@@ -223,6 +223,20 @@ def create_call():
                user_id=_user_id_from_request(), user_name=_user_name_from_request())
     db.session.commit()
 
+    # Realtime: announce the new call to this org's live clients — AFTER the
+    # commit, so a subscriber never sees an event for a row that didn't persist.
+    # Org-scoped and free of patient PHI (the client refetches for detail).
+    from events import bus
+    from tenant import current_org_id
+    bus.publish("call.created", current_org_id(),
+                actor_user_id=_user_id_from_request(),
+                entity_type="call", entity_id=new_call.id,
+                payload={"tripDate": new_call.trip_date,
+                         "serviceLevel": new_call.service_level,
+                         "status": new_call.status,
+                         "pickup": new_call.pickup_address,
+                         "dropoff": new_call.dropoff_address})
+
     # Notify if this call is scheduled for today or tomorrow.
     from datetime import timedelta
     today = datetime.now().strftime("%Y-%m-%d")
