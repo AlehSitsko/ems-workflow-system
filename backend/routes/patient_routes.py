@@ -14,7 +14,12 @@ from core.security.encrypted_fields import encrypt_instance, index_value
 PATIENT_ROLES = ("admin", "supervisor", "dispatcher")
 
 # Sensitive Patient fields encrypted at rest: (value_attr, blind_index_attr).
-_PATIENT_ENC_FIELDS = [("member_id", "member_id_bidx")]
+# member_id is searchable (blind index); policy_number/insurance_notes are not.
+_PATIENT_ENC_FIELDS = [
+    ("member_id", "member_id_bidx"),
+    ("policy_number", None),
+    ("insurance_notes", None),
+]
 
 
 def _encrypt_patient_fields(patient):

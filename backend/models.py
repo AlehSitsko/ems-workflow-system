@@ -800,7 +800,9 @@ class Patient(db.Model):
     # blind index enables exact-match search without decryption.
     member_id = db.Column(db.Text)
     member_id_bidx = db.Column(db.String(64), index=True)
-    policy_number = db.Column(db.String(100))
+    # policy_number and insurance_notes are sensitive and encrypted at rest too
+    # (Text to hold ciphertext); not searched, so no blind index.
+    policy_number = db.Column(db.Text)
     requires_auth = db.Column(db.Boolean, default=False)
     copay_required = db.Column(db.Boolean, default=False)
     insurance_notes = db.Column(db.Text)
@@ -861,10 +863,10 @@ class Patient(db.Model):
 
             "insurance": self.insurance,
             "member_id": _decrypt_patient_field(self, "member_id"),
-            "policy_number": self.policy_number,
+            "policy_number": _decrypt_patient_field(self, "policy_number"),
             "requires_auth": self.requires_auth,
             "copay_required": self.copay_required,
-            "insurance_notes": self.insurance_notes,
+            "insurance_notes": _decrypt_patient_field(self, "insurance_notes"),
 
             "default_service_level": self.default_service_level,
             "weight": self.weight,

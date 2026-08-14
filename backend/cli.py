@@ -400,20 +400,22 @@ def encrypt_existing_fields_command(yes):
         click.echo("Refusing to run without --yes. Back up the database first, then re-run with --yes.")
         return
 
+    fields = [("member_id", "member_id_bidx"), ("policy_number", None), ("insurance_notes", None)]
     provision_all_orgs()
     org_cache, count = {}, 0
     with unfiltered():
         for patient in Patient.query.all():
-            if not patient.member_id or is_ciphertext(patient.member_id):
-                continue
+            values = [getattr(patient, f) for f, _ in fields]
+            if not any(v and not is_ciphertext(v) for v in values):
+                continue  # nothing plaintext left to encrypt on this row
             org = org_cache.get(patient.org_id)
             if org is None and patient.org_id:
                 org = Organization.query.get(patient.org_id)
                 org_cache[patient.org_id] = org
-            encrypt_instance(patient, org, "patient", [("member_id", "member_id_bidx")])
+            encrypt_instance(patient, org, "patient", fields)
             count += 1
         db.session.commit()
-    click.echo(f"encrypt-existing-fields: encrypted member_id on {count} patient(s).")
+    click.echo(f"encrypt-existing-fields: encrypted sensitive fields on {count} patient(s).")
 
 
 def register_cli_commands(app):
