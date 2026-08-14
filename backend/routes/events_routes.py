@@ -7,6 +7,7 @@ only, over plain HTTP, authenticated by the existing session cookie.
 """
 
 import json
+import os
 import queue
 
 from flask import Blueprint, Response, stream_with_context
@@ -17,9 +18,11 @@ from events import bus
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 
-# How long to wait for an event before sending a keepalive comment (keeps proxies
-# and the browser's EventSource from timing the idle connection out).
-_KEEPALIVE_SECONDS = 20
+# How long to wait for an event before sending a keepalive comment. It also bounds
+# how long a disconnected client's streaming thread stays parked (WSGI only detects
+# the dead socket on the next write), so a low value frees threads sooner. Tunable
+# via EMS_SSE_KEEPALIVE (the E2E server sets a short one to avoid thread starvation).
+_KEEPALIVE_SECONDS = int(os.environ.get("EMS_SSE_KEEPALIVE", "20"))
 
 
 def format_sse(event):

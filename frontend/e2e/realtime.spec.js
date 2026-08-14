@@ -38,4 +38,31 @@ test.describe("realtime multi-client sync (SSE)", () => {
     await ctxB.close();
     // (Cross-org isolation of the stream is proven in backend test_events.py.)
   });
+
+  test("another user's new call raises a visual notification app-wide", async ({ browser }) => {
+    // B stays on the home page — the notification engine is app-wide, not tied to
+    // the dispatch board.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB, "supervisor");
+    await pageB.waitForTimeout(1500); // let the SSE stream + prefs settle
+
+    const ctxA = await browser.newContext();
+    await ctxA.request.post("/api/auth/login", { data: ACCOUNTS.dispatcher });
+    await armCsrf(ctxA);
+    const r = await ctxA.request.post("/api/calls", {
+      data: {
+        trip_date: today(), service_level: "BLS", call_type: "scheduled",
+        pickup_address: "9 Notify Ave", dropoff_address: "200 Hospital Dr", pickup_time: "10:00",
+      },
+    });
+    expect(r.status()).toBe(201);
+
+    // A visual toast appears for B (a different user) — default prefs notify on a
+    // new call created by someone else.
+    await expect(pageB.getByText(/new call created/i)).toBeVisible({ timeout: 12_000 });
+
+    await ctxA.close();
+    await ctxB.close();
+  });
 });

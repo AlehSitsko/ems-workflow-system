@@ -1,30 +1,58 @@
 import API_BASE from "./config.js";
 
 /**
- * Open the tenant-scoped realtime stream (Server-Sent Events).
+ * A single, shared Server-Sent Events connection for the whole tab.
  *
- * `handlers` maps an event type ("call.created", …) to a callback receiving the
- * parsed event data. The connection carries the session cookie (the server scopes
- * the stream to the caller's organisation); EventSource auto-reconnects on a
- * network drop. Returns a function that closes the stream.
+ * Every subscriber (the app-wide notification engine, the Dispatch Board, …)
+ * multiplexes over ONE EventSource rather than opening its own — one SSE
+ * connection per client instead of several, which keeps the server's connection
+ * (thread) usage proportional to users, not to open components. The connection is
+ * tenant-scoped and authenticated server-side by the session cookie; it opens on
+ * the first subscribe and closes when the last subscriber leaves.
  */
-export function openEventStream(handlers = {}, { onOpen, onError } = {}) {
-  // EventSource is absent in non-browser environments (SSR, jsdom tests) — no-op
-  // there so subscribing components stay safe.
-  if (typeof EventSource === "undefined") return () => {};
 
-  const url = `${API_BASE}/api/events/stream`;
-  const es = new EventSource(url, { withCredentials: true });
-  if (onOpen) es.addEventListener("open", onOpen);
-  if (onError) es.addEventListener("error", onError);
+const listeners = new Map(); // event type -> Set<fn(data, ev)>
+let es = null;
 
+function connect() {
+  if (es || typeof EventSource === "undefined") return; // no-op under jsdom/SSR
+  es = new EventSource(`${API_BASE}/api/events/stream`, { withCredentials: true });
+}
+
+function attach(type) {
+  es.addEventListener(type, (ev) => {
+    let data = null;
+    try { data = JSON.parse(ev.data); } catch { data = null; }
+    for (const fn of listeners.get(type) || []) fn(data, ev);
+  });
+}
+
+/**
+ * Subscribe a set of handlers ({ type: fn }) to the shared stream. Returns an
+ * unsubscribe function; the shared connection is closed once no handlers remain.
+ */
+export function subscribe(handlers = {}) {
+  connect();
   for (const [type, fn] of Object.entries(handlers)) {
-    es.addEventListener(type, (ev) => {
-      let data = null;
-      try { data = JSON.parse(ev.data); } catch { data = null; }
-      fn(data, ev);
-    });
+    if (!listeners.has(type)) {
+      listeners.set(type, new Set());
+      if (es) attach(type);
+    }
+    listeners.get(type).add(fn);
   }
 
-  return () => es.close();
+  return () => {
+    for (const [type, fn] of Object.entries(handlers)) {
+      listeners.get(type)?.delete(fn);
+    }
+    const empty = [...listeners.values()].every((s) => s.size === 0);
+    if (empty && es) {
+      es.close();
+      es = null;
+      listeners.clear();
+    }
+  };
 }
+
+// Backwards-compatible alias.
+export const openEventStream = subscribe;
