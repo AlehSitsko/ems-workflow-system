@@ -59,6 +59,7 @@ from routes.pto_routes import pto_bp
 from routes.holiday_routes import holiday_bp
 from routes.invitation_routes import invitation_bp
 from routes.org_security_routes import org_security_bp
+from routes.events_routes import events_bp
 
 
 # All API blueprints, registered in order by the factory.
@@ -67,7 +68,7 @@ BLUEPRINTS = [
     call_bp, analytics_bp, dispatch_bp, notif_bp, time_bp, payroll_bp,
     doc_bp, audit_bp, settings_bp, task_bp, calendar_bp, taxonomy_bp, leave_bp, operations_bp, recurring_bp,
     reports_bp, calendar_event_bp, portal_bp, platform_bp, tenant_bp,
-    pto_bp, holiday_bp, invitation_bp, org_security_bp,
+    pto_bp, holiday_bp, invitation_bp, org_security_bp, events_bp,
 ]
 
 

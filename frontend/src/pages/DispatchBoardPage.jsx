@@ -52,6 +52,7 @@ import { usePanelResize, DEFAULT_LEFT_WIDTH, DEFAULT_BOTTOM_HEIGHT } from "../ho
 import { useOverdueDetection } from "../hooks/useOverdueDetection";
 import { useCallPriority } from "../hooks/useCallPriority";
 import { useUnitFormValidation } from "../hooks/useUnitFormValidation";
+import { useOrgEvents } from "../hooks/useOrgEvents";
 
 // ── Crew Planner constants ─────────────────────────────────────────────────
 
@@ -194,6 +195,15 @@ export default function DispatchBoardPage() {
     const interval = setInterval(() => loadBoard(date, true), 30_000);
     return () => clearInterval(interval);
   }, [mode, date, loadBoard]);
+
+  // Realtime: refresh instantly when another client in this org creates a call,
+  // changes an assignment, or advances a unit's status — no manual refresh, and
+  // ahead of the 30 s poll. The stream is tenant-scoped server-side.
+  useOrgEvents({
+    "call.created": () => loadBoard(date, true),
+    "dispatch.assignment_changed": () => loadBoard(date, true),
+    "unit.status_changed": () => loadBoard(date, true),
+  });
 
   // ── Drag & drop ────────────────────────────────────────────────────────
 
