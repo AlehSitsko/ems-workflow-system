@@ -22,6 +22,7 @@ import UserManagementPage from "./pages/UserManagementPage";
 import NotificationSettingsPage from "./pages/NotificationSettingsPage";
 import KioskPage from "./pages/KioskPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import NotificationsListener from "./components/NotificationsListener";
 import PayrollPage from "./pages/PayrollPage";
 import ComplianceDashboardPage from "./pages/ComplianceDashboardPage";
 import AuditLogPage from "./pages/AuditLogPage";
@@ -411,7 +412,13 @@ function App() {
         // the cross-org console instead of the router.
         <PlatformConsolePage currentUser={currentUser} onLogout={handleLogout} />
       ) : (
-        <RouterProvider router={router} />
+        <>
+          {/* App-wide realtime notification engine (visual + sound). Mounted only
+              when signed in, so its SSE connects with a session (mounting while
+              logged out would open an unauthenticated stream that never recovers). */}
+          {currentUser && <NotificationsListener currentUser={currentUser} />}
+          <RouterProvider router={router} />
+        </>
       )}
     </UserSettingsProvider>
     </ConfirmProvider>

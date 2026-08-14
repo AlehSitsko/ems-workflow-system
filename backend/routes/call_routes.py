@@ -233,6 +233,7 @@ def create_call():
                 entity_type="call", entity_id=new_call.id,
                 payload={"tripDate": new_call.trip_date,
                          "serviceLevel": new_call.service_level,
+                         "callType": new_call.call_type,
                          "status": new_call.status,
                          "pickup": new_call.pickup_address,
                          "dropoff": new_call.dropoff_address})

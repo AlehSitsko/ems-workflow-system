@@ -19,6 +19,10 @@ import os
 
 def build_app(db_path):
     os.environ["EMS_QA"] = "1"  # marks /api/health qa_mode, disables nothing else
+    # Short SSE keepalive so a disconnected test client's streaming thread frees
+    # quickly (tests open/close many sessions serially; a 20 s park would starve
+    # the thread pool).
+    os.environ.setdefault("EMS_SSE_KEEPALIVE", "2")
 
     from app import create_app
     from models import db, User
@@ -70,7 +74,9 @@ def main():
     app = build_app(args.db)
     from waitress import serve
     print(f"[e2e_server] serving on http://127.0.0.1:{args.port}", flush=True)
-    serve(app, host="127.0.0.1", port=args.port, threads=8, _quiet=True)
+    # Extra threads: SSE connections each hold a thread, and the suite opens
+    # several client sessions; headroom keeps normal requests from queueing.
+    serve(app, host="127.0.0.1", port=args.port, threads=24, _quiet=True)
 
 
 if __name__ == "__main__":
