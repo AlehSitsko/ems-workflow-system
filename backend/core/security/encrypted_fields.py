@@ -16,10 +16,22 @@ row's identity; it never touches keys or picks an algorithm.
 """
 
 from core.security import crypto, org_crypto, blind_index
+from core.security.keyring import KeyManagementError
 
 
 def _org_id(org):
     return getattr(org, "id", org)
+
+
+def _dek_for_read(org):
+    """The org DEK for a read/search, or None when it cannot be recovered — no key
+    configured *or* the master-key version that wrapped it is unavailable (e.g. an
+    old version retired before the DEK was re-wrapped). A read must degrade to None,
+    never raise, so an unreadable field can't turn into a 500."""
+    try:
+        return org_crypto.get_org_dek(org, provision=False)
+    except KeyManagementError:
+        return None
 
 
 def field_aad(org, entity_type, entity_id, field):
@@ -46,7 +58,7 @@ def decrypt_value(stored, org, entity_type, entity_id, field):
         return None
     if not crypto.is_ciphertext(stored):
         return stored  # legacy / plaintext value
-    dek = org_crypto.get_org_dek(org, provision=False)
+    dek = _dek_for_read(org)
     if dek is None:
         return None  # can't decrypt without the key; never leak the token
     return crypto.decrypt(stored, dek, field_aad(org, entity_type, entity_id, field))
@@ -79,7 +91,7 @@ def index_value(value, org, entity_type, field):
     plaintext mode (search then falls back to the value column)."""
     if value is None or value == "":
         return None
-    dek = org_crypto.get_org_dek(org, provision=False)
+    dek = _dek_for_read(org)
     if dek is None:
         return None
     return blind_index.blind_index(value, dek, scope=f"{entity_type}|{field}")

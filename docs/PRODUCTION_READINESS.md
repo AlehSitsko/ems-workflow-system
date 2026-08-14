@@ -340,3 +340,17 @@ Runtime tenant isolation filters every SELECT of an org-owning entity, but a chi
 - **Patient contact** — `PUT`/`DELETE …/contacts/<id>`.
 
 Each now resolves through an org-filtered parent (`Employee` / `Vehicle` / `Call` / `Patient` via `filter_by(id=…).first()`) and returns 404 when the parent is not in the caller's organisation. Org-scoped `.get(pk)` itself was confirmed to be correctly filtered per request — the leaks were only the org-less children reached without their parent. Regression tests: `test_tenant_isolation.py` (+5, each red before the fix).
+
+### Adversarial security pass (consolidated)
+
+A single attacker's-eye suite, `test_security_adversarial.py`, runs the multi-tenant / crypto / identity / realtime surface as attacks that must fail, and maps each scenario to where it is proven (this suite or the dedicated file). New cross-cutting attacks pinned down here:
+
+- **`org_id` injection on create** — an admin posting `org_id`/`organization_id` for another org in the create body is ignored; the tenant write-stamp lands the row in the caller's org, and the target org still 404s it.
+- **Ciphertext relocation (AAD binding)** — a field ciphertext moved (via direct DB write) into another org's row, or into a different field of the same row, fails to decrypt and reads back as `None` — never the original plaintext, never the raw token, never a 500.
+- **Stolen DB without the key** — with the master key gone, every encrypted field reads as `None`; the ciphertext is inert.
+- **Master-key rotation** — adding a new master version keeps existing (old-version-wrapped) DEKs readable with no field re-encryption, and newly provisioned orgs wrap under the newest version. Retiring an old version before re-wrapping the DEKs it protected makes those fields unrecoverable — so old versions must be retained until a re-wrap. A hardening fix landed here: an unrecoverable DEK (missing master version) now degrades a *read* to `None` (`encrypted_fields._dek_for_read` swallows `KeyManagementError`) instead of surfacing a 500.
+- **Realtime isolation** — a subscriber of one org never receives another org's published events at the bus.
+- **Invite escalation** — an invitee posting `role`/`org_id`/`is_owner`/`is_platform_admin` at accept time is bound to the token's role and org; the client-supplied privilege fields are ignored.
+- **Concurrent edit contract** — two editors of the same row both succeed with last-write-wins (advisory concurrency, matching the app's warn-not-block philosophy); neither corrupts the row nor leaks across the tenant boundary.
+
+**Remaining enhancement:** a DEK re-wrap command (re-wrap every org's data key under the newest master version) so a retired master version can be dropped without data loss — today rotation is additive (keep old versions to read old DEKs).
