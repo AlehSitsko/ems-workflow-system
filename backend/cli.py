@@ -357,6 +357,24 @@ def create_org_command(slug, name, admin_user, admin_pass):
     click.echo(f"create-org: created {slug!r} ({name!r}) with admin {admin_user!r}")
 
 
+@click.command("provision-org-keys")
+@with_appcontext
+def provision_org_keys_command():
+    """Provision an envelope data key (DEK) for every organisation that lacks one.
+
+    Requires EMS_MASTER_KEY to be configured; a no-op otherwise. Safe to re-run —
+    only orgs without a key are touched.
+    """
+    from core.security.org_crypto import provision_all_orgs
+    from core.security.keyring import encryption_configured
+
+    if not encryption_configured():
+        click.echo("provision-org-keys: EMS_MASTER_KEY is not configured — nothing to do.")
+        return
+    count = provision_all_orgs()
+    click.echo(f"provision-org-keys: provisioned {count} organisation key(s).")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
@@ -366,3 +384,4 @@ def register_cli_commands(app):
     app.cli.add_command(link_crew_units_to_vehicles_command)
     app.cli.add_command(create_platform_admin_command)
     app.cli.add_command(create_org_command)
+    app.cli.add_command(provision_org_keys_command)
