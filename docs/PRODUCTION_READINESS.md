@@ -250,11 +250,33 @@ The app code is ready; standing it up multi-tenant is configuration and infra:
 
 ## File storage
 
-**Current state:** local filesystem, behind a storage abstraction (`backend/storage.py`).
+**Current state:** a storage-provider abstraction (`backend/storage.py`) with two
+implementations, selected at runtime — no change required outside this file:
 
-**Production plan:**
-- Swap the implementation for `boto3`/S3 — no changes required outside `storage.py`
-- Config via environment: `STORAGE_BACKEND`, `S3_BUCKET`, AWS credentials
+- **Local** (default, `EMS_STORAGE` unset or `local`): files under the Flask instance
+  dir. Standalone/desktop and dev need no external infrastructure.
+- **S3-compatible** (`EMS_STORAGE=s3`): AWS S3, MinIO, or any S3 API, for multi-instance
+  server deployments. `boto3` is an optional prod dependency, imported lazily so the
+  local/desktop profile never needs it.
+
+**Security properties (both providers):**
+- The object key is generated **server-side** and org-scoped —
+  `organizations/{org_id}/employees/{employee_id}/{uuid}.ext` — never taken from the
+  client, and validated against path escapes before use.
+- Downloads always go through **auth → tenant scope → role** in the route *before*
+  storage is touched; the S3 provider streams the object through the app rather than
+  handing out public or presigned URLs. Files are served as an attachment with
+  `nosniff` (neutralises stored XSS from an uploaded `.html`/`.svg`).
+- Upload, download, and delete of a document each emit an audit event
+  (`document.uploaded` / `document.downloaded` / `document.deleted`).
+
+**Config via environment (S3 mode):** `EMS_STORAGE=s3`, `EMS_S3_BUCKET`,
+`EMS_S3_ENDPOINT_URL` (for MinIO / non-AWS), `EMS_S3_REGION`, plus standard AWS
+credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, read by boto3).
+
+**Still to do:** migrate existing locally-stored files into the bucket when switching a
+running deployment from local to S3 (new deployments start clean); verify against a live
+S3/MinIO endpoint (the provider is unit-tested against a fake boto3 client).
 
 ## Deployment
 
