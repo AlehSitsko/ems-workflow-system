@@ -14,8 +14,13 @@ const ORIGIN = `http://127.0.0.1:${PORT}`;
 const APP_URL = `${ORIGIN}/ems-workflow-system/`;
 
 const DIST = path.join(__dirname, "dist");
-const PY = path.join(
-  REPO, "backend", "venv", "Scripts",
+// The backend interpreter for the disposable e2e_server. Overridable via
+// EMS_E2E_PYTHON (CI points it at the job's venv); otherwise the repo venv, using
+// the correct per-platform layout (Windows: venv\Scripts\python.exe, POSIX:
+// venv/bin/python).
+const PY = process.env.EMS_E2E_PYTHON || path.join(
+  REPO, "backend", "venv",
+  process.platform === "win32" ? "Scripts" : "bin",
   process.platform === "win32" ? "python.exe" : "python",
 );
 // A fresh temp DB per run; global-teardown removes the whole dir.
