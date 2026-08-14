@@ -52,6 +52,28 @@ def decrypt_value(stored, org, entity_type, entity_id, field):
     return crypto.decrypt(stored, dek, field_aad(org, entity_type, entity_id, field))
 
 
+def encrypt_instance(instance, org, entity_type, fields):
+    """Encrypt named plaintext fields on an instance in place (single-column model)
+    and set their blind-index columns. ``fields`` is a list of
+    ``(value_attr, index_attr|None)``. Values already ciphertext are skipped (so an
+    unchanged field on update is not double-encrypted). Call after the row has an id
+    so the AAD can bind it."""
+    entity_id = getattr(instance, "id", None)
+    for value_attr, index_attr in fields:
+        pt = getattr(instance, value_attr, None)
+        if pt is None or pt == "" or crypto.is_ciphertext(pt):
+            continue
+        setattr(instance, value_attr, encrypt_value(pt, org, entity_type, entity_id, value_attr))
+        if index_attr:
+            setattr(instance, index_attr, index_value(pt, org, entity_type, value_attr))
+
+
+def read_instance_field(instance, org, entity_type, value_attr):
+    """Decrypt one field of an instance (or pass plaintext through)."""
+    return decrypt_value(getattr(instance, value_attr, None), org, entity_type,
+                         getattr(instance, "id", None), value_attr)
+
+
 def index_value(value, org, entity_type, field):
     """The blind index for a plaintext value, for exact-match search — or None in
     plaintext mode (search then falls back to the value column)."""

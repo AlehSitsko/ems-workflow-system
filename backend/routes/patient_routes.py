@@ -2,14 +2,28 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Patient, Call, PatientAlert, PatientContact
+from models import db, Patient, Call, PatientAlert, PatientContact, Organization
 from audit_utils import log_action
 from utils.validation_utils import check_length
 from utils.taxonomy import canonicalize_or_keep, normalize_service_level
 from utils.auth_utils import get_request_user_id, get_request_user_name, require_role
+from core.security.keyring import encryption_configured
+from core.security.encrypted_fields import encrypt_instance, index_value
 
 # Patients are PHI: admin, supervisor and dispatcher only — never HR.
 PATIENT_ROLES = ("admin", "supervisor", "dispatcher")
+
+# Sensitive Patient fields encrypted at rest: (value_attr, blind_index_attr).
+_PATIENT_ENC_FIELDS = [("member_id", "member_id_bidx")]
+
+
+def _encrypt_patient_fields(patient):
+    """Encrypt the patient's sensitive fields in place (a no-op when no master key
+    is configured). Call after the row has an id so the AAD can bind it."""
+    if not encryption_configured():
+        return
+    org = Organization.query.get(patient.org_id) if patient.org_id else None
+    encrypt_instance(patient, org, "patient", _PATIENT_ENC_FIELDS)
 
 
 def _audit_user():
@@ -215,6 +229,7 @@ def create_patient():
 
     db.session.add(new_patient)
     db.session.flush()
+    _encrypt_patient_fields(new_patient)  # id now known → AAD can bind it
     uid, uname = _audit_user()
     log_action("patient.created", "patient", new_patient.id,
                f"{new_patient.last_name}, {new_patient.first_name}",
@@ -289,6 +304,7 @@ def update_patient(id):
     for key, value in data.items():
         if key in ALLOWED_FIELDS:
             setattr(patient, key, value)
+    _encrypt_patient_fields(patient)  # re-encrypt any changed sensitive fields
 
     uid, uname = _audit_user()
     log_action("patient.updated", "patient", patient.id,

@@ -375,6 +375,47 @@ def provision_org_keys_command():
     click.echo(f"provision-org-keys: provisioned {count} organisation key(s).")
 
 
+@click.command("encrypt-existing-fields")
+@click.option("--yes", is_flag=True, help="Confirm you have a DB backup and want to encrypt in place.")
+@with_appcontext
+def encrypt_existing_fields_command(yes):
+    """Encrypt existing plaintext sensitive fields in place (Patient.member_id).
+
+    Requires EMS_MASTER_KEY; provisions org keys first. Idempotent — values already
+    ciphertext are skipped, so the plaintext source is only ever read, and a value
+    is never destroyed (it is replaced by its own ciphertext). BACK UP THE DATABASE
+    FIRST, then pass --yes.
+    """
+    from core.security.keyring import encryption_configured
+    from core.security.crypto import is_ciphertext
+    from core.security.encrypted_fields import encrypt_instance
+    from core.security.org_crypto import provision_all_orgs
+    from tenant import unfiltered
+    from models import Patient
+
+    if not encryption_configured():
+        click.echo("encrypt-existing-fields: EMS_MASTER_KEY is not configured — nothing to do.")
+        return
+    if not yes:
+        click.echo("Refusing to run without --yes. Back up the database first, then re-run with --yes.")
+        return
+
+    provision_all_orgs()
+    org_cache, count = {}, 0
+    with unfiltered():
+        for patient in Patient.query.all():
+            if not patient.member_id or is_ciphertext(patient.member_id):
+                continue
+            org = org_cache.get(patient.org_id)
+            if org is None and patient.org_id:
+                org = Organization.query.get(patient.org_id)
+                org_cache[patient.org_id] = org
+            encrypt_instance(patient, org, "patient", [("member_id", "member_id_bidx")])
+            count += 1
+        db.session.commit()
+    click.echo(f"encrypt-existing-fields: encrypted member_id on {count} patient(s).")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
@@ -385,3 +426,4 @@ def register_cli_commands(app):
     app.cli.add_command(create_platform_admin_command)
     app.cli.add_command(create_org_command)
     app.cli.add_command(provision_org_keys_command)
+    app.cli.add_command(encrypt_existing_fields_command)

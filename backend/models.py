@@ -756,6 +756,26 @@ class CrewPreset(db.Model):
         }
 
 
+def _decrypt_patient_field(patient, field):
+    """Return the plaintext of an encrypted Patient field for output.
+
+    Plaintext values (encryption off, or legacy rows) pass straight through with no
+    key work. A ciphertext value is decrypted with the patient's org key; a value
+    that cannot be decrypted (missing key or tamper) returns None rather than a raw
+    token, so the API never leaks ciphertext or crashes serialization.
+    """
+    value = getattr(patient, field, None)
+    from core.security.crypto import is_ciphertext, DecryptionError
+    if not is_ciphertext(value):
+        return value
+    from core.security.encrypted_fields import read_instance_field
+    try:
+        org = Organization.query.get(patient.org_id) if patient.org_id else None
+        return read_instance_field(patient, org, "patient", field)
+    except DecryptionError:
+        return None
+
+
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -775,7 +795,11 @@ class Patient(db.Model):
 
     # Insurance information.
     insurance = db.Column(db.String(150))
-    member_id = db.Column(db.String(100))
+    # member_id is a sensitive identifier: at rest it holds ciphertext when a master
+    # key is configured (else plaintext), so it is Text (ciphertext is longer). Its
+    # blind index enables exact-match search without decryption.
+    member_id = db.Column(db.Text)
+    member_id_bidx = db.Column(db.String(64), index=True)
     policy_number = db.Column(db.String(100))
     requires_auth = db.Column(db.Boolean, default=False)
     copay_required = db.Column(db.Boolean, default=False)
@@ -836,7 +860,7 @@ class Patient(db.Model):
             "zip_code": self.zip_code,
 
             "insurance": self.insurance,
-            "member_id": self.member_id,
+            "member_id": _decrypt_patient_field(self, "member_id"),
             "policy_number": self.policy_number,
             "requires_auth": self.requires_auth,
             "copay_required": self.copay_required,
