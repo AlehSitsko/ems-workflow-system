@@ -15,6 +15,12 @@ class Organization(db.Model):
     created_at = db.Column(db.String(50))
     settings_json = db.Column(db.Text)  # reserved for future per-org config (timezone, logo, etc.)
 
+    # Envelope encryption: the organisation's data key (DEK), stored WRAPPED by the
+    # master key (never plaintext), plus the master-key version used to wrap it.
+    # Null until the org is provisioned (encryption is opt-in via EMS_MASTER_KEY).
+    data_key_wrapped = db.Column(db.Text)
+    data_key_version = db.Column(db.Integer)
+
     def to_dict(self):
         return {
             "id": self.id,
