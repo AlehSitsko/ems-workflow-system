@@ -1,0 +1,63 @@
+"""Field-level encryption bound to a trusted organisation context.
+
+Wraps the pure crypto (crypto.py) with the org data key (org_crypto.py) and builds
+the AAD that binds each ciphertext to its exact context — org | entity_type |
+entity_id | field — so a ciphertext can never be silently moved between
+organisations, entity types, rows or fields.
+
+Storage model: the same column holds *either* ciphertext (when a master key is
+configured) *or* plaintext (local/standalone, or an existing dev DB). `is_ciphertext`
+distinguishes them on read, so migration is a one-way in-place encrypt with no
+schema churn. A separate blind-index column (see index_value) enables exact-match
+search without decryption.
+
+Domain code calls encrypt_value / decrypt_value / index_value with the org and the
+row's identity; it never touches keys or picks an algorithm.
+"""
+
+from core.security import crypto, org_crypto, blind_index
+
+
+def _org_id(org):
+    return getattr(org, "id", org)
+
+
+def field_aad(org, entity_type, entity_id, field):
+    return f"org={_org_id(org)}|entity={entity_type}|id={entity_id}|field={field}"
+
+
+def encrypt_value(value, org, entity_type, entity_id, field, *, provision=True):
+    """Return the value to store: ciphertext when encryption is configured, else
+    the plaintext unchanged (single-column model). Call after the row has an id so
+    the AAD can bind it."""
+    if value is None or value == "":
+        return value
+    dek = org_crypto.get_org_dek(org, provision=provision)
+    if dek is None:
+        return value  # plaintext mode
+    return crypto.encrypt(value, dek, field_aad(org, entity_type, entity_id, field))
+
+
+def decrypt_value(stored, org, entity_type, entity_id, field):
+    """Return the plaintext for a stored value. Passes legacy plaintext through
+    untouched; decrypts ciphertext (raising DecryptionError on tamper/context
+    mismatch); returns None if it is ciphertext but no key is available."""
+    if stored is None:
+        return None
+    if not crypto.is_ciphertext(stored):
+        return stored  # legacy / plaintext value
+    dek = org_crypto.get_org_dek(org, provision=False)
+    if dek is None:
+        return None  # can't decrypt without the key; never leak the token
+    return crypto.decrypt(stored, dek, field_aad(org, entity_type, entity_id, field))
+
+
+def index_value(value, org, entity_type, field):
+    """The blind index for a plaintext value, for exact-match search — or None in
+    plaintext mode (search then falls back to the value column)."""
+    if value is None or value == "":
+        return None
+    dek = org_crypto.get_org_dek(org, provision=False)
+    if dek is None:
+        return None
+    return blind_index.blind_index(value, dek, scope=f"{entity_type}|{field}")
