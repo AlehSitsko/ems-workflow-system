@@ -83,6 +83,22 @@ def test_search_by_member_id_uses_the_blind_index(app, master):
     assert ca.get("/api/patients?member_id=MEM-000").get_json()["items"] == []
 
 
+def test_policy_number_and_insurance_notes_are_encrypted(app, master):
+    org_id = _org()
+    ca = _admin_in(app, org_id)
+    resp = ca.post("/api/patients", json={"first_name": "P", "last_name": "N",
+                                          "policy_number": "POL-555",
+                                          "insurance_notes": "sensitive coverage note"})
+    pid = resp.get_json()["id"]
+    from tenant import unfiltered
+    with unfiltered():
+        p = db.session.get(Patient, pid)
+        assert is_ciphertext(p.policy_number) and is_ciphertext(p.insurance_notes)
+    body = ca.get(f"/api/patient/{pid}").get_json()
+    assert body["policy_number"] == "POL-555"
+    assert body["insurance_notes"] == "sensitive coverage note"
+
+
 def test_plaintext_mode_when_no_master_key(app, monkeypatch):
     monkeypatch.delenv("EMS_MASTER_KEY", raising=False)
     org_crypto.clear_cache()
