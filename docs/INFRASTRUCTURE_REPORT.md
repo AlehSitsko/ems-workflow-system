@@ -1,0 +1,157 @@
+# Infrastructure Evolution — Consolidated Report
+
+Status of the client/server infrastructure work that grew EMS Workflow System from a
+mostly-local app into a multi-user, multi-tenant system **without giving up the
+standalone/local deployment**. The guiding rule throughout: *extend what already works
+with the minimum necessary architectural change; do not rewrite it.*
+
+Legend: **Implemented** = shipped with tests. **Experimental** = implemented, but not
+yet verified against live external infrastructure. **Planned** = designed, not built.
+
+---
+
+## Phase 0 — Architecture audit
+
+**Implemented.** Established the seams the later phases build on: the Flask app-factory
+with ~30 blueprints, SQLAlchemy models, SQLite (dev/standalone) vs PostgreSQL (server)
+selected by `DATABASE_URL`, and the existing `storage.py` / `audit_utils.py` /
+notification abstractions. No rewrite — every later phase attaches to these.
+
+## Phase 1 — Server foundation & tenant isolation
+
+**Implemented.** Runtime tenant isolation in `tenant.py`: a `do_orm_execute` hook adds
+`WHERE org_id = :current_org` to every SELECT of an org-owning entity, and a
+`before_flush` hook write-stamps `org_id` on new rows from the trusted request context.
+`current_org_id()` lives in request-scoped `g`; `ORG_SCOPED_MODELS` lists the covered
+models; `unfiltered()` is the audited escape hatch for cross-org ops.
+
+- **Gate:** cross-tenant tests are exhaustive — `test_tenant_isolation.py` covers
+  list/get/mutation scoping, org write-stamping, audit-log scoping, and (the subtle
+  one) org-less child rows reached by id, which must resolve through their org-owning
+  parent. `test_security_adversarial.py` adds `org_id`-injection-on-create.
+- **Postgres:** `DATABASE_URL`-driven, Flask-Migrate/Alembic migrations, a
+  SQLite→Postgres data-copy script (tested). CI validates the prod compose.
+
+## Phase 2 — Identity, onboarding & continuity
+
+**Implemented.**
+- **Invite-only onboarding** (`invitation_routes.py`): admin creates an invitation;
+  only the SHA-256 **hash** of the token is stored; accept is one-time, and the new
+  user's **org and role come from the token**, never the client body. Replay, expired,
+  revoked, and bad-token paths are all tested, plus role/org tamper.
+- **Sessions** — per-device `UserSession` registry with revocation; disabling a user or
+  changing their role takes effect on the next request; subdomain↔session binding.
+- **Owner continuity & recovery** (`org_security_routes.py`) — org **recovery codes**
+  (hashed, one-time, org-scoped, shown once); a public emergency redeem restores an
+  admin/owner account and revokes all of that org's sessions.
+
+## Phase 3 — Event infrastructure
+
+**Implemented (single-process).** `events.py` — an in-memory, org-scoped domain event
+bus (`subscribe`/`unsubscribe`/`publish`); bounded per-subscriber queues drop for a
+slow client rather than blocking publishers. Delivery is isolated per org.
+`events_routes.py` streams it over **SSE** (`/api/events/stream`), tenant-scoped from
+the session, publishing after commit.
+
+- **Isolation** proven at the bus (`test_events.py`, `test_security_adversarial.py`).
+- **Seam:** the `subscribe`/`publish` surface is the drop-in point for a Redis-backed
+  broker when scaling past one worker — domain code would not change. Multi-worker
+  fan-out is **Planned**.
+
+## Phase 4 — Notification engine
+
+**Implemented.** Event → rules → org policy → user preferences → visual/sound, with
+quiet-hours / DND and own-action suppression (you don't get pinged for your own edit).
+Web-Audio synthesised tones; per-user rule config in the frontend. Rules logic is unit
+tested (`notificationRules.test.js`).
+
+## Phase 5 — Field-level encryption at rest
+
+**Implemented.** AEAD field encryption bound to a trusted org context.
+- **Crypto** (`core/security/crypto.py`): AES-256-GCM, `scheme:nonce:ct` tokens,
+  `DecryptionError` on tamper/wrong-key/wrong-AAD.
+- **Envelope keys** (`keyring.py` + `org_crypto.py`): a master key wraps a per-org DEK;
+  the master key is **never** in the DB; DEKs are cached per process. Not tied to any
+  user, owner, or device.
+- **AAD binding** (`encrypted_fields.py`): every ciphertext is bound to
+  `org | entity_type | entity_id | field`, so it can't be silently relocated across
+  orgs, rows, or fields.
+- **Blind index**: a keyed HMAC column enables exact-match search without decryption.
+- **Single-column storage model**: a field holds ciphertext *or* plaintext
+  (`is_ciphertext` distinguishes), so enabling encryption needs no plaintext-drop
+  migration, and no master key = plaintext mode (keeps local/standalone working).
+- **Applied to** `Patient.member_id` (+ blind index), `policy_number`,
+  `insurance_notes`. Backfill via `flask encrypt-existing-fields` — backup-first,
+  idempotent, never destroys plaintext (replaces it with its own ciphertext).
+- **Master-key rotation is complete end to end:** add a new `EMS_MASTER_KEY` version →
+  `flask rewrap-org-keys` re-wraps every org DEK under it → the old version can be
+  dropped. A read whose wrapping version is unavailable degrades to `None`, never a 500.
+- **Tests:** `test_crypto.py`, `test_org_crypto.py` (incl. rewrap), `test_encrypted_fields.py`,
+  `test_patient_encryption.py`, plus the adversarial relocation/rotation/stolen-DB cases.
+
+## Phase 6 — Object storage
+
+**Implemented (Local); Experimental (S3).** `storage.py` is now a provider abstraction
+selected at runtime — switching backends touches only this file:
+- **LocalStorageProvider** (default): files under the Flask instance dir; standalone and
+  desktop need no external infra. **Implemented + tested.**
+- **S3StorageProvider** (`EMS_STORAGE=s3`): AWS S3 / MinIO / any S3 API; `boto3` is an
+  optional prod dependency imported lazily. Downloads are streamed **through the app**
+  (auth stays in the request path) — no public or presigned URLs for sensitive docs.
+  **Implemented + unit-tested against a fake boto3;** live-endpoint verification and the
+  local→S3 file migration for an existing deployment are the remaining bits.
+
+Both providers: object keys are **server-generated and org-scoped**
+(`organizations/{org_id}/employees/{employee_id}/{uuid}.ext`), never client-supplied,
+validated against path escapes. Downloads are attachment-only with `nosniff`.
+Upload/download/delete each emit an audit event (`document.uploaded` / `.downloaded` /
+`.deleted`) into the **existing** audit log — no second audit trail.
+
+**Env:** `EMS_STORAGE=s3`, `EMS_S3_BUCKET`, `EMS_S3_ENDPOINT_URL` (MinIO/non-AWS),
+`EMS_S3_REGION`, plus standard AWS credentials.
+
+## Phase 7 — Adversarial security pass
+
+**Implemented.** `test_security_adversarial.py` runs the multi-tenant / crypto /
+identity / realtime surface as attacks that must fail, mapping each scenario to where
+it is proven. Cross-cutting attacks pinned here: `org_id` injection on create;
+ciphertext relocation across org/field (AAD); stolen DB without the key; master-key
+rotation (incl. the read-path hardening it surfaced); realtime cross-org isolation;
+invite privilege escalation; and the concurrent-edit (last-write-wins) contract. See
+the "Adversarial security pass" subsection in [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
+
+---
+
+## Standalone/local invariant
+
+Every phase preserves the local, single-tenant, no-infrastructure deployment:
+- No `DATABASE_URL` → SQLite; no `EMS_MASTER_KEY` → plaintext fields; no `EMS_STORAGE`
+  → local files; the event bus/SSE run in-process. The desktop (Electron + PyInstaller)
+  build is unaffected.
+
+## Environment variables (server profile)
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL DSN (unset → SQLite) |
+| `EMS_MASTER_KEY` | Envelope master key(s), e.g. `v1:<b64>,v2:<b64>` (unset → plaintext) |
+| `EMS_STORAGE` | `local` (default) or `s3` |
+| `EMS_S3_BUCKET` / `EMS_S3_ENDPOINT_URL` / `EMS_S3_REGION` | S3 provider config |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S3 credentials (read by boto3) |
+| `EMS_SSE_KEEPALIVE` | SSE keepalive interval (s) |
+
+## Operational CLI
+
+`flask provision-org-keys` · `flask rewrap-org-keys` · `flask encrypt-existing-fields --yes`
+· `flask create-org` · `flask create-platform-admin`
+
+## Remaining / planned
+
+- **Redis-backed event broker** for multi-worker SSE fan-out (the bus seam is ready).
+- **Live S3/MinIO verification** and a **local→S3 migration** for an existing deployment.
+- **TLS termination** in front of the prod Nginx (stack expects to sit behind it).
+
+## Test posture
+
+Full backend suite **979 passed** at the time of this report; frontend Vitest and
+Playwright E2E (disposable migrated+seeded backend) cover the UI and realtime paths.

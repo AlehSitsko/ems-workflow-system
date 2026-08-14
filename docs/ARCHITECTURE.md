@@ -14,7 +14,7 @@ ems-workflow-system/
 │   ├── app.py                            (Flask app factory, blueprint registration, default-user seeding)
 │   ├── models.py                         (all SQLAlchemy models — 1,137 lines, largest backend file)
 │   ├── limiter.py                        (Flask-Limiter setup)
-│   ├── storage.py                        (file storage abstraction — local filesystem now, S3-ready)
+│   ├── storage.py                        (storage-provider abstraction — Local default, S3-compatible via EMS_STORAGE=s3)
 │   ├── notification_utils.py             (in-app + push notification creation, role-based + single-user delivery)
 │   ├── audit_utils.py                    (global audit log writer)
 │   ├── settings_utils.py                 (per-user settings blob: load/save/deep-merge)
