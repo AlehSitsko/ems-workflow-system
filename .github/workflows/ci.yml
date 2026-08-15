@@ -95,7 +95,7 @@ jobs:
           retention-days: 7
 
   docker:
-    name: Docker (build dev + prod images)
+    name: Docker (build images + prod stack smoke)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -107,9 +107,37 @@ jobs:
         run: docker build -f backend/Dockerfile.prod -t ems-backend-prod ./backend
       - name: Build frontend prod image (Nginx, multi-stage)
         run: docker build -f frontend/Dockerfile.prod -t ems-frontend-prod ./frontend
-      # Compose is validated rather than started: bringing the stack up would
-      # need a database and a wait loop, which belongs in local use, not CI.
       - name: Validate dev compose file
         run: docker compose config --quiet
       - name: Validate prod compose file
         run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate BASE_DOMAIN=ems.example.com docker compose -f docker-compose.prod.yml config --quiet
+      # Bring the prod stack up for real and prove the whole chain stands:
+      # Postgres healthy -> backend runs `flask db upgrade` against Postgres and
+      # Gunicorn goes healthy -> Nginx serves the SPA and proxies /api. `--wait`
+      # blocks on the healthchecks and fails the job if any never go healthy.
+      - name: Prod stack smoke (Postgres + Gunicorn + Nginx)
+        env:
+          SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
+          POSTGRES_PASSWORD: ci-smoke-password
+          BASE_DOMAIN: ems.example.com
+          SESSION_COOKIE_SECURE: "0"  # smoke is plain HTTP, no TLS proxy in front
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 240
+          # Through Nginx (8080) -> Gunicorn (/api) -> Postgres: the migrated app.
+          body=$(curl -sf --retry 5 --retry-delay 3 http://localhost:8080/api/health)
+          echo "health: $body"
+          echo "$body" | grep -Eq '"status" *: *"ok"'
+          # The SPA itself is served at the root by the same Nginx.
+          curl -sf -o /dev/null http://localhost:8080/
+          echo "prod stack smoke OK"
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 200
+      - name: Tear down the stack
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down -v
+        env:
+          SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
+          POSTGRES_PASSWORD: ci-smoke-password
+          BASE_DOMAIN: ems.example.com
