@@ -48,8 +48,11 @@ def upgrade():
         ).scalar()
 
     for table in _ORG_TABLES:
+        # Quote the identifier: `user` is a reserved word in PostgreSQL and errors
+        # unquoted. Double quotes are the standard identifier quote on both
+        # PostgreSQL and SQLite, so this is safe for every table in the list.
         conn.execute(sa.text(
-            f"UPDATE {table} SET org_id = :org WHERE org_id IS NULL"
+            f'UPDATE "{table}" SET org_id = :org WHERE org_id IS NULL'
         ), {"org": org_id})
 
 
