@@ -30,7 +30,12 @@ models; `unfiltered()` is the audited escape hatch for cross-org ops.
   one) org-less child rows reached by id, which must resolve through their org-owning
   parent. `test_security_adversarial.py` adds `org_id`-injection-on-create.
 - **Postgres:** `DATABASE_URL`-driven, Flask-Migrate/Alembic migrations, a
-  SQLite→Postgres data-copy script (tested). CI validates the prod compose.
+  SQLite→Postgres data-copy script (tested). CI now **boots the prod stack and
+  smoke-tests it** (Postgres + Gunicorn + Nginx via `docker compose --wait` + a
+  `/api/health` curl) — the migration chain runs against real PostgreSQL there,
+  which surfaced and fixed several SQLite-only constructs (integer-vs-boolean,
+  unquoted `user`, an anonymous-constraint drop). A startup check also warns when
+  a database is behind the migration head instead of failing with an opaque 500.
 
 ## Phase 2 — Identity, onboarding & continuity
 
@@ -153,5 +158,9 @@ Every phase preserves the local, single-tenant, no-infrastructure deployment:
 
 ## Test posture
 
-Full backend suite **979 passed** at the time of this report; frontend Vitest and
-Playwright E2E (disposable migrated+seeded backend) cover the UI and realtime paths.
+Full backend suite **982 passed** at the time of this report; frontend **458**
+Vitest tests. **8 Playwright E2E specs** run in CI against a disposable
+migrated+seeded backend (smoke, roles, dispatch, workflow, invitations, realtime,
+cross-module realtime sync, responsive-viewport). CI runs four jobs — backend
+(pytest), frontend (lint + Vitest + build), E2E (Playwright), and Docker (build
+images + prod-stack smoke on PostgreSQL).
