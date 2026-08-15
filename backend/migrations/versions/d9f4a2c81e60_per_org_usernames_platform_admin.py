@@ -25,12 +25,27 @@ _NAMING = {"uq": "uq_%(table_name)s_%(column_0_name)s"}
 
 
 def upgrade():
-    with op.batch_alter_table("user", schema=None, naming_convention=_NAMING) as batch_op:
-        batch_op.add_column(sa.Column(
-            "is_platform_admin", sa.Boolean(), nullable=False, server_default=sa.false()
-        ))
-        batch_op.drop_constraint("uq_user_username", type_="unique")
-        batch_op.create_unique_constraint("uq_user_org_username", ["org_id", "username"])
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        # The initial schema declared UNIQUE(username) inline, which PostgreSQL
+        # auto-names (e.g. user_username_key) — not uq_user_username, so a literal
+        # drop by that name fails. The SQLite batch recipe only renames the
+        # constraint because it *rebuilds* the table; PostgreSQL alters in place,
+        # so drop the constraint by its real, reflected name instead.
+        op.add_column("user", sa.Column(
+            "is_platform_admin", sa.Boolean(), nullable=False, server_default=sa.false()))
+        old = next((u["name"] for u in sa.inspect(bind).get_unique_constraints("user")
+                    if u["column_names"] == ["username"]), None)
+        if old:
+            op.drop_constraint(old, "user", type_="unique")
+        op.create_unique_constraint("uq_user_org_username", "user", ["org_id", "username"])
+    else:
+        with op.batch_alter_table("user", schema=None, naming_convention=_NAMING) as batch_op:
+            batch_op.add_column(sa.Column(
+                "is_platform_admin", sa.Boolean(), nullable=False, server_default=sa.false()
+            ))
+            batch_op.drop_constraint("uq_user_username", type_="unique")
+            batch_op.create_unique_constraint("uq_user_org_username", ["org_id", "username"])
 
 
 def downgrade():
