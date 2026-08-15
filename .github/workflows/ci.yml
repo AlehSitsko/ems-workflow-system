@@ -122,8 +122,13 @@ jobs:
           BASE_DOMAIN: ems.example.com
           SESSION_COOKIE_SECURE: "0"  # smoke is plain HTTP, no TLS proxy in front
         run: |
-          set -euo pipefail
-          docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 240
+          set -uo pipefail
+          if ! docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 240; then
+            echo "=== stack did not become healthy; diagnostics ==="
+            docker compose -f docker-compose.prod.yml ps || true
+            docker compose -f docker-compose.prod.yml logs backend --no-color --tail 300 || true
+            exit 1
+          fi
           # Through Nginx (8080) -> Gunicorn (/api) -> Postgres: the migrated app.
           body=$(curl -sf --retry 5 --retry-delay 3 http://localhost:8080/api/health)
           echo "health: $body"
@@ -133,7 +138,11 @@ jobs:
           echo "prod stack smoke OK"
       - name: Dump compose logs on failure
         if: failure()
-        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 200
+        env:
+          SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
+          POSTGRES_PASSWORD: ci-smoke-password
+          BASE_DOMAIN: ems.example.com
+        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 300 || true
       - name: Tear down the stack
         if: always()
         run: docker compose -f docker-compose.prod.yml down -v
