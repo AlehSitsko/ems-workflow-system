@@ -150,6 +150,48 @@ def register_core_routes(app):
         })
 
 
+def _warn_if_schema_behind(app):
+    """Log a loud warning when the database is behind the migration head.
+
+    A stale dev/prod DB otherwise surfaces as opaque 500s the moment the ORM
+    selects a column a newer model defines but the database lacks (e.g. a login
+    query after User gained a column). This makes the real cause obvious at
+    startup and names the fix. Never raises — a diagnostic must not break boot.
+    Skipped for tests and in-memory DBs (they use create_all, no alembic_version).
+    """
+    if app.config.get("TESTING"):
+        return
+    if ":memory:" in (app.config.get("SQLALCHEMY_DATABASE_URI") or ""):
+        return
+    try:
+        from alembic.script import ScriptDirectory
+        from alembic.config import Config as AlembicConfig
+        from sqlalchemy import inspect as sa_inspect, text
+        from models import db
+
+        migrations_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
+        cfg = AlembicConfig()
+        cfg.set_main_option("script_location", migrations_dir)
+        heads = set(ScriptDirectory.from_config(cfg).get_heads())
+
+        with app.app_context():
+            engine = db.engine
+            if "alembic_version" not in sa_inspect(engine).get_table_names():
+                return  # uninitialised DB — nothing to compare
+            with engine.connect() as conn:
+                current = {r[0] for r in conn.execute(text("SELECT version_num FROM alembic_version"))}
+
+        if current and current != heads:
+            app.logger.warning(
+                "Database schema is behind the code (DB at %s, migration head %s). "
+                "Run `flask db upgrade`; until then, requests touching new columns "
+                "will fail with 500 Internal Server Error.",
+                ", ".join(sorted(current)), ", ".join(sorted(heads)),
+            )
+    except Exception:
+        app.logger.debug("schema-drift check skipped", exc_info=True)
+
+
 def create_app(config_overrides=None):
     """Build and return a configured Flask app.
 
@@ -194,6 +236,9 @@ def create_app(config_overrides=None):
     # named in PUBLIC_ENDPOINTS. Registered after the blueprints so it covers
     # every route they added.
     register_api_auth_guard(app)
+
+    # Diagnostic: warn (never fail) if the DB is behind the migration head.
+    _warn_if_schema_behind(app)
 
     return app
 
