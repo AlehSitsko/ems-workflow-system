@@ -37,9 +37,11 @@ def upgrade():
         sa.text("SELECT id FROM organization WHERE slug = 'default'")
     ).scalar()
     if org_id is None:
+        # `true`, not the integer 1: PostgreSQL rejects an integer for a boolean
+        # column (SQLite would coerce it). SQLite 3.23+ accepts the TRUE keyword.
         conn.execute(sa.text(
             "INSERT INTO organization (name, slug, is_active, created_at) "
-            "VALUES ('Default Organization', 'default', 1, :now)"
+            "VALUES ('Default Organization', 'default', true, :now)"
         ), {"now": "2026-01-01T00:00:00"})
         org_id = conn.execute(
             sa.text("SELECT id FROM organization WHERE slug = 'default'")
