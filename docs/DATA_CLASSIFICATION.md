@@ -76,11 +76,19 @@ Shipped (migration `f4a1c9e07b30`), same pattern as `insurance_notes`; none are 
 
 Shipped alongside #3.
 
-### 5. `Call` — `caller_phone`, `pickup_address`, `dropoff_address`, `caller_note` → encrypted (deferred, high effort)
+### 5. `Call` caller details — `caller_phone`, `caller_note` → encrypted — **DONE**
 
-Addresses appear on the dispatch board and in routing/scheduling views and are
-filtered/sorted, so encrypting them needs UI and query rework. Lower priority than
-patient/employee identifiers.
+Shipped (migration `e5f2c8b41a09`). They are display-only (to_dict), so encryption is
+a clean passthrough; org via the call's own org_id.
+
+**`pickup_address` / `dropoff_address` stay plaintext (decision).** A code review
+confirmed they are **not** searched or sorted server-side, but they *are* embedded in
+the realtime `call.created` SSE event and in stored notification bodies (dispatchers
+need the destination), and they surface in the calls CSV export. Encrypting them would
+either push ciphertext into those copies or require dropping them from events and
+changing notification text — a behaviour change for low residual benefit (plaintext
+copies would remain in notifications). They are operational data shown to every
+dispatcher; covered by tenant isolation + RBAC + DB-at-rest encryption.
 
 ### 6. `EmployeeDocument.document_number` → encrypted — **DONE**
 

@@ -428,11 +428,14 @@ def encrypt_existing_fields_command(yes):
     from routes.patient_routes import _PATIENT_ENC_FIELDS
     from routes.employee_routes import _EMPLOYEE_ENC_FIELDS, Employee
     from routes.document_routes import _DOC_ENC_FIELDS, EmployeeDocument
+    from routes.call_routes import _CALL_ENC_FIELDS
+    from models import Call
     entities = [
         ("patient", Patient, _PATIENT_ENC_FIELDS, lambda r: r.org_id),
         ("employee", Employee, _EMPLOYEE_ENC_FIELDS, lambda r: r.org_id),
         ("employee_document", EmployeeDocument, _DOC_ENC_FIELDS,
          lambda r: r.employee.org_id if r.employee else None),
+        ("call", Call, _CALL_ENC_FIELDS, lambda r: r.org_id),
     ]
 
     provision_all_orgs()

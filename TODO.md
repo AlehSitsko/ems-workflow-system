@@ -7,13 +7,17 @@ The **active** backlog only. Shipped work is not tracked here — its history li
 
 ## Planned (next reasonable work)
 
-- [ ] **`Call` addresses/phone** — shown, filtered and sorted on the dispatch board;
-  encrypting needs UI + query rework (a separate initiative, not a column swap).
+Decided to stay plaintext (not gaps):
+- `last_name`/`first_name` — substring-searched and alphabetically paginated, so they
+  can't use a blind index without a UX loss (see
+  [docs/design/DOB_LASTNAME_ENCRYPTION.md](docs/design/DOB_LASTNAME_ENCRYPTION.md)).
+- `Call.pickup_address`/`dropoff_address` — not searched/sorted, but carried by the
+  realtime SSE event + stored notification bodies + the CSV export; encrypting them
+  would be a behaviour change for low benefit (see
+  [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md) #5).
 
-Decided to stay plaintext (not a gap): `last_name`/`first_name` — substring-searched
-and alphabetically paginated, so they can't use a blind index without a UX loss;
-covered by tenant isolation + RBAC + `is_sensitive` masking + DB-at-rest encryption
-(see the design doc).
+Both are covered by tenant isolation + RBAC + `is_sensitive` masking + operator
+DB-at-rest encryption.
 - [ ] **Deployment hardening (partly done).** The backup / disaster-recovery /
   TLS / secrets runbook is written ([docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)).
   Still operator/external work, not code: stand up the TLS-terminating proxy, run the

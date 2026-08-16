@@ -104,8 +104,11 @@ tested (`notificationRules.test.js`).
   `insurance_notes`, patient contact/facility/emergency PII (`phone`,
   `secondary_phone`, `address`, `facility_name`, `room_number`,
   `emergency_contact_name/phone`) and free-text (`notes`, `dispatch_comment`,
-  `transport_instructions`, `access_instructions`, `special_equipment_notes`), and
-  `Employee.phone` / `email`. Backfill via `flask encrypt-existing-fields` — backup-first,
+  `transport_instructions`, `access_instructions`, `special_equipment_notes`),
+  `Employee.phone` / `email`, `Patient`/`Employee` `dob` (+ patient `dob_bidx` and a
+  non-identifying `dob_month_day` for the calendar), `EmployeeDocument.document_number`,
+  `Call.caller_phone` / `caller_note`, and hashed `Employee.kiosk_pin`. Backfill via
+  `flask encrypt-existing-fields` — backup-first,
   idempotent, never destroys plaintext (replaces it with its own ciphertext).
 - **Master-key rotation is complete end to end:** add a new `EMS_MASTER_KEY` version →
   `flask rewrap-org-keys` re-wraps every org DEK under it → the old version can be

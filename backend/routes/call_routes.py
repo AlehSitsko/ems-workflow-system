@@ -4,9 +4,22 @@ from flask import Blueprint, jsonify, request
 
 from sqlalchemy.orm import joinedload
 
-from models import db, Call, Patient
+from models import db, Call, Patient, Organization
 from notification_utils import create_notification
 from audit_utils import log_action
+from core.security.keyring import encryption_configured
+from core.security.encrypted_fields import encrypt_instance
+
+# Caller contact details encrypted at rest (org via the call's own org_id). Not
+# searched, so no blind index; a no-op without a master key.
+_CALL_ENC_FIELDS = [("caller_phone", None), ("caller_note", None)]
+
+
+def _encrypt_call_fields(call):
+    if not encryption_configured():
+        return
+    org = Organization.query.get(call.org_id) if call.org_id else None
+    encrypt_instance(call, org, "call", _CALL_ENC_FIELDS)
 from utils.validation_utils import check_length, is_valid_time, is_valid_date
 from utils.auth_utils import get_request_role, get_request_user_id, get_request_user_name, require_role
 from utils.operational_dates import prohibit_historical_mutation
@@ -212,6 +225,7 @@ def create_call():
 
     db.session.add(new_call)
     db.session.flush()
+    _encrypt_call_fields(new_call)     # id known → AAD can bind it
     log_action("call.created", "call", new_call.id,
                f"Call #{new_call.id}",
                {"service_level": new_call.service_level,
@@ -327,6 +341,7 @@ def update_call(call_id):
                     "note": "timestamp_edit" if "received_at" in changed or "status" in changed else ""},
                    user_id=_user_id_from_request(), user_name=_user_name_from_request())
 
+    _encrypt_call_fields(call)   # re-encrypt caller fields if they changed (skips ciphertext)
     db.session.commit()
     return jsonify(call.to_dict())
 
