@@ -67,6 +67,12 @@ services:
       EMS_REDIS_URL: ${EMS_REDIS_URL:-redis://redis:6379/0}
       # Worker/thread counts (gunicorn.conf.py reads these).
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}
+      # Field-encryption master key — REQUIRED in production: the app refuses to
+      # start without it so sensitive fields (patient member id, policy number,
+      # insurance notes) are never silently stored in plaintext. A base64 32-byte
+      # key, e.g. `openssl rand -base64 32`; rotate with `v1:<b64>,v2:<b64>`. Mount
+      # it as EMS_MASTER_KEY_FILE in a real deployment instead of the environment.
+      EMS_MASTER_KEY: ${EMS_MASTER_KEY:?set EMS_MASTER_KEY, e.g. openssl rand -base64 32}
       # Secure (HTTPS-only) cookies by default; set 0 to smoke-test over HTTP.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-1}
       # Multi-tenancy: the apex the org subdomains live under, and the host of the

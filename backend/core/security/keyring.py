@@ -30,9 +30,19 @@ class KeyManagementError(Exception):
     pass
 
 
+# AES-256 — matches generate_dek() and the documented "32-byte key".
+_MASTER_KEY_BYTES = 32
+
+
 def load_master_keys():
-    """Return {version: key_bytes} parsed from the environment/secret (may be empty
-    when encryption is not configured — the app still runs on plaintext)."""
+    """Return {version: key_bytes} parsed from the environment/secret.
+
+    Empty when encryption is not configured (the app then runs on plaintext — the
+    deliberate local/standalone fallback). Raises ``KeyManagementError`` when a key
+    *is* configured but malformed (bad base64, wrong length, bad version), so a
+    broken key can never be silently mistaken for "no encryption" and fall back to
+    plaintext. The error never includes the key material itself.
+    """
     raw = _secret("EMS_MASTER_KEY")
     keys = {}
     if not raw:
@@ -41,12 +51,24 @@ def load_master_keys():
         part = part.strip()
         if not part:
             continue
-        if part[0] == "v" and ":" in part:
-            ver_str, b64 = part.split(":", 1)
-            version = int(ver_str[1:])
-        else:
-            version, b64 = 1, part
-        keys[version] = base64.b64decode(b64)
+        try:
+            if part[0] == "v" and ":" in part:
+                ver_str, b64 = part.split(":", 1)
+                version = int(ver_str[1:])
+            else:
+                version, b64 = 1, part
+            key = base64.b64decode(b64, validate=True)
+        except (ValueError, IndexError) as exc:
+            raise KeyManagementError(
+                "EMS_MASTER_KEY is malformed: expected a base64 32-byte key or "
+                "'v1:<base64>,v2:<base64>'."
+            ) from exc
+        if len(key) != _MASTER_KEY_BYTES:
+            raise KeyManagementError(
+                f"EMS_MASTER_KEY version {version} is the wrong length "
+                f"({len(key)} bytes after base64-decode; expected {_MASTER_KEY_BYTES})."
+            )
+        keys[version] = key
     return keys
 
 

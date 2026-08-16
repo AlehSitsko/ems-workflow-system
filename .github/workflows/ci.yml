@@ -110,7 +110,7 @@ jobs:
       - name: Validate dev compose file
         run: docker compose config --quiet
       - name: Validate prod compose file
-        run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate BASE_DOMAIN=ems.example.com docker compose -f docker-compose.prod.yml config --quiet
+        run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate EMS_MASTER_KEY=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8= BASE_DOMAIN=ems.example.com docker compose -f docker-compose.prod.yml config --quiet
       # Bring the prod stack up for real and prove the whole chain stands:
       # Postgres healthy -> backend runs `flask db upgrade` against Postgres and
       # Gunicorn goes healthy -> Nginx serves the SPA and proxies /api. `--wait`
@@ -119,6 +119,7 @@ jobs:
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
+          EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
           SESSION_COOKIE_SECURE: "0"  # smoke is plain HTTP, no TLS proxy in front
         run: |
@@ -149,6 +150,7 @@ jobs:
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
+          EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
         run: docker compose -f docker-compose.prod.yml logs --no-color --tail 300 || true
       - name: Tear down the stack
@@ -157,4 +159,5 @@ jobs:
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
+          EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
