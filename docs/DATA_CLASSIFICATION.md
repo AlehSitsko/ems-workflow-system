@@ -94,9 +94,12 @@ calendar flows, so they were held back for a design pass rather than a column sw
 That design is done — see [design/DOB_LASTNAME_ENCRYPTION.md](design/DOB_LASTNAME_ENCRYPTION.md).
 Conclusion:
 
-- **`dob` → encryptable** with a blind index (exact search + dedup) plus a derived
-  non-identifying `dob_month_day` (`MM-DD`) column for the calendar (which never uses
-  the year). Ready to implement; the year — the identifying part — ends up encrypted.
+- **`dob` → encrypted — DONE** (migration `d3e5b7a19f42`). Encrypted at rest with a
+  blind index (`dob_bidx`, exact search + dedup) plus a derived non-identifying
+  `dob_month_day` (`MM-DD`) column that the birthday calendar filters on (it never
+  uses the year). A model-level `before_insert`/`before_update` listener keeps
+  `dob_month_day` in sync on every write path. The year — the identifying part — is
+  encrypted.
 - **`last_name`/`first_name` → stay plaintext (decision).** They are substring-searched
   (`ILIKE %term%`) and alphabetically sorted server-side before pagination; neither is
   possible on a blind index or on encrypted-at-rest values without a real UX loss.

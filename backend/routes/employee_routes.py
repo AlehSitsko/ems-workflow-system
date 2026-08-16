@@ -14,10 +14,11 @@ from core.security.encrypted_fields import encrypt_instance
 
 # Contact PII encrypted at rest (mirrors the patient pattern). Not searched, so no
 # blind index. A no-op when no master key is configured (plaintext passthrough).
-_EMPLOYEE_ENC_FIELDS = [("phone", None), ("email", None)]
+_EMPLOYEE_ENC_FIELDS = [("phone", None), ("email", None), ("dob", None)]
 
 
 def _encrypt_employee_fields(employee):
+    # dob_month_day is kept in sync by a model-level listener (models.py).
     if not encryption_configured():
         return
     org = Organization.query.get(employee.org_id) if employee.org_id else None

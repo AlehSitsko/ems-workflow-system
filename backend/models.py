@@ -1,6 +1,7 @@
 import json
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
 
 db = SQLAlchemy()
 
@@ -145,7 +146,10 @@ class Employee(db.Model):
     email = db.Column(db.Text)
     employee_number = db.Column(db.String(50))
     hire_date = db.Column(db.String(20))
-    dob = db.Column(db.String(20))  # YYYY-MM-DD; drives employee birthday calendar events
+    # dob encrypted at rest (Text); the birthday calendar filters on the
+    # non-identifying dob_month_day. Not searched, so no blind index.
+    dob = db.Column(db.Text)
+    dob_month_day = db.Column(db.String(5), index=True)
     # Annual PTO allotment in days; None falls back to the org default. Accrual is
     # monthly (annual / 12) — see utils/pto.py.
     pto_annual_days = db.Column(db.Float)
@@ -223,7 +227,7 @@ class Employee(db.Model):
             "email": _decrypt_employee_field(self, "email") or "",
             "employeeNumber": self.employee_number or "",
             "hireDate": self.hire_date or "",
-            "dob": self.dob or "",
+            "dob": _decrypt_employee_field(self, "dob") or "",
             "ptoAnnualDays": self.pto_annual_days,
             # Split axes are authoritative; `role` is the derived legacy mirror.
             "qualification": self.qualification,
@@ -812,6 +816,19 @@ def _decrypt_employee_field(employee, field):
         return None
 
 
+def dob_month_day(dob):
+    """"YYYY-MM-DD" -> "MM-DD" for the birthday calendar; None for empty / ciphertext /
+    malformed. Non-identifying: it carries the birthday month+day but not the year (the
+    identifying part), which stays encrypted. See docs/design/DOB_LASTNAME_ENCRYPTION.md."""
+    from core.security.crypto import is_ciphertext
+    if not dob or is_ciphertext(dob):
+        return None
+    parts = dob.split("-")
+    if len(parts) == 3 and len(parts[1]) == 2 and len(parts[2]) == 2:
+        return f"{parts[1]}-{parts[2]}"
+    return None
+
+
 def _decrypt_document_field(doc, field):
     """Plaintext of an encrypted EmployeeDocument field. The document has no org_id
     of its own — its tenant is its Employee's — so the org (for the DEK) comes from
@@ -835,7 +852,14 @@ class Patient(db.Model):
     # Basic patient information.
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100), index=True)
-    dob = db.Column(db.String(20), index=True)
+    # dob is sensitive (the year is identifying) and encrypted at rest (Text). Exact
+    # search / duplicate detection go through dob_bidx (a blind index); the birthday
+    # calendar filters on the non-identifying dob_month_day ("MM-DD"). See
+    # docs/design/DOB_LASTNAME_ENCRYPTION.md. last_name/first_name stay plaintext by
+    # design (substring-searched + alphabetically paginated).
+    dob = db.Column(db.Text)
+    dob_bidx = db.Column(db.String(64), index=True)
+    dob_month_day = db.Column(db.String(5), index=True)
     gender = db.Column(db.String(50))
 
     # Contact information. phone / secondary_phone / address are sensitive PII and
@@ -907,7 +931,7 @@ class Patient(db.Model):
 
             "first_name": self.first_name,
             "last_name": self.last_name,
-            "dob": self.dob,
+            "dob": _decrypt_patient_field(self, "dob"),
             "gender": self.gender,
 
             "phone": _decrypt_patient_field(self, "phone"),
@@ -2213,3 +2237,20 @@ ORG_SCOPED_MODELS = (
     RecurringTrip, CalendarEvent, Task, AuditLog, PtoLedgerEntry, Holiday,
     UserInvitation, OrgRecoveryCode,
 )
+
+
+# Keep the non-identifying dob_month_day ("MM-DD") in sync with dob on *every* write
+# path (API, seed, imports, direct construction), not just the route helpers — the
+# birthday calendar depends on it. When dob is ciphertext (an unchanged dob on an
+# update), the month/day was already derived when it was first stored, so leave it.
+def _sync_dob_month_day(mapper, connection, target):
+    from core.security.crypto import is_ciphertext
+    dob = target.dob
+    if dob and is_ciphertext(dob):
+        return
+    target.dob_month_day = dob_month_day(dob)
+
+
+for _dob_model in (Patient, Employee):
+    event.listen(_dob_model, "before_insert", _sync_dob_month_day)
+    event.listen(_dob_model, "before_update", _sync_dob_month_day)

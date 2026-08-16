@@ -17,6 +17,7 @@ PATIENT_ROLES = ("admin", "supervisor", "dispatcher")
 # member_id is searchable (blind index); policy_number/insurance_notes are not.
 _PATIENT_ENC_FIELDS = [
     ("member_id", "member_id_bidx"),  # blind index for exact-match search
+    ("dob", "dob_bidx"),              # exact search + duplicate detection
     ("policy_number", None),
     ("insurance_notes", None),
     # Contact / facility / emergency PII (not searched, so no blind index).
@@ -39,6 +40,8 @@ _PATIENT_ENC_FIELDS = [
 def _encrypt_patient_fields(patient):
     """Encrypt the patient's sensitive fields in place (a no-op when no master key
     is configured). Call after the row has an id so the AAD can bind it."""
+    # dob_month_day is kept in sync by a model-level before_insert/before_update
+    # listener (models.py), so it is correct on every write path.
     if not encryption_configured():
         return
     org = Organization.query.get(patient.org_id) if patient.org_id else None
@@ -104,8 +107,15 @@ def _find_duplicate(first_name, last_name, dob, exclude_id=None):
     q = Patient.query.filter(
         db.func.lower(db.func.trim(Patient.first_name)) == first_name.lower().strip(),
         db.func.lower(db.func.trim(Patient.last_name)) == last_name.lower().strip(),
-        Patient.dob == dob,
     )
+    # dob is encrypted: match via its blind index when a key is configured, else the
+    # plaintext column (local/standalone). Same exact-match result either way.
+    bidx = None
+    if encryption_configured():
+        from tenant import current_org_id
+        org = Organization.query.get(current_org_id()) if current_org_id() else None
+        bidx = index_value(dob, org, "patient", "dob")
+    q = q.filter(Patient.dob_bidx == bidx) if bidx is not None else q.filter(Patient.dob == dob)
     if exclude_id:
         q = q.filter(Patient.id != exclude_id)
     return q.first()
@@ -133,7 +143,15 @@ def get_patients():
         )
 
     if dob:
-        query = query.filter(Patient.dob == dob)
+        # Exact-match on the encrypted dob via its blind index (falls back to
+        # plaintext equality when encryption is off).
+        dob_bidx = None
+        if encryption_configured():
+            from tenant import current_org_id
+            org = Organization.query.get(current_org_id()) if current_org_id() else None
+            dob_bidx = index_value(dob, org, "patient", "dob")
+        query = query.filter(Patient.dob_bidx == dob_bidx) if dob_bidx is not None \
+            else query.filter(Patient.dob == dob)
 
     member_id = request.args.get("member_id", "").strip()
     if member_id:
