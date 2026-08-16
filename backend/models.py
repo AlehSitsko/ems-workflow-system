@@ -829,6 +829,21 @@ def dob_month_day(dob):
     return None
 
 
+def _decrypt_call_field(call, field):
+    """Plaintext of an encrypted Call field for output; plaintext/legacy passes
+    through, undecryptable → None. Call is org-scoped (has its own org_id)."""
+    value = getattr(call, field, None)
+    from core.security.crypto import is_ciphertext, DecryptionError
+    if not is_ciphertext(value):
+        return value
+    from core.security.encrypted_fields import read_instance_field
+    try:
+        org = Organization.query.get(call.org_id) if call.org_id else None
+        return read_instance_field(call, org, "call", field)
+    except DecryptionError:
+        return None
+
+
 def _decrypt_document_field(doc, field):
     """Plaintext of an encrypted EmployeeDocument field. The document has no org_id
     of its own — its tenant is its Employee's — so the org (for the DEK) comes from
@@ -1107,7 +1122,10 @@ class Call(db.Model):
     service_level = db.Column(db.String(100))
 
     # Captured at intake — may differ from patient record.
-    caller_phone = db.Column(db.String(30))
+    # Caller contact details — sensitive, encrypted at rest (Text). Not searched,
+    # so no blind index. (pickup/dropoff addresses stay plaintext: operational data
+    # shown to all dispatchers and carried by realtime events/notifications.)
+    caller_phone = db.Column(db.Text)
     caller_note = db.Column(db.Text)
 
     quality_score = db.Column(db.Integer)
@@ -1183,8 +1201,8 @@ class Call(db.Model):
             "call_type": self.call_type,
             "service_level": self.service_level,
 
-            "caller_phone": self.caller_phone or "",
-            "caller_note": self.caller_note or "",
+            "caller_phone": _decrypt_call_field(self, "caller_phone") or "",
+            "caller_note": _decrypt_call_field(self, "caller_note") or "",
 
             "quality_score": self.quality_score,
 
