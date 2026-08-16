@@ -166,7 +166,9 @@ class Employee(db.Model):
 
     is_active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.Text)
-    kiosk_pin = db.Column(db.String(10))  # 4-digit PIN for Kiosk clock in/out
+    # Kiosk clock-in PIN, stored **hashed** — never plaintext, never returned by the
+    # API (to_dict exposes only `hasPin`). Set/verify via the methods below.
+    kiosk_pin_hash = db.Column(db.Text)
 
     # Multi-tenancy foundation.
     org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
@@ -191,12 +193,28 @@ class Employee(db.Model):
     paramedic_license_name = db.Column(db.String(150))
     paramedic_expiration_date = db.Column(db.String(20))
 
-    def to_dict(self, include_pin=False):
-        # The kiosk PIN is a clock-in credential: with it you can clock a
-        # colleague in or out at the shared kiosk. It must never travel in a
-        # roster payload, so it is omitted by default and included only when a
-        # caller that may manage it (the HR-gated detail endpoint) asks. The
-        # kiosk's own endpoints already expose `has_pin`, never the PIN itself.
+    def set_kiosk_pin(self, pin):
+        """Hash and store a kiosk PIN. An empty value leaves the current PIN
+        unchanged (set-don't-view, like a password) — use clear_kiosk_pin() to remove."""
+        from werkzeug.security import generate_password_hash
+        pin = (pin or "").strip()
+        if pin:
+            self.kiosk_pin_hash = generate_password_hash(pin)
+
+    def clear_kiosk_pin(self):
+        self.kiosk_pin_hash = None
+
+    def check_kiosk_pin(self, pin):
+        """True when the PIN matches, or when no PIN is set (no PIN → not required,
+        matching the prior behaviour). Constant-time via werkzeug."""
+        from werkzeug.security import check_password_hash
+        if not self.kiosk_pin_hash:
+            return True
+        return check_password_hash(self.kiosk_pin_hash, (pin or "").strip())
+
+    def to_dict(self):
+        # The kiosk PIN is a clock-in credential and is stored hashed; the payload
+        # carries only whether one is set (`hasPin`), never the PIN itself.
         data = {
             "id": self.id,
             "firstName": self.first_name,
@@ -238,9 +256,9 @@ class Employee(db.Model):
                 "licenseName": self.paramedic_license_name or "",
                 "expirationDate": self.paramedic_expiration_date or "",
             },
+
+            "hasPin": bool(self.kiosk_pin_hash),
         }
-        if include_pin:
-            data["kioskPin"] = self.kiosk_pin or ""
         return data
 
 

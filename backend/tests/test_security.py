@@ -434,7 +434,9 @@ def test_supervisor_can_read_analytics(roles):
 
 def test_the_employee_list_never_carries_kiosk_pins(roles):
     from models import Employee
-    db.session.add(Employee(first_name="Pin", last_name="Holder", role="EMT", kiosk_pin="4321"))
+    e = Employee(first_name="Pin", last_name="Holder", role="EMT")
+    e.set_kiosk_pin("4321")
+    db.session.add(e)
     db.session.commit()
 
     body = roles["admin"].get("/api/employees").get_json()
@@ -443,13 +445,17 @@ def test_the_employee_list_never_carries_kiosk_pins(roles):
         assert "kioskPin" not in emp, "the roster payload leaked a kiosk PIN"
 
 
-def test_the_hr_detail_endpoint_still_carries_the_pin_for_the_edit_form(roles):
+def test_the_hr_detail_endpoint_exposes_only_haspin_never_the_pin(roles):
+    # The PIN is hashed and never returned; the detail endpoint carries only whether
+    # one is set, so the edit form shows status without ever seeing the credential.
     from models import Employee
-    e = Employee(first_name="Pin", last_name="Holder", role="EMT", kiosk_pin="4321")
+    e = Employee(first_name="Pin", last_name="Holder", role="EMT")
+    e.set_kiosk_pin("4321")
     db.session.add(e); db.session.commit()
 
     body = roles["hr"].get(f"/api/employees/{e.id}").get_json()
-    assert body["kioskPin"] == "4321", "the edit form can no longer prefill the PIN"
+    assert "kioskPin" not in body, "the detail payload must never carry the plaintext PIN"
+    assert body["hasPin"] is True
 
 
 # ── Audit resolutions: calls exclude HR, time-entries exclude dispatcher ─────

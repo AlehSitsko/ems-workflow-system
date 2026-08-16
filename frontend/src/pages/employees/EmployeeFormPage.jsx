@@ -22,7 +22,7 @@ const emptyLicense = { hasLicense: false, licenseName: "", expirationDate: "" };
 const EMPTY = {
   firstName: "", lastName: "", phone: "", email: "",
   employeeNumber: "", hireDate: "", dob: "",
-  qualification: "emt", adminRole: "", status: "active", isActive: true, notes: "", kioskPin: "",
+  qualification: "emt", adminRole: "", status: "active", isActive: true, notes: "", kioskPin: "", hasPin: false,
   cpr: { ...emptyLicense }, evoc: { ...emptyLicense }, emt: { ...emptyLicense }, paramedic: { ...emptyLicense },
 };
 
@@ -318,8 +318,14 @@ export default function EmployeeFormPage({ currentUser }) {
           <div className="col-md-6">
             <label className="form-label" htmlFor="e-pin">Kiosk PIN</label>
             <input id="e-pin" className="form-control" maxLength={6} value={form.kioskPin}
-                   placeholder="4–6 digits" onChange={(e) => set({ kioskPin: e.target.value })} />
-            <div className="form-text">Used for Kiosk clock in/out</div>
+                   autoComplete="off" inputMode="numeric"
+                   placeholder={form.hasPin ? "•••• set — enter to replace" : "4–6 digits"}
+                   onChange={(e) => set({ kioskPin: e.target.value })} />
+            <div className="form-text">
+              Used for Kiosk clock in/out. Stored securely (hashed) — it is never shown
+              again. {form.hasPin ? "A PIN is set; leave blank to keep it, or type a new one to replace it."
+                                  : "No PIN set yet."}
+            </div>
           </div>
           <div className="col-12">
             <label className="form-label" htmlFor="e-notes">Notes</label>
