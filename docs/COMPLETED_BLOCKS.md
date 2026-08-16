@@ -2,6 +2,13 @@
 
 Historical record of shipped work, in the order it landed. For what's planned next, see [ROADMAP.md](ROADMAP.md). For the current state of each module, see the main [README.md](../README.md#feature-highlights).
 
+> **Read as history, not current state.** Numbers (test counts, route/table counts)
+> and architectural phrasing inside each block describe the project **at the moment
+> that block landed** and are deliberately not updated afterwards. For the live
+> figures, regenerate them from the code (see [API.md](API.md) and
+> [TESTING.md](TESTING.md)); for the current architecture, see
+> [ARCHITECTURE.md](ARCHITECTURE.md) and [INFRASTRUCTURE_REPORT.md](INFRASTRUCTURE_REPORT.md).
+
 ---
 
 ### Block 1 — Tech Debt Stabilization (complete)

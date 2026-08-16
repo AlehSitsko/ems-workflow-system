@@ -4,7 +4,7 @@
 
 **Backend:** Python, Flask, Flask Blueprints, Flask-CORS, Flask-Limiter, Flask-Migrate (Alembic), SQLAlchemy, SQLite (dev).
 
-**Frontend:** React 19, Vite, React Router (HashRouter), Bootstrap 5.3 (native dark mode), CSS Custom Properties design tokens, React Icons.
+**Frontend:** React 19, Vite 7, React Router 7 (`createHashRouter` data router), Bootstrap 5.3 (native dark mode), CSS Custom Properties design tokens, React Icons.
 
 ## Module map
 
@@ -119,7 +119,7 @@ Call Intake (Classic or Guided form)
        — each transition writes a lifecycle timestamp on the Call record
   → Call completion or cancellation (mandatory reason)
   → Data available to: Supervisor Dashboard (aggregates), Audit Log (every mutating action),
-     Payroll (via employee time entries, independent of call data), Reports (planned, see ROADMAP.md)
+     Payroll (via employee time entries, independent of call data), Reports & analytics (shipped: /api/reports/*, /api/analytics/*)
 ```
 
 Crew Planning is a parallel, connected flow: Crew Units are planned per shift date (day/night, with vehicle assignment and certification-checked staff), and the Dispatch Board is really the same units viewed operationally on the current day — crew planning and dispatch are one integrated page, not two separate systems that sync.

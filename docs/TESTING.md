@@ -99,7 +99,43 @@ npm run test:watch
 ```
 
 Tests live next to their targets as `*.test.js` / `*.test.jsx`; jsdom + jest-dom
-matchers are wired up in `src/test/setup.js`.
+matchers are wired up in `src/test/setup.js`. As of commit `47ef647`: **458 test
+cases across 52 files**. Regenerate with `npx vitest run`.
+
+## Running Playwright E2E locally
+
+The E2E suite is **8 spec files** (`frontend/e2e/*.spec.js`) containing **20 test
+cases** as of commit `47ef647` — a *spec file* groups several `test(...)` *cases*;
+`npm run test:e2e` reports the case count. Regenerate with
+`npx playwright test --list`.
+
+Playwright's `webServer` (see `frontend/playwright.config.js`) boots
+`backend/e2e_server.py` — a **disposable** backend on a fixed loopback port that
+migrates a throwaway SQLite DB to head, seeds demo users + demo data, and serves the
+built SPA and the API on one origin (via **Waitress**, like the desktop build). It
+is torn down after the run. It is never the dev/prod database, and it reports
+`qa_mode:true` on `/api/health`.
+
+Prerequisites and one-time setup (PowerShell):
+
+```powershell
+# 1. Backend deps for the disposable server. By default the config expects a venv at
+#    backend/venv; requirements-desktop = runtime deps + Waitress. (Or point
+#    EMS_E2E_PYTHON at another interpreter that has them.)
+cd backend; python -m venv venv; .\venv\Scripts\python -m pip install -r requirements-desktop.txt
+
+# 2. Build the SPA the disposable backend serves.
+cd ..\frontend; npm ci; npm run build
+
+# 3. Install the Playwright Chromium browser (required).
+npx playwright install chromium
+
+# 4. Run the suite (Playwright starts/stops the backend itself).
+npm run test:e2e
+```
+
+To use a different Python interpreter, set `EMS_E2E_PYTHON` to its path. If Chromium
+is not installed the run fails at launch — do not report E2E as passing in that case.
 
 ## Continuous integration
 

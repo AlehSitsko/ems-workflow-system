@@ -185,7 +185,7 @@ Certifications across the roster, colour-coded by expiry.
 
 ## Tech Stack
 
-**Frontend:** React 19, Vite, React Router (HashRouter), Bootstrap 5.3 (native dark mode), CSS Custom Properties design tokens, React Icons.
+**Frontend:** React 19, Vite 7, React Router 7 (`createHashRouter` data router), Bootstrap 5.3 (native dark mode), CSS Custom Properties design tokens, React Icons.
 
 **Backend:** Python, Flask, Flask Blueprints, Flask-CORS, Flask-Limiter, Flask-Migrate (Alembic), SQLAlchemy.
 
@@ -202,7 +202,7 @@ compose file below runs both dev servers for a reproducible local environment.
 ```mermaid
 flowchart TB
     subgraph browser["Browser"]
-        SPA["React 19 SPA (Vite)<br/>pages and hubs, HashRouter data router<br/>api/ fetch wrappers, theme/settings context"]
+        SPA["React 19 SPA (Vite)<br/>pages and hubs, createHashRouter data router<br/>api/ fetch wrappers, theme/settings context"]
     end
 
     subgraph backend["Flask API (application factory)"]
@@ -290,16 +290,18 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-# Backend — 982 isolated pytest tests (in-memory SQLite, no server needed)
+# Backend — 1009 isolated pytest tests (in-memory SQLite, no server needed)
 cd backend; pytest -v
 
 # Frontend — 458 Vitest tests (utilities + component tests)
 cd frontend; npm test
 
-# End-to-end — 8 Playwright specs against a disposable migrated+seeded backend
+# End-to-end — 8 Playwright spec files (20 test cases) against a disposable,
+# migrated + seeded backend that Playwright boots and tears down itself
 cd frontend; npm run test:e2e
 
-# Live QA (optional) — needs the backend running; use a DISPOSABLE database
+# Live QA (optional) — these SELF-BOOT a disposable SQLite backend by default; a
+# pre-running backend is used only with EMS_QA=1 (qa_mode:true). Never the dev DB.
 python qa_test.py       # functional/integration checks
 python stress_test.py   # local load smoke (not a production benchmark)
 ```
@@ -353,7 +355,7 @@ Full breakdown: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Fleet/Vehicles, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **982 backend pytest tests + 458 frontend Vitest tests + 8 Playwright E2E specs**, plus the live `qa_test.py` smoke suite. A client/server **infrastructure evolution** (multi-tenant isolation, invite-only onboarding, an event bus + SSE, a notification engine, optional field-level encryption at rest, and a Local/S3 storage abstraction) has shipped on top of the core — all while keeping the standalone/local deployment intact; see [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md).
+Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Fleet/Vehicles, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **1009 backend pytest tests + 458 frontend Vitest tests + 8 Playwright E2E spec files (20 cases)** (counts as of commit `47ef647`; regenerate with `pytest --co -q` / `vitest run`), plus the live `qa_test.py` smoke suite. A client/server **infrastructure evolution** (multi-tenant isolation, invite-only onboarding, an event bus + SSE, a notification engine, optional field-level encryption at rest, and a Local/S3 storage abstraction) has shipped on top of the core — all while keeping the standalone/local deployment intact; see [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md).
 
 Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 

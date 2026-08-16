@@ -112,9 +112,11 @@ Implemented by `components/workspace/EntityWorkspace.jsx`.
 - **Don't fake tabs.** A section whose data doesn't exist yet is `disabled` with
   a `disabledReason`, never a fake or empty panel pretending to work.
 
-**Known limitation:** `dirty` cannot block sidebar navigation, because
-`useBlocker` needs a react-router *data* router and the app still mounts a
-component `<HashRouter>`. Migrating to `createHashRouter` is tracked in TODO.md.
+**Navigation guarding:** the app uses a react-router *data* router
+(`createHashRouter`, see `frontend/src/App.jsx`), so `useBlocker` is available —
+`dirty` forms guard sidebar navigation against unsaved edits via
+`hooks/useUnsavedGuard.js`. (The earlier `<HashRouter>` component-router limitation
+no longer applies.)
 
 ---
 
