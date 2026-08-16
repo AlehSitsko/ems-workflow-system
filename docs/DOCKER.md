@@ -78,18 +78,26 @@ event fan-out and Kubernetes remain unbuilt (see
 ## Production stack
 
 A separate `docker-compose.prod.yml` runs the production-style stack — Gunicorn
-behind an Nginx that serves the built SPA and proxies `/api`, on **PostgreSQL** —
-all non-root images with the source baked in. Its server-profile environment
-(`DATABASE_URL`, `EMS_MASTER_KEY` for optional field encryption, `EMS_STORAGE` /
-`EMS_S3_*` for object storage, `BASE_DOMAIN`) is documented in
-[INFRASTRUCTURE_REPORT.md](INFRASTRUCTURE_REPORT.md). It expects to sit behind a
-TLS-terminating proxy. To smoke it locally over plain HTTP:
+(3 workers) behind an Nginx that serves the built SPA and proxies `/api`, on
+**PostgreSQL**, with **Redis** as the realtime broker — all non-root images with the
+source baked in. Its server-profile environment is documented in
+[INFRASTRUCTURE_REPORT.md](INFRASTRUCTURE_REPORT.md); two variables are **required**
+in production and the app refuses to start without them:
+- `EMS_MASTER_KEY` — field-encryption master key (PHI is never stored plaintext in
+  production).
+- `EMS_REDIS_URL` — realtime broker; with >1 worker the gunicorn guard refuses to
+  boot without it, since the in-memory bus can't fan events across workers.
+
+It expects to sit behind a TLS-terminating proxy. To smoke it locally over plain HTTP:
 
 ```bash
 SECRET_KEY=$(openssl rand -hex 32) POSTGRES_PASSWORD=$(openssl rand -hex 16) \
+  EMS_MASTER_KEY=$(openssl rand -base64 32) \
   SESSION_COOKIE_SECURE=0 BASE_DOMAIN=ems.example.com \
   docker compose -f docker-compose.prod.yml up --build --wait
 ```
+
+(`EMS_REDIS_URL` defaults to the bundled `redis` service.)
 
 ## Verification status
 

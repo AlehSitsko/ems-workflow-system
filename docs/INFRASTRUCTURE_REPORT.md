@@ -52,16 +52,31 @@ models; `unfiltered()` is the audited escape hatch for cross-org ops.
 
 ## Phase 3 — Event infrastructure
 
-**Implemented (single-process).** `events.py` — an in-memory, org-scoped domain event
-bus (`subscribe`/`unsubscribe`/`publish`); bounded per-subscriber queues drop for a
-slow client rather than blocking publishers. Delivery is isolated per org.
-`events_routes.py` streams it over **SSE** (`/api/events/stream`), tenant-scoped from
-the session, publishing after commit.
+**Implemented (single-process *and* multi-worker).** `events.py` exposes one surface
+(`subscribe`/`unsubscribe`/`publish`) behind two interchangeable brokers, selected at
+import by `EMS_REDIS_URL`:
+- **InMemoryEventBus** (default): in-memory, org-scoped; bounded per-subscriber queues
+  drop for a slow client rather than blocking publishers. Correct for a single worker
+  — dev, standalone/desktop, tests, E2E.
+- **RedisEventBus** (`EMS_REDIS_URL` set): publishes to an org-scoped Redis channel; a
+  per-process listener thread pattern-subscribes and fans each message into the local
+  per-org queues, so **every** Gunicorn worker delivers an org's events regardless of
+  which worker handled the originating request. Best-effort publish with short
+  timeouts (a Redis outage drops the event, never hangs the request); the listener
+  reconnects with backoff; queues stay bounded.
 
-- **Isolation** proven at the bus (`test_events.py`, `test_security_adversarial.py`).
-- **Seam:** the `subscribe`/`publish` surface is the drop-in point for a Redis-backed
-  broker when scaling past one worker — domain code would not change. Multi-worker
-  fan-out is **Planned**.
+`events_routes.py` streams over **SSE** (`/api/events/stream`), tenant-scoped from the
+session, publishing after commit.
+
+- **Why this matters:** the prod image runs `--workers 3`. With the in-memory bus
+  (process-local) a client's SSE stream on one worker would miss events published on
+  another — realtime works in a demo and silently drops ~2/3 of events in production.
+  `gunicorn.conf.py` now **fails closed**: it refuses to boot >1 worker in production
+  without `EMS_REDIS_URL`, so that broken configuration can never ship.
+- **Isolation** proven at both brokers (`test_events.py`, `test_redis_events.py`,
+  `test_security_adversarial.py`); cross-worker delivery is proven over fakeredis and
+  again end-to-end in CI (`scripts/prod_realtime_smoke.py` against the real
+  Postgres + Redis + 3-worker + Nginx stack).
 
 ## Phase 4 — Notification engine
 
@@ -139,7 +154,9 @@ Every phase preserves the local, single-tenant, no-infrastructure deployment:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | PostgreSQL DSN (unset → SQLite) |
-| `EMS_MASTER_KEY` | Envelope master key(s), e.g. `v1:<b64>,v2:<b64>` (unset → plaintext) |
+| `EMS_MASTER_KEY` | Envelope master key(s), e.g. `v1:<b64>,v2:<b64>`. **Required in production** (`EMS_ENV=production` refuses to start without a valid one); unset → plaintext only in local/standalone. `EMS_MASTER_KEY_FILE` mounts it as a secret. |
+| `EMS_REDIS_URL` | Realtime broker (e.g. `redis://redis:6379/0`). **Required** for >1 Gunicorn worker in production (the gunicorn guard refuses to boot otherwise); unset → in-memory bus (single worker). |
+| `WEB_CONCURRENCY` / `GUNICORN_THREADS` | Gunicorn worker / thread counts (read by `gunicorn.conf.py`). |
 | `EMS_STORAGE` | `local` (default) or `s3` |
 | `EMS_S3_BUCKET` / `EMS_S3_ENDPOINT_URL` / `EMS_S3_REGION` | S3 provider config |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S3 credentials (read by boto3) |
@@ -152,9 +169,14 @@ Every phase preserves the local, single-tenant, no-infrastructure deployment:
 
 ## Remaining / planned
 
-- **Redis-backed event broker** for multi-worker SSE fan-out (the bus seam is ready).
 - **Live S3/MinIO verification** and a **local→S3 migration** for an existing deployment.
 - **TLS termination** in front of the prod Nginx (stack expects to sit behind it).
+- **Wider field encryption** — hash `Employee.kiosk_pin`, then encrypt employee/patient
+  contact PII, per [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) (staged; the engine
+  and fail-closed key handling are in place).
+
+*(The Redis-backed multi-worker event broker, previously planned, is now
+implemented — see Phase 3.)*
 
 ## Test posture
 

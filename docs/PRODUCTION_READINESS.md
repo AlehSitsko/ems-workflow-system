@@ -163,11 +163,54 @@ aggregates, but belongs on an internal network (restrict it at the proxy).
 
 ## Real-time updates
 
-**Current state:** the notification bell polls `/api/notifications` every 10 seconds per user. With the existing index on `user_notification.user_id`, this is acceptable up to roughly 50 concurrent users (at 15 users today: ~90 requests/minute on that one endpoint).
+**Implemented** as tenant-scoped **Server-Sent Events** (`/api/events/stream`,
+`events_routes.py`): a signed-in client holds one long-lived connection and receives
+its own organisation's domain events (`call.created`, `dispatch.assignment_changed`,
+`unit.status_changed`), driving live board refresh and the notification engine. The
+org is taken from the session, never the client. (The notification bell still polls
+`/api/notifications` for the persistent, historical list; SSE carries the live push.)
 
-**Production plan:**
-- Replace polling with WebSocket push (Flask-SocketIO or a dedicated channel server) once concurrent user counts approach that threshold
-- Short-term mitigation if needed sooner: increase the poll interval to 30s for non-dispatch roles (HR, supervisor), who don't need 10-second freshness
+### Broker: single-process vs multi-worker
+
+The event bus (`events.py`) has one surface behind two brokers, chosen by
+`EMS_REDIS_URL`:
+
+| Deployment | Broker | Notes |
+|---|---|---|
+| local / standalone / dev / tests / E2E | **InMemoryEventBus** | process-local; correct for a single worker; no dependency |
+| production, `--workers > 1` | **RedisEventBus** | fans events through Redis Pub/Sub so every worker delivers, regardless of which worker handled the request |
+
+**Why it's mandatory:** the prod image runs Gunicorn with 3 workers. The in-memory
+bus is process-local, so without a shared broker a client's SSE stream on one worker
+misses events published on another — realtime looks fine in a demo and silently drops
+~2/3 of events under real load. `gunicorn.conf.py` **fails closed**: it refuses to
+boot >1 worker in production without `EMS_REDIS_URL`, so the broken combination can
+never ship. Either provide Redis, or run `WEB_CONCURRENCY=1`.
+
+**Required environment:** `EMS_REDIS_URL` (e.g. `redis://redis:6379/0`). The prod
+compose bundles a `redis` service and sets it by default.
+
+**Failure behavior (by design):**
+- **Redis outage:** `publish` is best-effort with short socket timeouts — a failed
+  publish drops that event and **never hangs the request**; the client re-fetches
+  current state on reconnect. The listener thread reconnects with exponential backoff.
+- **Slow SSE client:** per-subscriber queues are bounded and drop on overflow, so one
+  slow client cannot block publishers or other subscribers.
+- **Malformed message:** the listener logs and skips it, staying alive.
+- **Worker restart:** clients' `EventSource` reconnects automatically and re-subscribe.
+
+**Tests:** `test_redis_events.py` (cross-worker delivery, org isolation, outage,
+malformed message) and the CI prod-stack realtime smoke
+(`scripts/prod_realtime_smoke.py`) prove delivery across 3 real workers + Redis + Nginx.
+
+## Encryption in production
+
+Field-level encryption at rest (AES-256-GCM, per-org envelope keys) is **opt-in
+locally but mandatory in production**: with `EMS_ENV=production` the app refuses to
+start without a valid `EMS_MASTER_KEY` (missing or malformed → a clear, key-free error
+visible to health checks), so a cloud deployment can never silently store PHI in
+plaintext. Local/standalone keeps the plaintext fallback. Field coverage and the
+staged plan for wider encryption are in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 ## Multi-tenancy
 
