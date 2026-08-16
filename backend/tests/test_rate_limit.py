@@ -20,8 +20,10 @@ def rl_app():
     })
     with app.app_context():
         _db.create_all()
-        a = Employee(first_name="Kiosk", last_name="One", kiosk_pin="1234")
-        b = Employee(first_name="Kiosk", last_name="Two", kiosk_pin="5678")
+        a = Employee(first_name="Kiosk", last_name="One")
+        a.set_kiosk_pin("1234")
+        b = Employee(first_name="Kiosk", last_name="Two")
+        b.set_kiosk_pin("5678")
         _db.session.add_all([a, b])
         _db.session.commit()
         yield app, a.id, b.id

@@ -60,7 +60,7 @@ def get_employee(id):
 
     # Detail is HR-gated and backs the edit form, which prefills the kiosk PIN —
     # the one payload allowed to carry it (see Employee.to_dict).
-    return jsonify(employee.to_dict(include_pin=True))
+    return jsonify(employee.to_dict())
 
 
 # Shifts this employee has been rostered on, newest first — backs the Employee

@@ -54,19 +54,13 @@ Ordered by value/effort. None is a blind auto-migration; each needs a schema
 migration, a backfill, wiring, and tests, and some change API/UI behaviour — so they
 are deliberately staged rather than rushed during a reliability-hardening pass.
 
-### 1. `Employee.kiosk_pin` → hashed (highest value, small blast radius)
+### 1. `Employee.kiosk_pin` → hashed — **DONE**
 
-Today a 4-digit clock-in PIN is stored **plaintext**, compared plaintext in
-`time_routes.py` (`pin != employee.kiosk_pin`), and **returned in the employee API**
-(`Employee.to_dict()` → `kioskPin`). It is a low-privilege, rate-limited credential
-(clock-in/out only), but a plaintext auth secret nonetheless.
-
-Plan: add `kiosk_pin_hash`; hash on set (`generate_password_hash`); verify with
-`check_password_hash` (verification is already per-employee, so **no blind index is
-needed** — no lookup-by-PIN). Change `to_dict` to expose `hasPin` only (set-don't-
-view, like passwords) and update the PIN editor UI accordingly. Migration: hash any
-existing pins, then drop the plaintext column. Tests: set/verify/wrong-PIN, and that
-the API never returns the PIN.
+Shipped (migration `b2f8d4a16c93`). The clock-in PIN is now stored as a one-way hash
+(`kiosk_pin_hash`); `Employee.set_kiosk_pin` / `check_kiosk_pin` handle it, the
+plaintext column was dropped, and the API exposes only `hasPin` (never the PIN). The
+edit form is set-don't-view (empty leaves it unchanged). Verification is per-employee,
+so no blind index is needed.
 
 ### 2. `Employee.phone` / `email` → encrypted — **DONE**
 

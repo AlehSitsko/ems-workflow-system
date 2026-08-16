@@ -7,11 +7,6 @@ The **active** backlog only. Shipped work is not tracked here — its history li
 
 ## Planned (next reasonable work)
 
-- [ ] **Hash `Employee.kiosk_pin`.** It is stored plaintext, compared plaintext in
-  `time_routes.py`, and returned by the employee API (`Employee.to_dict()` →
-  `kioskPin`). Move to a hash (verification is already per-employee, so no blind
-  index is needed), change the API to expose `hasPin` only, and migrate existing
-  pins. See [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md) #1.
 - [ ] **Remaining field encryption.** Patient + employee contact PII and patient
   free-text are now encrypted (migrations `f4a1c9e07b30`, `a7c3e1f95d24`). Still
   plaintext by design and needing a derived-index/search design first: `dob` and

@@ -124,7 +124,7 @@ def kiosk_employee_list():
     """Returns minimal employee list for kiosk PIN/name selection."""
     employees = Employee.query.filter(Employee.is_active.is_(True)).order_by(Employee.last_name).all()
     return jsonify([
-        {"id": e.id, "name": f"{e.first_name} {e.last_name}", "has_pin": bool(e.kiosk_pin)}
+        {"id": e.id, "name": f"{e.first_name} {e.last_name}", "has_pin": bool(e.kiosk_pin_hash)}
         for e in employees
     ])
 
@@ -138,7 +138,7 @@ def kiosk_verify_pin():
     if not eid:
         return jsonify({"error": "employee_id required"}), 400
     employee = Employee.query.get_or_404(eid)
-    if employee.kiosk_pin and pin != employee.kiosk_pin:
+    if not employee.check_kiosk_pin(pin):
         return jsonify({"error": "Invalid PIN"}), 403
     return jsonify({"ok": True})
 
@@ -164,9 +164,8 @@ def kiosk_clock_in(employee_id=None):
 
     employee = Employee.query.get_or_404(eid)
 
-    if employee.kiosk_pin:
-        if data.get("pin") != employee.kiosk_pin:
-            return jsonify({"error": "Invalid PIN"}), 403
+    if not employee.check_kiosk_pin(data.get("pin")):
+        return jsonify({"error": "Invalid PIN"}), 403
 
     entry, active = clock_in(eid)
     if active:
@@ -184,9 +183,8 @@ def kiosk_clock_out():
 
     employee = Employee.query.get_or_404(eid)
 
-    if employee.kiosk_pin:
-        if data.get("pin") != employee.kiosk_pin:
-            return jsonify({"error": "Invalid PIN"}), 403
+    if not employee.check_kiosk_pin(data.get("pin")):
+        return jsonify({"error": "Invalid PIN"}), 403
 
     entry, _ = clock_out(eid)
     if not entry:

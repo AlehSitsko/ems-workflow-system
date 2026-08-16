@@ -83,7 +83,10 @@ def apply_employee_data(employee, data):
         ""
     ).strip()
 
-    employee.kiosk_pin = (data.get("kioskPin") or "").strip() or None
+    # Set-don't-view: a non-empty PIN is hashed and stored; an empty value leaves
+    # the current PIN unchanged (the form never receives the plaintext to prefill).
+    if "kioskPin" in data:
+        employee.set_kiosk_pin(data.get("kioskPin"))
 
     # CPR certification.
     cpr = normalize_license_data(data, "cpr")
