@@ -30,8 +30,10 @@ USER appuser
 
 EXPOSE 5050
 
-# Apply migrations (idempotent), then serve with Gunicorn. gthread workers keep a
-# blocking database call on one request from starving the others; the counts are
-# a conservative default to tune per host. `exec` so signals reach Gunicorn, not
-# the shell. Kept on one line: an exec-form CMD is JSON, not shell.
-CMD ["sh", "-c", "flask --app app db upgrade && exec gunicorn --bind 0.0.0.0:5050 --workers 3 --threads 2 --worker-class gthread --timeout 60 --access-logfile - --error-logfile - wsgi:app"]
+# Apply migrations (idempotent), then serve with Gunicorn using gunicorn.conf.py —
+# which reads WEB_CONCURRENCY / GUNICORN_THREADS and, crucially, refuses to boot
+# >1 worker in production without EMS_REDIS_URL (the in-memory event bus is
+# process-local, so multi-worker SSE would silently drop events; see events.py).
+# gthread workers keep a blocking database call on one request from starving the
+# others. `exec` so signals reach Gunicorn, not the shell. An exec-form CMD is JSON.
+CMD ["sh", "-c", "flask --app app db upgrade && exec gunicorn -c gunicorn.conf.py wsgi:app"]
