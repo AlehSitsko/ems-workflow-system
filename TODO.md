@@ -14,9 +14,11 @@ The **active** backlog only. Shipped work is not tracked here — its history li
   search need a blind index / derived month-day index), and `Call` addresses/phone
   (shown, filtered and sorted on the dispatch board — needs UI + query rework). See
   [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md).
-- [ ] **Deployment hardening.** TLS termination in front of the prod Nginx, a
-  documented backup / disaster-recovery runbook, and live S3/MinIO verification plus
-  a local→S3 object migration for an existing deployment.
+- [ ] **Deployment hardening (partly done).** The backup / disaster-recovery /
+  TLS / secrets runbook is written ([docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)).
+  Still operator/external work, not code: stand up the TLS-terminating proxy, run the
+  S3 verification checklist against a real MinIO/S3 endpoint, add a local→S3 object
+  migration for an existing deployment, and pin base-image digests.
 - [ ] **Analytics at scale.** The Supervisor Dashboard still groups a bounded window
   of calls in Python; move to indexed SQL aggregation + operational-day rollups if
   real volume warrants it.
