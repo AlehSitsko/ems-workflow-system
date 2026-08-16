@@ -39,6 +39,19 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    # Pub/Sub only (no persistence needed): the realtime broker that fans domain
+    # events to every backend worker. See events.py / gunicorn.conf.py.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -49,6 +62,17 @@ services:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -hex 32}
       # PostgreSQL (psycopg 3). The migrations run against it on startup.
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ems}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ems}
+      # Realtime broker. With >1 Gunicorn worker this is REQUIRED — the app refuses
+      # to boot multi-worker in production without it (gunicorn.conf.py guard).
+      EMS_REDIS_URL: ${EMS_REDIS_URL:-redis://redis:6379/0}
+      # Worker/thread counts (gunicorn.conf.py reads these).
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}
+      # Field-encryption master key — REQUIRED in production: the app refuses to
+      # start without it so sensitive fields (patient member id, policy number,
+      # insurance notes) are never silently stored in plaintext. A base64 32-byte
+      # key, e.g. `openssl rand -base64 32`; rotate with `v1:<b64>,v2:<b64>`. Mount
+      # it as EMS_MASTER_KEY_FILE in a real deployment instead of the environment.
+      EMS_MASTER_KEY: ${EMS_MASTER_KEY:?set EMS_MASTER_KEY, e.g. openssl rand -base64 32}
       # Secure (HTTPS-only) cookies by default; set 0 to smoke-test over HTTP.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-1}
       # Multi-tenancy: the apex the org subdomains live under, and the host of the
@@ -60,6 +84,8 @@ services:
       PLATFORM_HOST: ${PLATFORM_HOST:-admin.${BASE_DOMAIN:-example.com}}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5050/api/health')\""]

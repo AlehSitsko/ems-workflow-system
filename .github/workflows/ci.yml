@@ -110,19 +110,22 @@ jobs:
       - name: Validate dev compose file
         run: docker compose config --quiet
       - name: Validate prod compose file
-        run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate BASE_DOMAIN=ems.example.com docker compose -f docker-compose.prod.yml config --quiet
+        run: SECRET_KEY=ci-validate POSTGRES_PASSWORD=ci-validate EMS_MASTER_KEY=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8= BASE_DOMAIN=ems.example.com docker compose -f docker-compose.prod.yml config --quiet
       # Bring the prod stack up for real and prove the whole chain stands:
       # Postgres healthy -> backend runs `flask db upgrade` against Postgres and
       # Gunicorn goes healthy -> Nginx serves the SPA and proxies /api. `--wait`
       # blocks on the healthchecks and fails the job if any never go healthy.
-      - name: Prod stack smoke (Postgres + Gunicorn + Nginx)
+      - name: Prod stack smoke (Postgres + Redis + 3 Gunicorn workers + Nginx)
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
+          EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
           SESSION_COOKIE_SECURE: "0"  # smoke is plain HTTP, no TLS proxy in front
         run: |
           set -uo pipefail
+          # 3 workers + EMS_REDIS_URL (compose default): the multi-worker realtime
+          # config. Without Redis the gunicorn guard would refuse to boot.
           if ! docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 240; then
             echo "=== stack did not become healthy; diagnostics ==="
             docker compose -f docker-compose.prod.yml ps || true
@@ -133,14 +136,21 @@ jobs:
           body=$(curl -sf --retry 5 --retry-delay 3 http://localhost:8080/api/health)
           echo "health: $body"
           echo "$body" | grep -Eq '"status" *: *"ok"'
-          # The SPA itself is served at the root by the same Nginx.
-          curl -sf -o /dev/null http://localhost:8080/
+          curl -sf -o /dev/null http://localhost:8080/   # SPA served at the root
           echo "prod stack smoke OK"
+
+          # Production multi-worker realtime: an SSE client must receive an event
+          # published while another request is handled by a (likely different)
+          # worker — proves the Redis broker fans events across all 3 workers.
+          docker compose -f docker-compose.prod.yml exec -T backend flask --app app seed-demo
+          python3 -m pip install --quiet requests
+          python3 backend/scripts/prod_realtime_smoke.py http://localhost:8080
       - name: Dump compose logs on failure
         if: failure()
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
+          EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
         run: docker compose -f docker-compose.prod.yml logs --no-color --tail 300 || true
       - name: Tear down the stack
@@ -149,4 +159,5 @@ jobs:
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
+          EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com

@@ -73,6 +73,17 @@ def test_save_file_returns_org_scoped_key(app, tmp_path, monkeypatch):
     assert stored.endswith(".pdf") and size == len(b"pdfdata")
 
 
+def test_local_missing_object_raises_not_found_not_a_crash(app, tmp_path, monkeypatch):
+    # A key with no backing file (e.g. deleted out of band) yields a clean 404,
+    # never a 500 or a path/content leak.
+    from werkzeug.exceptions import NotFound
+    monkeypatch.setattr(storage, "_base_path", lambda: str(tmp_path))
+    key = storage.build_key(1, 2, ".pdf")
+    with app.test_request_context():
+        with pytest.raises(NotFound):
+            storage.get_file_response(key, download_name="x.pdf")
+
+
 # ── S3 provider (fake boto3, no real object store) ───────────────────────────
 
 class _FakeBody:

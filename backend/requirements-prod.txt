@@ -11,3 +11,6 @@ psycopg[binary]==3.3.4
 # server profile needs it — standalone/desktop uses local file storage and never
 # imports boto3.
 boto3>=1.34,<2.0
+
+# The Redis client for the multi-worker realtime broker (EMS_REDIS_URL) is pinned
+# in requirements.txt (redis==8.1.0), so dev, CI and prod share one version.

@@ -192,6 +192,36 @@ def _warn_if_schema_behind(app):
         app.logger.debug("schema-drift check skipped", exc_info=True)
 
 
+def _require_encryption_in_production(app):
+    """Fail closed: in production, sensitive fields must be encrypted at rest, so a
+    valid EMS_MASTER_KEY is mandatory. Missing or malformed -> refuse to start with
+    an actionable message (never echoing the key), so a cloud deployment can never
+    silently store PHI in plaintext. Local/standalone keeps the plaintext fallback
+    for convenience (EMS_ENV unset), and tests opt out via TESTING.
+    """
+    if app.config.get("TESTING"):
+        return
+    if os.environ.get("EMS_ENV") != "production":
+        return
+    from core.security.keyring import load_master_keys, KeyManagementError
+    try:
+        keys = load_master_keys()
+    except KeyManagementError as exc:
+        raise RuntimeError(
+            f"Refusing to start: {exc} Provide a valid EMS_MASTER_KEY (or "
+            "EMS_MASTER_KEY_FILE) so sensitive fields are encrypted at rest in "
+            "production."
+        ) from exc
+    if not keys:
+        raise RuntimeError(
+            "Refusing to start: EMS_MASTER_KEY is required when EMS_ENV=production, "
+            "so sensitive fields (patient member id, policy number, insurance notes) "
+            "are encrypted at rest. Provide a base64 32-byte key via EMS_MASTER_KEY "
+            "or a mounted EMS_MASTER_KEY_FILE. (Local/standalone runs without it and "
+            "stores those fields as plaintext by design.)"
+        )
+
+
 def create_app(config_overrides=None):
     """Build and return a configured Flask app.
 
@@ -236,6 +266,9 @@ def create_app(config_overrides=None):
     # named in PUBLIC_ENDPOINTS. Registered after the blueprints so it covers
     # every route they added.
     register_api_auth_guard(app)
+
+    # Fail closed: production must have a valid encryption master key.
+    _require_encryption_in_production(app)
 
     # Diagnostic: warn (never fail) if the DB is behind the migration head.
     _warn_if_schema_behind(app)
