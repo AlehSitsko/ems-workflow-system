@@ -7,13 +7,17 @@ The **active** backlog only. Shipped work is not tracked here — its history li
 
 ## Planned (next reasonable work)
 
-- [ ] **Remaining field encryption.** Patient + employee contact PII, patient
-  free-text, `EmployeeDocument.document_number`, and (hashed) `kiosk_pin` are done.
-  Still plaintext **by design** and needing a search/index design first — not a
-  column swap: `dob` and `last_name` (birthday calendar + duplicate detection +
-  search need a blind index / derived month-day index), and `Call` addresses/phone
-  (shown, filtered and sorted on the dispatch board — needs UI + query rework). See
-  [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md).
+- [ ] **Encrypt `dob` (designed, ready to implement).** Blind index for exact
+  search/dedup + a derived non-identifying `dob_month_day` (`MM-DD`) column for the
+  birthday calendar. Design + rollout plan in
+  [docs/design/DOB_LASTNAME_ENCRYPTION.md](docs/design/DOB_LASTNAME_ENCRYPTION.md).
+- [ ] **`Call` addresses/phone** — shown, filtered and sorted on the dispatch board;
+  encrypting needs UI + query rework (a separate initiative, not a column swap).
+
+Decided to stay plaintext (not a gap): `last_name`/`first_name` — substring-searched
+and alphabetically paginated, so they can't use a blind index without a UX loss;
+covered by tenant isolation + RBAC + `is_sensitive` masking + DB-at-rest encryption
+(see the design doc).
 - [ ] **Deployment hardening (partly done).** The backup / disaster-recovery /
   TLS / secrets runbook is written ([docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)).
   Still operator/external work, not code: stand up the TLS-terminating proxy, run the

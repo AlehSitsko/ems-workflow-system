@@ -87,9 +87,18 @@ patient/employee identifiers.
 Shipped (migration `c8b1e6a34f27`). Certificate/licence numbers; the document's tenant
 (for the DEK) is resolved from its parent employee's org. Not searched, no blind index.
 
-## Search / de-duplication note
+## Search / de-duplication note (`dob`, `last_name`) — designed
 
-`Patient.last_name` + `dob` back the duplicate-detection and search flows. Any move
-to encrypt them must add blind indexes and adapt those queries — a design task, not a
-column swap. Until then they stay plaintext and are called out here so the decision
-is explicit, not accidental.
+`dob` and `last_name`/`first_name` back the search, duplicate-detection and birthday-
+calendar flows, so they were held back for a design pass rather than a column swap.
+That design is done — see [design/DOB_LASTNAME_ENCRYPTION.md](design/DOB_LASTNAME_ENCRYPTION.md).
+Conclusion:
+
+- **`dob` → encryptable** with a blind index (exact search + dedup) plus a derived
+  non-identifying `dob_month_day` (`MM-DD`) column for the calendar (which never uses
+  the year). Ready to implement; the year — the identifying part — ends up encrypted.
+- **`last_name`/`first_name` → stay plaintext (decision).** They are substring-searched
+  (`ILIKE %term%`) and alphabetically sorted server-side before pagination; neither is
+  possible on a blind index or on encrypted-at-rest values without a real UX loss.
+  Protected instead by tenant isolation + RBAC + the `is_sensitive` UI mask + operator
+  database-at-rest encryption.
