@@ -135,6 +135,10 @@ class RedisEventBus:
         self._stop = threading.Event()
 
     def subscribe(self, org_id):
+        # Key local queues by the *string* org id: the listener parses org ids back
+        # out of the Redis channel name as strings, so subscribe/dispatch must use
+        # the same type or a queue registered under int 1 would never match "1".
+        org_id = str(org_id)
         q = queue.Queue(maxsize=_QUEUE_MAXSIZE)
         with self._lock:
             self._local.setdefault(org_id, set()).add(q)
@@ -142,6 +146,7 @@ class RedisEventBus:
         return q
 
     def unsubscribe(self, org_id, q):
+        org_id = str(org_id)
         with self._lock:
             subs = self._local.get(org_id)
             if subs:
@@ -151,7 +156,7 @@ class RedisEventBus:
 
     def subscriber_count(self, org_id):
         with self._lock:
-            return len(self._local.get(org_id, ()))
+            return len(self._local.get(str(org_id), ()))
 
     def publish(self, event_type, org_id, *, actor_user_id=None,
                 entity_type=None, entity_id=None, payload=None):

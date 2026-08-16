@@ -55,6 +55,18 @@ def test_event_reaches_a_subscriber_on_another_worker(two_workers):
     assert ev["payload"] == {"n": 1}
 
 
+def test_integer_org_id_delivers_cross_worker(two_workers):
+    # Production passes an integer org id (current_org_id()); the listener parses it
+    # back out of the channel name as a string. Both sides must normalise or nothing
+    # is delivered — this is the case the all-string tests missed.
+    worker_a, worker_b = two_workers
+    q = worker_b.subscribe(1)                 # int, as current_org_id() returns
+    assert _wait_psub(worker_b._redis)
+    worker_a.publish("call.created", 1, payload={"n": 1})  # int too
+    ev = q.get(timeout=3)
+    assert ev["type"] == "call.created" and str(ev["orgId"]) == "1"
+
+
 def test_cross_worker_delivery_is_org_scoped(two_workers):
     worker_a, worker_b = two_workers
     q1 = worker_b.subscribe("org-1")
