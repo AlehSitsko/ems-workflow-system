@@ -139,8 +139,10 @@ class Employee(db.Model):
     # Basic employee information.
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(30))
-    email = db.Column(db.String(150))
+    # Contact PII — encrypted at rest when a master key is configured (Text to hold
+    # ciphertext); not searched, so no blind index.
+    phone = db.Column(db.Text)
+    email = db.Column(db.Text)
     employee_number = db.Column(db.String(50))
     hire_date = db.Column(db.String(20))
     dob = db.Column(db.String(20))  # YYYY-MM-DD; drives employee birthday calendar events
@@ -199,8 +201,8 @@ class Employee(db.Model):
             "id": self.id,
             "firstName": self.first_name,
             "lastName": self.last_name,
-            "phone": self.phone,
-            "email": self.email or "",
+            "phone": _decrypt_employee_field(self, "phone"),
+            "email": _decrypt_employee_field(self, "email") or "",
             "employeeNumber": self.employee_number or "",
             "hireDate": self.hire_date or "",
             "dob": self.dob or "",
@@ -776,6 +778,22 @@ def _decrypt_patient_field(patient, field):
         return None
 
 
+def _decrypt_employee_field(employee, field):
+    """Plaintext of an encrypted Employee field for output; plaintext/legacy values
+    pass straight through, and an undecryptable value returns None (never a raw
+    token). Mirrors _decrypt_patient_field for the employee entity."""
+    value = getattr(employee, field, None)
+    from core.security.crypto import is_ciphertext, DecryptionError
+    if not is_ciphertext(value):
+        return value
+    from core.security.encrypted_fields import read_instance_field
+    try:
+        org = Organization.query.get(employee.org_id) if employee.org_id else None
+        return read_instance_field(employee, org, "employee", field)
+    except DecryptionError:
+        return None
+
+
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -785,9 +803,12 @@ class Patient(db.Model):
     dob = db.Column(db.String(20), index=True)
     gender = db.Column(db.String(50))
 
-    # Contact information.
-    phone = db.Column(db.String(20))
-    secondary_phone = db.Column(db.String(20))
+    # Contact information. phone / secondary_phone / address are sensitive PII and
+    # encrypted at rest when a master key is configured (Text to hold ciphertext);
+    # not searched, so no blind index. city / state / zip stay plaintext (coarse,
+    # and used for grouping/display, not identifying).
+    phone = db.Column(db.Text)
+    secondary_phone = db.Column(db.Text)
     address = db.Column(db.Text)
     city = db.Column(db.String(100))
     state = db.Column(db.String(50))
@@ -814,11 +835,11 @@ class Patient(db.Model):
     stairs = db.Column(db.Boolean, default=False)
     special_equipment_notes = db.Column(db.Text)
 
-    # Facility and emergency contact.
-    facility_name = db.Column(db.String(150))
-    room_number = db.Column(db.String(50))
-    emergency_contact_name = db.Column(db.String(150))
-    emergency_contact_phone = db.Column(db.String(20))
+    # Facility and emergency contact — sensitive PII, encrypted at rest (Text).
+    facility_name = db.Column(db.Text)
+    room_number = db.Column(db.Text)
+    emergency_contact_name = db.Column(db.Text)
+    emergency_contact_phone = db.Column(db.Text)
 
     # General notes.
     notes = db.Column(db.Text)
@@ -854,9 +875,9 @@ class Patient(db.Model):
             "dob": self.dob,
             "gender": self.gender,
 
-            "phone": self.phone,
-            "secondary_phone": self.secondary_phone,
-            "address": self.address,
+            "phone": _decrypt_patient_field(self, "phone"),
+            "secondary_phone": _decrypt_patient_field(self, "secondary_phone"),
+            "address": _decrypt_patient_field(self, "address"),
             "city": self.city,
             "state": self.state,
             "zip_code": self.zip_code,
@@ -872,20 +893,20 @@ class Patient(db.Model):
             "weight": self.weight,
             "oxygen_required": self.oxygen_required,
             "stairs": self.stairs,
-            "special_equipment_notes": self.special_equipment_notes,
+            "special_equipment_notes": _decrypt_patient_field(self, "special_equipment_notes"),
 
-            "facility_name": self.facility_name,
-            "room_number": self.room_number,
-            "emergency_contact_name": self.emergency_contact_name,
-            "emergency_contact_phone": self.emergency_contact_phone,
+            "facility_name": _decrypt_patient_field(self, "facility_name"),
+            "room_number": _decrypt_patient_field(self, "room_number"),
+            "emergency_contact_name": _decrypt_patient_field(self, "emergency_contact_name"),
+            "emergency_contact_phone": _decrypt_patient_field(self, "emergency_contact_phone"),
 
-            "notes": self.notes,
+            "notes": _decrypt_patient_field(self, "notes"),
 
-            "dispatch_comment": self.dispatch_comment,
+            "dispatch_comment": _decrypt_patient_field(self, "dispatch_comment"),
 
             "default_mobility_level": self.default_mobility_level,
-            "transport_instructions": self.transport_instructions,
-            "access_instructions": self.access_instructions,
+            "transport_instructions": _decrypt_patient_field(self, "transport_instructions"),
+            "access_instructions": _decrypt_patient_field(self, "access_instructions"),
             "preferred_language": self.preferred_language,
             "requires_interpreter": self.requires_interpreter,
 

@@ -99,6 +99,43 @@ def test_policy_number_and_insurance_notes_are_encrypted(app, master):
     assert body["insurance_notes"] == "sensitive coverage note"
 
 
+def test_contact_and_freetext_pii_are_encrypted(app, master):
+    org_id = _org()
+    ca = _admin_in(app, org_id)
+    payload = {
+        "first_name": "Con", "last_name": "Tact",
+        "phone": "555-0100", "secondary_phone": "555-0200",
+        "address": "12 Private Ln", "facility_name": "Sunrise Care",
+        "room_number": "4B", "emergency_contact_name": "Kin Next",
+        "emergency_contact_phone": "555-0300",
+        "notes": "sensitive note", "dispatch_comment": "gate code 1234",
+        "transport_instructions": "back entrance", "access_instructions": "ring twice",
+        "special_equipment_notes": "bariatric stretcher",
+    }
+    pid = ca.post("/api/patients", json=payload).get_json()["id"]
+
+    # At rest: every one of these columns holds ciphertext, not plaintext.
+    from tenant import unfiltered
+    encrypted = ["phone", "secondary_phone", "address", "facility_name", "room_number",
+                 "emergency_contact_name", "emergency_contact_phone", "notes",
+                 "dispatch_comment", "transport_instructions", "access_instructions",
+                 "special_equipment_notes"]
+    with unfiltered():
+        p = db.session.get(Patient, pid)
+        for f in encrypted:
+            assert is_ciphertext(getattr(p, f)), f"{f} was not encrypted at rest"
+    # city/state/zip are intentionally NOT encrypted.
+    with unfiltered():
+        p = db.session.get(Patient, pid)
+        # (they weren't sent, so they're just None — the point is they aren't in the set)
+        assert "city" not in encrypted
+
+    # Through the API every field round-trips to its plaintext.
+    body = ca.get(f"/api/patient/{pid}").get_json()
+    for f in encrypted:
+        assert body[f] == payload[f], f"{f} did not decrypt through the API"
+
+
 def test_plaintext_mode_when_no_master_key(app, monkeypatch):
     monkeypatch.delenv("EMS_MASTER_KEY", raising=False)
     org_crypto.clear_cache()

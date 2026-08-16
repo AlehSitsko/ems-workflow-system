@@ -12,8 +12,12 @@ The **active** backlog only. Shipped work is not tracked here — its history li
   `kioskPin`). Move to a hash (verification is already per-employee, so no blind
   index is needed), change the API to expose `hasPin` only, and migrate existing
   pins. See [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md) #1.
-- [ ] **Wider field encryption.** After kiosk_pin, encrypt employee / patient contact
-  PII (phone, email, address, DOB) using the existing engine, staged per
+- [ ] **Remaining field encryption.** Patient + employee contact PII and patient
+  free-text are now encrypted (migrations `f4a1c9e07b30`, `a7c3e1f95d24`). Still
+  plaintext by design and needing a derived-index/search design first: `dob` and
+  `last_name` (birthday calendar + duplicate detection + search). Lower-priority
+  candidates: `Call` addresses/phone (filtered/sorted — needs query rework) and
+  `EmployeeDocument.document_number`. See
   [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md).
 - [ ] **Deployment hardening.** TLS termination in front of the prod Nginx, a
   documented backup / disaster-recovery runbook, and live S3/MinIO verification plus

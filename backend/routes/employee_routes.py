@@ -2,13 +2,26 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Employee, DailyCrewUnit, EmploymentEvent, DisciplinaryAction
+from models import db, Employee, DailyCrewUnit, EmploymentEvent, DisciplinaryAction, Organization
 from utils.employee_utils import apply_employee_data
 from utils.employee_shifts import employee_shifts
 from notification_utils import create_notification
 from utils.auth_utils import require_role, get_request_user_id, get_request_user_name, ALL_ROLES
 from utils.validation_utils import is_valid_date
 from audit_utils import log_action
+from core.security.keyring import encryption_configured
+from core.security.encrypted_fields import encrypt_instance
+
+# Contact PII encrypted at rest (mirrors the patient pattern). Not searched, so no
+# blind index. A no-op when no master key is configured (plaintext passthrough).
+_EMPLOYEE_ENC_FIELDS = [("phone", None), ("email", None)]
+
+
+def _encrypt_employee_fields(employee):
+    if not encryption_configured():
+        return
+    org = Organization.query.get(employee.org_id) if employee.org_id else None
+    encrypt_instance(employee, org, "employee", _EMPLOYEE_ENC_FIELDS)
 
 # Managing employee records is an admin/supervisor/HR function. The LIST is
 # readable by every *staff* role — the Dispatch Board and Crew Planner
@@ -87,6 +100,8 @@ def create_employee():
     apply_employee_data(employee, data)
 
     db.session.add(employee)
+    db.session.flush()               # id now known → AAD can bind it
+    _encrypt_employee_fields(employee)
     db.session.commit()
 
     create_notification(
@@ -121,6 +136,7 @@ def update_employee(id):
 
     apply_employee_data(employee, data)
 
+    _encrypt_employee_fields(employee)   # re-encrypt any changed contact fields
     db.session.commit()
 
     return jsonify(employee.to_dict())
