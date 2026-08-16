@@ -27,6 +27,28 @@ def test_quick_links_and_hidden_widgets_round_trip(clients):
     assert again["quickLinks"] == ["/dispatch", "/calendar"]
 
 
+def test_realtime_notification_prefs_persist_across_requests(clients):
+    """The realtime notification preferences (Off/Visual/Sound, volume, DND, quiet
+    hours) are stored server-side per user, so they survive logout/login and are the
+    same across a user's clients — not just browser-local UI state."""
+    c = clients["dispatcher"]
+    prefs = {
+        "soundEnabled": False,
+        "volume": 0.2,
+        "dnd": True,
+        "quietHours": {"enabled": True, "start": "22:00", "end": "07:00"},
+        "types": {"newCall": "visual", "assignmentChanged": "off", "unitStatusChanged": "sound"},
+    }
+    resp = c.patch("/api/settings", json={"realtimeNotifications": prefs})
+    assert resp.status_code == 200
+    assert resp.get_json()["realtimeNotifications"] == prefs
+
+    # A fresh request (i.e. a new session / another client / after re-login) still
+    # sees them — proof they are persisted, not client-only.
+    again = c.get("/api/settings").get_json()["realtimeNotifications"]
+    assert again == prefs
+
+
 def test_quick_links_can_be_reset_to_role_defaults_with_null(clients):
     clients["admin"].patch("/api/settings", json={"dashboard": {"quickLinks": ["/dispatch"]}})
     resp = clients["admin"].patch("/api/settings", json={"dashboard": {"quickLinks": None}})

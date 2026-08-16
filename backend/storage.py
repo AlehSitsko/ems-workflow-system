@@ -65,7 +65,13 @@ class LocalStorageProvider:
             pass
 
     def response(self, key, download_name):
-        return send_file(self._full(key), as_attachment=True, download_name=download_name)
+        full = self._full(key)
+        if not os.path.isfile(full):
+            # A record can outlive its file (deleted out of band). Return a clean
+            # 404 rather than letting send_file raise FileNotFoundError -> 500.
+            from werkzeug.exceptions import NotFound
+            raise NotFound()
+        return send_file(full, as_attachment=True, download_name=download_name)
 
 
 class S3StorageProvider:
