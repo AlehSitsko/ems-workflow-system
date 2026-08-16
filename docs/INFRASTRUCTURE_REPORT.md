@@ -180,8 +180,10 @@ implemented — see Phase 3.)*
 
 ## Test posture
 
-Full backend suite **982 passed** at the time of this report; frontend **458**
-Vitest tests. **8 Playwright E2E specs** run in CI against a disposable
+Full backend suite **1009 tests** (as of commit `47ef647`; the report was first
+written at 982 and 993 — the number grows as tests land, so treat it as a snapshot
+and regenerate with `pytest --co -q`); frontend **458**
+Vitest tests. **8 Playwright E2E spec files (20 cases)** run in CI against a disposable
 migrated+seeded backend (smoke, roles, dispatch, workflow, invitations, realtime,
 cross-module realtime sync, responsive-viewport). CI runs four jobs — backend
 (pytest), frontend (lint + Vitest + build), E2E (Playwright), and Docker (build

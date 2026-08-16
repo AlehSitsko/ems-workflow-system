@@ -50,7 +50,8 @@ off with the session, and ending a session is a server-side act rather than a
 revocation list. `SameSite=Lax` means the browser will not attach it to
 cross-site POSTs, which removes the common CSRF shape without a token scheme.
 
-**Role-correctness audit (done).** Every one of the 142 API routes was
+**Role-correctness audit (done).** Every one of the `/api/` routes (203 as of
+commit `47ef647`; regenerate the list from the running app — see API.md) was
 enumerated against its guard, and the ones relying only on the default-deny
 (i.e. "any signed-in user") were checked against the documented policy —
 *"Dispatcher never sees payroll/salary/HR-private data; HR never sees patient
