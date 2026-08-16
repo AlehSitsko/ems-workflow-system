@@ -247,9 +247,10 @@ def test_birthday_range_filtering_matches_the_naive_scan(client, admin):
     db.session.commit()
 
     start, end = _date(2026, 7, 1), _date(2026, 7, 31)
+    # _birthday_occurrences now takes the derived MM-DD (dob_month_day), not the dob.
     expected = {
         p.id for p in Patient.query.filter(Patient.dob.isnot(None)).all()
-        if _birthday_occurrences(p.dob, start, end)
+        if _birthday_occurrences(p.dob_month_day, start, end)
     }
 
     resp = admin.get(f"/api/calendar/events?start={start}&end={end}")

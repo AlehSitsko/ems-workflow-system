@@ -47,8 +47,8 @@ FUTURE = (date.today() + timedelta(days=7)).isoformat()
 PAST = (date.today() - timedelta(days=7)).isoformat()
 
 
-def mk_patient(first="John", last="Doe"):
-    p = Patient(first_name=first, last_name=last)
+def mk_patient(first="John", last="Doe", dob=None):
+    p = Patient(first_name=first, last_name=last, dob=dob)
     db.session.add(p)
     db.session.commit()
     return p
@@ -344,9 +344,9 @@ def types_for(api, type_, start=TODAY, end=FUTURE):
 
 
 def test_patient_birthday_visible_to_ops_not_hr(client, roles):
-    mk_patient("Birthday", "Person")
-    db.session.query(Patient).update({Patient.dob: BIRTHDAY_DOB})
-    db.session.commit()
+    # Set dob through the ORM (not a bulk Query.update, which bypasses the
+    # before_insert listener that derives dob_month_day).
+    mk_patient("Birthday", "Person", dob=BIRTHDAY_DOB)
     disp = types_for(roles["dispatcher"], "patient_birthday")
     assert len(disp) == 1
     assert disp[0]["metadata"]["patientLabel"] == "Birthday P."  # minimized

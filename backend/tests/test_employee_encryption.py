@@ -74,6 +74,18 @@ def test_employee_plaintext_mode_without_key(app, monkeypatch):
     assert c.get(f"/api/employees/{eid}").get_json()["email"] == "p@x.com"
 
 
+def test_employee_dob_encrypted_with_month_day_index(app, master):
+    org_id = _org()
+    c = _admin_in(app, org_id)
+    eid = c.post("/api/employees", json={"firstName": "Birth", "lastName": "Day",
+                                         "dob": "1988-03-09"}).get_json()["id"]
+    assert is_ciphertext(_stored(eid, "dob"))          # encrypted at rest
+    from tenant import unfiltered
+    with unfiltered():
+        assert db.session.get(Employee, eid).dob_month_day == "03-09"  # non-identifying
+    assert c.get(f"/api/employees/{eid}").get_json()["dob"] == "1988-03-09"  # decrypts
+
+
 def test_employee_backfill_encrypts_existing_plaintext(app, master):
     from tenant import set_current_org
     org_id = _org()

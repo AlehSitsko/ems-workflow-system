@@ -42,19 +42,21 @@ _CERT_NAME_ROLES = {"admin", "supervisor", "hr"}
 _LEAVE_DETAIL_ROLES = {"admin", "hr"}
 
 
-def _birthday_occurrences(dob_str, start_date, end_date):
-    """Dates within [start, end] on which this dob's birthday falls.
+def _birthday_occurrences(month_day, start_date, end_date):
+    """Dates within [start, end] on which this "MM-DD" birthday falls.
 
-    Birthdays recur yearly, and a ≤93-day range can straddle a year boundary, so
-    check each candidate year. Feb-29 birthdays only occur in leap years.
+    Takes the non-identifying month/day (dob_month_day) rather than the full dob —
+    the year is never needed here and is encrypted. Birthdays recur yearly, and a
+    ≤93-day range can straddle a year boundary, so check each candidate year. Feb-29
+    birthdays only occur in leap years.
     """
-    if not dob_str:
+    if not month_day:
         return []
-    parts = dob_str.split("-")
-    if len(parts) != 3:
+    parts = month_day.split("-")
+    if len(parts) != 2:
         return []
     try:
-        month, day = int(parts[1]), int(parts[2])
+        month, day = int(parts[0]), int(parts[1])
     except ValueError:
         return []
     results = []
@@ -79,7 +81,7 @@ def _month_days_in_range(start_date, end_date):
     days = set()
     cursor = start_date
     while cursor <= end_date:
-        days.add(cursor.strftime("-%m-%d"))
+        days.add(cursor.strftime("%m-%d"))   # matches dob_month_day ("MM-DD")
         cursor += timedelta(days=1)
     return days
 
@@ -592,18 +594,17 @@ def get_calendar_events():
         month_days = _month_days_in_range(start, end)
         patients = (
             db.session.query(
-                Patient.id, Patient.first_name, Patient.last_name, Patient.dob,
+                Patient.id, Patient.first_name, Patient.last_name, Patient.dob_month_day,
             )
             .filter(
-                Patient.dob.isnot(None), Patient.dob != "",
-                db.func.substr(Patient.dob, 5, 6).in_(month_days),
+                Patient.dob_month_day.in_(month_days),   # non-identifying MM-DD index
                 db.or_(Patient.is_archived.is_(False), Patient.is_archived.is_(None)),
             )
             .all()
         )
         for p in patients:
             label = _minimized_patient_label(p)
-            for occ in _birthday_occurrences(p.dob, start, end):
+            for occ in _birthday_occurrences(p.dob_month_day, start, end):
                 iso = occ.isoformat()
                 _add_overlay({
                     "id": f"patient_birthday:{p.id}:{iso}",
@@ -618,9 +619,10 @@ def get_calendar_events():
                 })
 
     # Employee birthdays — all roles.
-    for e in Employee.query.filter(Employee.dob.isnot(None), Employee.dob != "").all():
+    for e in Employee.query.filter(Employee.dob_month_day.isnot(None),
+                                   Employee.dob_month_day != "").all():
         name = f"{e.first_name} {e.last_name}".strip()
-        for occ in _birthday_occurrences(e.dob, start, end):
+        for occ in _birthday_occurrences(e.dob_month_day, start, end):
             iso = occ.isoformat()
             _add_overlay({
                 "id": f"employee_birthday:{e.id}:{iso}",

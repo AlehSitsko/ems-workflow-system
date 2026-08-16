@@ -128,7 +128,8 @@ the decrypted page (losing global alphabetical pagination) — a product decisio
 column swap. That is a separate, larger initiative.
 
 ## Decision log
-- **dob: encrypt** (blind index + MM-DD derived column). Feasible, efficient, low
-  residual exposure. *Proposed — ready to implement.*
+- **dob: encrypt — IMPLEMENTED** (migration `d3e5b7a19f42`): encrypted `dob` +
+  `dob_bidx` (exact search/dedup) + `dob_month_day` (calendar), with a model-level
+  listener keeping the derived column in sync on every write path.
 - **last_name/first_name: stay plaintext.** Encryption breaks substring search and
   paginated alphabetical sort; defence-in-depth covers the residual risk. *Decision.*

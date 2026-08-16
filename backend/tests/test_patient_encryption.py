@@ -136,6 +136,56 @@ def test_contact_and_freetext_pii_are_encrypted(app, master):
         assert body[f] == payload[f], f"{f} did not decrypt through the API"
 
 
+def _birthday_types(client, source_id, source, start, end):
+    events = client.get(f"/api/calendar/events?start={start}&end={end}").get_json()
+    items = events.get("events", events) if isinstance(events, dict) else events
+    return [e for e in items if e.get("type") == f"{source}_birthday"
+            and e.get("sourceId") == source_id]
+
+
+def test_dob_encrypted_searchable_and_dedup(app, master):
+    org_id = _org()
+    ca = _admin_in(app, org_id)
+    resp = ca.post("/api/patients", json={"first_name": "Dob", "last_name": "Holder",
+                                          "dob": "1990-06-15", "member_id": "MEM-DOB"})
+    pid = resp.get_json()["id"]
+
+    from tenant import unfiltered
+    with unfiltered():
+        p = db.session.get(Patient, pid)
+        assert is_ciphertext(p.dob)          # encrypted at rest
+        assert p.dob_bidx                    # blind index populated
+        assert p.dob_month_day == "06-15"    # non-identifying MM-DD (no year)
+
+    # Decrypts through the API.
+    assert ca.get(f"/api/patient/{pid}").get_json()["dob"] == "1990-06-15"
+
+    # Exact search by dob goes through the blind index and finds the row.
+    items = ca.get("/api/patients?dob=1990-06-15").get_json()["items"]
+    assert any(i["id"] == pid for i in items)
+    # A different dob does not match.
+    assert ca.get("/api/patients?dob=1980-01-01").get_json()["items"] == []
+
+    # Duplicate detection (same name + dob) still fires — via the blind index.
+    dup = ca.post("/api/patients", json={"first_name": "Dob", "last_name": "Holder",
+                                         "dob": "1990-06-15"})
+    assert dup.status_code != 201
+    assert "duplicate" in dup.get_json().get("error", "").lower()
+
+
+def test_patient_birthday_calendar_with_encrypted_dob(app, master):
+    org_id = _org()
+    ca = _admin_in(app, org_id)
+    pid = ca.post("/api/patients", json={"first_name": "Cake", "last_name": "Day",
+                                         "dob": "1985-06-15"}).get_json()["id"]
+    # The birthday shows on the calendar (which filters on dob_month_day, never the
+    # encrypted year), for a range covering 06-15.
+    hits = _birthday_types(ca, pid, "patient", "2026-06-01", "2026-06-30")
+    assert hits, "encrypted-dob patient birthday did not appear on the calendar"
+    # And not when the range excludes it.
+    assert _birthday_types(ca, pid, "patient", "2026-07-01", "2026-07-30") == []
+
+
 def test_plaintext_mode_when_no_master_key(app, monkeypatch):
     monkeypatch.delenv("EMS_MASTER_KEY", raising=False)
     org_crypto.clear_cache()

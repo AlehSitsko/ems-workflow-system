@@ -7,10 +7,6 @@ The **active** backlog only. Shipped work is not tracked here — its history li
 
 ## Planned (next reasonable work)
 
-- [ ] **Encrypt `dob` (designed, ready to implement).** Blind index for exact
-  search/dedup + a derived non-identifying `dob_month_day` (`MM-DD`) column for the
-  birthday calendar. Design + rollout plan in
-  [docs/design/DOB_LASTNAME_ENCRYPTION.md](docs/design/DOB_LASTNAME_ENCRYPTION.md).
 - [ ] **`Call` addresses/phone** — shown, filtered and sorted on the dispatch board;
   encrypting needs UI + query rework (a separate initiative, not a column swap).
 
