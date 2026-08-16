@@ -329,8 +329,11 @@ S3/MinIO endpoint (the provider is unit-tested against a fake boto3 client).
 - **Production:** `docker-compose.prod.yml` runs **Gunicorn** (`backend/Dockerfile.prod`, non-root, `wsgi:app`, gthread workers) behind an **unprivileged Nginx** (`frontend/Dockerfile.prod`, multi-stage Node build → static bundle) that serves the SPA and proxies `/api` — so the app and API are one origin and the `SameSite=Lax` session cookie is sent. `EMS_ENV=production` forces a real `SECRET_KEY` and Secure cookies; the frontend resolves its API base to same-origin in a production build. CI builds both prod images and validates the prod compose on every push.
 
 **Still to do:**
-- TLS termination in front of Nginx (the prod stack expects to sit behind it; `SESSION_COOKIE_SECURE=0` is only for local HTTP smoke tests)
+- TLS termination in front of Nginx — the operator supplies a terminating reverse proxy (the prod stack expects to sit behind it; `SESSION_COOKIE_SECURE=0` is only for local HTTP smoke tests). The procedure (proxy requirements, HSTS, wildcard cert for subdomains) is in [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) → TLS termination.
 - Pinned base image digests
+- Live S3/MinIO verification (the provider is unit-tested against a fake client; run the [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) → Object storage checklist against a real endpoint)
+
+Backups, restore, disaster recovery and — critically — **`EMS_MASTER_KEY` backup** (its loss permanently orphans all encrypted PHI) are documented in [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md).
 
 ## Secrets
 

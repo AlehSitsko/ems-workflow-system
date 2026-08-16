@@ -439,6 +439,7 @@ certificate. See [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 * [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — production hardening plan
 * [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md) — client/server infrastructure evolution (tenant isolation, onboarding, events/SSE, encryption, object storage)
 * [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md) — sensitive-field classification, current encryption coverage, and the staged plan for gaps
+* [docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md) — production TLS, secrets & encryption-key backup, backups, disaster recovery, S3, monitoring
 * [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) — branch strategy, pre-commit checklist, manual verification checklist
 * [docs/UI_STANDARD.md](docs/UI_STANDARD.md) — UI patterns and design tokens
 * [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md) — full changelog
