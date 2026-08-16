@@ -2,7 +2,9 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, EmployeeDocument, Employee, DOC_TYPES
+from models import db, EmployeeDocument, Employee, Organization, DOC_TYPES
+from core.security.keyring import encryption_configured
+from core.security.encrypted_fields import encrypt_instance
 from storage import save_file, delete_file, get_file_response
 from notification_utils import create_notification
 from utils.validation_utils import check_length
@@ -20,6 +22,18 @@ ALLOWED_MIME = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+
+# document_number is a sensitive licence/certificate identifier, encrypted at rest
+# (no-op without a master key). The document's tenant is its employee's org.
+_DOC_ENC_FIELDS = [("document_number", None)]
+
+
+def _encrypt_document_fields(doc):
+    if not encryption_configured():
+        return
+    org_id = doc.employee.org_id if doc.employee else None
+    org = Organization.query.get(org_id) if org_id else None
+    encrypt_instance(doc, org, "employee_document", _DOC_ENC_FIELDS)
 
 
 def _user_id_from_request():
@@ -135,6 +149,8 @@ def upload_document(employee_id):
         updated_at=now,
     )
     db.session.add(doc)
+    db.session.flush()                 # id known → AAD can bind it
+    _encrypt_document_fields(doc)
     db.session.commit()
     log_action("document.uploaded", entity_type="employee_document", entity_id=doc.id,
                entity_label=doc.title,
@@ -207,6 +223,7 @@ def update_document(doc_id):
 
     doc.updated_by = _user_id_from_request()
     doc.updated_at = datetime.now().isoformat()
+    _encrypt_document_fields(doc)       # re-encrypt if document_number changed
     db.session.commit()
     _notify_if_expiring(doc)
     return jsonify(doc.to_dict())

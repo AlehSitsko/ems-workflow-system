@@ -423,10 +423,17 @@ def encrypt_existing_fields_command(yes):
         return
 
     # Single source of truth for which fields each entity encrypts (avoids drift).
+    # The org_getter yields the row's org id — direct for patient/employee, via the
+    # parent employee for a document (which has no org_id of its own).
     from routes.patient_routes import _PATIENT_ENC_FIELDS
     from routes.employee_routes import _EMPLOYEE_ENC_FIELDS, Employee
-    entities = [("patient", Patient, _PATIENT_ENC_FIELDS),
-                ("employee", Employee, _EMPLOYEE_ENC_FIELDS)]
+    from routes.document_routes import _DOC_ENC_FIELDS, EmployeeDocument
+    entities = [
+        ("patient", Patient, _PATIENT_ENC_FIELDS, lambda r: r.org_id),
+        ("employee", Employee, _EMPLOYEE_ENC_FIELDS, lambda r: r.org_id),
+        ("employee_document", EmployeeDocument, _DOC_ENC_FIELDS,
+         lambda r: r.employee.org_id if r.employee else None),
+    ]
 
     provision_all_orgs()
     org_cache = {}
@@ -437,13 +444,13 @@ def encrypt_existing_fields_command(yes):
         return org_cache.get(org_id)
 
     with unfiltered():
-        for entity_type, model, fields in entities:
+        for entity_type, model, fields, org_getter in entities:
             count = 0
             for row in model.query.all():
                 values = [getattr(row, f) for f, _ in fields]
                 if not any(v and not is_ciphertext(v) for v in values):
                     continue  # nothing plaintext left to encrypt on this row
-                encrypt_instance(row, _org(row.org_id), entity_type, fields)
+                encrypt_instance(row, _org(org_getter(row)), entity_type, fields)
                 count += 1
             click.echo(f"encrypt-existing-fields: encrypted {count} {entity_type}(s).")
         db.session.commit()
