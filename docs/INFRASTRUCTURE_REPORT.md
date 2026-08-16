@@ -101,7 +101,11 @@ tested (`notificationRules.test.js`).
   (`is_ciphertext` distinguishes), so enabling encryption needs no plaintext-drop
   migration, and no master key = plaintext mode (keeps local/standalone working).
 - **Applied to** `Patient.member_id` (+ blind index), `policy_number`,
-  `insurance_notes`. Backfill via `flask encrypt-existing-fields` — backup-first,
+  `insurance_notes`, patient contact/facility/emergency PII (`phone`,
+  `secondary_phone`, `address`, `facility_name`, `room_number`,
+  `emergency_contact_name/phone`) and free-text (`notes`, `dispatch_comment`,
+  `transport_instructions`, `access_instructions`, `special_equipment_notes`), and
+  `Employee.phone` / `email`. Backfill via `flask encrypt-existing-fields` — backup-first,
   idempotent, never destroys plaintext (replaces it with its own ciphertext).
 - **Master-key rotation is complete end to end:** add a new `EMS_MASTER_KEY` version →
   `flask rewrap-org-keys` re-wraps every org DEK under it → the old version can be

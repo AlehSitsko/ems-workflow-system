@@ -401,7 +401,7 @@ def rewrap_org_keys_command():
 @click.option("--yes", is_flag=True, help="Confirm you have a DB backup and want to encrypt in place.")
 @with_appcontext
 def encrypt_existing_fields_command(yes):
-    """Encrypt existing plaintext sensitive fields in place (Patient.member_id).
+    """Encrypt existing plaintext sensitive fields in place (Patient + Employee PII).
 
     Requires EMS_MASTER_KEY; provisions org keys first. Idempotent — values already
     ciphertext are skipped, so the plaintext source is only ever read, and a value
@@ -422,23 +422,31 @@ def encrypt_existing_fields_command(yes):
         click.echo("Refusing to run without --yes. Back up the database first, then re-run with --yes.")
         return
 
-    # Single source of truth for which patient fields are encrypted (avoids drift).
-    from routes.patient_routes import _PATIENT_ENC_FIELDS as fields
+    # Single source of truth for which fields each entity encrypts (avoids drift).
+    from routes.patient_routes import _PATIENT_ENC_FIELDS
+    from routes.employee_routes import _EMPLOYEE_ENC_FIELDS, Employee
+    entities = [("patient", Patient, _PATIENT_ENC_FIELDS),
+                ("employee", Employee, _EMPLOYEE_ENC_FIELDS)]
+
     provision_all_orgs()
-    org_cache, count = {}, 0
+    org_cache = {}
+
+    def _org(org_id):
+        if org_id and org_id not in org_cache:
+            org_cache[org_id] = Organization.query.get(org_id)
+        return org_cache.get(org_id)
+
     with unfiltered():
-        for patient in Patient.query.all():
-            values = [getattr(patient, f) for f, _ in fields]
-            if not any(v and not is_ciphertext(v) for v in values):
-                continue  # nothing plaintext left to encrypt on this row
-            org = org_cache.get(patient.org_id)
-            if org is None and patient.org_id:
-                org = Organization.query.get(patient.org_id)
-                org_cache[patient.org_id] = org
-            encrypt_instance(patient, org, "patient", fields)
-            count += 1
+        for entity_type, model, fields in entities:
+            count = 0
+            for row in model.query.all():
+                values = [getattr(row, f) for f, _ in fields]
+                if not any(v and not is_ciphertext(v) for v in values):
+                    continue  # nothing plaintext left to encrypt on this row
+                encrypt_instance(row, _org(row.org_id), entity_type, fields)
+                count += 1
+            click.echo(f"encrypt-existing-fields: encrypted {count} {entity_type}(s).")
         db.session.commit()
-    click.echo(f"encrypt-existing-fields: encrypted sensitive fields on {count} patient(s).")
 
 
 def register_cli_commands(app):

@@ -29,9 +29,15 @@ plaintext** (documented reason).
 | `Patient.member_id` | B | encrypted + blind index (exact-match search) |
 | `Patient.policy_number` | B | encrypted |
 | `Patient.insurance_notes` | B/C | encrypted |
+| `Patient.phone`, `secondary_phone`, `address` | B | encrypted |
+| `Patient.facility_name`, `room_number`, `emergency_contact_name`, `emergency_contact_phone` | B | encrypted |
+| `Patient.notes`, `dispatch_comment`, `transport_instructions`, `access_instructions`, `special_equipment_notes` | B/C | encrypted |
+| `Employee.phone`, `email` | B | encrypted |
 
-These are the deliberate high-value PHI (insurance identifiers) and all
-authentication secrets. Master key required in production (fail-closed, see
+All authentication secrets are hashed; the insurance identifiers, patient contact /
+facility / emergency PII, patient free-text that may carry PHI, and employee contact
+PII are encrypted at rest (none of them searched/indexed, so no blind index needed).
+Master key required in production (fail-closed, see
 [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md)).
 
 ## Intentionally plaintext (documented)
@@ -62,21 +68,19 @@ view, like passwords) and update the PIN editor UI accordingly. Migration: hash 
 existing pins, then drop the plaintext column. Tests: set/verify/wrong-PIN, and that
 the API never returns the PIN.
 
-### 2. `Employee` contact PII — `phone`, `email`, `dob` → encrypted (+ blind index where searched)
+### 2. `Employee.phone` / `email` → encrypted — **DONE**
 
-Personal data of staff. `email`/`phone` are display-only (encryptable directly);
-`dob` drives the birthday calendar (needs either decryption at read or a derived
-month/day index). Plan mirrors the Patient rollout: widen to Text, `encrypt_instance`
-on write, decrypt in `to_dict`, backfill via an extended `encrypt-existing-fields`.
+Shipped (migration `a7c3e1f95d24`). `Employee.dob` is **not** encrypted: it drives the
+birthday calendar and needs a derived month/day index, tracked under the search note
+below.
 
-### 3. `Patient` contact PII — `phone`, `secondary_phone`, `address`, `emergency_contact_*`, `facility_name`, `room_number` → encrypted
+### 3. `Patient` contact PII (`phone`, `secondary_phone`, `address`, `emergency_contact_*`, `facility_name`, `room_number`) → encrypted — **DONE**
 
-Directly encryptable (not searched). Same pattern as `insurance_notes`. Largest row
-count; do after the engine is exercised by #1–#2.
+Shipped (migration `f4a1c9e07b30`), same pattern as `insurance_notes`; none are searched.
 
-### 4. `Patient` free-text — `notes`, `dispatch_comment`, `transport_instructions`, `access_instructions`, `special_equipment_notes` → encrypted
+### 4. `Patient` free-text (`notes`, `dispatch_comment`, `transport_instructions`, `access_instructions`, `special_equipment_notes`) → encrypted — **DONE**
 
-May contain PHI indirectly. Directly encryptable, no search impact.
+Shipped alongside #3.
 
 ### 5. `Call` — `caller_phone`, `pickup_address`, `dropoff_address`, `caller_note` → encrypted (deferred, high effort)
 

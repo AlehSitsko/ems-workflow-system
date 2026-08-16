@@ -139,8 +139,10 @@ class Employee(db.Model):
     # Basic employee information.
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(30))
-    email = db.Column(db.String(150))
+    # Contact PII — encrypted at rest when a master key is configured (Text to hold
+    # ciphertext); not searched, so no blind index.
+    phone = db.Column(db.Text)
+    email = db.Column(db.Text)
     employee_number = db.Column(db.String(50))
     hire_date = db.Column(db.String(20))
     dob = db.Column(db.String(20))  # YYYY-MM-DD; drives employee birthday calendar events
@@ -199,8 +201,8 @@ class Employee(db.Model):
             "id": self.id,
             "firstName": self.first_name,
             "lastName": self.last_name,
-            "phone": self.phone,
-            "email": self.email or "",
+            "phone": _decrypt_employee_field(self, "phone"),
+            "email": _decrypt_employee_field(self, "email") or "",
             "employeeNumber": self.employee_number or "",
             "hireDate": self.hire_date or "",
             "dob": self.dob or "",
@@ -772,6 +774,22 @@ def _decrypt_patient_field(patient, field):
     try:
         org = Organization.query.get(patient.org_id) if patient.org_id else None
         return read_instance_field(patient, org, "patient", field)
+    except DecryptionError:
+        return None
+
+
+def _decrypt_employee_field(employee, field):
+    """Plaintext of an encrypted Employee field for output; plaintext/legacy values
+    pass straight through, and an undecryptable value returns None (never a raw
+    token). Mirrors _decrypt_patient_field for the employee entity."""
+    value = getattr(employee, field, None)
+    from core.security.crypto import is_ciphertext, DecryptionError
+    if not is_ciphertext(value):
+        return value
+    from core.security.encrypted_fields import read_instance_field
+    try:
+        org = Organization.query.get(employee.org_id) if employee.org_id else None
+        return read_instance_field(employee, org, "employee", field)
     except DecryptionError:
         return None
 
