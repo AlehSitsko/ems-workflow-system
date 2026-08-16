@@ -290,20 +290,27 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-# Backend — 689 isolated pytest tests (in-memory SQLite, no server needed)
+# Backend — 982 isolated pytest tests (in-memory SQLite, no server needed)
 cd backend; pytest -v
 
-# Frontend — 387 Vitest tests (utilities + component tests)
+# Frontend — 458 Vitest tests (utilities + component tests)
 cd frontend; npm test
+
+# End-to-end — 8 Playwright specs against a disposable migrated+seeded backend
+cd frontend; npm run test:e2e
 
 # Live QA (optional) — needs the backend running; use a DISPOSABLE database
 python qa_test.py       # functional/integration checks
 python stress_test.py   # local load smoke (not a production benchmark)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the backend and frontend checks on every PR
-and push to `dev`/`main`. See [docs/TESTING.md](docs/TESTING.md) for coverage
-detail and the disposable-database rule for the live scripts, and
+CI (`.github/workflows/ci.yml`) runs four jobs on every PR and push to
+`dev`/`main`: **backend** (pytest), **frontend** (lint + Vitest + build), **E2E**
+(Playwright on a disposable backend), and **Docker** — which builds the images and
+**smoke-tests the production stack** (PostgreSQL + Gunicorn + Nginx brought up with
+`docker compose --wait`, then a `/api/health` check), so the migration chain is
+exercised against real PostgreSQL. See [docs/TESTING.md](docs/TESTING.md) for
+coverage detail and the disposable-database rule for the live scripts, and
 [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for the pre-commit
 checklist.
 
@@ -346,7 +353,7 @@ Full breakdown: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Fleet/Vehicles, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **206 backend pytest tests + 127 frontend Vitest tests**, plus the live `qa_test.py` smoke suite (104 checks). The project is in a stabilization pass — see Current Development Direction below.
+Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Fleet/Vehicles, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **982 backend pytest tests + 458 frontend Vitest tests + 8 Playwright E2E specs**, plus the live `qa_test.py` smoke suite. A client/server **infrastructure evolution** (multi-tenant isolation, invite-only onboarding, an event bus + SSE, a notification engine, optional field-level encryption at rest, and a Local/S3 storage abstraction) has shipped on top of the core — all while keeping the standalone/local deployment intact; see [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md).
 
 Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 
@@ -428,6 +435,7 @@ certificate. See [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 * [docs/ROADMAP.md](docs/ROADMAP.md) — prioritized roadmap (P0–P6)
 * [docs/TESTING.md](docs/TESTING.md) — current test coverage and test roadmap
 * [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — production hardening plan
+* [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md) — client/server infrastructure evolution (tenant isolation, onboarding, events/SSE, encryption, object storage)
 * [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) — branch strategy, pre-commit checklist, manual verification checklist
 * [docs/UI_STANDARD.md](docs/UI_STANDARD.md) — UI patterns and design tokens
 * [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md) — full changelog

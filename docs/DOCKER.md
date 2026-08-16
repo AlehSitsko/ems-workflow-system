@@ -67,18 +67,40 @@ as they do outside Docker. `node_modules` is deliberately kept inside the image
 (an anonymous volume shadows the host directory) — the host's copy may hold
 binaries built for a different platform, or not exist at all.
 
-## Deliberately out of scope
+## Deliberately out of scope (for *this* dev compose)
 
-PostgreSQL, Redis, Celery, Nginx, Kubernetes, production secrets and cloud
-deployment. Adding them here would suggest a production story this project does
-not yet have.
+This development compose deliberately stays minimal: no PostgreSQL, Nginx, Redis,
+Celery or Kubernetes — those belong to the production stack above
+(`docker-compose.prod.yml`), not to the hot-reload dev environment. Redis-backed
+event fan-out and Kubernetes remain unbuilt (see
+[INFRASTRUCTURE_REPORT.md](INFRASTRUCTURE_REPORT.md) → *Remaining / planned*).
+
+## Production stack
+
+A separate `docker-compose.prod.yml` runs the production-style stack — Gunicorn
+behind an Nginx that serves the built SPA and proxies `/api`, on **PostgreSQL** —
+all non-root images with the source baked in. Its server-profile environment
+(`DATABASE_URL`, `EMS_MASTER_KEY` for optional field encryption, `EMS_STORAGE` /
+`EMS_S3_*` for object storage, `BASE_DOMAIN`) is documented in
+[INFRASTRUCTURE_REPORT.md](INFRASTRUCTURE_REPORT.md). It expects to sit behind a
+TLS-terminating proxy. To smoke it locally over plain HTTP:
+
+```bash
+SECRET_KEY=$(openssl rand -hex 32) POSTGRES_PASSWORD=$(openssl rand -hex 16) \
+  SESSION_COOKIE_SECURE=0 BASE_DOMAIN=ems.example.com \
+  docker compose -f docker-compose.prod.yml up --build --wait
+```
 
 ## Verification status
 
 The compose file and both Dockerfiles are covered by the `docker` job in
-`.github/workflows/ci.yml`, which builds each image and validates the compose
-file on every push. Both images built successfully on the first CI run (run #101
-on `main`), so the Dockerfiles and the compose file are known-good.
+`.github/workflows/ci.yml`, which builds each image on every push. It now also
+**boots the production stack and smoke-tests it**: `docker compose
+-f docker-compose.prod.yml up --wait` blocks on the Postgres and backend
+healthchecks (the backend runs the full migration chain against PostgreSQL on
+startup), then a `/api/health` curl through Nginx proves the whole
+Nginx → Gunicorn → Postgres chain. So both the dev and prod stacks are known-good,
+and the migrations are exercised against real PostgreSQL — not only SQLite.
 
 The stack has been **run end to end** on Docker Desktop (engine 29.6.2, WSL2
 linux containers): both images build, `docker compose config` validates, the

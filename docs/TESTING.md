@@ -103,11 +103,23 @@ matchers are wired up in `src/test/setup.js`.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on pull requests and pushes to `dev`/`main`:
+`.github/workflows/ci.yml` runs four jobs on pull requests and pushes to
+`dev`/`main`:
 
 - **Backend job:** `pip install -r backend/requirements.txt`,
   `python -m compileall backend`, `pytest`
 - **Frontend job:** `npm ci`, `npm run lint`, `npm test`, `npm run build`
+- **E2E job:** builds the SPA and runs the **Playwright** suite (`npm run
+  test:e2e`) against a disposable, migrated + seeded backend that Playwright's
+  `webServer` boots and tears down (`backend/e2e_server.py`). Specs: smoke, roles,
+  dispatch, workflow, invitations, realtime, cross-module realtime sync, and
+  responsive-viewport.
+- **Docker job:** builds the dev and prod images, then **smoke-tests the
+  production stack** — `docker compose -f docker-compose.prod.yml up --wait` brings
+  up PostgreSQL + Gunicorn + Nginx (the backend runs the full migration chain
+  against PostgreSQL on startup), then a `/api/health` curl through Nginx proves
+  the chain. This is what exercises the migrations against real PostgreSQL rather
+  than only SQLite.
 
 The live QA scripts are **intentionally excluded** from CI — although they now
 self-boot a disposable backend (so they *could* run), they are heavier HTTP smoke
