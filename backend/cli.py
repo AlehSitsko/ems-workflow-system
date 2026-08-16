@@ -422,7 +422,8 @@ def encrypt_existing_fields_command(yes):
         click.echo("Refusing to run without --yes. Back up the database first, then re-run with --yes.")
         return
 
-    fields = [("member_id", "member_id_bidx"), ("policy_number", None), ("insurance_notes", None)]
+    # Single source of truth for which patient fields are encrypted (avoids drift).
+    from routes.patient_routes import _PATIENT_ENC_FIELDS as fields
     provision_all_orgs()
     org_cache, count = {}, 0
     with unfiltered():

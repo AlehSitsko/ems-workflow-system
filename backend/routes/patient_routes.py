@@ -16,9 +16,23 @@ PATIENT_ROLES = ("admin", "supervisor", "dispatcher")
 # Sensitive Patient fields encrypted at rest: (value_attr, blind_index_attr).
 # member_id is searchable (blind index); policy_number/insurance_notes are not.
 _PATIENT_ENC_FIELDS = [
-    ("member_id", "member_id_bidx"),
+    ("member_id", "member_id_bidx"),  # blind index for exact-match search
     ("policy_number", None),
     ("insurance_notes", None),
+    # Contact / facility / emergency PII (not searched, so no blind index).
+    ("phone", None),
+    ("secondary_phone", None),
+    ("address", None),
+    ("facility_name", None),
+    ("room_number", None),
+    ("emergency_contact_name", None),
+    ("emergency_contact_phone", None),
+    # Free-text that may carry PHI indirectly.
+    ("special_equipment_notes", None),
+    ("notes", None),
+    ("dispatch_comment", None),
+    ("transport_instructions", None),
+    ("access_instructions", None),
 ]
 
 
