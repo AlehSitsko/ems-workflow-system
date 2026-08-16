@@ -82,9 +82,10 @@ Addresses appear on the dispatch board and in routing/scheduling views and are
 filtered/sorted, so encrypting them needs UI and query rework. Lower priority than
 patient/employee identifiers.
 
-### 6. `EmployeeDocument.document_number` → encrypted (low volume)
+### 6. `EmployeeDocument.document_number` → encrypted — **DONE**
 
-Certificate/licence numbers. Directly encryptable.
+Shipped (migration `c8b1e6a34f27`). Certificate/licence numbers; the document's tenant
+(for the DEK) is resolved from its parent employee's org. Not searched, no blind index.
 
 ## Search / de-duplication note
 

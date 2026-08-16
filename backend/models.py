@@ -812,6 +812,23 @@ def _decrypt_employee_field(employee, field):
         return None
 
 
+def _decrypt_document_field(doc, field):
+    """Plaintext of an encrypted EmployeeDocument field. The document has no org_id
+    of its own — its tenant is its Employee's — so the org (for the DEK) comes from
+    the parent. Plaintext passthrough / undecryptable → None, like the others."""
+    value = getattr(doc, field, None)
+    from core.security.crypto import is_ciphertext, DecryptionError
+    if not is_ciphertext(value):
+        return value
+    from core.security.encrypted_fields import read_instance_field
+    try:
+        org_id = doc.employee.org_id if doc.employee else None
+        org = Organization.query.get(org_id) if org_id else None
+        return read_instance_field(doc, org, "employee_document", field)
+    except DecryptionError:
+        return None
+
+
 class Patient(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -1440,7 +1457,9 @@ class EmployeeDocument(db.Model):
     file_size = db.Column(db.Integer)       # bytes
     mime_type = db.Column(db.String(100))
 
-    document_number = db.Column(db.String(100))
+    # A licence/certificate number — sensitive, encrypted at rest (Text to hold
+    # ciphertext); not searched, so no blind index.
+    document_number = db.Column(db.Text)
     issuing_body = db.Column(db.String(200))
     issued_date = db.Column(db.String(20))   # YYYY-MM-DD
     expiry_date = db.Column(db.String(20), index=True)   # YYYY-MM-DD, nullable
@@ -1480,7 +1499,7 @@ class EmployeeDocument(db.Model):
             "file_name": self.file_name,
             "file_size": self.file_size,
             "mime_type": self.mime_type,
-            "document_number": self.document_number or "",
+            "document_number": _decrypt_document_field(self, "document_number") or "",
             "issuing_body": self.issuing_body or "",
             "issued_date": self.issued_date or "",
             "expiry_date": self.expiry_date or "",

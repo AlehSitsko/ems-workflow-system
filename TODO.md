@@ -7,12 +7,12 @@ The **active** backlog only. Shipped work is not tracked here — its history li
 
 ## Planned (next reasonable work)
 
-- [ ] **Remaining field encryption.** Patient + employee contact PII and patient
-  free-text are now encrypted (migrations `f4a1c9e07b30`, `a7c3e1f95d24`). Still
-  plaintext by design and needing a derived-index/search design first: `dob` and
-  `last_name` (birthday calendar + duplicate detection + search). Lower-priority
-  candidates: `Call` addresses/phone (filtered/sorted — needs query rework) and
-  `EmployeeDocument.document_number`. See
+- [ ] **Remaining field encryption.** Patient + employee contact PII, patient
+  free-text, `EmployeeDocument.document_number`, and (hashed) `kiosk_pin` are done.
+  Still plaintext **by design** and needing a search/index design first — not a
+  column swap: `dob` and `last_name` (birthday calendar + duplicate detection +
+  search need a blind index / derived month-day index), and `Call` addresses/phone
+  (shown, filtered and sorted on the dispatch board — needs UI + query rework). See
   [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md).
 - [ ] **Deployment hardening.** TLS termination in front of the prod Nginx, a
   documented backup / disaster-recovery runbook, and live S3/MinIO verification plus
