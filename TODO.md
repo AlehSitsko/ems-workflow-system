@@ -21,9 +21,11 @@ DB-at-rest encryption.
 - [ ] **Deployment hardening — remaining bits.** Done in-repo: the DR / TLS / secrets
   runbook ([docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)), the
   [TLS deployment guide](docs/DEPLOYMENT_TLS.md), live S3 verification against MinIO in
-  CI, and the local→S3 file migration (`flask migrate-documents-to-s3`). Left:
-  operator/external work only — stand up the TLS-terminating proxy for a given
-  environment. Optional in-repo nicety: pin base-image digests in the Dockerfiles.
+  CI, the local→S3 file migration (`flask migrate-documents-to-s3`), and automated
+  dependency + base-image updates (Dependabot: pip, npm, Docker images, GitHub Actions —
+  supersedes hand-pinning image digests, which without an update process just goes
+  stale). Left: operator/external only — stand up the TLS-terminating proxy for a given
+  environment.
 - [ ] **Analytics at scale (only if volume warrants).** The dispatcher-analytics
   endpoint now projects just the five columns it aggregates (not whole Call rows, which
   carry wide/encrypted fields) and is covered by tests, incl. tenant isolation. The

@@ -1,0 +1,69 @@
+# Automated dependency + base-image updates. This is the supply-chain hardening the
+# "pin base-image digests" idea was reaching for, done net-positively: rather than
+# freezing images at a digest (which then silently misses security patches), Dependabot
+# opens weekly PRs to move them forward — CI (backend/frontend/e2e/docker) gates each one.
+# Updates are grouped per ecosystem so it is one reviewable PR a week, not a flood.
+version: 2
+updates:
+  # ── Backend Python (requirements.txt / -prod / -desktop) ────────────────────
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      backend-python:
+        patterns: ["*"]
+
+  # ── Frontend + desktop npm ──────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      frontend-npm:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/desktop"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      desktop-npm:
+        patterns: ["*"]
+
+  # ── Base images (Dockerfiles + compose FROM/image tags) ─────────────────────
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    groups:
+      backend-images:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      frontend-images:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      compose-images:
+        patterns: ["*"]
+
+  # ── GitHub Actions used by the CI workflow ──────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
