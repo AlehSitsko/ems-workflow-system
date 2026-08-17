@@ -22,9 +22,11 @@ you run). Never expose `:8080` directly on the internet.
 The terminating proxy must:
 
 - Terminate HTTPS and forward to the stack's `frontend:8080`.
-- Send `X-Forwarded-Proto: https` (the app trusts it for `Secure`-cookie and redirect
-  logic). Keep `SESSION_COOKIE_SECURE=1` (the production default — `0` is only for the
-  local plain-HTTP smoke test).
+- Redirect HTTP→HTTPS (the app does not; it has no HTTPS redirect or HSTS of its own).
+- Forward `X-Forwarded-Proto: https`, `Host` and `X-Forwarded-For` (the stack's Nginx
+  passes them to Gunicorn). Keep `SESSION_COOKIE_SECURE=1` (the production default — the
+  `Secure` flag is config-driven, so the session cookie is HTTPS-only regardless of
+  scheme; `0` is only for the local plain-HTTP smoke test).
 - Stream Server-Sent Events: do not buffer `/api/events/` (the stack's own Nginx
   already sets this internally; a proxy in front must not re-buffer it — `proxy_buffering off`, HTTP/1.1).
 - Send **HSTS** (`Strict-Transport-Security: max-age=63072000; includeSubDomains`).
@@ -39,6 +41,10 @@ Minimal Caddy example (automatic Let's Encrypt, wildcard needs a DNS plugin):
     reverse_proxy localhost:8080
 }
 ```
+
+**Full recipes** — Caddy (compose overlay), Nginx server block (with the SSE location),
+cloud load balancer, certificates, the required env, and a verification checklist — are
+in **[DEPLOYMENT_TLS.md](DEPLOYMENT_TLS.md)**.
 
 ## 2. Secrets & encryption keys
 

@@ -180,8 +180,10 @@ Every phase preserves the local, single-tenant, no-infrastructure deployment:
 
 ## Remaining / planned
 
-- **TLS termination** in front of the prod Nginx (stack expects to sit behind it) —
-  an operator concern; the stack is built to sit behind a TLS proxy.
+- **TLS termination** in front of the prod Nginx is an operator step (the stack is
+  built to sit behind a TLS proxy). Documented end to end in
+  [DEPLOYMENT_TLS.md](DEPLOYMENT_TLS.md) — Caddy / Nginx / cloud-LB recipes, certs,
+  the required env, and the SSE-through-proxy gotcha.
 
 *(Done since earlier drafts of this report: the Redis-backed multi-worker event broker
 — Phase 3; live S3/MinIO verification — Phase 6, now exercised in the CI Docker job; and
