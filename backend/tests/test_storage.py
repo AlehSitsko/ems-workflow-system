@@ -128,6 +128,73 @@ def test_s3_requires_a_bucket(monkeypatch):
         storage.get_provider()
 
 
+class _FullFakeS3:
+    """A fuller fake S3 client for the migration (head/put/get/delete)."""
+
+    def __init__(self):
+        self.objects = {}
+
+    def upload_fileobj(self, fileobj, bucket, key):
+        self.objects[(bucket, key)] = fileobj.read()
+
+    def put_object(self, Bucket, Key, Body):
+        self.objects[(Bucket, Key)] = Body if isinstance(Body, bytes) else Body.read()
+
+    def get_object(self, Bucket, Key):
+        return {"Body": _FakeBody(self.objects[(Bucket, Key)])}
+
+    def delete_object(self, Bucket, Key):
+        self.objects.pop((Bucket, Key), None)
+
+    def head_object(self, Bucket, Key):
+        if (Bucket, Key) not in self.objects:
+            raise KeyError("404")   # stands in for a botocore ClientError(404)
+        return {}
+
+
+def test_migrate_local_documents_to_s3(app, tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_base_path", lambda: str(tmp_path))
+    monkeypatch.setenv("EMS_S3_BUCKET", "docs")
+    from models import db, Employee, EmployeeDocument
+
+    emp = Employee(first_name="Doc", last_name="Owner", role="EMT")
+    db.session.add(emp)
+    db.session.flush()
+    # one document with a real local file, one whose local file is missing
+    key = storage.build_key(None, emp.id, ".pdf")
+    storage.LocalStorageProvider().save(_fs(b"filedata"), key)
+    db.session.add(EmployeeDocument(employee_id=emp.id, doc_type="other", title="D", file_path=key))
+    missing_key = storage.build_key(None, emp.id, ".pdf")
+    db.session.add(EmployeeDocument(employee_id=emp.id, doc_type="other", title="M", file_path=missing_key))
+    db.session.commit()
+
+    fake = _FullFakeS3()
+    target = storage.S3StorageProvider(client=fake)
+    result = storage.migrate_documents_local_to_s3(target=target)
+
+    assert result["migrated"] == 1
+    assert result["missing"] == [missing_key]
+    assert fake.objects[("docs", key)] == b"filedata"      # copied byte-for-byte
+
+    # Idempotent: a re-run skips the object already present in S3.
+    again = storage.migrate_documents_local_to_s3(target=target)
+    assert again["migrated"] == 0 and again["skipped"] == 1
+
+    # --delete-source removes the local copy after migrating.
+    storage.LocalStorageProvider().save(_fs(b"second"), (k2 := storage.build_key(None, emp.id, ".pdf")))
+    db.session.add(EmployeeDocument(employee_id=emp.id, doc_type="other", title="D2", file_path=k2))
+    db.session.commit()
+    storage.migrate_documents_local_to_s3(target=target, delete_source=True)
+    assert not storage.LocalStorageProvider().exists(k2)
+    assert fake.objects[("docs", k2)] == b"second"
+
+
+def test_migration_refuses_a_local_target(app, tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_base_path", lambda: str(tmp_path))
+    with pytest.raises(RuntimeError, match="target must be S3"):
+        storage.migrate_documents_local_to_s3(target=storage.LocalStorageProvider())
+
+
 def test_s3_provider_round_trip(app, fake_boto3):
     assert isinstance(storage.get_provider(), storage.S3StorageProvider)
     key, _stored, size = storage.save_file(_fs(b"objbytes"), employee_id=4, ext=".pdf", org_id=2)
