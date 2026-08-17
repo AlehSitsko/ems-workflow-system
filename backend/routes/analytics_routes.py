@@ -29,7 +29,15 @@ def split_missing_fields(value):
 @require_role("admin", "supervisor")
 def get_dispatcher_analytics():
     limit = min(request.args.get("limit", 2000, type=int) or 2000, 5000)
-    calls = Call.query.order_by(Call.id.desc()).limit(limit).all()
+    # Load only the five columns this aggregation reads, not whole Call rows (which
+    # carry wide/encrypted fields — addresses, caller PII — that would be fetched and,
+    # for encrypted columns, is wasted work). Stays on Call.query so the tenant
+    # read-filter still scopes it to the caller's org.
+    calls = (Call.query
+             .with_entities(Call.dispatcher_name, Call.quality_score,
+                            Call.missing_critical_fields, Call.missing_optional_fields,
+                            Call.missing_info_explanation)
+             .order_by(Call.id.desc()).limit(limit).all())
 
     analytics = {}
 

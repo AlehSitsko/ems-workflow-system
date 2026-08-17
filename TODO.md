@@ -24,9 +24,12 @@ DB-at-rest encryption.
   CI, and the local→S3 file migration (`flask migrate-documents-to-s3`). Left:
   operator/external work only — stand up the TLS-terminating proxy for a given
   environment. Optional in-repo nicety: pin base-image digests in the Dockerfiles.
-- [ ] **Analytics at scale.** The Supervisor Dashboard still groups a bounded window
-  of calls in Python; move to indexed SQL aggregation + operational-day rollups if
-  real volume warrants it.
+- [ ] **Analytics at scale (only if volume warrants).** The dispatcher-analytics
+  endpoint now projects just the five columns it aggregates (not whole Call rows, which
+  carry wide/encrypted fields) and is covered by tests, incl. tenant isolation. The
+  per-dispatcher tally parses a comma-separated `missing_fields` string, which is
+  Python-shaped, not clean SQL; a full move to indexed SQL aggregation + operational-day
+  rollups is only worth it at real volume (the query is already bounded by `limit`).
 
 ## Deferred (intentionally parked — not oversights)
 
