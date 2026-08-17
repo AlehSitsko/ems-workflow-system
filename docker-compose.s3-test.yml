@@ -1,0 +1,48 @@
+# Overlay that swaps the prod stack's object storage from local files to a real
+# S3-compatible store (MinIO), so CI can verify S3StorageProvider end to end:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.s3-test.yml up --wait
+#
+# Not for production — production points EMS_STORAGE at AWS S3 (or its own MinIO)
+# via the real EMS_S3_* env, and does not bundle this container. This file exists
+# only to exercise the upload/download path against a live S3 API in CI.
+
+name: ems-prod
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: miniotest
+      MINIO_ROOT_PASSWORD: miniotestsecret123
+    restart: unless-stopped
+
+  # One-shot: wait for MinIO, then create the bucket the app writes to. The backend
+  # waits for this to complete (service_completed_successfully) so the bucket always
+  # exists before the first upload.
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        until mc alias set local http://minio:9000 miniotest miniotestsecret123;
+        do echo 'waiting for minio'; sleep 1; done;
+        mc mb --ignore-existing local/ems-docs;
+        echo 'bucket ready'
+
+  backend:
+    environment:
+      EMS_STORAGE: s3
+      EMS_S3_ENDPOINT_URL: http://minio:9000
+      EMS_S3_BUCKET: ems-docs
+      EMS_S3_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: miniotest
+      AWS_SECRET_ACCESS_KEY: miniotestsecret123
+    depends_on:
+      createbucket:
+        condition: service_completed_successfully
