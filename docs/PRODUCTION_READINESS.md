@@ -206,6 +206,10 @@ malformed message) and the CI prod-stack realtime smoke
 
 ## Encryption in production
 
+> Experimentally verified at `v1.1.1` — raw-DB canary search (0 plaintext leaks),
+> org-key isolation, AAD binding, key failure/rotation, tenant isolation. See
+> [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
+
 Field-level encryption at rest (AES-256-GCM, per-org envelope keys) is **opt-in
 locally but mandatory in production**: with `EMS_ENV=production` the app refuses to
 start without a valid `EMS_MASTER_KEY` (missing or malformed → a clear, key-free error
