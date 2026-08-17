@@ -4,7 +4,7 @@
 # frontend image would build the static bundle and serve it from Nginx, which is
 # a separate concern — see docs/PRODUCTION_READINESS.md.
 
-FROM node:22-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
