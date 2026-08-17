@@ -18,11 +18,12 @@ Decided to stay plaintext (not gaps):
 
 Both are covered by tenant isolation + RBAC + `is_sensitive` masking + operator
 DB-at-rest encryption.
-- [ ] **Deployment hardening (partly done).** The backup / disaster-recovery /
-  TLS / secrets runbook is written ([docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)).
-  Still operator/external work, not code: stand up the TLS-terminating proxy, run the
-  S3 verification checklist against a real MinIO/S3 endpoint, add a local→S3 object
-  migration for an existing deployment, and pin base-image digests.
+- [ ] **Deployment hardening — remaining bits.** Done in-repo: the DR / TLS / secrets
+  runbook ([docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)), the
+  [TLS deployment guide](docs/DEPLOYMENT_TLS.md), live S3 verification against MinIO in
+  CI, and the local→S3 file migration (`flask migrate-documents-to-s3`). Left:
+  operator/external work only — stand up the TLS-terminating proxy for a given
+  environment. Optional in-repo nicety: pin base-image digests in the Dockerfiles.
 - [ ] **Analytics at scale.** The Supervisor Dashboard still groups a bounded window
   of calls in Python; move to indexed SQL aggregation + operational-day rollups if
   real volume warrants it.
