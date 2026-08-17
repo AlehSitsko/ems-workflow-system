@@ -439,6 +439,7 @@ certificate. See [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 * [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — production hardening plan
 * [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md) — client/server infrastructure evolution (tenant isolation, onboarding, events/SSE, encryption, object storage)
 * [docs/DEPLOYMENT_TLS.md](docs/DEPLOYMENT_TLS.md) — putting TLS in front of the production stack (Caddy / Nginx / cloud LB)
+* [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) — experimental verification of encryption-at-rest, org-key isolation, key failure/rotation, and tenant isolation
 * [docs/DATA_CLASSIFICATION.md](docs/DATA_CLASSIFICATION.md) — sensitive-field classification, current encryption coverage, and the staged plan for gaps
 * [docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md) — production TLS, secrets & encryption-key backup, backups, disaster recovery, S3, monitoring
 * [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) — branch strategy, pre-commit checklist, manual verification checklist
