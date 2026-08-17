@@ -62,7 +62,9 @@ def main():
     if "attachment" not in dl.headers.get("Content-Disposition", ""):
         print("FAIL: download was not served as an attachment", flush=True)
         return 1
-    if dl.headers.get("X-Content-Type-Options") != "nosniff":
+    # The app sets nosniff and nginx also adds it, so through the proxy the value can
+    # be a duplicated "nosniff, nosniff" — substring, not equality, is the right check.
+    if "nosniff" not in (dl.headers.get("X-Content-Type-Options") or ""):
         print("FAIL: download missing nosniff", flush=True)
         return 1
 
