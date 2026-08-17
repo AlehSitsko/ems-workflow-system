@@ -5,6 +5,7 @@ users are created explicitly, never on normal app startup, so importing or
 serving the app has no side effects on the database.
 """
 
+import os
 from datetime import datetime
 
 import click
@@ -459,6 +460,30 @@ def encrypt_existing_fields_command(yes):
         db.session.commit()
 
 
+@click.command("migrate-documents-to-s3")
+@click.option("--delete-source", is_flag=True,
+              help="Delete each local file after it is copied to S3 (default: keep it).")
+@with_appcontext
+def migrate_documents_to_s3_command(delete_source):
+    """Copy existing employee-document files from local storage into S3.
+
+    For moving an existing local deployment to object storage: set EMS_STORAGE=s3
+    (and EMS_S3_* env) pointing at the target bucket, then run this. Object keys are
+    unchanged, so downloads keep working. Idempotent (objects already in S3 are
+    skipped) and non-destructive unless --delete-source. A fresh S3 deployment does
+    not need this — new uploads already go straight to S3.
+    """
+    if (os.environ.get("EMS_STORAGE") or "local").lower() != "s3":
+        raise click.ClickException(
+            "Set EMS_STORAGE=s3 (and EMS_S3_BUCKET / EMS_S3_* env) to the target bucket first.")
+    from storage import migrate_documents_local_to_s3
+    result = migrate_documents_local_to_s3(delete_source=delete_source)
+    click.echo(f"migrate-documents-to-s3: migrated={result['migrated']} "
+               f"skipped_existing={result['skipped']} missing={len(result['missing'])}")
+    for key in result["missing"][:20]:
+        click.echo(f"  missing local file (DB row keeps its key): {key}")
+
+
 def register_cli_commands(app):
     """Attach custom CLI commands to the given app instance."""
     app.cli.add_command(seed_demo_command)
@@ -471,3 +496,4 @@ def register_cli_commands(app):
     app.cli.add_command(provision_org_keys_command)
     app.cli.add_command(rewrap_org_keys_command)
     app.cli.add_command(encrypt_existing_fields_command)
+    app.cli.add_command(migrate_documents_to_s3_command)

@@ -128,8 +128,9 @@ selected at runtime — switching backends touches only this file:
   **Implemented + verified end to end in CI against a real MinIO**: the Docker job boots
   the prod stack with the S3 overlay (`docker-compose.s3-test.yml`) and runs a document
   upload→download round-trip through S3StorageProvider (`scripts/prod_s3_smoke.py`), on
-  top of the fake-boto3 unit tests. The local→S3 file migration for an *existing* local
-  deployment is the remaining bit.
+  top of the fake-boto3 unit tests. Moving an *existing* local deployment's files into
+  S3 is a one-off `flask migrate-documents-to-s3` (idempotent, non-destructive; keeps
+  object keys so downloads keep working).
 
 Both providers: object keys are **server-generated and org-scoped**
 (`organizations/{org_id}/employees/{employee_id}/{uuid}.ext`), never client-supplied,
@@ -175,13 +176,12 @@ Every phase preserves the local, single-tenant, no-infrastructure deployment:
 ## Operational CLI
 
 `flask provision-org-keys` · `flask rewrap-org-keys` · `flask encrypt-existing-fields --yes`
-· `flask create-org` · `flask create-platform-admin`
+· `flask migrate-documents-to-s3` · `flask create-org` · `flask create-platform-admin`
 
 ## Remaining / planned
 
-- A **local→S3 file migration** helper for moving an *existing* local deployment's
-  documents into S3 (fresh S3 deployments need nothing — new uploads go straight there).
-- **TLS termination** in front of the prod Nginx (stack expects to sit behind it).
+- **TLS termination** in front of the prod Nginx (stack expects to sit behind it) —
+  an operator concern; the stack is built to sit behind a TLS proxy.
 
 *(Done since earlier drafts of this report: the Redis-backed multi-worker event broker
 — Phase 3; live S3/MinIO verification — Phase 6, now exercised in the CI Docker job; and
