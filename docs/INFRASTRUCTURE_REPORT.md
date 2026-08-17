@@ -118,15 +118,18 @@ tested (`notificationRules.test.js`).
 
 ## Phase 6 — Object storage
 
-**Implemented (Local); Experimental (S3).** `storage.py` is now a provider abstraction
+**Implemented (Local + S3; S3 CI-verified against MinIO).** `storage.py` is now a provider abstraction
 selected at runtime — switching backends touches only this file:
 - **LocalStorageProvider** (default): files under the Flask instance dir; standalone and
   desktop need no external infra. **Implemented + tested.**
 - **S3StorageProvider** (`EMS_STORAGE=s3`): AWS S3 / MinIO / any S3 API; `boto3` is an
   optional prod dependency imported lazily. Downloads are streamed **through the app**
   (auth stays in the request path) — no public or presigned URLs for sensitive docs.
-  **Implemented + unit-tested against a fake boto3;** live-endpoint verification and the
-  local→S3 file migration for an existing deployment are the remaining bits.
+  **Implemented + verified end to end in CI against a real MinIO**: the Docker job boots
+  the prod stack with the S3 overlay (`docker-compose.s3-test.yml`) and runs a document
+  upload→download round-trip through S3StorageProvider (`scripts/prod_s3_smoke.py`), on
+  top of the fake-boto3 unit tests. The local→S3 file migration for an *existing* local
+  deployment is the remaining bit.
 
 Both providers: object keys are **server-generated and org-scoped**
 (`organizations/{org_id}/employees/{employee_id}/{uuid}.ext`), never client-supplied,
@@ -176,14 +179,13 @@ Every phase preserves the local, single-tenant, no-infrastructure deployment:
 
 ## Remaining / planned
 
-- **Live S3/MinIO verification** and a **local→S3 migration** for an existing deployment.
+- A **local→S3 file migration** helper for moving an *existing* local deployment's
+  documents into S3 (fresh S3 deployments need nothing — new uploads go straight there).
 - **TLS termination** in front of the prod Nginx (stack expects to sit behind it).
-- **Wider field encryption** — hash `Employee.kiosk_pin`, then encrypt employee/patient
-  contact PII, per [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) (staged; the engine
-  and fail-closed key handling are in place).
 
-*(The Redis-backed multi-worker event broker, previously planned, is now
-implemented — see Phase 3.)*
+*(Done since earlier drafts of this report: the Redis-backed multi-worker event broker
+— Phase 3; live S3/MinIO verification — Phase 6, now exercised in the CI Docker job; and
+the field-encryption / kiosk-PIN-hash rollout — see [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).)*
 
 ## Test posture
 

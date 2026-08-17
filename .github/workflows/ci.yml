@@ -115,7 +115,7 @@ jobs:
       # Postgres healthy -> backend runs `flask db upgrade` against Postgres and
       # Gunicorn goes healthy -> Nginx serves the SPA and proxies /api. `--wait`
       # blocks on the healthchecks and fails the job if any never go healthy.
-      - name: Prod stack smoke (Postgres + Redis + 3 Gunicorn workers + Nginx)
+      - name: Prod stack smoke (Postgres + Redis + 3 Gunicorn workers + Nginx + MinIO/S3)
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
@@ -124,12 +124,14 @@ jobs:
           SESSION_COOKIE_SECURE: "0"  # smoke is plain HTTP, no TLS proxy in front
         run: |
           set -uo pipefail
-          # 3 workers + EMS_REDIS_URL (compose default): the multi-worker realtime
-          # config. Without Redis the gunicorn guard would refuse to boot.
-          if ! docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 240; then
+          # The S3 overlay points object storage at a real MinIO, so this one stack
+          # covers migrations + health + realtime AND the S3 document round-trip.
+          # 3 workers + EMS_REDIS_URL: without Redis the gunicorn guard refuses to boot.
+          COMPOSE="-f docker-compose.prod.yml -f docker-compose.s3-test.yml"
+          if ! docker compose $COMPOSE up -d --build --wait --wait-timeout 300; then
             echo "=== stack did not become healthy; diagnostics ==="
-            docker compose -f docker-compose.prod.yml ps || true
-            docker compose -f docker-compose.prod.yml logs backend --no-color --tail 300 || true
+            docker compose $COMPOSE ps || true
+            docker compose $COMPOSE logs backend --no-color --tail 300 || true
             exit 1
           fi
           # Through Nginx (8080) -> Gunicorn (/api) -> Postgres: the migrated app.
@@ -139,12 +141,17 @@ jobs:
           curl -sf -o /dev/null http://localhost:8080/   # SPA served at the root
           echo "prod stack smoke OK"
 
-          # Production multi-worker realtime: an SSE client must receive an event
-          # published while another request is handled by a (likely different)
-          # worker — proves the Redis broker fans events across all 3 workers.
-          docker compose -f docker-compose.prod.yml exec -T backend flask --app app seed-demo
+          docker compose $COMPOSE exec -T backend flask --app app seed-demo
           python3 -m pip install --quiet requests
+
+          # Multi-worker realtime: an SSE client must receive an event published while
+          # another request is handled by a (likely different) worker — proves the
+          # Redis broker fans events across all 3 workers.
           python3 backend/scripts/prod_realtime_smoke.py http://localhost:8080
+
+          # Object storage: a real employee-document upload + download round-trip
+          # through S3StorageProvider -> MinIO (not the local filesystem provider).
+          python3 backend/scripts/prod_s3_smoke.py http://localhost:8080
       - name: Dump compose logs on failure
         if: failure()
         env:
@@ -152,10 +159,10 @@ jobs:
           POSTGRES_PASSWORD: ci-smoke-password
           EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
-        run: docker compose -f docker-compose.prod.yml logs --no-color --tail 300 || true
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.s3-test.yml logs --no-color --tail 300 || true
       - name: Tear down the stack
         if: always()
-        run: docker compose -f docker-compose.prod.yml down -v
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.s3-test.yml down -v
         env:
           SECRET_KEY: ci-smoke-secret-key-not-a-real-secret
           POSTGRES_PASSWORD: ci-smoke-password
