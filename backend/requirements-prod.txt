@@ -2,7 +2,7 @@
 # PostgreSQL driver. Kept separate so development and CI stay on SQLite and lean.
 -r requirements.txt
 
-gunicorn==23.0.0
+gunicorn==26.0.0
 
 # PostgreSQL driver (psycopg 3). Use a postgresql+psycopg:// DATABASE_URL.
 psycopg[binary]==3.3.4
@@ -10,7 +10,7 @@ psycopg[binary]==3.3.4
 # S3-compatible object storage for employee documents (EMS_STORAGE=s3). Only the
 # server profile needs it — standalone/desktop uses local file storage and never
 # imports boto3.
-boto3>=1.34,<2.0
+boto3>=1.43.72,<2.0
 
 # The Redis client for the multi-worker realtime broker (EMS_REDIS_URL) is pinned
 # in requirements.txt (redis==8.1.0), so dev, CI and prod share one version.
