@@ -88,7 +88,9 @@ in production and the app refuses to start without them:
 - `EMS_REDIS_URL` — realtime broker; with >1 worker the gunicorn guard refuses to
   boot without it, since the in-memory bus can't fan events across workers.
 
-It expects to sit behind a TLS-terminating proxy. To smoke it locally over plain HTTP:
+It expects to sit behind a TLS-terminating proxy — see
+[DEPLOYMENT_TLS.md](DEPLOYMENT_TLS.md) for Caddy / Nginx / cloud-LB recipes. To smoke
+it locally over plain HTTP:
 
 ```bash
 SECRET_KEY=$(openssl rand -hex 32) POSTGRES_PASSWORD=$(openssl rand -hex 16) \
