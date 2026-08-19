@@ -39,7 +39,7 @@ function UserManagementPage() {
     setLoading(true);
     try {
       const data = await getUsers();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       toast.error("Load failed", err.message || "Failed to load users.");
     } finally {
@@ -49,7 +49,7 @@ function UserManagementPage() {
 
   useEffect(() => {
     loadUsers();
-    kioskEmployees().then(setEmployees).catch(() => {});
+    kioskEmployees().then((d) => setEmployees(Array.isArray(d) ? d : [])).catch(() => {});
   }, [loadUsers]);
 
   const openCreate = () => {

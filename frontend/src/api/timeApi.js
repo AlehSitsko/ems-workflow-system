@@ -57,8 +57,12 @@ export async function savePayConfig(employeeId, data) {
 
 // Kiosk
 export async function kioskEmployees() {
+  // Always resolve to an array: an error response (e.g. a 500) returns a JSON
+  // object, and callers render this with .map/.find — a non-array would crash the
+  // whole page. Degrade to an empty list instead.
   const res = await fetch(`${API_BASE}/api/kiosk/employees`, { credentials: "include" });
-  return res.json();
+  const data = await res.json().catch(() => []);
+  return res.ok && Array.isArray(data) ? data : [];
 }
 
 export async function kioskStatus(employeeId) {
