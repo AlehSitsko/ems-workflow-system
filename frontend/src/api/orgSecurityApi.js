@@ -3,7 +3,7 @@ import API_BASE from "./config.js";
 const BASE = `${API_BASE}/api/org`;
 
 async function readOrThrow(res, fallback) {
-  let data = null;
+  let data;
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) throw new Error((data && data.error) || fallback);
   return data;

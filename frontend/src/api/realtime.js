@@ -21,7 +21,7 @@ function connect() {
 
 function attach(type) {
   es.addEventListener(type, (ev) => {
-    let data = null;
+    let data;
     try { data = JSON.parse(ev.data); } catch { data = null; }
     for (const fn of listeners.get(type) || []) fn(data, ev);
   });

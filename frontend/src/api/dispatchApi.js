@@ -21,7 +21,7 @@ const BASE = `${API_BASE}/api/dispatch`;
 // (history) date"). Surface that message instead of a generic failure string —
 // the operator needs to know *why* the board refused the action.
 async function readJsonOrThrow(res, fallback) {
-  let data = null;
+  let data;
   try {
     data = await res.json();
   } catch {
