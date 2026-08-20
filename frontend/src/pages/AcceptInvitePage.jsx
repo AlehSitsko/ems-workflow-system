@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { validateInvitation, acceptInvitation } from "../api/invitationsApi";
+import PasswordInput from "../components/ui/PasswordInput";
 
 // Public page: a user with an invitation link creates their own credentials. No
 // session is required; the org and role are fixed by the (hashed) token server-side.
@@ -76,13 +77,13 @@ export default function AcceptInvitePage() {
                 </div>
                 <div className="mb-3">
                   <label htmlFor="ai-password" className="form-label">Password</label>
-                  <input id="ai-password" type="password" className="form-control" value={password}
+                  <PasswordInput id="ai-password" value={password}
                     onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
                   <div className="form-text">At least 10 characters, with a letter and a number.</div>
                 </div>
                 <div className="mb-3">
                   <label htmlFor="ai-confirm" className="form-label">Confirm password</label>
-                  <input id="ai-confirm" type="password" className="form-control" value={confirm}
+                  <PasswordInput id="ai-confirm" value={confirm}
                     onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
                 </div>
 

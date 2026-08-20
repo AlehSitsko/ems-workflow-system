@@ -12,11 +12,37 @@ export default function InvitationsPanel() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [lastLink, setLastLink] = useState(null); // { email, url } shown once
+  const [copied, setCopied] = useState(false);
 
   async function refresh() {
     try { setInvites(await listInvitations()); } catch (e) { setError(e.message); }
   }
   useEffect(() => { refresh(); }, []);
+
+  // Copy the invite link with a fallback for contexts where the async Clipboard
+  // API is unavailable/blocked, plus a short "Copied!" confirmation.
+  async function copyLink() {
+    const text = lastLink?.url;
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   async function handleInvite(e) {
     e.preventDefault();
@@ -80,11 +106,24 @@ export default function InvitationsPanel() {
 
       {lastLink && (
         <div className="alert alert-success" role="alert">
-          <div className="fw-semibold mb-1">Invitation link for {lastLink.email} (shown once — send it to them):</div>
+          <div className="fw-semibold mb-1">Invitation link for {lastLink.email}</div>
+          <div className="small mb-2">
+            Send this link to <strong>{lastLink.email}</strong>. They open it in a web
+            browser, choose their own password, and their account is created with the
+            role you selected. The link is <strong>single-use</strong> and expires — and
+            it is shown here <strong>only once</strong>. If it's lost, revoke it below and
+            send a new invite.
+          </div>
           <div className="d-flex gap-2 align-items-center">
             <code className="text-break flex-grow-1">{lastLink.url}</code>
-            <button type="button" className="btn btn-sm btn-outline-dark"
-              onClick={() => navigator.clipboard?.writeText(lastLink.url)}>Copy</button>
+            <button type="button"
+              className={`btn btn-sm ${copied ? "btn-success" : "btn-outline-dark"}`}
+              onClick={copyLink}>{copied ? "Copied!" : "Copy"}</button>
+          </div>
+          <div className="small text-muted mt-2">
+            Note: right now this link only opens on <strong>this computer</strong>
+            (single-user mode). Remote/networked access is being added — after that,
+            the link will work from other devices too.
           </div>
         </div>
       )}

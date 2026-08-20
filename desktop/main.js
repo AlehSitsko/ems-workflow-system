@@ -105,6 +105,9 @@ function createMainWindow() {
   mainWindow.loadURL(`${backend.baseUrl}${cfg.APP_BASE_PATH}`);
   mainWindow.once("ready-to-show", () => {
     if (splashWindow) { splashWindow.close(); splashWindow = null; }
+    // Open using the full display: the app is dense (dispatch board, tables), so a
+    // maximized window is the sensible default rather than a fixed 1280×800.
+    mainWindow.maximize();
     mainWindow.show();
     // Quietly check for a newer release a few seconds after the UI settles, but
     // only for a real installed build (not `electron .` in dev).

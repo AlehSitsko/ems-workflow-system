@@ -10,6 +10,7 @@ import {
 import { kioskEmployees } from "../api/timeApi";
 import EntityDrawer from "../components/ui/EntityDrawer";
 import InvitationsPanel from "../components/users/InvitationsPanel";
+import OrgSettings from "../components/settings/OrgSettings";
 import { useConfirm } from "../components/ui/useConfirm";
 import { useToast } from "../components/ui/useToast";
 
@@ -28,6 +29,7 @@ function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("users"); // "users" | "organization"
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -159,6 +161,18 @@ function UserManagementPage() {
 
   return (
     <div className="page-stack">
+      <ul className="nav nav-tabs mb-1">
+        <li className="nav-item">
+          <button type="button" className={`nav-link ${tab === "users" ? "active" : ""}`}
+            onClick={() => setTab("users")}>Users</button>
+        </li>
+        <li className="nav-item">
+          <button type="button" className={`nav-link ${tab === "organization" ? "active" : ""}`}
+            onClick={() => setTab("organization")}>Organization</button>
+        </li>
+      </ul>
+
+      {tab === "users" && (<>
       <section className="content-panel">
         <div className="content-panel-header">
           <div>
@@ -241,6 +255,9 @@ function UserManagementPage() {
       </section>
 
       <InvitationsPanel />
+      </>)}
+
+      {tab === "organization" && <OrgSettings />}
 
       <EntityDrawer
         open={drawerOpen}
