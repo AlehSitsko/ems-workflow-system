@@ -49,6 +49,10 @@ it survives updates and reinstalls:
 
 Uninstalling does **not** delete this folder (`deleteAppDataOnUninstall: false`).
 
+> **This data is stored in plaintext** (the standalone build has no encryption
+> master key — see [Security posture](#security-posture)). Rely on a
+> password-protected Windows account and disk encryption to protect it.
+
 ## First run
 
 The database starts empty. The login screen detects this
@@ -134,12 +138,27 @@ immediately; an OV certificate builds reputation over time.
 
 ## Updates
 
-Auto-update is **deliberately not enabled** — it needs a trusted update source and
-signature verification, which in turn needs code signing. For now, updating is:
-**download the new installer and run it over the existing install.** User data in
-`%APPDATA%\ems-workflow-desktop\` is preserved, and the app auto-backs-up the DB
-before the (possibly migrating) first launch of the new version. A future signed
-release can add `electron-updater` against a real release feed.
+**Update check (in-app, notify-only).** On startup a packaged build quietly asks
+GitHub for the latest published release (`updater.js` → the repo's
+`releases/latest`) and compares it to `app.getVersion()`. If a newer version
+exists it shows a native prompt — *"EMS Workflow System X is available"* — with
+**Get the update** / **Later** and a *"Don't remind me about this version"* option
+that the startup check remembers. You can also trigger it any time from
+**Help → Check for updates…**. The check never blocks launch and fails silently
+(no network, GitHub down → no dialog); it never downloads or installs anything on
+its own.
+
+**Applying an update — no clean reinstall, data preserved.** *Get the update*
+opens the release's installer in your browser. Run it **over the existing
+install**: everything under `%APPDATA%\ems-workflow-desktop\` (database, uploaded
+documents, settings) is kept, and the app auto-backs-up the DB before the
+(possibly migrating) first launch of the new version, then restarts on it. It is
+**not** an uninstall/reinstall and does not touch your data.
+
+Fully **install-free** apply-on-restart (download + swap in the background, no
+installer run at all) needs `electron-updater` against a signed release feed
+(`latest.yml`); that's the next step once the build is code-signed. The version
+check above is the first half and works today.
 
 ## Security posture
 
@@ -151,6 +170,16 @@ release can add `electron-updater` against a real release feed.
   links open in the system browser; a strict CSP; DevTools not opened by default.
 - Uploaded files are download-only + `nosniff` and content-validated (see the
   main security docs) — nothing an upload contains is executed by the app.
+- **Data at rest is not encrypted in the standalone build.** The server product
+  encrypts sensitive fields (patient PHI, contact details, etc.) with a master key
+  (`EMS_MASTER_KEY`) and *refuses to start* in production without one. The desktop
+  app runs single-user on loopback with no master key **by design**, so the local
+  SQLite database and uploaded documents under `%APPDATA%\ems-workflow-desktop\`
+  are stored **in plaintext**. Protect them with the machine's own controls —
+  a password-protected Windows account and full-disk encryption (BitLocker). Anyone
+  with file access to that folder (or an unencrypted backup copy of it) can read the
+  data. Keep the app on a device you control, and store the `backups\` snapshots
+  somewhere equally protected.
 
 ## Known limitations
 

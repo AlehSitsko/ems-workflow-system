@@ -2,10 +2,12 @@
 
 const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require("electron");
 const path = require("path");
+const fs = require("fs");
 
 const cfg = require("./config");
 const { Backend } = require("./backend");
 const backup = require("./backup");
+const updater = require("./updater");
 
 // ── Single-instance lock: a second copy must never open the same SQLite file ──
 if (!app.requestSingleInstanceLock()) {
@@ -104,6 +106,11 @@ function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     if (splashWindow) { splashWindow.close(); splashWindow = null; }
     mainWindow.show();
+    // Quietly check for a newer release a few seconds after the UI settles, but
+    // only for a real installed build (not `electron .` in dev).
+    if (cfg.isPackaged) {
+      setTimeout(() => { runUpdateCheck({ silent: true }); }, 10000);
+    }
   });
   mainWindow.on("close", (event) => {
     if (quitting || !rendererDirty) return;
@@ -218,6 +225,11 @@ function buildMenu() {
       label: "Help",
       submenu: [
         {
+          label: "Check for updates…",
+          click: () => { runUpdateCheck({ silent: false }); },
+        },
+        { type: "separator" },
+        {
           label: "About EMS Workflow System",
           click: () => {
             dialog.showMessageBox(mainWindow, {
@@ -255,6 +267,87 @@ async function doRestore(src) {
   app.relaunch();
   quitting = true;
   app.exit(0);
+}
+
+// ── Update check (notify-only) ────────────────────────────────────────────────
+//
+// On startup (packaged only) and from Help → "Check for updates…", ask GitHub for
+// the latest release. If it is newer, offer to get it — the download opens in the
+// browser and the user runs the installer over the existing install, which keeps
+// all their data. We never download or apply anything automatically. A "don't
+// remind me about this version" choice is remembered so the startup check won't nag.
+function updateStateFile() {
+  return paths ? path.join(paths.root, "update-state.json") : null;
+}
+function readSkippedVersion() {
+  const file = updateStateFile();
+  if (!file) return "";
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")).skippedVersion || "";
+  } catch {
+    return "";
+  }
+}
+function writeSkippedVersion(version) {
+  const file = updateStateFile();
+  if (!file) return;
+  try {
+    fs.writeFileSync(file, JSON.stringify({ skippedVersion: version }));
+  } catch {
+    /* best-effort: a missed skip only means one more prompt next launch */
+  }
+}
+
+async function presentUpdateResult(result, { silent }) {
+  if (!mainWindow) return;
+  if (!result || !result.updateAvailable) {
+    if (!silent) {
+      const detail = result && result.latestVersion
+        ? `You are on the latest version (${result.currentVersion}).`
+        : "Couldn't check for updates right now. Check your connection and try again later.";
+      await dialog.showMessageBox(mainWindow, {
+        type: "info", title: "Updates", message: "No update available", detail,
+      });
+    }
+    return;
+  }
+  // A version the user asked not to be reminded about only suppresses the silent
+  // startup check — a manual check always shows it.
+  if (silent && result.latestVersion === readSkippedVersion()) return;
+
+  const opts = {
+    type: "info",
+    title: "Update available",
+    message: `EMS Workflow System ${result.latestVersion} is available`,
+    detail:
+      `You have ${result.currentVersion}. The update installs over your current ` +
+      `install and keeps all your data — database, uploaded documents and settings ` +
+      `under your app-data folder are preserved (it is not a clean reinstall).\n\n` +
+      `Choosing "Get the update" opens the download in your browser; run it and the ` +
+      `app will restart on the new version.`,
+    buttons: ["Later", "Get the update"],
+    defaultId: 1,
+    cancelId: 0,
+    ...(silent ? { checkboxLabel: "Don't remind me about this version" } : {}),
+  };
+  const { response, checkboxChecked } = await dialog.showMessageBox(mainWindow, opts);
+  if (silent && checkboxChecked) writeSkippedVersion(result.latestVersion);
+  if (response === 1) shell.openExternal(result.downloadUrl || result.releaseUrl);
+}
+
+async function runUpdateCheck({ silent }) {
+  try {
+    const result = await updater.checkForUpdate({ currentVersion: cfg.appVersion });
+    await presentUpdateResult(result, { silent });
+  } catch {
+    // A checker failure must never disrupt the app; surface only on a manual check.
+    if (!silent && mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: "info", title: "Updates", message: "Couldn't check for updates",
+        detail: "Please try again later.",
+      });
+    }
+  }
 }
 
 // ── IPC (validated, argument-light) ───────────────────────────────────────────
