@@ -5,7 +5,7 @@
 # prod dependency set. Source is baked in, not bind-mounted. See
 # docs/PRODUCTION_READINESS.md.
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
