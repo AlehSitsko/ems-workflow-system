@@ -210,12 +210,26 @@ def get_board():
             calls_by_unit.setdefault(a.unit_id, []).append(cd)
 
     completed_by_unit = {}
+    # A call can have several historical assignments on the same unit (e.g. it was
+    # reassigned before completion, or cancelled-then-reassigned). List a completed
+    # trip once per unit — keep the latest assignment (highest id) — rather than
+    # once per assignment row.
+    _completed_idx = {}  # unit_id -> {call_id: position in that unit's list}
     for a in completed_assignments:
         call = calls_bulk.get(a.call_id)
-        if call and call.status == "completed":
-            cd = _call_with_patient(call, alerts_by_patient)
-            cd["assignment_id"] = a.id
-            completed_by_unit.setdefault(a.unit_id, []).append(cd)
+        if not (call and call.status == "completed"):
+            continue
+        cd = _call_with_patient(call, alerts_by_patient)
+        cd["assignment_id"] = a.id
+        lst = completed_by_unit.setdefault(a.unit_id, [])
+        seen = _completed_idx.setdefault(a.unit_id, {})
+        if a.call_id in seen:
+            pos = seen[a.call_id]
+            if a.id > lst[pos]["assignment_id"]:
+                lst[pos] = cd            # newer assignment wins
+        else:
+            seen[a.call_id] = len(lst)
+            lst.append(cd)
 
     unit_dicts = []
     for unit in units:

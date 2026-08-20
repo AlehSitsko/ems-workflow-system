@@ -8,7 +8,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/backup.test.js test/backend.test.js",
+    "test": "node --test test/backup.test.js test/backend.test.js test/updater.test.js",
     "dist": "electron-builder --win nsis",
     "pack": "electron-builder --dir"
   },

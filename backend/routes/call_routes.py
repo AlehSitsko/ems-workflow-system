@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from sqlalchemy.orm import joinedload
 
-from models import db, Call, Patient, Organization
+from models import db, Call, Patient, Organization, CallAssignment
 from notification_utils import create_notification
 from audit_utils import log_action
 from core.security.keyring import encryption_configured
@@ -363,8 +363,18 @@ def cancel_call(call_id):
     call.cancel_reason = reason
     call.cancelled_at = datetime.now().isoformat(timespec="seconds")
     call.cancelled_by = _user_id_from_request()
+
+    # A cancelled call must not keep occupying the crew unit it was dispatched to.
+    # Release any active assignment (mirrors the unassign path's is_active=False),
+    # so the unit stops showing a cancelled trip as an active/assigned call.
+    released = CallAssignment.query.filter_by(call_id=call_id, is_active=True).all()
+    for assignment in released:
+        assignment.is_active = False
+
     log_action("call.cancelled", "call", call_id,
-               f"Call #{call_id}", {"reason": reason},
+               f"Call #{call_id}",
+               {"reason": reason,
+                "released_assignments": [a.id for a in released]},
                user_id=_user_id_from_request(), user_name=_user_name_from_request())
     db.session.commit()
     return jsonify(call.to_dict())
