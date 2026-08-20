@@ -197,6 +197,20 @@ def test_utilization_counts_units_calls_and_load(clients):
     assert by_day["2026-01-11"]["calls_per_unit"] == 0
 
 
+def test_utilization_counts_completed_trips_after_assignment_deactivated(clients):
+    """D5 regression: completing a trip deactivates its assignment, but the call
+    was still covered by a unit — a historical day must not read as 0% utilised."""
+    mk_unit("2026-02-05")
+    done = mk_call("2026-02-05", status="completed")
+    assign(done, DailyCrewUnit.query.first(), active=False)   # completed → inactive
+
+    s = clients["admin"].get(
+        "/api/reports/utilization?start=2026-02-05&end=2026-02-05").get_json()["summary"]
+    assert s["total_calls"] == 1
+    assert s["assigned_calls"] == 1        # covered, despite the inactive assignment
+    assert s["assigned_rate"] == 100
+
+
 # ── Staff hours ──────────────────────────────────────────────────────────────
 
 def test_hours_report_is_denied_to_dispatcher_but_allowed_for_hr(clients):

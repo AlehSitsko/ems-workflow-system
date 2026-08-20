@@ -137,6 +137,54 @@ def test_cancelled_call_cannot_be_assigned(client, roles):
     assert resp.status_code == 409
 
 
+def test_cancelling_assigned_call_releases_its_unit_assignment(client, roles):
+    """D1 regression: cancelling a dispatched call must deactivate its active
+    assignment, so the crew unit stops carrying the cancelled trip (it belongs in
+    the cancelled bucket only, not on the unit)."""
+    call, unit = mk_call(TODAY), mk_unit(TODAY)
+    aid = assign(client, roles, call, unit).get_json()["id"]
+    assert CallAssignment.query.filter_by(call_id=call.id, is_active=True).count() == 1
+
+    resp = roles["dispatcher"].patch(f"/api/calls/{call.id}/cancel",
+                                     json={"cancel_reason": "Patient admitted overnight"})
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "cancelled"
+
+    # Assignment is released (deactivated, not deleted — the row stays for history).
+    assert CallAssignment.query.filter_by(call_id=call.id, is_active=True).count() == 0
+    assert CallAssignment.query.filter_by(id=aid).one().is_active is False
+
+    # And the board reflects it: the unit no longer lists the call; it appears
+    # only in the cancelled bucket.
+    board = roles["dispatcher"].get(f"/api/dispatch/board?date={TODAY}").get_json()
+    row = next(u for u in board["units"] if u["id"] == unit.id)
+    assert call.id not in [c["id"] for c in row["assignedCalls"]]
+    assert call.id in [c["id"] for c in board["cancelledCalls"]]
+
+
+def test_completed_list_dedupes_a_call_assigned_more_than_once(client, roles):
+    """D4 regression: a call with several historical assignments on one unit (it
+    was reassigned before completion) is listed once in the unit's completedCalls,
+    not once per assignment row — keeping the latest assignment."""
+    call, unit = mk_call(TODAY), mk_unit(TODAY)
+    # Two prior inactive assignments + one active, all on the same unit.
+    mk_assignment(call, unit, active=False)
+    mk_assignment(call, unit, active=False)
+    aid = assign(client, roles, call, unit).get_json()["id"]
+
+    # Complete via the active assignment → call.status becomes "completed".
+    assert roles["dispatcher"].patch(
+        f"/api/dispatch/assign/{aid}/complete").status_code == 200
+
+    board = roles["dispatcher"].get(f"/api/dispatch/board?date={TODAY}").get_json()
+    row = next(u for u in board["units"] if u["id"] == unit.id)
+    completed_ids = [c["id"] for c in row["completedCalls"]]
+    assert completed_ids.count(call.id) == 1
+    # The surviving entry is the latest assignment.
+    entry = next(c for c in row["completedCalls"] if c["id"] == call.id)
+    assert entry["assignment_id"] == aid
+
+
 # ── Live lifecycle is today-only ─────────────────────────────────────────────
 
 def test_future_completion_rejected(client, roles):

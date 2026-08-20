@@ -17,6 +17,7 @@ from collections import Counter
 from datetime import timedelta
 
 from flask import Blueprint, jsonify, request, Response
+from sqlalchemy import or_
 
 from models import db, Call, DailyCrewUnit, CallAssignment, TimeEntry, Employee
 from utils.auth_utils import require_role
@@ -208,13 +209,15 @@ def calls_report_export():
 # (DailyCrewUnit); "calls per unit" is the load each of those units averaged.
 
 def _assigned_call_ids(start_d, end_d):
-    """Ids of calls in the range that have an active unit assignment, so an
-    assignment to a unit outside the day still counts the call as covered."""
+    """Ids of calls in the range that were covered by a unit — i.e. currently
+    assigned (active) OR carried to completion. Completing a trip deactivates its
+    assignment, so an is_active-only filter would drop every finished call and make
+    a historical day read as ~0% utilised; a completed call was still covered."""
     start, end = start_d.isoformat(), end_d.isoformat()
     rows = (
         db.session.query(CallAssignment.call_id)
         .join(Call, Call.id == CallAssignment.call_id)
-        .filter(CallAssignment.is_active == True,
+        .filter(or_(CallAssignment.is_active == True, Call.status == "completed"),
                 Call.trip_date >= start, Call.trip_date <= end)
         .distinct()
         .all()
