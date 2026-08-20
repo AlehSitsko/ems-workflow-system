@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser, saveCurrentUser, checkNeedsSetup, setupFirstAdmin } from "../api/authApi";
 import { getCurrentTenant } from "../api/tenantApi";
+import PasswordInput from "../components/ui/PasswordInput";
 
 // Running inside the Electron desktop shell? (the web build never sets this).
 const isDesktop = typeof window !== "undefined" && !!window.emsDesktop?.isDesktop;
@@ -105,7 +106,7 @@ const LoginPage = ({ onLogin }) => {
                     </div>
                     <div className="mb-3">
                       <label htmlFor="su-password" className="form-label">Password</label>
-                      <input id="su-password" type="password" className="form-control" value={password}
+                      <PasswordInput id="su-password" value={password}
                         onChange={(e) => setPassword(e.target.value)} disabled={loading}
                         autoComplete="new-password" required />
                       <div className="form-text">
@@ -114,7 +115,7 @@ const LoginPage = ({ onLogin }) => {
                     </div>
                     <div className="mb-3">
                       <label htmlFor="su-confirm" className="form-label">Confirm password</label>
-                      <input id="su-confirm" type="password" className="form-control" value={confirm}
+                      <PasswordInput id="su-confirm" value={confirm}
                         onChange={(e) => setConfirm(e.target.value)} disabled={loading}
                         autoComplete="new-password" required />
                     </div>
@@ -140,7 +141,7 @@ const LoginPage = ({ onLogin }) => {
                     </div>
                     <div className="mb-3">
                       <label htmlFor="password" className="form-label">Password</label>
-                      <input type="password" className="form-control" id="password" value={password}
+                      <PasswordInput id="password" value={password}
                         onChange={(e) => setPassword(e.target.value)} disabled={loading}
                         autoComplete="current-password" />
                     </div>

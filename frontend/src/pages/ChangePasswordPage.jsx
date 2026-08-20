@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 import { changePassword } from "../api/authApi";
+import PasswordInput from "../components/ui/PasswordInput";
 
 // A full-screen forced password change. Shown by App when the signed-in user's
 // password has expired: the server refuses every other API call until they rotate,
@@ -46,12 +47,12 @@ const ChangePasswordPage = ({ user, onChanged, onLogout }) => {
               <form onSubmit={submit}>
                 <div className="mb-3">
                   <label className="form-label" htmlFor="cp-current">Current password</label>
-                  <input id="cp-current" type="password" className="form-control" autoComplete="current-password"
+                  <PasswordInput id="cp-current" autoComplete="current-password"
                          value={current} onChange={(e) => setCurrent(e.target.value)} disabled={loading} />
                 </div>
                 <div className="mb-3">
                   <label className="form-label" htmlFor="cp-new">New password</label>
-                  <input id="cp-new" type="password" className="form-control" autoComplete="new-password"
+                  <PasswordInput id="cp-new" autoComplete="new-password"
                          value={next} onChange={(e) => setNext(e.target.value)} disabled={loading} />
                   <div className="form-text">
                     At least 10 characters, with a letter and a number, and not your username.
@@ -59,7 +60,7 @@ const ChangePasswordPage = ({ user, onChanged, onLogout }) => {
                 </div>
                 <div className="mb-3">
                   <label className="form-label" htmlFor="cp-confirm">Confirm new password</label>
-                  <input id="cp-confirm" type="password" className="form-control" autoComplete="new-password"
+                  <PasswordInput id="cp-confirm" autoComplete="new-password"
                          value={confirm} onChange={(e) => setConfirm(e.target.value)} disabled={loading} />
                 </div>
 
