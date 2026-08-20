@@ -8,9 +8,15 @@ export default defineConfig([
   globalIgnores(['dist']),
   {
     files: ['**/*.{js,jsx}'],
+    // Register react-hooks in object form ourselves rather than extending its
+    // `recommended-latest` config: that shared config still declares `plugins`
+    // as an array of strings, which ESLint 10 flat config rejects. We pull in the
+    // classic hook rules below. Works on both ESLint 9 and 10.
+    plugins: {
+      'react-hooks': reactHooks,
+    },
     extends: [
       js.configs.recommended,
-      reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
     ],
     languageOptions: {
@@ -27,6 +33,13 @@ export default defineConfig([
       },
     },
     rules: {
+      // The two classic hook rules the project has always enforced. We pin these
+      // explicitly rather than spreading react-hooks' recommended config: v7's
+      // preset adds many new react-compiler-readiness rules (static-components,
+      // set-state-in-render, …) whose adoption is a deliberate refactor, not a
+      // side effect of a dependency bump.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
     },
   },
