@@ -517,3 +517,86 @@ def punctuality_report():
         "graceMinutes": grace,
         "rows": rows,
     })
+
+
+# ── Call log / history ────────────────────────────────────────────────────────
+#
+# A paginated list of calls over a range with who took it (dispatcher), who
+# assigned it, the crew that ran it, and pickup lateness. Drill into one call's
+# full audit timeline via GET /api/audit?entity_type=call&entity_id=<id>.
+
+@reports_bp.route("/call-log", methods=["GET"])
+@require_role("admin", "supervisor")
+def call_log_report():
+    rng, invalid = _resolve_range()
+    if invalid:
+        payload, status = invalid
+        return jsonify(payload), status
+    start_d, end_d = rng
+    start, end = start_d.isoformat(), end_d.isoformat()
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = min(200, max(1, request.args.get("per_page", 50, type=int) or 50))
+    grace = _org_grace()
+
+    pagination = (
+        Call.query
+        .filter(Call.trip_date >= start, Call.trip_date <= end)
+        .order_by(Call.trip_date.desc(), Call.id.desc())
+        .paginate(page=page, per_page=per_page, error_out=False)
+    )
+    calls = pagination.items
+    call_ids = [c.id for c in calls]
+
+    asn_by_call = {}
+    if call_ids:
+        for a in CallAssignment.query.filter(CallAssignment.call_id.in_(call_ids)).all():
+            cur = asn_by_call.get(a.call_id)
+            if cur is None or a.id > cur.id:
+                asn_by_call[a.call_id] = a
+    unit_ids = {a.unit_id for a in asn_by_call.values()}
+    units = ({u.id: u for u in DailyCrewUnit.query.filter(DailyCrewUnit.id.in_(unit_ids)).all()}
+             if unit_ids else {})
+    emp_ids = {eid for u in units.values() for eid in (u.driver_id, u.medical_id) if eid}
+    emps = ({e.id: e for e in Employee.query.filter(Employee.id.in_(emp_ids)).all()}
+            if emp_ids else {})
+
+    items = []
+    for c in calls:
+        a = asn_by_call.get(c.id)
+        unit = units.get(a.unit_id) if a else None
+        crew = None
+        if unit:
+            names = [n for n in (_emp_name(emps.get(unit.driver_id)),
+                                 _emp_name(emps.get(unit.medical_id))) if n]
+            crew = " / ".join(names) or None
+        pickup_late = lateness_engine.pickup_lateness({
+            "trip_date": c.trip_date, "pickup_time": c.pickup_time,
+            "arrived_pickup_at": c.arrived_pickup_at,
+        })
+        items.append({
+            "id": c.id,
+            "date": c.trip_date,
+            "serviceLevel": c.service_level,
+            "callType": c.call_type,
+            "status": c.status,
+            "pickupAddress": c.pickup_address,
+            "dropoffAddress": c.dropoff_address,
+            "dispatcher": c.dispatcher_name or None,   # who took the call
+            "assignedBy": a.assigned_by if a else None,  # who dispatched it to a unit
+            "crew": crew,
+            "truck": unit.truck_number if unit else None,
+            "pickupTime": c.pickup_time,
+            "arrivedPickupAt": c.arrived_pickup_at,
+            "pickupLateMinutes": pickup_late,
+            "isLate": lateness_engine.is_late(pickup_late, grace),
+            "completedAt": c.completed_at,
+        })
+
+    return jsonify({
+        "range": {"start": start, "end": end},
+        "graceMinutes": grace,
+        "total": pagination.total,
+        "page": pagination.page,
+        "pages": pagination.pages,
+        "items": items,
+    })

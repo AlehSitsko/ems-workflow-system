@@ -303,3 +303,33 @@ def test_punctuality_dispatcher_group_is_management_only(clients):
 def test_punctuality_rejects_bad_group_by(clients):
     r = clients["admin"].get("/api/reports/punctuality?start=2026-03-02&end=2026-03-02&groupBy=nope")
     assert r.status_code == 400
+
+
+# ── Call log / history ────────────────────────────────────────────────────────
+
+def test_call_log_lists_calls_with_actors_and_lateness(clients):
+    drv = mk_employee("Cara", "Wheel")
+    unit = mk_unit("2026-04-01", truck="R1")
+    unit.driver_id = drv.id
+    db.session.commit()
+    c = mk_call("2026-04-01", status="completed", pickup_time="09:00", dispatcher_name="Dana")
+    c.arrived_pickup_at = "2026-04-01T09:20:00"   # 20 min late
+    db.session.commit()
+    a = assign(c, unit)
+    a.assigned_by = "Sam"
+    db.session.commit()
+
+    r = clients["supervisor"].get("/api/reports/call-log?start=2026-04-01&end=2026-04-01")
+    assert r.status_code == 200
+    row = next(x for x in r.get_json()["items"] if x["id"] == c.id)
+    assert row["dispatcher"] == "Dana"
+    assert row["assignedBy"] == "Sam"
+    assert row["crew"] == "Cara Wheel"
+    assert row["pickupLateMinutes"] == 20
+    assert row["isLate"] is True
+
+
+def test_call_log_is_management_only(clients):
+    qs = "start=2026-04-01&end=2026-04-01"
+    assert clients["supervisor"].get(f"/api/reports/call-log?{qs}").status_code == 200
+    assert clients["dispatcher"].get(f"/api/reports/call-log?{qs}").status_code == 403
