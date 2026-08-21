@@ -13,15 +13,18 @@ about operational dates.
 
 import csv
 import io
+import json
 from collections import Counter
 from datetime import timedelta
 
 from flask import Blueprint, jsonify, request, Response
 from sqlalchemy import or_
 
-from models import db, Call, DailyCrewUnit, CallAssignment, TimeEntry, Employee
-from utils.auth_utils import require_role
+from models import db, Call, DailyCrewUnit, CallAssignment, TimeEntry, Employee, Organization
+from utils.auth_utils import require_role, get_request_role
 from utils.operational_dates import parse_operational_date, require_valid_date
+from utils import lateness as lateness_engine
+from tenant import current_org_id
 
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/api/reports")
@@ -386,3 +389,131 @@ def hours_report_export():
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ── Punctuality (lateness) ────────────────────────────────────────────────────
+#
+# On-time performance from the scheduled pickup/appointment times vs the actual
+# on-scene / at-destination stamps. Grouped by the dispatcher who assigned the
+# call, the driver, or the crew (driver + medic) that ran it.
+
+PUNCTUALITY_ROLES = ("admin", "supervisor", "dispatcher")
+
+
+def _org_grace():
+    """The org's punctuality grace period in minutes (default 5)."""
+    try:
+        oid = current_org_id()
+        org = Organization.query.get(oid) if oid else None
+        if org and org.settings_json:
+            g = (json.loads(org.settings_json) or {}).get("punctuality", {}).get("graceMinutes")
+            if isinstance(g, (int, float)) and g >= 0:
+                return int(g)
+    except (ValueError, TypeError):
+        pass
+    return lateness_engine.DEFAULT_GRACE_MINUTES
+
+
+def _emp_name(emp):
+    return f"{emp.first_name} {emp.last_name}".strip() if emp else None
+
+
+@reports_bp.route("/punctuality", methods=["GET"])
+@require_role(*PUNCTUALITY_ROLES)
+def punctuality_report():
+    """Per-group on-time stats for completed calls in ?start=&end=.
+
+    ?groupBy=driver|crew|dispatcher. Rating dispatchers is management-only; crew
+    and driver punctuality is also visible to dispatchers (so they know who is
+    chronically late).
+    """
+    group_by = (request.args.get("groupBy") or "driver").strip()
+    if group_by not in ("dispatcher", "driver", "crew"):
+        return jsonify({"error": "groupBy must be dispatcher, driver or crew"}), 400
+    if group_by == "dispatcher" and get_request_role() not in ("admin", "supervisor"):
+        return jsonify({"error": "Dispatcher performance is visible to supervisors only"}), 403
+
+    rng, invalid = _resolve_range()
+    if invalid:
+        payload, status = invalid
+        return jsonify(payload), status
+    start_d, end_d = rng
+    start, end = start_d.isoformat(), end_d.isoformat()
+    grace = _org_grace()
+
+    calls = (
+        Call.query
+        .filter(Call.trip_date >= start, Call.trip_date <= end,
+                Call.status == "completed")
+        .all()
+    )
+    call_ids = [c.id for c in calls]
+
+    # Latest assignment per call → the unit that ran it → its crew.
+    asn_by_call = {}
+    if call_ids:
+        for a in CallAssignment.query.filter(CallAssignment.call_id.in_(call_ids)).all():
+            cur = asn_by_call.get(a.call_id)
+            if cur is None or a.id > cur.id:
+                asn_by_call[a.call_id] = a
+    unit_ids = {a.unit_id for a in asn_by_call.values()}
+    units = ({u.id: u for u in DailyCrewUnit.query.filter(DailyCrewUnit.id.in_(unit_ids)).all()}
+             if unit_ids else {})
+    emp_ids = {eid for u in units.values() for eid in (u.driver_id, u.medical_id) if eid}
+    emps = ({e.id: e for e in Employee.query.filter(Employee.id.in_(emp_ids)).all()}
+            if emp_ids else {})
+
+    groups = {}  # key -> {label, pickup:[], appointment:[]}
+
+    def bucket(key, label, pl, al):
+        g = groups.setdefault(key, {"label": label, "pickup": [], "appointment": []})
+        g["pickup"].append(pl)
+        g["appointment"].append(al)
+
+    for c in calls:
+        cd = {
+            "trip_date": c.trip_date, "pickup_time": c.pickup_time,
+            "appointment_time": c.appointment_time,
+            "arrived_pickup_at": c.arrived_pickup_at, "arrived_dest_at": c.arrived_dest_at,
+        }
+        pl = lateness_engine.pickup_lateness(cd)
+        al = lateness_engine.appointment_lateness(cd)
+        a = asn_by_call.get(c.id)
+
+        if group_by == "dispatcher":
+            name = (a.assigned_by if a else None) or "—"
+            bucket(f"disp:{name}", name, pl, al)
+            continue
+
+        unit = units.get(a.unit_id) if a else None
+        if not unit:
+            continue  # can't attribute to a crew/driver without a unit
+        if group_by == "driver":
+            if not unit.driver_id:
+                continue
+            bucket(f"drv:{unit.driver_id}",
+                   _emp_name(emps.get(unit.driver_id)) or f"#{unit.driver_id}", pl, al)
+        else:  # crew = driver + medic pair
+            names = [n for n in (_emp_name(emps.get(unit.driver_id)),
+                                 _emp_name(emps.get(unit.medical_id))) if n]
+            label = " / ".join(names) or (f"Truck {unit.truck_number}"
+                                          if unit.truck_number else "Unassigned crew")
+            bucket(f"crew:{unit.driver_id}-{unit.medical_id}", label, pl, al)
+
+    rows = [
+        {
+            "key": key, "label": g["label"],
+            "pickup": lateness_engine.summarize(g["pickup"], grace),
+            "appointment": lateness_engine.summarize(g["appointment"], grace),
+        }
+        for key, g in groups.items()
+    ]
+    # Worst offenders first: most late calls (pickup + appointment) at the top.
+    rows.sort(key=lambda r: r["pickup"]["late"] + r["appointment"]["late"], reverse=True)
+
+    return jsonify({
+        "range": {"start": start, "end": end},
+        "groupBy": group_by,
+        "graceMinutes": grace,
+        "rows": rows,
+    })

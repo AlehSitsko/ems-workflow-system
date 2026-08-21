@@ -11,6 +11,7 @@ export default function OrgSettings() {
   const [timezone, setTimezone] = useState("");
   const [ptoAnnual, setPtoAnnual] = useState("");
   const [ptoCarryover, setPtoCarryover] = useState("");
+  const [grace, setGrace] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -23,6 +24,7 @@ export default function OrgSettings() {
         setTimezone(o.settings?.timezone || "");
         setPtoAnnual(o.settings?.pto?.annualDays ?? "");
         setPtoCarryover(o.settings?.pto?.carryoverCapDays ?? "");
+        setGrace(o.settings?.punctuality?.graceMinutes ?? "");
       })
       .catch((e) => setError(e.message));
   }, []);
@@ -33,10 +35,12 @@ export default function OrgSettings() {
     const pto = {};
     if (ptoAnnual !== "") pto.annualDays = Number(ptoAnnual);
     if (ptoCarryover !== "") pto.carryoverCapDays = Number(ptoCarryover);
+    const punctuality = {};
+    if (grace !== "") punctuality.graceMinutes = Number(grace);
     try {
       const updated = await updateMyOrg({
         name: name.trim(),
-        settings: { timezone: timezone.trim(), pto },
+        settings: { timezone: timezone.trim(), pto, punctuality },
       });
       setOrg(updated);
       setSaved(true);
@@ -84,6 +88,18 @@ export default function OrgSettings() {
             <input id="org-pto-cap" type="number" step="0.5" min="0" className="form-control" value={ptoCarryover}
                    onChange={(e) => { setPtoCarryover(e.target.value); setSaved(false); }} disabled={busy}
                    placeholder="5" />
+          </div>
+
+          <div className="col-12"><hr className="my-1" /><span className="text-muted small">Punctuality (analytics)</span></div>
+          <div className="col-md-6">
+            <label className="form-label" htmlFor="org-grace">Late grace period (minutes)</label>
+            <input id="org-grace" type="number" step="1" min="0" max="240" className="form-control" value={grace}
+                   onChange={(e) => { setGrace(e.target.value); setSaved(false); }} disabled={busy}
+                   placeholder="5" />
+            <div className="form-text">
+              A trip counts as late only when it arrives more than this many minutes after
+              the scheduled pickup/appointment time.
+            </div>
           </div>
 
           <div className="col-12">

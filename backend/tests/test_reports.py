@@ -259,3 +259,47 @@ def test_hours_export_is_csv(clients):
     lines = resp.get_data(as_text=True).strip().splitlines()
     assert lines[0].startswith("Employee ID,Name,Total Hours")
     assert len(lines) == 2
+
+
+# ── Punctuality ───────────────────────────────────────────────────────────────
+
+def test_punctuality_by_driver_counts_late_against_grace(clients):
+    drv = mk_employee("Dana", "Driver")
+    unit = mk_unit("2026-03-02", truck="M7")
+    unit.driver_id = drv.id
+    db.session.commit()
+
+    late = mk_call("2026-03-02", status="completed", pickup_time="09:00")
+    late.arrived_pickup_at = "2026-03-02T09:30:00"     # 30 min → late
+    ontime = mk_call("2026-03-02", status="completed", pickup_time="10:00")
+    ontime.arrived_pickup_at = "2026-03-02T10:02:00"   # 2 min → within grace
+    db.session.commit()
+    assign(late, unit)
+    assign(ontime, unit)
+
+    r = clients["supervisor"].get(
+        "/api/reports/punctuality?start=2026-03-02&end=2026-03-02&groupBy=driver")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["graceMinutes"] == 5
+    row = next(x for x in body["rows"] if x["label"] == "Dana Driver")
+    assert row["pickup"]["measured"] == 2
+    assert row["pickup"]["late"] == 1
+    assert row["pickup"]["onTimeRate"] == 50
+    assert row["pickup"]["maxLateMinutes"] == 30
+
+
+def test_punctuality_dispatcher_group_is_management_only(clients):
+    qs = "start=2026-03-02&end=2026-03-02"
+    # Rating dispatchers: supervisor yes, dispatcher no.
+    assert clients["supervisor"].get(f"/api/reports/punctuality?{qs}&groupBy=dispatcher").status_code == 200
+    assert clients["dispatcher"].get(f"/api/reports/punctuality?{qs}&groupBy=dispatcher").status_code == 403
+    # Driver punctuality is visible to dispatchers too.
+    assert clients["dispatcher"].get(f"/api/reports/punctuality?{qs}&groupBy=driver").status_code == 200
+    # HR is outside the analytics roles entirely.
+    assert clients["hr"].get(f"/api/reports/punctuality?{qs}&groupBy=driver").status_code == 403
+
+
+def test_punctuality_rejects_bad_group_by(clients):
+    r = clients["admin"].get("/api/reports/punctuality?start=2026-03-02&end=2026-03-02&groupBy=nope")
+    assert r.status_code == 400

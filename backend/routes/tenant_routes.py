@@ -97,6 +97,20 @@ def update_my_org():
                         return jsonify({"error": f"settings.pto.{key} must be between 0 and 365"}), 400
                     pto_clean[key] = n
             cleaned["pto"] = pto_clean
+        if "punctuality" in settings:
+            punc = settings.get("punctuality")
+            if not isinstance(punc, dict):
+                return jsonify({"error": "settings.punctuality must be an object"}), 400
+            punc_clean = {}
+            if punc.get("graceMinutes") is not None:
+                try:
+                    g = int(punc["graceMinutes"])
+                except (TypeError, ValueError):
+                    return jsonify({"error": "settings.punctuality.graceMinutes must be an integer"}), 400
+                if g < 0 or g > 240:
+                    return jsonify({"error": "settings.punctuality.graceMinutes must be between 0 and 240"}), 400
+                punc_clean["graceMinutes"] = g
+            cleaned["punctuality"] = punc_clean
         org.settings_json = json.dumps(cleaned)
 
     db.session.commit()

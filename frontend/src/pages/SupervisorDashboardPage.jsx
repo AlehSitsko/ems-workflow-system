@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { getDispatcherAnalytics } from "../api/callsApi";
+import { getPunctualityReport } from "../api/reportsApi";
+
+/** Local YYYY-MM-DD for the last 7 days (inclusive), keyed by the operational day. */
+function last7Days() {
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 6);
+  return { start: iso(start), end: iso(end) };
+}
 
 const SupervisorDashboardPage = () => {
   const [dispatcherStats, setDispatcherStats] = useState([]);
+  const [punctuality, setPunctuality] = useState(null); // { graceMinutes, rows }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,8 +53,13 @@ const SupervisorDashboardPage = () => {
     setError("");
 
     try {
-      const data = await getDispatcherAnalytics();
+      const range = last7Days();
+      const [data, punc] = await Promise.all([
+        getDispatcherAnalytics(),
+        getPunctualityReport(range.start, range.end, "driver").catch(() => null),
+      ]);
       setDispatcherStats(data);
+      setPunctuality(punc);
     } catch (err) {
       console.error("Failed to load dispatcher analytics:", err);
       setError("Failed to load dispatcher analytics.");
@@ -84,6 +100,50 @@ const SupervisorDashboardPage = () => {
           </div>
         )}
       </div>
+
+      {punctuality && (
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <h5 className="mb-0">Driver punctuality — last 7 days</h5>
+              <span className="text-muted small">
+                Late = &gt; {punctuality.graceMinutes} min ·{" "}
+                <a href="#/reports">full punctuality report →</a>
+              </span>
+            </div>
+            {punctuality.rows.length === 0 ? (
+              <p className="text-muted mb-0">No completed trips with scheduled times yet.</p>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm table-hover align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Driver</th>
+                      <th className="text-end">Pickup on-time</th>
+                      <th className="text-end">Late / measured</th>
+                      <th className="text-end">Worst</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {punctuality.rows.slice(0, 5).map((r) => (
+                      <tr key={r.key}>
+                        <td>{r.label}</td>
+                        <td className="text-end">
+                          {r.pickup.onTimeRate === null ? "—" : `${r.pickup.onTimeRate}%`}
+                        </td>
+                        <td className="text-end">
+                          {r.pickup.measured ? `${r.pickup.late} / ${r.pickup.measured}` : "—"}
+                        </td>
+                        <td className="text-end">{r.pickup.late ? `${r.pickup.maxLateMinutes}m` : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="card shadow-sm">
         <div className="card-body">
