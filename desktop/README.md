@@ -49,9 +49,11 @@ it survives updates and reinstalls:
 
 Uninstalling does **not** delete this folder (`deleteAppDataOnUninstall: false`).
 
-> **This data is stored in plaintext** (the standalone build has no encryption
-> master key — see [Security posture](#security-posture)). Rely on a
-> password-protected Windows account and disk encryption to protect it.
+> **Sensitive fields are encrypted at rest** with a per-install key protected by
+> your Windows account (see [Security posture](#security-posture)). Keep your
+> **recovery key** (shown on first run, and under Help → *Show encryption recovery
+> key…*) somewhere safe — you need it to read your data after a Windows reinstall or
+> on another PC.
 
 ## First run
 
@@ -170,16 +172,24 @@ check above is the first half and works today.
   links open in the system browser; a strict CSP; DevTools not opened by default.
 - Uploaded files are download-only + `nosniff` and content-validated (see the
   main security docs) — nothing an upload contains is executed by the app.
-- **Data at rest is not encrypted in the standalone build.** The server product
-  encrypts sensitive fields (patient PHI, contact details, etc.) with a master key
-  (`EMS_MASTER_KEY`) and *refuses to start* in production without one. The desktop
-  app runs single-user on loopback with no master key **by design**, so the local
-  SQLite database and uploaded documents under `%APPDATA%\ems-workflow-desktop\`
-  are stored **in plaintext**. Protect them with the machine's own controls —
-  a password-protected Windows account and full-disk encryption (BitLocker). Anyone
-  with file access to that folder (or an unencrypted backup copy of it) can read the
-  data. Keep the app on a device you control, and store the `backups\` snapshots
-  somewhere equally protected.
+- **Sensitive fields are encrypted at rest.** On first run the app generates a
+  32-byte master key and stores it protected by the OS keychain — **Windows DPAPI**
+  via Electron `safeStorage`, so the stored key can only be decrypted by the same
+  Windows user account. That key is passed to the backend as `EMS_MASTER_KEY` (in
+  memory only, never written to disk in the clear), which encrypts patient PHI,
+  contact details, caller phone/notes and document numbers with AES-256-GCM. On the
+  first launch with a key, any pre-existing plaintext is encrypted in place after
+  the automatic pre-launch backup.
+  - **Recovery key.** Because the key is tied to your Windows account, a Windows
+    reinstall, a different user account, or moving the data to another PC would
+    otherwise make it unreadable. The app shows a **recovery key** on first run and
+    under **Help → Show encryption recovery key…** — save it somewhere safe (e.g. a
+    password manager). Anyone with this key *and* a copy of your data can read it, so
+    keep it private.
+  - Full-disk encryption (BitLocker) and a password-protected Windows account remain
+    good defence in depth. If the OS keychain is unavailable (unusual on Windows),
+    the app still encrypts the database but stores the key file unprotected and logs
+    a warning.
 
 ## Known limitations
 

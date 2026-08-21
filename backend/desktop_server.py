@@ -54,6 +54,29 @@ def _enable_wal(app):
         db.session.commit()
 
 
+def _encrypt_existing_if_needed(app, instance_path):
+    """On the first launch that has a master key, encrypt any pre-existing plaintext
+    sensitive data in place. The Electron shell backs up the database before launch,
+    so the destructive-in-place requirement is met. Marker-guarded and idempotent:
+    it runs at most once, and a failure leaves the marker unwritten so the next
+    launch retries; it never blocks startup."""
+    from core.security.keyring import encryption_configured
+    if not encryption_configured():
+        return
+    marker = os.path.join(instance_path, ".encryption-backfilled")
+    if os.path.exists(marker):
+        return
+    try:
+        from core.security.backfill import encrypt_existing_plaintext
+        with app.app_context():
+            counts = encrypt_existing_plaintext()
+        _log(f"encryption: backfilled existing plaintext {counts}")
+        with open(marker, "w", encoding="utf-8") as fh:
+            fh.write("done\n")
+    except Exception as exc:  # noqa: BLE001 - a backfill hiccup must not stop the app
+        _log(f"WARNING: encryption backfill failed (will retry next launch): {exc}")
+
+
 def build_app():
     port = os.environ.get("EMS_DESKTOP_PORT")
     instance_path = os.environ.get("EMS_INSTANCE_PATH")
@@ -81,6 +104,7 @@ def build_app():
         _log(f"FATAL: migration failed: {exc}")
         sys.exit(3)
     _enable_wal(app)
+    _encrypt_existing_if_needed(app, instance_path)
     return app, int(port)
 
 

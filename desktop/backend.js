@@ -52,10 +52,11 @@ function waitForHealth(port, timeoutMs = 40000) {
 }
 
 class Backend {
-  constructor({ backend, paths, logDir }) {
+  constructor({ backend, paths, logDir, masterKey = null }) {
     this.backend = backend;   // { command, args, cwd, spaDir }
     this.paths = paths;       // resolveDataPaths()
     this.logDir = logDir;
+    this.masterKey = masterKey; // base64 EMS_MASTER_KEY, or null (plaintext at rest)
     this.child = null;
     this.port = null;
     this.exited = false;
@@ -82,6 +83,11 @@ class Backend {
       // per-process dev key is acceptable (sessions reset on restart). Not prod web.
       PYTHONUNBUFFERED: "1",
     };
+    // When a master key is available, the backend encrypts sensitive fields at rest.
+    // Passed only in the child's env — never written to disk in the clear.
+    if (this.masterKey) {
+      env.EMS_MASTER_KEY = this.masterKey;
+    }
 
     this.child = spawn(this.backend.command, this.backend.args, {
       cwd: this.backend.cwd,

@@ -410,11 +410,7 @@ def encrypt_existing_fields_command(yes):
     FIRST, then pass --yes.
     """
     from core.security.keyring import encryption_configured
-    from core.security.crypto import is_ciphertext
-    from core.security.encrypted_fields import encrypt_instance
-    from core.security.org_crypto import provision_all_orgs
-    from tenant import unfiltered
-    from models import Patient
+    from core.security.backfill import encrypt_existing_plaintext
 
     if not encryption_configured():
         click.echo("encrypt-existing-fields: EMS_MASTER_KEY is not configured — nothing to do.")
@@ -423,41 +419,9 @@ def encrypt_existing_fields_command(yes):
         click.echo("Refusing to run without --yes. Back up the database first, then re-run with --yes.")
         return
 
-    # Single source of truth for which fields each entity encrypts (avoids drift).
-    # The org_getter yields the row's org id — direct for patient/employee, via the
-    # parent employee for a document (which has no org_id of its own).
-    from routes.patient_routes import _PATIENT_ENC_FIELDS
-    from routes.employee_routes import _EMPLOYEE_ENC_FIELDS, Employee
-    from routes.document_routes import _DOC_ENC_FIELDS, EmployeeDocument
-    from routes.call_routes import _CALL_ENC_FIELDS
-    from models import Call
-    entities = [
-        ("patient", Patient, _PATIENT_ENC_FIELDS, lambda r: r.org_id),
-        ("employee", Employee, _EMPLOYEE_ENC_FIELDS, lambda r: r.org_id),
-        ("employee_document", EmployeeDocument, _DOC_ENC_FIELDS,
-         lambda r: r.employee.org_id if r.employee else None),
-        ("call", Call, _CALL_ENC_FIELDS, lambda r: r.org_id),
-    ]
-
-    provision_all_orgs()
-    org_cache = {}
-
-    def _org(org_id):
-        if org_id and org_id not in org_cache:
-            org_cache[org_id] = Organization.query.get(org_id)
-        return org_cache.get(org_id)
-
-    with unfiltered():
-        for entity_type, model, fields, org_getter in entities:
-            count = 0
-            for row in model.query.all():
-                values = [getattr(row, f) for f, _ in fields]
-                if not any(v and not is_ciphertext(v) for v in values):
-                    continue  # nothing plaintext left to encrypt on this row
-                encrypt_instance(row, _org(org_getter(row)), entity_type, fields)
-                count += 1
-            click.echo(f"encrypt-existing-fields: encrypted {count} {entity_type}(s).")
-        db.session.commit()
+    counts = encrypt_existing_plaintext()
+    for entity_type, count in counts.items():
+        click.echo(f"encrypt-existing-fields: encrypted {count} {entity_type}(s).")
 
 
 @click.command("migrate-documents-to-s3")
