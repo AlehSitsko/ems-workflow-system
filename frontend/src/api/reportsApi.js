@@ -79,3 +79,31 @@ export async function getPunctualityReport(start, end, groupBy = "driver") {
   }
   return data;
 }
+
+/** Paginated call log for [start, end] — who took/assigned each call, crew, lateness. */
+export async function getCallLog(start, end, page = 1) {
+  const params = new URLSearchParams({ start, end, page: String(page) });
+  const response = await fetch(`${API_BASE_URL}/api/reports/call-log?${params}`, {
+    credentials: "include",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to load call log");
+  }
+  return data;
+}
+
+/** One call's full audit timeline (created → assigned → status changes → completed). */
+export async function getCallAudit(callId) {
+  const params = new URLSearchParams({
+    entity_type: "call", entity_id: String(callId), per_page: "100",
+  });
+  const response = await fetch(`${API_BASE_URL}/api/audit?${params}`, {
+    credentials: "include",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to load call history");
+  }
+  return data.entries || [];
+}

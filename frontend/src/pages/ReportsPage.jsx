@@ -5,6 +5,7 @@ import {
   getUtilizationReport,
   getHoursReport, hoursReportExportUrl,
   getPunctualityReport,
+  getCallLog, getCallAudit,
 } from "../api/reportsApi";
 
 /** Local YYYY-MM-DD (never UTC — the report is keyed by the operational day). */
@@ -47,6 +48,12 @@ const REPORTS = {
     label: "Punctuality",
     title: "On-time performance vs the scheduled pickup and appointment times.",
     fetch: null, // handled specially — it also takes a groupBy
+    exportUrl: null,
+  },
+  callLog: {
+    label: "Call history",
+    title: "Every call over a range — who took it, who dispatched it, the crew and lateness.",
+    fetch: getCallLog,
     exportUrl: null,
   },
 };
@@ -184,6 +191,119 @@ const ReportsPage = () => {
       {data && dataKind === report && report === "punctuality" && (
         <PunctualityView data={data} groupBy={groupBy} onGroupBy={changeGroupBy} />
       )}
+      {data && dataKind === report && report === "callLog" && <CallLogView data={data} />}
+    </div>
+  );
+};
+
+// ── Call history ───────────────────────────────────────────────────────────────
+
+const prettyAction = (action) =>
+  String(action || "").replace(/^call\./, "").replace(/[._]/g, " ");
+
+const StatusBadge = ({ status }) => {
+  const cls = status === "completed" ? "text-bg-success"
+    : status === "cancelled" ? "text-bg-danger"
+    : status === "assigned" ? "text-bg-primary" : "text-bg-secondary";
+  return <span className={`badge ${cls}`}>{status}</span>;
+};
+
+const CallTimeline = ({ entries }) => {
+  if (entries === "loading" || entries === undefined) {
+    return <div className="text-muted small py-2">Loading timeline…</div>;
+  }
+  if (!entries.length) return <div className="text-muted small py-2">No recorded events.</div>;
+  // The API returns newest-first; show the timeline oldest-first.
+  const ordered = [...entries].reverse();
+  return (
+    <ul className="list-unstyled small mb-0 py-2">
+      {ordered.map((e) => (
+        <li key={e.id} className="mb-1">
+          <span className="text-muted">{(e.timestamp || "").replace("T", " ")}</span>
+          {" — "}<strong className="text-capitalize">{prettyAction(e.action)}</strong>
+          {" by "}{e.user_name}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+const CallLogView = ({ data }) => {
+  const [openId, setOpenId] = useState(null);
+  const [timelines, setTimelines] = useState({}); // callId -> "loading" | entries[]
+
+  const toggle = async (id) => {
+    if (openId === id) { setOpenId(null); return; }
+    setOpenId(id);
+    if (timelines[id] === undefined) {
+      setTimelines((t) => ({ ...t, [id]: "loading" }));
+      try {
+        const entries = await getCallAudit(id);
+        setTimelines((t) => ({ ...t, [id]: entries }));
+      } catch {
+        setTimelines((t) => ({ ...t, [id]: [] }));
+      }
+    }
+  };
+
+  return (
+    <div className="card shadow-sm">
+      <div className="card-body">
+        <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 className="mb-0">Call history</h5>
+          <span className="text-muted small">
+            {data.total} calls · showing {data.items.length} · click a row for its timeline
+          </span>
+        </div>
+        {data.items.length === 0 ? (
+          <p className="text-muted mb-0">No calls in this range.</p>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-sm table-hover align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>#</th><th>Date</th><th>Service</th><th>Status</th><th>Route</th>
+                  <th>Dispatcher</th><th>Assigned by</th><th>Crew</th>
+                  <th className="text-end">Pickup late</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((c) => (
+                  <React.Fragment key={c.id}>
+                    <tr style={{ cursor: "pointer" }} onClick={() => toggle(c.id)}>
+                      <td>#{c.id}</td>
+                      <td>{c.date}</td>
+                      <td>{c.serviceLevel}</td>
+                      <td><StatusBadge status={c.status} /></td>
+                      <td className="small text-truncate" style={{ maxWidth: 240 }}
+                          title={`${c.pickupAddress || ""} → ${c.dropoffAddress || ""}`}>
+                        {c.pickupAddress || "—"} → {c.dropoffAddress || "—"}
+                      </td>
+                      <td>{c.dispatcher || "—"}</td>
+                      <td>{c.assignedBy || "—"}</td>
+                      <td>{c.crew || (c.truck ? `Truck ${c.truck}` : "—")}</td>
+                      <td className="text-end">
+                        {c.pickupLateMinutes == null ? "—" : (
+                          <span className={c.isLate ? "text-danger" : "text-success"}>
+                            {c.pickupLateMinutes}m
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    {openId === c.id && (
+                      <tr>
+                        <td colSpan={9} className="bg-body-tertiary">
+                          <CallTimeline entries={timelines[c.id]} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
