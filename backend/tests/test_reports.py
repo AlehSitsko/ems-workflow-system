@@ -333,3 +333,30 @@ def test_call_log_is_management_only(clients):
     qs = "start=2026-04-01&end=2026-04-01"
     assert clients["supervisor"].get(f"/api/reports/call-log?{qs}").status_code == 200
     assert clients["dispatcher"].get(f"/api/reports/call-log?{qs}").status_code == 403
+
+
+# ── Report exports (punctuality + call log) ───────────────────────────────────
+
+def test_punctuality_export_is_csv(clients):
+    r = clients["supervisor"].get(
+        "/api/reports/punctuality/export?start=2026-03-02&end=2026-03-02&groupBy=driver")
+    assert r.status_code == 200
+    assert r.mimetype == "text/csv"
+    assert "punctuality_driver_2026-03-02_2026-03-02.csv" in r.headers["Content-Disposition"]
+    assert r.get_data(as_text=True).splitlines()[0].startswith("Driver,Pickup measured,Pickup late")
+
+
+def test_punctuality_export_dispatcher_group_is_management_only(clients):
+    qs = "start=2026-03-02&end=2026-03-02&groupBy=dispatcher"
+    assert clients["supervisor"].get(f"/api/reports/punctuality/export?{qs}").status_code == 200
+    assert clients["dispatcher"].get(f"/api/reports/punctuality/export?{qs}").status_code == 403
+
+
+def test_call_log_export_is_csv_and_management_only(clients):
+    qs = "start=2026-03-02&end=2026-03-02"
+    r = clients["supervisor"].get(f"/api/reports/call-log/export?{qs}")
+    assert r.status_code == 200
+    assert r.mimetype == "text/csv"
+    assert "call_log_2026-03-02_2026-03-02.csv" in r.headers["Content-Disposition"]
+    assert r.get_data(as_text=True).splitlines()[0].startswith("Call ID,Date,Service Level")
+    assert clients["dispatcher"].get(f"/api/reports/call-log/export?{qs}").status_code == 403

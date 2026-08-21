@@ -418,38 +418,9 @@ def _emp_name(emp):
     return f"{emp.first_name} {emp.last_name}".strip() if emp else None
 
 
-@reports_bp.route("/punctuality", methods=["GET"])
-@require_role(*PUNCTUALITY_ROLES)
-def punctuality_report():
-    """Per-group on-time stats for completed calls in ?start=&end=.
-
-    ?groupBy=driver|crew|dispatcher. Rating dispatchers is management-only; crew
-    and driver punctuality is also visible to dispatchers (so they know who is
-    chronically late).
-    """
-    group_by = (request.args.get("groupBy") or "driver").strip()
-    if group_by not in ("dispatcher", "driver", "crew"):
-        return jsonify({"error": "groupBy must be dispatcher, driver or crew"}), 400
-    if group_by == "dispatcher" and get_request_role() not in ("admin", "supervisor"):
-        return jsonify({"error": "Dispatcher performance is visible to supervisors only"}), 403
-
-    rng, invalid = _resolve_range()
-    if invalid:
-        payload, status = invalid
-        return jsonify(payload), status
-    start_d, end_d = rng
-    start, end = start_d.isoformat(), end_d.isoformat()
-    grace = _org_grace()
-
-    calls = (
-        Call.query
-        .filter(Call.trip_date >= start, Call.trip_date <= end,
-                Call.status == "completed")
-        .all()
-    )
-    call_ids = [c.id for c in calls]
-
-    # Latest assignment per call → the unit that ran it → its crew.
+def _attribution_maps(call_ids):
+    """The latest assignment per call, plus the units and crew employees behind
+    them — batch-loaded to keep the punctuality/call-log queries N+1-free."""
     asn_by_call = {}
     if call_ids:
         for a in CallAssignment.query.filter(CallAssignment.call_id.in_(call_ids)).all():
@@ -462,6 +433,23 @@ def punctuality_report():
     emp_ids = {eid for u in units.values() for eid in (u.driver_id, u.medical_id) if eid}
     emps = ({e.id: e for e in Employee.query.filter(Employee.id.in_(emp_ids)).all()}
             if emp_ids else {})
+    return asn_by_call, units, emps
+
+
+def _crew_names(unit, emps):
+    """Driver / medic names for a unit, or None when neither is set."""
+    names = [n for n in (_emp_name(emps.get(unit.driver_id)),
+                         _emp_name(emps.get(unit.medical_id))) if n]
+    return " / ".join(names) or None
+
+
+def _punctuality_rows(start, end, group_by, grace):
+    """Worst-first per-group on-time rows for completed calls in [start, end]."""
+    calls = (Call.query
+             .filter(Call.trip_date >= start, Call.trip_date <= end,
+                     Call.status == "completed")
+             .all())
+    asn_by_call, units, emps = _attribution_maps([c.id for c in calls])
 
     groups = {}  # key -> {label, pickup:[], appointment:[]}
 
@@ -494,10 +482,8 @@ def punctuality_report():
             bucket(f"drv:{unit.driver_id}",
                    _emp_name(emps.get(unit.driver_id)) or f"#{unit.driver_id}", pl, al)
         else:  # crew = driver + medic pair
-            names = [n for n in (_emp_name(emps.get(unit.driver_id)),
-                                 _emp_name(emps.get(unit.medical_id))) if n]
-            label = " / ".join(names) or (f"Truck {unit.truck_number}"
-                                          if unit.truck_number else "Unassigned crew")
+            label = _crew_names(unit, emps) or (f"Truck {unit.truck_number}"
+                                                if unit.truck_number else "Unassigned crew")
             bucket(f"crew:{unit.driver_id}-{unit.medical_id}", label, pl, al)
 
     rows = [
@@ -510,20 +496,121 @@ def punctuality_report():
     ]
     # Worst offenders first: most late calls (pickup + appointment) at the top.
     rows.sort(key=lambda r: r["pickup"]["late"] + r["appointment"]["late"], reverse=True)
+    return rows
 
+
+def _punctuality_guard():
+    """Shared validation for the punctuality endpoints. Returns (group_by, None) on
+    success, or (None, (payload, status)) to return."""
+    group_by = (request.args.get("groupBy") or "driver").strip()
+    if group_by not in ("dispatcher", "driver", "crew"):
+        return None, ({"error": "groupBy must be dispatcher, driver or crew"}, 400)
+    if group_by == "dispatcher" and get_request_role() not in ("admin", "supervisor"):
+        return None, ({"error": "Dispatcher performance is visible to supervisors only"}, 403)
+    return group_by, None
+
+
+@reports_bp.route("/punctuality", methods=["GET"])
+@require_role(*PUNCTUALITY_ROLES)
+def punctuality_report():
+    """Per-group on-time stats for completed calls in ?start=&end=.
+
+    ?groupBy=driver|crew|dispatcher. Rating dispatchers is management-only; crew
+    and driver punctuality is also visible to dispatchers (so they know who is
+    chronically late).
+    """
+    group_by, guard = _punctuality_guard()
+    if guard:
+        payload, status = guard
+        return jsonify(payload), status
+    rng, invalid = _resolve_range()
+    if invalid:
+        payload, status = invalid
+        return jsonify(payload), status
+    start_d, end_d = rng
+    grace = _org_grace()
+    rows = _punctuality_rows(start_d.isoformat(), end_d.isoformat(), group_by, grace)
     return jsonify({
-        "range": {"start": start, "end": end},
+        "range": {"start": start_d.isoformat(), "end": end_d.isoformat()},
         "groupBy": group_by,
         "graceMinutes": grace,
         "rows": rows,
     })
 
 
+@reports_bp.route("/punctuality/export", methods=["GET"])
+@require_role(*PUNCTUALITY_ROLES)
+def punctuality_export():
+    """The punctuality rows as CSV. Dispatcher grouping stays supervisor-only."""
+    group_by, guard = _punctuality_guard()
+    if guard:
+        payload, status = guard
+        return jsonify(payload), status
+    rng, invalid = _resolve_range()
+    if invalid:
+        payload, status = invalid
+        return jsonify(payload), status
+    start_d, end_d = rng
+    grace = _org_grace()
+    rows = _punctuality_rows(start_d.isoformat(), end_d.isoformat(), group_by, grace)
+
+    subject = {"dispatcher": "Dispatcher", "crew": "Crew"}.get(group_by, "Driver")
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        subject,
+        "Pickup measured", "Pickup late", "Pickup on-time %",
+        "Pickup avg late (min)", "Pickup worst (min)",
+        "Appt measured", "Appt late", "Appt on-time %",
+        "Appt avg late (min)", "Appt worst (min)",
+    ])
+    for r in rows:
+        p, ap = r["pickup"], r["appointment"]
+        writer.writerow([
+            r["label"],
+            p["measured"], p["late"], "" if p["onTimeRate"] is None else p["onTimeRate"],
+            p["avgLateMinutes"], p["maxLateMinutes"],
+            ap["measured"], ap["late"], "" if ap["onTimeRate"] is None else ap["onTimeRate"],
+            ap["avgLateMinutes"], ap["maxLateMinutes"],
+        ])
+    filename = f"punctuality_{group_by}_{start_d.isoformat()}_{end_d.isoformat()}.csv"
+    return Response(output.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
 # ── Call log / history ────────────────────────────────────────────────────────
 #
-# A paginated list of calls over a range with who took it (dispatcher), who
-# assigned it, the crew that ran it, and pickup lateness. Drill into one call's
-# full audit timeline via GET /api/audit?entity_type=call&entity_id=<id>.
+# A list of calls over a range with who took it (dispatcher), who assigned it, the
+# crew that ran it, and pickup lateness. The JSON endpoint paginates; the CSV
+# export covers the whole range. Drill into one call's full audit timeline via
+# GET /api/audit?entity_type=call&entity_id=<id>.
+
+def _call_log_item(c, asn_by_call, units, emps, grace):
+    a = asn_by_call.get(c.id)
+    unit = units.get(a.unit_id) if a else None
+    pickup_late = lateness_engine.pickup_lateness({
+        "trip_date": c.trip_date, "pickup_time": c.pickup_time,
+        "arrived_pickup_at": c.arrived_pickup_at,
+    })
+    return {
+        "id": c.id,
+        "date": c.trip_date,
+        "serviceLevel": c.service_level,
+        "callType": c.call_type,
+        "status": c.status,
+        "pickupAddress": c.pickup_address,
+        "dropoffAddress": c.dropoff_address,
+        "dispatcher": c.dispatcher_name or None,       # who took the call
+        "assignedBy": a.assigned_by if a else None,      # who dispatched it to a unit
+        "crew": _crew_names(unit, emps) if unit else None,
+        "truck": unit.truck_number if unit else None,
+        "pickupTime": c.pickup_time,
+        "arrivedPickupAt": c.arrived_pickup_at,
+        "pickupLateMinutes": pickup_late,
+        "isLate": lateness_engine.is_late(pickup_late, grace),
+        "completedAt": c.completed_at,
+    }
+
 
 @reports_bp.route("/call-log", methods=["GET"])
 @require_role("admin", "supervisor")
@@ -545,52 +632,8 @@ def call_log_report():
         .paginate(page=page, per_page=per_page, error_out=False)
     )
     calls = pagination.items
-    call_ids = [c.id for c in calls]
-
-    asn_by_call = {}
-    if call_ids:
-        for a in CallAssignment.query.filter(CallAssignment.call_id.in_(call_ids)).all():
-            cur = asn_by_call.get(a.call_id)
-            if cur is None or a.id > cur.id:
-                asn_by_call[a.call_id] = a
-    unit_ids = {a.unit_id for a in asn_by_call.values()}
-    units = ({u.id: u for u in DailyCrewUnit.query.filter(DailyCrewUnit.id.in_(unit_ids)).all()}
-             if unit_ids else {})
-    emp_ids = {eid for u in units.values() for eid in (u.driver_id, u.medical_id) if eid}
-    emps = ({e.id: e for e in Employee.query.filter(Employee.id.in_(emp_ids)).all()}
-            if emp_ids else {})
-
-    items = []
-    for c in calls:
-        a = asn_by_call.get(c.id)
-        unit = units.get(a.unit_id) if a else None
-        crew = None
-        if unit:
-            names = [n for n in (_emp_name(emps.get(unit.driver_id)),
-                                 _emp_name(emps.get(unit.medical_id))) if n]
-            crew = " / ".join(names) or None
-        pickup_late = lateness_engine.pickup_lateness({
-            "trip_date": c.trip_date, "pickup_time": c.pickup_time,
-            "arrived_pickup_at": c.arrived_pickup_at,
-        })
-        items.append({
-            "id": c.id,
-            "date": c.trip_date,
-            "serviceLevel": c.service_level,
-            "callType": c.call_type,
-            "status": c.status,
-            "pickupAddress": c.pickup_address,
-            "dropoffAddress": c.dropoff_address,
-            "dispatcher": c.dispatcher_name or None,   # who took the call
-            "assignedBy": a.assigned_by if a else None,  # who dispatched it to a unit
-            "crew": crew,
-            "truck": unit.truck_number if unit else None,
-            "pickupTime": c.pickup_time,
-            "arrivedPickupAt": c.arrived_pickup_at,
-            "pickupLateMinutes": pickup_late,
-            "isLate": lateness_engine.is_late(pickup_late, grace),
-            "completedAt": c.completed_at,
-        })
+    asn_by_call, units, emps = _attribution_maps([c.id for c in calls])
+    items = [_call_log_item(c, asn_by_call, units, emps, grace) for c in calls]
 
     return jsonify({
         "range": {"start": start, "end": end},
@@ -600,3 +643,44 @@ def call_log_report():
         "pages": pagination.pages,
         "items": items,
     })
+
+
+@reports_bp.route("/call-log/export", methods=["GET"])
+@require_role("admin", "supervisor")
+def call_log_export():
+    """The whole call log for the range as CSV (no pagination)."""
+    rng, invalid = _resolve_range()
+    if invalid:
+        payload, status = invalid
+        return jsonify(payload), status
+    start_d, end_d = rng
+    start, end = start_d.isoformat(), end_d.isoformat()
+    grace = _org_grace()
+
+    calls = (Call.query
+             .filter(Call.trip_date >= start, Call.trip_date <= end)
+             .order_by(Call.trip_date.desc(), Call.id.desc())
+             .all())
+    asn_by_call, units, emps = _attribution_maps([c.id for c in calls])
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Call ID", "Date", "Service Level", "Call Type", "Status",
+        "Pickup Address", "Dropoff Address", "Dispatcher", "Assigned By",
+        "Crew", "Truck", "Pickup Time", "Arrived Pickup",
+        "Pickup Late (min)", "Late", "Completed At",
+    ])
+    for c in calls:
+        it = _call_log_item(c, asn_by_call, units, emps, grace)
+        writer.writerow([
+            it["id"], it["date"] or "", it["serviceLevel"] or "", it["callType"] or "",
+            it["status"] or "", it["pickupAddress"] or "", it["dropoffAddress"] or "",
+            it["dispatcher"] or "", it["assignedBy"] or "", it["crew"] or "",
+            it["truck"] or "", it["pickupTime"] or "", it["arrivedPickupAt"] or "",
+            "" if it["pickupLateMinutes"] is None else it["pickupLateMinutes"],
+            "yes" if it["isLate"] else "", it["completedAt"] or "",
+        ])
+    filename = f"call_log_{start}_{end}.csv"
+    return Response(output.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
