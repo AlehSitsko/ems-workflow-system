@@ -4,8 +4,8 @@ import {
   getCallsReport, callsReportExportUrl,
   getUtilizationReport,
   getHoursReport, hoursReportExportUrl,
-  getPunctualityReport,
-  getCallLog, getCallAudit,
+  getPunctualityReport, punctualityReportExportUrl,
+  getCallLog, callLogExportUrl, getCallAudit,
 } from "../api/reportsApi";
 
 /** Local YYYY-MM-DD (never UTC — the report is keyed by the operational day). */
@@ -48,13 +48,13 @@ const REPORTS = {
     label: "Punctuality",
     title: "On-time performance vs the scheduled pickup and appointment times.",
     fetch: null, // handled specially — it also takes a groupBy
-    exportUrl: null,
+    exportUrl: punctualityReportExportUrl, // called with (start, end, groupBy)
   },
   callLog: {
     label: "Call history",
     title: "Every call over a range — who took it, who dispatched it, the crew and lateness.",
     fetch: getCallLog,
-    exportUrl: null,
+    exportUrl: callLogExportUrl,
   },
 };
 
@@ -158,7 +158,10 @@ const ReportsPage = () => {
             {active.exportUrl && (
               <a
                 className={`btn btn-outline-secondary btn-sm${loading ? " disabled" : ""}`}
-                href={active.exportUrl(start, end)}
+                // Punctuality's export also needs the current grouping.
+                href={report === "punctuality"
+                  ? active.exportUrl(start, end, groupBy)
+                  : active.exportUrl(start, end)}
                 // A normal navigation the browser turns into a download.
               >
                 Export CSV

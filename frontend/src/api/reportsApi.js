@@ -93,6 +93,18 @@ export async function getCallLog(start, end, page = 1) {
   return data;
 }
 
+/** Browser URL for the punctuality CSV export (a download via Content-Disposition). */
+export function punctualityReportExportUrl(start, end, groupBy = "driver") {
+  const params = new URLSearchParams({ start, end, groupBy });
+  return `${API_BASE_URL}/api/reports/punctuality/export?${params}`;
+}
+
+/** Browser URL for the call-log CSV export. */
+export function callLogExportUrl(start, end) {
+  const params = new URLSearchParams({ start, end });
+  return `${API_BASE_URL}/api/reports/call-log/export?${params}`;
+}
+
 /** One call's full audit timeline (created → assigned → status changes → completed). */
 export async function getCallAudit(callId) {
   const params = new URLSearchParams({
