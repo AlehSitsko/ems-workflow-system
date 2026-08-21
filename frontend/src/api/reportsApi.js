@@ -62,3 +62,20 @@ export function hoursReportExportUrl(start, end) {
   const params = new URLSearchParams({ start, end });
   return `${API_BASE_URL}/api/reports/hours/export?${params}`;
 }
+
+/**
+ * On-time performance for [start, end], grouped by "driver" | "crew" |
+ * "dispatcher". Dispatcher grouping is supervisor-only (the backend returns 403
+ * for a dispatcher asking for it).
+ */
+export async function getPunctualityReport(start, end, groupBy = "driver") {
+  const params = new URLSearchParams({ start, end, groupBy });
+  const response = await fetch(`${API_BASE_URL}/api/reports/punctuality?${params}`, {
+    credentials: "include",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to load punctuality report");
+  }
+  return data;
+}

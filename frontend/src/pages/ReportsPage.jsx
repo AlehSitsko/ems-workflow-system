@@ -4,6 +4,7 @@ import {
   getCallsReport, callsReportExportUrl,
   getUtilizationReport,
   getHoursReport, hoursReportExportUrl,
+  getPunctualityReport,
 } from "../api/reportsApi";
 
 /** Local YYYY-MM-DD (never UTC — the report is keyed by the operational day). */
@@ -42,6 +43,12 @@ const REPORTS = {
     fetch: getHoursReport,
     exportUrl: hoursReportExportUrl,
   },
+  punctuality: {
+    label: "Punctuality",
+    title: "On-time performance vs the scheduled pickup and appointment times.",
+    fetch: null, // handled specially — it also takes a groupBy
+    exportUrl: null,
+  },
 };
 
 const SummaryTile = ({ label, value, sub }) => (
@@ -59,6 +66,7 @@ const SummaryTile = ({ label, value, sub }) => (
 const ReportsPage = () => {
   const initial = useMemo(defaultRange, []);
   const [report, setReport] = useState("calls");
+  const [groupBy, setGroupBy] = useState("driver"); // punctuality grouping
   const [start, setStart] = useState(initial.start);
   const [end, setEnd] = useState(initial.end);
   const [data, setData] = useState(null);
@@ -71,11 +79,13 @@ const ReportsPage = () => {
 
   const active = REPORTS[report];
 
-  const load = async (kind, s, e) => {
+  const load = async (kind, s, e, gb = groupBy) => {
     setLoading(true);
     setError("");
     try {
-      const result = await REPORTS[kind].fetch(s, e);
+      const result = kind === "punctuality"
+        ? await getPunctualityReport(s, e, gb)
+        : await REPORTS[kind].fetch(s, e);
       setData(result);
       setDataKind(kind);
     } catch (err) {
@@ -96,6 +106,11 @@ const ReportsPage = () => {
   const applyRange = (event) => {
     event.preventDefault();
     load(report, start, end);
+  };
+
+  const changeGroupBy = (gb) => {
+    setGroupBy(gb);
+    load("punctuality", start, end, gb);
   };
 
   return (
@@ -166,7 +181,92 @@ const ReportsPage = () => {
       {data && dataKind === report && report === "calls" && <CallsView data={data} />}
       {data && dataKind === report && report === "utilization" && <UtilizationView data={data} />}
       {data && dataKind === report && report === "hours" && <HoursView data={data} />}
+      {data && dataKind === report && report === "punctuality" && (
+        <PunctualityView data={data} groupBy={groupBy} onGroupBy={changeGroupBy} />
+      )}
     </div>
+  );
+};
+
+// ── Punctuality ────────────────────────────────────────────────────────────────
+
+const GROUPINGS = [
+  { key: "driver", label: "By driver" },
+  { key: "crew", label: "By crew" },
+  { key: "dispatcher", label: "By dispatcher" },
+];
+
+const onTimeCell = (s) => {
+  if (s.onTimeRate === null) return <span className="text-muted">—</span>;
+  const cls = s.onTimeRate >= 90 ? "text-success"
+    : s.onTimeRate >= 75 ? "text-warning" : "text-danger";
+  return <span className={cls}>{s.onTimeRate}%</span>;
+};
+
+const PunctualityView = ({ data, groupBy, onGroupBy }) => {
+  const subjectHead = groupBy === "dispatcher" ? "Dispatcher"
+    : groupBy === "crew" ? "Crew" : "Driver";
+  return (
+    <>
+      <div className="card shadow-sm mb-3">
+        <div className="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="btn-group btn-group-sm" role="group" aria-label="Group punctuality by">
+            {GROUPINGS.map((g) => (
+              <button key={g.key} type="button"
+                className={`btn ${groupBy === g.key ? "btn-primary" : "btn-outline-secondary"}`}
+                onClick={() => onGroupBy(g.key)}>{g.label}</button>
+            ))}
+          </div>
+          <span className="text-muted small">
+            Late = arriving more than <strong>{data.graceMinutes} min</strong> after the scheduled time.
+          </span>
+        </div>
+      </div>
+
+      <div className="card shadow-sm">
+        <div className="card-body">
+          <h5 className="mb-3">On-time performance (worst first)</h5>
+          {data.rows.length === 0 ? (
+            <p className="text-muted mb-0">
+              No completed trips with scheduled times in this range.
+            </p>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-sm table-hover align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>{subjectHead}</th>
+                    <th className="text-end">Pickup on-time</th>
+                    <th className="text-end">Late / measured</th>
+                    <th className="text-end">Avg late</th>
+                    <th className="text-end">Worst</th>
+                    <th className="text-end">Appt on-time</th>
+                    <th className="text-end">Appt late</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rows.map((r) => (
+                    <tr key={r.key}>
+                      <td>{r.label}</td>
+                      <td className="text-end">{onTimeCell(r.pickup)}</td>
+                      <td className="text-end">
+                        {r.pickup.measured ? `${r.pickup.late} / ${r.pickup.measured}` : "—"}
+                      </td>
+                      <td className="text-end">{r.pickup.late ? `${r.pickup.avgLateMinutes}m` : "—"}</td>
+                      <td className="text-end">{r.pickup.late ? `${r.pickup.maxLateMinutes}m` : "—"}</td>
+                      <td className="text-end">{onTimeCell(r.appointment)}</td>
+                      <td className="text-end">
+                        {r.appointment.measured ? `${r.appointment.late} / ${r.appointment.measured}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 };
 
