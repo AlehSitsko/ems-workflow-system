@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session } = require("electron");
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain, session, safeStorage, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -8,6 +8,7 @@ const cfg = require("./config");
 const { Backend } = require("./backend");
 const backup = require("./backup");
 const updater = require("./updater");
+const keystore = require("./keystore");
 
 // ── Single-instance lock: a second copy must never open the same SQLite file ──
 if (!app.requestSingleInstanceLock()) {
@@ -19,6 +20,8 @@ let mainWindow = null;
 let splashWindow = null;
 let backend = null;
 let paths = null;
+let masterKey = null;          // base64 EMS_MASTER_KEY for this install, or null
+let keyNoticeOnStart = false;  // show the one-time recovery-key notice this launch
 let rendererDirty = false;
 let quitting = false;
 
@@ -109,6 +112,11 @@ function createMainWindow() {
     // maximized window is the sensible default rather than a fixed 1280×800.
     mainWindow.maximize();
     mainWindow.show();
+    // First run with encryption: show the recovery key once, before anything else.
+    if (keyNoticeOnStart) {
+      keyNoticeOnStart = false;
+      showRecoveryKeyDialog(true);
+    }
     // Quietly check for a newer release a few seconds after the UI settles, but
     // only for a real installed build (not `electron .` in dev).
     if (cfg.isPackaged) {
@@ -133,13 +141,31 @@ function createMainWindow() {
 // ── Startup sequence ──────────────────────────────────────────────────────────
 async function startBackendAndUi() {
   paths = cfg.resolveDataPaths();
-  // Safety: snapshot the DB before a launch that may run a migration.
+  // Safety: snapshot the DB before a launch that may run a migration or the
+  // first encrypt-in-place backfill.
   try { backup.autoBackup(paths, cfg.appVersion); } catch (e) { /* non-fatal */ }
+
+  // Load (or generate on first run) the at-rest encryption key. A failure here
+  // means a previously OS-protected key can't be read on this account; log and
+  // continue without it so the app still starts (the user recovers via their
+  // saved recovery key).
+  try {
+    const info = keystore.loadOrCreateMasterKey(paths, safeStorage);
+    masterKey = info.key;
+    keyNoticeOnStart = info.created;
+  } catch (err) {
+    masterKey = null;
+    try {
+      fs.appendFileSync(path.join(paths.logs, "backend.log"),
+        `\n[keystore] ${new Date().toISOString()} ${err && err.message}\n`);
+    } catch { /* best effort */ }
+  }
 
   backend = new Backend({
     backend: cfg.resolveBackend(),
     paths,
     logDir: paths.logs,
+    masterKey,
   });
   backend.onUnexpectedExit((code) => {
     if (quitting) return;
@@ -230,6 +256,10 @@ function buildMenu() {
         {
           label: "Check for updates…",
           click: () => { runUpdateCheck({ silent: false }); },
+        },
+        {
+          label: "Show encryption recovery key…",
+          click: () => { showRecoveryKeyDialog(false); },
         },
         { type: "separator" },
         {
@@ -351,6 +381,42 @@ async function runUpdateCheck({ silent }) {
       });
     }
   }
+}
+
+// ── Encryption recovery key ───────────────────────────────────────────────────
+//
+// The at-rest key is protected by the Windows account (DPAPI). If that account is
+// lost or the data moves to another machine, the only way back in is this recovery
+// key — so we show it once on first run and let the user reveal it any time.
+function showRecoveryKeyDialog(firstTime) {
+  if (!mainWindow) return;
+  if (!masterKey) {
+    dialog.showMessageBox(mainWindow, {
+      type: "info", title: "Encryption",
+      message: "At-rest encryption is not active on this install",
+      detail: "No readable encryption key is present, so sensitive fields are stored "
+        + "unencrypted. If this is unexpected, restore from a backup made on the "
+        + "original Windows account.",
+    });
+    return;
+  }
+  dialog.showMessageBox(mainWindow, {
+    type: firstTime ? "warning" : "info",
+    title: "Encryption recovery key",
+    message: firstTime ? "Your data is now encrypted — save your recovery key" : "Encryption recovery key",
+    detail:
+      "Your local database and documents are encrypted at rest, protected by your "
+      + "Windows account. If you ever reinstall Windows, switch user accounts, or move "
+      + "the app to another computer, you will need this recovery key to read your data:\n\n"
+      + `${masterKey}\n\n`
+      + "Store it somewhere safe (e.g. a password manager). Anyone with this key and a "
+      + "copy of your data can read it, so keep it private.",
+    buttons: ["Copy to clipboard", "Close"],
+    defaultId: 0,
+    cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) clipboard.writeText(masterKey);
+  });
 }
 
 // ── IPC (validated, argument-light) ───────────────────────────────────────────
