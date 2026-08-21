@@ -15,6 +15,7 @@ import CallFormPage from "./pages/CallFormPage";
 import CallsPage from "./pages/CallsPage";
 import SupervisorDashboardPage from "./pages/SupervisorDashboardPage";
 import ReportsPage from "./pages/ReportsPage";
+import CrewPunctualityPage from "./pages/CrewPunctualityPage";
 import LoginPage from "./pages/LoginPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import PlatformConsolePage from "./pages/platform/PlatformConsolePage";
@@ -354,6 +355,7 @@ function App() {
         { path: "/calls", element: <PatientRoute><CallsPage currentUser={currentUser} /></PatientRoute> },
         { path: "/supervisor", element: <SupervisorRoute><SupervisorDashboardPage /></SupervisorRoute> },
         { path: "/reports", element: <SupervisorRoute><ReportsPage /></SupervisorRoute> },
+        { path: "/crew-punctuality", element: <DispatchRoute><CrewPunctualityPage /></DispatchRoute> },
         { path: "/manual", element: <ProtectedLayout><UserManualPage currentUser={currentUser} /></ProtectedLayout> },
 
         { path: "/employees", element: <EmployeeRoute><EmployeesPage /></EmployeeRoute> },

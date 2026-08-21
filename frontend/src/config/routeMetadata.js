@@ -379,6 +379,17 @@ export const ROUTE_METADATA = [
     canAccess: hasSupervisorAccess,
     width: "standard",
   },
+  {
+    // Crew/driver punctuality — visible to dispatchers too (not just management),
+    // so the whole team can see who is chronically late.
+    path: "/crew-punctuality",
+    title: "Crew Punctuality",
+    subtitle: "On-time arrivals by driver and crew",
+    icon: FaChartBar,
+    group: "Operations",
+    canAccess: hasDispatchAccess,
+    width: "standard",
+  },
 
   // ── Administration ───────────────────────────────────────────────────────
   {
@@ -471,6 +482,7 @@ export const NAV_SECTIONS = [
       },
       { path: "/day-closeout" },
       { path: "/calendar" },
+      { path: "/crew-punctuality" },
     ],
   },
 
