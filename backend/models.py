@@ -2249,11 +2249,35 @@ class OrgRecoveryCode(db.Model):
 # tooling share one authoritative list rather than drifting apart. Child/detail
 # tables (documents, assignments, task comments, …) are deliberately absent: they
 # have no org_id and inherit their tenant through an org-owning parent.
+class CallNote(db.Model):
+    """An append-only communication log entry on a call — who said/did what and
+    when, for handoffs and dispatch history. Notes are never edited or deleted."""
+    __tablename__ = "call_note"
+
+    id = db.Column(db.Integer, primary_key=True)
+    call_id = db.Column(db.Integer, db.ForeignKey("call.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    user_name = db.Column(db.String(150))
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.String(50))
+    org_id = db.Column(db.Integer, db.ForeignKey("organization.id"), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "callId": self.call_id,
+            "userId": self.user_id,
+            "userName": self.user_name or "System",
+            "content": self.content,
+            "createdAt": self.created_at,
+        }
+
+
 ORG_SCOPED_MODELS = (
     User, Employee, Vehicle, DailyCrewUnit, CrewPreset, Patient, Call,
     NotificationEvent, PayPeriod, EmployeeLeaveRequest, OperationalDayClosure,
     RecurringTrip, CalendarEvent, Task, AuditLog, PtoLedgerEntry, Holiday,
-    UserInvitation, OrgRecoveryCode,
+    UserInvitation, OrgRecoveryCode, CallNote,
 )
 
 

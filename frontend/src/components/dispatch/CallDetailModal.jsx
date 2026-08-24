@@ -10,7 +10,7 @@ import {
   FaExclamationTriangle,
   FaUserSecret,
 } from "react-icons/fa";
-import { updateCall } from "../../api/callsApi";
+import { updateCall, repeatCall, getCallNotes, addCallNote } from "../../api/callsApi";
 import { getPatient, getPatientAlerts } from "../../api/patientsApi";
 import { useUserSettings } from "../../context/useUserSettings";
 import { formatTimeForDisplay } from "../../utils/timeUtils";
@@ -42,11 +42,49 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
   const [patientAlerts, setPatientAlerts] = useState([]);
   const [patientExtra, setPatientExtra] = useState(null);
 
+  const [notes, setNotes] = useState([]);
+  const [noteInput, setNoteInput] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [noteErr, setNoteErr] = useState("");
+  const [repeating, setRepeating] = useState(false);
+
   useEffect(() => {
     if (!call.patient_id) { setPatientAlerts([]); setPatientExtra(null); return; }
     getPatientAlerts(call.patient_id).then(setPatientAlerts).catch(() => setPatientAlerts([]));
     getPatient(call.patient_id).then(setPatientExtra).catch(() => setPatientExtra(null));
   }, [call.patient_id]);
+
+  useEffect(() => {
+    getCallNotes(call.id).then(setNotes).catch(() => setNotes([]));
+  }, [call.id]);
+
+  async function handleAddNote(e) {
+    e.preventDefault();
+    const content = noteInput.trim();
+    if (!content) return;
+    setNoteBusy(true);
+    setNoteErr("");
+    try {
+      const note = await addCallNote(call.id, content);
+      setNotes((prev) => [...prev, note]);
+      setNoteInput("");
+    } catch (err) {
+      setNoteErr(err.message || "Failed to add note.");
+    } finally {
+      setNoteBusy(false);
+    }
+  }
+
+  async function handleRepeat() {
+    setRepeating(true);
+    try {
+      await repeatCall(call.id);
+      onClose();
+    } catch (err) {
+      setRepeating(false);
+      setNoteErr(err.message || "Failed to repeat call.");
+    }
+  }
 
   useEffect(() => {
     const init = {};
@@ -367,6 +405,42 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
             </div>
           )}
 
+          {/* Communication log (append-only) */}
+          <div style={{ borderTop: "1px solid var(--ems-board-border)", padding: "12px 18px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ems-board-text-muted)", textTransform: "uppercase", marginBottom: 8 }}>
+              Communication log
+            </div>
+            {notes.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--ems-board-text-muted)", marginBottom: 8 }}>No notes yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8, maxHeight: 160, overflowY: "auto" }}>
+                {notes.map((n) => (
+                  <div key={n.id} style={{ fontSize: 13, color: "var(--ems-board-text)" }}>
+                    <span style={{ color: "var(--ems-board-text-muted)", fontSize: 11 }}>
+                      {(n.createdAt || "").replace("T", " ")} · {n.userName}
+                    </span>
+                    <div style={{ whiteSpace: "pre-wrap" }}>{n.content}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <form onSubmit={handleAddNote} style={{ display: "flex", gap: 6 }}>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="Add a note…"
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                disabled={noteBusy}
+                maxLength={2000}
+              />
+              <button type="submit" className="btn btn-sm btn-primary" disabled={noteBusy || !noteInput.trim()}>
+                {noteBusy ? "…" : "Add"}
+              </button>
+            </form>
+            {noteErr && <div style={{ fontSize: 12, color: "var(--color-danger)", marginTop: 4 }}>{noteErr}</div>}
+          </div>
+
           {/* Footer actions */}
           <div style={{ background: "var(--ems-board-bg-header)", borderTop: "1px solid var(--ems-board-border)", padding: "12px 18px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             {call.status !== "cancelled" && !showCancelForm && (
@@ -430,6 +504,15 @@ export default function CallDetailModal({ call, isCompleted, onClose, onUnassign
                 ✏ Edit Call
               </button>
             )}
+            <button
+              className="btn btn-sm"
+              style={{ background: "rgba(var(--color-primary-rgb),0.1)", color: "var(--color-primary)", border: "1px solid rgba(var(--color-primary-rgb), 0.27)", fontSize: 13, padding: "6px 14px" }}
+              onClick={handleRepeat}
+              disabled={repeating}
+              title="Create a new call for today with the same trip details"
+            >
+              {repeating ? "…" : "⟳ Repeat"}
+            </button>
             <button
               className="btn btn-sm ms-auto"
               style={{ background: "transparent", color: "var(--ems-board-text-muted)", border: "1px solid var(--color-border)", fontSize: 13, padding: "6px 14px" }}
