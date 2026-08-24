@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from sqlalchemy.orm import joinedload
 
-from models import db, Call, Patient, Organization, CallAssignment
+from models import db, Call, Patient, Organization, CallAssignment, CallNote
 from notification_utils import create_notification
 from audit_utils import log_action
 from core.security.keyring import encryption_configured
@@ -647,3 +647,93 @@ def confirmation_round():
             "remaining": tally["not_called"] + tally["no_answer"],
         },
     })
+
+
+# ── Repeat a call ─────────────────────────────────────────────────────────────
+
+@call_bp.route("/<int:call_id>/repeat", methods=["POST"])
+@require_role(*ALLOWED_ROLES)
+def repeat_call(call_id):
+    """Create a new call for today from an existing one: same trip details, fresh
+    lifecycle (new status, no assignment/timestamps). Caller contact is carried
+    over — read decrypted from the source and re-encrypted for the new call's id."""
+    src = Call.query.get_or_404(call_id)
+    src_data = src.to_dict()  # caller_phone / caller_note come back decrypted
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    new_call = Call(
+        patient_id=src.patient_id,
+        dispatcher_name=_user_name_from_request() or src.dispatcher_name,
+        received_at=datetime.now().isoformat(timespec="seconds"),
+        status="new",
+        date_of_call=today,
+        trip_date=today,
+        pickup_time=src.pickup_time,
+        appointment_time=src.appointment_time,
+        estimated_duration_minutes=src.estimated_duration_minutes,
+        pickup_address=src.pickup_address,
+        dropoff_address=src.dropoff_address,
+        caller_type=src.caller_type,
+        call_type=src.call_type,
+        service_level=src.service_level,
+        caller_phone=src_data.get("caller_phone") or None,
+        caller_note=src_data.get("caller_note") or None,
+        notes=src.notes,
+    )
+    db.session.add(new_call)
+    db.session.flush()
+    _encrypt_call_fields(new_call)   # id known → AAD binds the caller fields
+    log_action("call.repeated", "call", new_call.id, f"Call #{new_call.id}",
+               {"from_call": call_id, "trip_date": today},
+               user_id=_user_id_from_request(), user_name=_user_name_from_request())
+    db.session.commit()
+
+    # Announce the new call to this org's live clients (like create_call), so the
+    # board picks it up without a manual refresh.
+    from events import bus
+    from tenant import current_org_id
+    bus.publish("call.created", current_org_id(),
+                actor_user_id=_user_id_from_request(),
+                entity_type="call", entity_id=new_call.id,
+                payload={"tripDate": new_call.trip_date,
+                         "serviceLevel": new_call.service_level,
+                         "callType": new_call.call_type,
+                         "status": new_call.status,
+                         "pickup": new_call.pickup_address,
+                         "dropoff": new_call.dropoff_address})
+    return jsonify(new_call.to_dict()), 201
+
+
+# ── Call communication log (append-only notes) ────────────────────────────────
+
+@call_bp.route("/<int:call_id>/notes", methods=["GET"])
+@require_role(*ALLOWED_ROLES)
+def list_call_notes(call_id):
+    Call.query.get_or_404(call_id)  # 404 (and org-scoped) if the call isn't visible
+    notes = CallNote.query.filter_by(call_id=call_id).order_by(CallNote.id.asc()).all()
+    return jsonify([n.to_dict() for n in notes])
+
+
+@call_bp.route("/<int:call_id>/notes", methods=["POST"])
+@require_role(*ALLOWED_ROLES)
+def add_call_note(call_id):
+    Call.query.get_or_404(call_id)
+    data = request.get_json() or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"error": "content is required"}), 400
+    try:
+        check_length(content, 2000, "content")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    note = CallNote(
+        call_id=call_id,
+        user_id=_user_id_from_request(),
+        user_name=_user_name_from_request(),
+        content=content,
+        created_at=datetime.now().isoformat(timespec="seconds"),
+    )
+    db.session.add(note)   # org_id is set by the tenant before_flush hook
+    db.session.commit()
+    return jsonify(note.to_dict()), 201

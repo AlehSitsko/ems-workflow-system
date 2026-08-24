@@ -96,6 +96,39 @@ export async function uncancelCall(callId, headers = {}) {
   return data;
 }
 
+// Create a fresh call for today from an existing one (same trip details).
+export async function repeatCall(callId) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/repeat`, {
+    credentials: "include",
+    method: "POST",
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to repeat call");
+  return data;
+}
+
+// The append-only communication log for a call.
+export async function getCallNotes(callId) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/notes`, {
+    credentials: "include",
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to load notes");
+  return Array.isArray(data) ? data : [];
+}
+
+export async function addCallNote(callId, content) {
+  const response = await fetch(`${API_BASE_URL}/api/calls/${callId}/notes`, {
+    credentials: "include",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to add note");
+  return data;
+}
+
 // One call with its patient label — backs the call detail page.
 export async function getCall(callId, headers = {}) {
   const response = await fetch(`${API_BASE_URL}/api/calls/${callId}`, {
