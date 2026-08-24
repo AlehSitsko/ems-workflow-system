@@ -1,6 +1,6 @@
 {
   "name": "ems-workflow-desktop",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "EMS Workflow System — standalone Windows desktop app (Electron shell over the Flask backend + React frontend).",
   "author": "AlehSitsko",
   "license": "MIT",
