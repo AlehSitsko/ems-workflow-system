@@ -30,6 +30,9 @@ process.env.EMS_E2E_DIR = E2E_DIR; // handed to global-teardown
 
 export default defineConfig({
   testDir: "./e2e",
+  // prod-smoke.spec.js runs against the real prod Docker stack via
+  // playwright.prod.config.js, not this disposable dev server.
+  testIgnore: "**/prod-smoke.spec.js",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   // Shared backend state → keep it serial and deterministic.

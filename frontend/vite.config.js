@@ -6,7 +6,13 @@ import pkg from "./package.json" with { type: "json" };
 
 // Vite configuration for the EMS Workflow System frontend.
 export default defineConfig({
-  base: "/ems-workflow-system/",
+  // Base path where the app is served. Default matches GitHub Pages
+  // (alehsitsko.github.io/ems-workflow-system/) and the desktop build, which
+  // serve the SPA under /ems-workflow-system/. The production Docker/Nginx image
+  // serves from the root, so it builds with VITE_BASE_PATH="/" (see
+  // frontend/Dockerfile.prod) — otherwise index.html would request
+  // /ems-workflow-system/assets/* while Nginx serves them at /assets/*.
+  base: process.env.VITE_BASE_PATH || "/ems-workflow-system/",
   plugins: [react()],
   // The sidebar footer shows the running version. Injected from package.json so
   // it is the real release rather than a hand-maintained string that drifts.

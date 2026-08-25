@@ -53,8 +53,9 @@ export default defineConfig([
   },
   {
     // Playwright E2E specs, config and setup run under Node (fs/os/process), and
-    // import test/expect from @playwright/test rather than using globals.
-    files: ['e2e/**/*.js', 'playwright.config.js'],
+    // import test/expect from @playwright/test rather than using globals. Vite's
+    // config also runs under Node (reads process.env for the base path).
+    files: ['e2e/**/*.js', 'playwright.config.js', 'playwright.prod.config.js', 'vite.config.js'],
     languageOptions: {
       globals: { ...globals.node },
     },

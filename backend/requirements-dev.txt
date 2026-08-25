@@ -1,0 +1,8 @@
+# Development / CI dependencies = the app's runtime deps plus the test toolchain.
+# Production (requirements-prod.txt) and desktop (requirements-desktop.txt) pull
+# requirements.txt (runtime only) directly, so they never install pytest/fakeredis.
+# Install for local dev or the CI test job:  pip install -r requirements-dev.txt
+-r requirements.txt
+
+pytest==9.1.1
+fakeredis==2.37.1

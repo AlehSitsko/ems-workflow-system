@@ -3,11 +3,14 @@
 # freezing images at a digest (which then silently misses security patches), Dependabot
 # opens weekly PRs to move them forward — CI (backend/frontend/e2e/docker) gates each one.
 # Updates are grouped per ecosystem so it is one reviewable PR a week, not a flood.
+# Every ecosystem targets `dev` (target-branch), so dependency PRs land on the
+# working branch and reach `main` only through the release PR — never directly.
 version: 2
 updates:
   # ── Backend Python (requirements.txt / -prod / -desktop) ────────────────────
   - package-ecosystem: "pip"
     directory: "/backend"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -18,6 +21,7 @@ updates:
   # ── Frontend + desktop npm ──────────────────────────────────────────────────
   - package-ecosystem: "npm"
     directory: "/frontend"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -27,6 +31,7 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/desktop"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -37,6 +42,7 @@ updates:
   # ── Base images (Dockerfiles + compose FROM/image tags) ─────────────────────
   - package-ecosystem: "docker"
     directory: "/backend"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
@@ -45,6 +51,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/frontend"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
@@ -53,6 +60,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
@@ -62,6 +70,7 @@ updates:
   # ── GitHub Actions used by the CI workflow ──────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
