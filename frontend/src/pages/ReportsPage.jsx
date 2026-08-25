@@ -86,13 +86,14 @@ const ReportsPage = () => {
 
   const active = REPORTS[report];
 
-  const load = async (kind, s, e, gb = groupBy) => {
+  const load = async (kind, s, e, gb = groupBy, page = 1) => {
     setLoading(true);
     setError("");
     try {
-      const result = kind === "punctuality"
-        ? await getPunctualityReport(s, e, gb)
-        : await REPORTS[kind].fetch(s, e);
+      let result;
+      if (kind === "punctuality") result = await getPunctualityReport(s, e, gb);
+      else if (kind === "callLog") result = await getCallLog(s, e, page);
+      else result = await REPORTS[kind].fetch(s, e);
       setData(result);
       setDataKind(kind);
     } catch (err) {
@@ -118,6 +119,10 @@ const ReportsPage = () => {
   const changeGroupBy = (gb) => {
     setGroupBy(gb);
     load("punctuality", start, end, gb);
+  };
+
+  const changeCallLogPage = (page) => {
+    load("callLog", start, end, groupBy, page);
   };
 
   return (
@@ -194,7 +199,9 @@ const ReportsPage = () => {
       {data && dataKind === report && report === "punctuality" && (
         <PunctualityView data={data} groupBy={groupBy} onGroupBy={changeGroupBy} />
       )}
-      {data && dataKind === report && report === "callLog" && <CallLogView data={data} />}
+      {data && dataKind === report && report === "callLog" && (
+        <CallLogView data={data} onPage={changeCallLogPage} loading={loading} />
+      )}
     </div>
   );
 };
@@ -231,7 +238,7 @@ const CallTimeline = ({ entries }) => {
   );
 };
 
-const CallLogView = ({ data }) => {
+const CallLogView = ({ data, onPage, loading }) => {
   const [openId, setOpenId] = useState(null);
   const [timelines, setTimelines] = useState({}); // callId -> "loading" | entries[]
 
@@ -254,9 +261,21 @@ const CallLogView = ({ data }) => {
       <div className="card-body">
         <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
           <h5 className="mb-0">Call history</h5>
-          <span className="text-muted small">
-            {data.total} calls · showing {data.items.length} · click a row for its timeline
-          </span>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <span className="text-muted small">
+              {data.total} calls · page {data.page} of {data.pages || 1} · click a row for its timeline
+            </span>
+            {data.pages > 1 && (
+              <div className="btn-group btn-group-sm" role="group" aria-label="Call history pages">
+                <button type="button" className="btn btn-outline-secondary"
+                  disabled={loading || data.page <= 1}
+                  onClick={() => onPage(data.page - 1)}>‹ Prev</button>
+                <button type="button" className="btn btn-outline-secondary"
+                  disabled={loading || data.page >= data.pages}
+                  onClick={() => onPage(data.page + 1)}>Next ›</button>
+              </div>
+            )}
+          </div>
         </div>
         {data.items.length === 0 ? (
           <p className="text-muted mb-0">No calls in this range.</p>
