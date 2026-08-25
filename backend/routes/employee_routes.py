@@ -18,7 +18,7 @@ _EMPLOYEE_ENC_FIELDS = [("phone", None), ("email", None), ("dob", None)]
 
 
 def _encrypt_employee_fields(employee):
-    # dob_month_day is kept in sync by a model-level listener (models.py).
+    # dob_month_day is kept in sync by a model-level listener (models/__init__.py).
     if not encryption_configured():
         return
     org = Organization.query.get(employee.org_id) if employee.org_id else None

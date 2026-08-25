@@ -12,7 +12,9 @@
 ems-workflow-system/
 ├── backend/
 │   ├── app.py                            (Flask app factory, blueprint registration, default-user seeding)
-│   ├── models.py                         (all SQLAlchemy models — 1,137 lines, largest backend file)
+│   ├── models/                           (SQLAlchemy models, split by domain: org, employee, patient,
+│   │                                       call, task, calendar_events, … + base.py; re-exported from
+│   │                                       models/__init__.py so `from models import X` is unchanged)
 │   ├── limiter.py                        (Flask-Limiter setup)
 │   ├── storage.py                        (storage-provider abstraction — Local default, S3-compatible via EMS_STORAGE=s3)
 │   ├── notification_utils.py             (in-app + push notification creation, role-based + single-user delivery)
@@ -34,7 +36,7 @@ ems-workflow-system/
 │       ├── crew_routes.py                (crew units + shift alert computation)
 │       ├── crew_preset_routes.py
 │       ├── vehicle_routes.py
-│       ├── patient_routes.py             (largest route file, 637 lines — patients, alerts, contacts)
+│       ├── patient_routes.py             (~770 lines — patients, alerts, contacts)
 │       ├── call_routes.py
 │       ├── dispatch_routes.py            (assignment, unit status, call ordering)
 │       ├── analytics_routes.py           (supervisor dashboard aggregates)
@@ -42,7 +44,7 @@ ems-workflow-system/
 │       ├── time_routes.py                (time entries, pay config)
 │       ├── payroll_routes.py             (pay periods, CSV/Gusto/ADP export)
 │       ├── document_routes.py            (HR document upload/preview/compliance)
-│       ├── task_routes.py                (Staff Tasks module — second-largest route file, 616 lines)
+│       ├── task_routes.py                (Staff Tasks module — ~720 lines)
 │       ├── audit_routes.py
 │       ├── settings_routes.py
 │       └── calendar_routes.py            (read-only unified calendar events API; aggregates
@@ -52,23 +54,23 @@ ems-workflow-system/
 │   ├── src/
 │   │   ├── api/                          (one thin fetch-wrapper module per backend blueprint)
 │   │   ├── pages/                        (one file per route)
-│   │   │   ├── DispatchBoardPage.jsx     (~890 lines after its component/hook split; date-mode + URL logic)
+│   │   │   ├── DispatchBoardPage.jsx     (~950 lines after its component/hook split; date-mode + URL logic)
 │   │   │   ├── CalendarPage.jsx          (operational calendar — month view + Day Operations drawer)
-│   │   │   ├── PatientsPage.jsx          (~437 lines — thin composition root after decomposition)
-│   │   │   ├── CrewPlannerPage.jsx       (1,576 lines)
+│   │   │   ├── PatientsPage.jsx          (~120 lines — thin composition root after decomposition)
+│   │   │   ├── CrewPlannerPage.jsx       (~1,570 lines)
 │   │   │   ├── CallFormPage.jsx          (1,283 lines)
-│   │   │   ├── EmployeesPage.jsx         (1,278 lines)
-│   │   │   ├── UserManualPage.jsx        (1,339 lines — mostly static reference content, lower refactor priority)
+│   │   │   ├── EmployeesPage.jsx         (~215 lines — thin composition root after decomposition)
+│   │   │   ├── UserManualPage.jsx        (~1,510 lines — mostly static reference content, lower refactor priority)
 │   │   │   └── CallsPage.jsx, TasksPage.jsx, PayrollPage.jsx, HomePage.jsx,
 │   │   │       ComplianceDashboardPage.jsx, AuditLogPage.jsx, KioskPage.jsx,
 │   │   │       UserManagementPage.jsx, NotificationSettingsPage.jsx,
 │   │   │       SupervisorDashboardPage.jsx, LoginPage.jsx
 │   │   ├── components/
-│   │   │   ├── CallForm.jsx              (1,025 lines — Classic call intake form)
+│   │   │   ├── CallForm.jsx              (~1,050 lines — Classic call intake form)
 │   │   │   ├── DocumentsTab.jsx, TimePayTab.jsx, PriceCalculator.jsx, ExportButtons.jsx
 │   │   │   ├── patients/                 (decomposed Patients: DetailItem, PatientFormSection,
-│   │   │   │                              PatientToolbar, PatientList, PatientOverviewTab,
-│   │   │   │                              PatientEditTab, PatientAlertsTab, PatientContactsTab, …)
+│   │   │   │                              PatientToolbar, PatientList, PatientEditTab,
+│   │   │   │                              PatientAlertsTab, PatientContactsTab, …)
 │   │   │   ├── calendar/                 (CalendarToolbar, CalendarGrid, CalendarDayCell,
 │   │   │   │                              CalendarSidebar, DayOperationsDrawer)
 │   │   │   ├── dispatch/                 (StatusPill, UnitTable, UnitDetailPanel, BoardToolbar,
@@ -208,7 +210,7 @@ on login and the kiosk PIN complete the picture. See the README Security Note an
 
 ## Multi-tenancy foundation
 
-An `Organization` model (id, name, slug, is_active, settings_json) exists and a nullable `org_id` foreign key is on every tenant-scoped table (the 14 models in `models.ORG_SCOPED_MODELS`). A default organization is created and all existing rows backfilled by migration; new rows are stamped with the caller's org.
+An `Organization` model (id, name, slug, is_active, settings_json) exists and a nullable `org_id` foreign key is on every tenant-scoped table (the 20 models in `models.ORG_SCOPED_MODELS`). A default organization is created and all existing rows backfilled by migration; new rows are stamped with the caller's org.
 
 **Runtime tenant isolation is active.** It is enforced globally at the ORM layer (`tenant.py`): a `do_orm_execute` hook filters every SELECT of an org-owned model by the caller's `org_id`, and a `before_flush` hook stamps `org_id` on new rows — so no per-route query change is needed and a missed filter cannot leak. The current org is set by the auth guard from the session (multi-tenant v2 also resolves it from the request subdomain via `utils/tenant_host.py`); with no org context (CLI, seeding, tests) the hooks are inert. A platform super-admin (`is_platform_admin`, no org) runs a cross-org console (`/api/platform`). Cross-org isolation and the child-by-id IDOR paths are pinned by `test_tenant_isolation.py`.
 
