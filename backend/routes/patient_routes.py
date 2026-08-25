@@ -41,7 +41,7 @@ def _encrypt_patient_fields(patient):
     """Encrypt the patient's sensitive fields in place (a no-op when no master key
     is configured). Call after the row has an id so the AAD can bind it."""
     # dob_month_day is kept in sync by a model-level before_insert/before_update
-    # listener (models.py), so it is correct on every write path.
+    # listener (models/__init__.py), so it is correct on every write path.
     if not encryption_configured():
         return
     org = Organization.query.get(patient.org_id) if patient.org_id else None
