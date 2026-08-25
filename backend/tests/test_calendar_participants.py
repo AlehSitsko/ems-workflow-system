@@ -189,3 +189,53 @@ def test_reminder_does_not_fire_outside_the_window(app, clients, monkeypatch):
 
     fired = db.session.query(NotificationEvent).filter_by(type="event_reminder").count()
     assert fired == 0
+
+
+# ── Performance regression: the event list must not be a nested N+1 ──────────
+
+def test_event_list_query_count_is_bounded_not_per_event(clients):
+    """CalendarEvent.to_dict() serializes every participant (name via the linked
+    Employee), so listing a month eager-loads participants + their employees in a
+    constant few queries. Before that fix each event lazily loaded its
+    participants, and each participant its employee — a nested N+1 that grew with
+    the calendar. This guards it: adding 8 more events must not add ~8 queries."""
+    from contextlib import contextmanager
+    from sqlalchemy import event as sa_event
+
+    @contextmanager
+    def count_selects():
+        seen = {"n": 0}
+        engine = db.engine
+
+        def _cb(conn, cursor, statement, params, context, executemany):
+            if statement.lstrip()[:6].upper() == "SELECT":
+                seen["n"] += 1
+
+        sa_event.listen(engine, "before_cursor_execute", _cb)
+        try:
+            yield seen
+        finally:
+            sa_event.remove(engine, "before_cursor_execute", _cb)
+
+    admin = clients["admin"]
+    emps = [_employee(f"P{i}", "R") for i in range(4)]
+    ids = [e.id for e in emps]
+
+    def make_event(n):
+        assert mk(admin, title=f"Ev{n}", eventDate="2026-08-10", visibility="company",
+                  participantEmployeeIds=ids[: (n % 3) + 1]).status_code == 201
+
+    for i in range(2):
+        make_event(i)
+    with count_selects() as base:
+        assert admin.get("/api/calendar-events?start=2026-08-01&end=2026-08-31").status_code == 200
+
+    for i in range(8):
+        make_event(100 + i)
+    with count_selects() as grown:
+        assert admin.get("/api/calendar-events?start=2026-08-01&end=2026-08-31").status_code == 200
+
+    assert grown["n"] - base["n"] <= 3, (
+        f"event list scales per-event ({base['n']} -> {grown['n']} SELECTs for +8 "
+        "events): the participant/employee N+1 eager-load regressed"
+    )

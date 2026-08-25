@@ -751,7 +751,7 @@ def get_calendar_events():
     # by the same personal/role/company rule the CRUD enforces, so nobody sees an
     # event that was not meant for them.
     from models import CalendarEvent
-    from routes.calendar_event_routes import visible_events_filter
+    from routes.calendar_event_routes import visible_events_filter, event_list_options
     from utils.event_recurrence import occurrences_in
 
     # A recurring event whose base date is before the window can still occur in
@@ -759,6 +759,7 @@ def get_calendar_events():
     # the window; non-recurring rows still need their single date inside it.
     manual_events = (
         CalendarEvent.query
+        .options(event_list_options())
         .filter(
             CalendarEvent.event_date <= end_str,
             db.or_(
