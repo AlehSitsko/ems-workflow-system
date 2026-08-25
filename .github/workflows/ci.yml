@@ -195,3 +195,56 @@ jobs:
           POSTGRES_PASSWORD: ci-smoke-password
           EMS_MASTER_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
           BASE_DOMAIN: ems.example.com
+
+  desktop:
+    name: Desktop (build smoke — Electron + PyInstaller)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-desktop.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # The desktop app serves the SPA under /ems-workflow-system/ (the default
+      # base), so this is the ordinary build — not the "/" prod/Nginx build.
+      - name: Build the frontend SPA
+        working-directory: frontend
+        shell: bash
+        run: |
+          npm ci
+          npm run build
+      # onedir PyInstaller bundle from the spec -> backend/dist/ems-backend/.
+      # requirements-desktop = runtime deps + waitress (the desktop WSGI server);
+      # PyInstaller is a build-time tool, installed here, not pinned as a runtime dep.
+      - name: Package the backend with PyInstaller
+        working-directory: backend
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-desktop.txt pyinstaller
+          pyinstaller ems-backend.spec
+      # --dir packs an unpacked app (no NSIS installer, no code signing) into
+      # release/win-unpacked/. electron-builder copies the PyInstaller bundle and
+      # the SPA in as extraResources, so this proves the whole desktop assembly
+      # links up — including that the models/ package still bundles cleanly.
+      - name: Pack the Electron app (electron-builder --dir)
+        working-directory: desktop
+        shell: bash
+        run: |
+          npm ci
+          npm run pack
+      - name: Assert the packaged app bundled the backend + SPA
+        working-directory: desktop
+        shell: bash
+        run: |
+          app="release/win-unpacked"
+          test -f "$app/EMS Workflow System.exe"           || { echo "electron exe missing";       exit 1; }
+          test -f "$app/resources/backend/ems-backend.exe" || { echo "bundled backend exe missing"; exit 1; }
+          test -f "$app/resources/frontend/index.html"     || { echo "bundled SPA missing";          exit 1; }
+          echo "desktop build smoke OK"
