@@ -9,6 +9,7 @@ request leave.
 """
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy.orm import joinedload, selectinload
 
 from models import db, User, Employee, Task, EmployeeLeaveRequest, TimeEntry, EmployeeDocument, PtoLedgerEntry
 from utils.auth_utils import (
@@ -74,6 +75,7 @@ def my_tasks():
         return err
     tasks = (
         Task.query
+        .options(joinedload(Task.assignee), joinedload(Task.creator), selectinload(Task.participants))
         .filter(Task.assigned_to_employee_id == employee.id, Task.is_archived.is_(False))
         .order_by(Task.due_date.is_(None), Task.due_date.asc(), Task.id.desc())
         .all()

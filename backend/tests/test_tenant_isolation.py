@@ -318,3 +318,36 @@ def test_document_file_download_is_scoped(app, orgs):
         doc_id = doc.id
     ca = client_in(app, a, "admin_a")
     assert ca.get(f"/api/documents/{doc_id}/file").status_code == 404
+
+
+# ── .query.get()/.get_or_404() by a cross-org id must return nothing ──────────
+# ~140 route lookups use Model.query.get(user_supplied_id). Each production request
+# has a fresh session (empty identity map), so .get() emits a real SELECT that the
+# do_orm_execute filter scopes. This pins that per-model, so a future model added to
+# ORG_SCOPED_MODELS (or a lookup that bypasses it) can't silently leak across orgs.
+def test_get_by_id_is_scoped_for_every_sensitive_model(app, orgs):
+    a, b = orgs
+    cases = {
+        "Patient": (Patient, Patient(first_name="Bob", last_name="B")),
+        "Employee": (Employee, Employee(first_name="Ben", last_name="B", role="EMT")),
+        "Call": (Call, Call(trip_date="2026-08-01", service_level="BLS")),
+        "Task": (Task, Task(title="B task", task_type="General Task", status="New",
+                            priority="Normal", created_at="2026-01-01T00:00:00",
+                            updated_at="2026-01-01T00:00:00")),
+        "DailyCrewUnit": (DailyCrewUnit, DailyCrewUnit(shift_date="2026-08-01",
+                            unit_type="BLS", truck_number="B1", start_time="08:00")),
+    }
+    ids = {name: seed(b, obj) for name, (model, obj) in cases.items()}
+
+    set_current_org(a)   # act as org A
+    try:
+        for name, (model, _) in cases.items():
+            rid = ids[name]
+            assert model.query.get(rid) is None, f"{name}.query.get() leaked org B's row to org A"
+    finally:
+        set_current_org(None)
+
+    # And the rows genuinely exist (proves the None above is scoping, not a bad id).
+    with unfiltered():
+        for name, (model, _) in cases.items():
+            assert model.query.get(ids[name]) is not None, f"{name} row was not seeded"

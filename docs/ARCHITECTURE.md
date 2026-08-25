@@ -19,7 +19,6 @@ ems-workflow-system/
 │   ├── audit_utils.py                    (global audit log writer)
 │   ├── settings_utils.py                 (per-user settings blob: load/save/deep-merge)
 │   ├── push_utils.py                     (Web Push / VAPID delivery)
-│   ├── migrate.py                        (CLI helper)
 │   ├── migrations/                       (Alembic migration files — schema is Flask-Migrate-only, see "Database" below)
 │   ├── scripts/
 │   │   ├── migrate_notes_to_columns.py   (one-time data migration, already run)

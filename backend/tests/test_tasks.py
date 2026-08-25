@@ -398,3 +398,47 @@ def test_unassigned_kpi_matches_the_list_it_links_to(client, roles, employee):
     kpi = roles["admin"].get("/api/tasks/summary").get_json()["unassigned_count"]
     listed = roles["admin"].get("/api/tasks?unassigned=1&open=1").get_json()["total"]
     assert kpi == listed == 2
+
+
+# ── Performance regression: the task list must not be N+1 ────────────────────
+
+def test_task_list_query_count_is_bounded_not_per_row(client, roles, employee):
+    """Serializing the task list eager-loads assignee/creator/participants, so
+    the SELECT count stays near-constant as rows grow. Before that fix each row
+    lazily loaded its participants (and assignee/creator), so a page fired ~1
+    query per task. This guards the fix: adding 10 tasks must not add ~10 queries.
+    """
+    from contextlib import contextmanager
+    from sqlalchemy import event
+
+    @contextmanager
+    def count_selects():
+        seen = {"n": 0}
+        engine = db.engine
+
+        def _cb(conn, cursor, statement, params, context, executemany):
+            if statement.lstrip()[:6].upper() == "SELECT":
+                seen["n"] += 1
+
+        event.listen(engine, "before_cursor_execute", _cb)
+        try:
+            yield seen
+        finally:
+            event.remove(engine, "before_cursor_execute", _cb)
+
+    api = roles["admin"]
+    for i in range(3):
+        create_task(api, title=f"Base {i}", assigned_to_employee_id=employee.id)
+    with count_selects() as base:
+        assert api.get("/api/tasks?per_page=100").status_code == 200
+
+    for i in range(10):
+        create_task(api, title=f"More {i}", assigned_to_employee_id=employee.id)
+    with count_selects() as grown:
+        assert api.get("/api/tasks?per_page=100").status_code == 200
+
+    # 10x more rows must add at most a couple of queries, never ~10 (one per row).
+    assert grown["n"] - base["n"] <= 3, (
+        f"task list scales per-row ({base['n']} -> {grown['n']} SELECTs for +10 "
+        "tasks): the N+1 eager-load regressed"
+    )
