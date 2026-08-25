@@ -20,9 +20,9 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install dependencies (runtime + test toolchain)
+        run: pip install -r requirements-dev.txt
       - name: Compile all modules
         run: python -m compileall .
       - name: Run pytest (isolated, in-memory SQLite)
@@ -152,6 +152,33 @@ jobs:
           # Object storage: a real employee-document upload + download round-trip
           # through S3StorageProvider -> MinIO (not the local filesystem provider).
           python3 backend/scripts/prod_s3_smoke.py http://localhost:8080
+      # Real-browser smoke: what `curl /` can't catch — assets returning the wrong
+      # MIME type (Vite/Nginx base-path bug), JS module load failures, runtime
+      # errors, broken SPA refresh, and realtime not connecting. The prod stack is
+      # still up from the step above (detached), listening on 8080.
+      - name: Set up Node for the browser smoke
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend deps + Playwright Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Production browser smoke (real Chromium against the prod stack)
+        working-directory: frontend
+        env:
+          PROD_SMOKE_URL: http://localhost:8080/
+        run: npx playwright test --config=playwright.prod.config.js
+      - name: Upload prod Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-prod
+          path: frontend/playwright-report-prod
+          retention-days: 7
       - name: Dump compose logs on failure
         if: failure()
         env:

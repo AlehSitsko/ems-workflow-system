@@ -12,7 +12,10 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 # A production build resolves the API base to same-origin (see src/api/config.js),
-# so no API URL needs baking in here.
+# so no API URL needs baking in here. Serve from the root: this image's Nginx
+# serves assets at /assets/*, so the bundle's base must be "/" (not the Pages/
+# desktop default of /ems-workflow-system/) or the browser would 404 every asset.
+ENV VITE_BASE_PATH="/"
 RUN npm run build
 
 # ── serve ────────────────────────────────────────────────────────────────────
