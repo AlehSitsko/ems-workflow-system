@@ -290,10 +290,12 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-# Backend — 1066 isolated pytest tests (in-memory SQLite, no server needed)
+# Backend — the full pytest suite (in-memory SQLite, no server needed).
+# Coverage is gated in CI (see backend/.coveragerc); run `pytest --cov` for the report.
 cd backend; pytest -v
 
-# Frontend — 461 Vitest tests (utilities + component tests)
+# Frontend — the Vitest suite (utilities + component tests).
+# Coverage is gated in CI; run `npm run test:coverage` for the report.
 cd frontend; npm test
 
 # End-to-end — 8 Playwright spec files (20 test cases) against a disposable,
@@ -306,12 +308,15 @@ python qa_test.py       # functional/integration checks
 python stress_test.py   # local load smoke (not a production benchmark)
 ```
 
-CI (`.github/workflows/ci.yml`) runs four jobs on every PR and push to
-`dev`/`main`: **backend** (pytest), **frontend** (lint + Vitest + build), **E2E**
-(Playwright on a disposable backend), and **Docker** — which builds the images and
-**smoke-tests the production stack** (PostgreSQL + Gunicorn + Nginx brought up with
-`docker compose --wait`, then a `/api/health` check), so the migration chain is
-exercised against real PostgreSQL. See [docs/TESTING.md](docs/TESTING.md) for
+CI (`.github/workflows/ci.yml`) runs six jobs on every PR and push to
+`dev`/`main`: **backend** (Ruff lint + pytest + coverage gate), **frontend** (ESLint
++ Vitest + coverage gate + build), **E2E** (Playwright on a disposable backend),
+**Docker** — which builds the images and **smoke-tests the production stack**
+(PostgreSQL + Gunicorn + Nginx brought up with `docker compose --wait`, then a
+`/api/health` check plus a real-browser prod smoke), so the migration chain is
+exercised against real PostgreSQL — **Desktop** (Electron + PyInstaller build smoke,
+Windows), and **Dependency audit** (`pip-audit` + `npm audit`). See
+[docs/TESTING.md](docs/TESTING.md) for
 coverage detail and the disposable-database rule for the live scripts, and
 [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for the pre-commit
 checklist.
@@ -355,7 +360,7 @@ Full breakdown: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Current Status
 
-Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Fleet/Vehicles, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **1009 backend pytest tests + 458 frontend Vitest tests + 8 Playwright E2E spec files (20 cases)** (counts as of commit `47ef647`; regenerate with `pytest --co -q` / `vitest run`), plus the live `qa_test.py` smoke suite. A client/server **infrastructure evolution** (multi-tenant isolation, invite-only onboarding, an event bus + SSE, a notification engine, optional field-level encryption at rest, and a Local/S3 storage abstraction) has shipped on top of the core — all while keeping the standalone/local deployment intact; see [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md).
+Stable. All core modules (Call Intake, Dispatch Board, Calendar, Patients, Crew Planner, Fleet/Vehicles, Employees/HR, Time & Payroll, Staff Tasks, Notifications, Audit Log, Settings, Supervisor Dashboard) are implemented. Automated coverage: **1068 backend pytest tests + 466 frontend Vitest tests + 8 Playwright E2E spec files (20 cases)** (snapshot at `v1.1.12`; regenerate with `pytest --co -q` / `vitest run` — both suites are coverage-gated in CI, so the live gate is the authoritative check), plus the live `qa_test.py` smoke suite. A client/server **infrastructure evolution** (multi-tenant isolation, invite-only onboarding, an event bus + SSE, a notification engine, optional field-level encryption at rest, and a Local/S3 storage abstraction) has shipped on top of the core — all while keeping the standalone/local deployment intact; see [docs/INFRASTRUCTURE_REPORT.md](docs/INFRASTRUCTURE_REPORT.md).
 
 Full changelog: [docs/COMPLETED_BLOCKS.md](docs/COMPLETED_BLOCKS.md).
 

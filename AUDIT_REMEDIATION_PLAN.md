@@ -1,381 +1,178 @@
-# Audit Remediation Plan
+# Audit Remediation Plan — Cycle 2
 
-Working journal for the post-audit technical remediation. All work happens on `dev`;
-`main` is never touched directly.
+Living work journal. All work happens on `dev`; `main` is never touched directly. No GitHub
+Release is published and no `dev → main` merge is performed without explicit owner approval
+(the release, PR, and instructions are fully prepared instead).
 
-## Session metadata
+Status keys: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked · `[-]` not
+applicable after verification.
 
-- **Baseline commit:** `19e7c4d` (chore(release): bump version to 1.1.10)
-- **Start date:** 2026-08-25
-- **Branch:** `dev`
-- **`dev` vs `main`:** identical trees — `main` (`b9fc74e`) is the merge commit of this
-  `dev`; `dev` has 0 commits `main` lacks except the merge commit itself. Content is in sync.
-- **Open Dependabot PRs → dev (fetched, not yet handled):**
-  `dependabot/npm_and_yarn/frontend/dev/...`, `dependabot/pip/backend/dev/...`.
+> **Prior cycle (shipped):** an earlier remediation shipped as **v1.1.11** (quality gates:
+> ruff, coverage ratchets, dependency-audit CI; hooks/exception/docs fixes) and **v1.1.12**
+> (dependency updates). This cycle re-verifies every finding below against the **current code**,
+> not old reports.
 
-## Baseline (Step 2)
+## Stage 0 — baseline (verified 2026-08-26)
 
-_Recorded at baseline commit `19e7c4d`._
+- **Baseline commit:** `7bbbb32` (dev) / `e65245d` (main, = merge of dev).
+- **Branch:** work starts on `dev`.
+- **Divergence:** `dev` is **3 commits behind `main`** (the release-merge commits #13/#16/#17),
+  with **0 unique commits** on dev → dev is a clean ancestor of main; safe fast-forward, no conflict.
+- **Open PRs:** none. **Version:** frontend + desktop both `1.1.12` (consistent; backend derives
+  from frontend `package.json` via `__APP_VERSION__`).
+- **Latest published GitHub Release:** `v1.1.9` — but tags exist through `v1.1.12`. **Release desync
+  is real.**
+- **CI on `main` `e65245d`:** green (all 6 jobs).
+- Baseline tests (to confirm in Stage 11): backend pytest / coverage, frontend Vitest / coverage,
+  E2E 20, ruff, npm/pip audit — all green on the shipped v1.1.12.
 
-| Check | Result |
-|---|---|
-| Backend compileall (`backend qa_test.py stress_test.py qa_harness.py`) | ✅ OK |
-| Backend pytest | ✅ **1063 passed** (~88s) |
-| Frontend `npm ci` | ✅ OK, **0 vulnerabilities** |
-| Frontend lint | ⚠️ 0 errors, **1 warning** — `App.jsx:396` `useMemo` missing deps (→ item #2) |
-| Frontend unit tests (Vitest) | ✅ **461 passed** / 53 files |
-| Frontend build | ✅ OK |
-| Playwright E2E (`--list`) | ✅ **20 tests in 8 files** (disposable-backend config; prod-smoke excluded) |
-| Live QA (`qa_test.py`) | ✅ **74 passed, 0 failed, 0 warnings**; load 180 req, 0 errors, P95 295ms, 107 req/s |
-| Stress test (`stress_test.py`) | ⚠️ **false `MISSING INDEX: patient.dob`** (→ item #1, P0); throughput 148 req/s, P95 237ms, 0 errors, no slow reads |
-| Docker compose config / prod smoke | ⛔ **BLOCKED** — Docker not available in this environment (`docker version` empty). CI covers it on GitHub runners. |
+## Stages
 
-Baseline verdict: green except one false-positive stress warning (item #1) and one lint warning (item #2) — both real work items below, neither a functional defect.
+### `[x]` Stage 1 — Sync `dev` with `main` (P0)
+- **Problem (verified):** `dev` behind `main` by 3 merge commits, 0 unique dev commits.
+- **Done:** fast-forwarded `dev` `7bbbb32 → e65245d` (= main) via `git merge --ff-only main`. No
+  conflicts, trees identical, no lost files. dev history now aligned with main; the next `dev → main`
+  PR will be clean. No destructive reset used.
+- **Branch model (proposed):** `main` stable/production-like; `dev` integration; feature/fix branches
+  per task; after each release, `main` is fast-forwarded back into `dev` (as just done).
 
-## Work items
+### `[~]` Stage 2 — Release desync (P0) — PREPARE ONLY (publish blocked, rule 11)
+- **Problem (verified):** tags reach `v1.1.12`; latest *published* Release is `v1.1.9`. README's
+  `releases/latest/download/...EMS-Workflow-System-Setup.exe` therefore serves the v1.1.9 installer.
+- **Fix:** verify version consistency (done: 1.1.12 everywhere); prepare release notes + checksum
+  instructions + exact `gh release create` sequence for the owner; ensure the README link is correct
+  once a current release is published. Do **not** re-tag existing tags. Publishing is owner's action.
 
-Legend: **P0** critical · **P1** high · **P2** medium · **P3** low.
-Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
+### `[x]` Stage 3 — README accuracy (P1)
+- **Problem (verified):** README line 293 "1066", line 358 "1009 / 458" — inconsistent & stale
+  (actual: **1068 / 466**, measured); CI described as "four jobs" (now six).
+- **Done:** softened the run-tests block to non-brittle descriptions pointing at the coverage gate;
+  updated the status snapshot to `1068 / 466 / 20`, pinned to tag `v1.1.12` with the regenerate
+  command and a note that the CI gate is authoritative; corrected the CI description to six jobs
+  (backend Ruff+cov, frontend ESLint+cov, E2E, Docker+browser-smoke, Desktop, Dependency audit).
 
-| # | Pri | Item | Status | Done-when |
-|---|-----|------|--------|-----------|
-| 1 | P0 | Fix false stress-test "MISSING INDEX: patient.dob" (blind-index arch) | ✅ COMPLETED | Stress report no longer demands a plaintext DOB index and confirms `dob_bidx`/`dob_month_day`. |
-| 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | ✅ COMPLETED | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
-| 3 | P1 | Synchronize documentation with actual `dev` state | ✅ COMPLETED | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
-| 4 | P1 | Add backend quality gate (Ruff lint + format check) | ✅ COMPLETED | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
-| 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | ✅ COMPLETED | CI fails on significant coverage drop; report reproducible locally. |
-| 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | ✅ COMPLETED | Reproducible audit in CI; no unexplained critical/high vulns. |
-| 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
-| 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | 🟡 PARTIAL | Files simpler, behavior unchanged, tests + build pass. |
-| 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | 🟡 PARTIAL (assessed — already substantially factored) | Business logic testable off-HTTP; routes thinner; no regressions. |
-| 10 | P2 | Dead code & repo cleanliness (proven-dead only) | ✅ COMPLETED | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
-| 11 | P2 | Performance & concurrency correctness | ✅ COMPLETED (Postgres load = BLOCKED) | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
-| 12 | P3 | Production recovery & operations (DR drill or documented runbook) | ✅ COMPLETED (infra drill = BLOCKED) | Confirmed or honestly-documented recovery procedure. |
-| 13 | P3 | Final documentation & positioning honesty | ✅ COMPLETED | No false compliance/scale/PHI/recovery claims; README complete. |
+### `[x]` Stage 4 — `PRODUCTION_READINESS.md` contradiction (P1)
+- **Problem (verified):** line 135 "**Current state:** Flask's built-in development server" while
+  lines 333+ document a fully-implemented, CI-validated Gunicorn/Nginx/Postgres/Redis/MinIO prod
+  Docker stack. Self-contradiction.
+- **Fix:** cleanly separate desktop/local dev, backend dev, and the implemented production Docker
+  mode; state what is implemented / CI-validated / needs external infra / out of scope; add a
+  readiness checklist. No claims the code doesn't back.
+
+### `[x]` Stage 5 — Backend tests for risky zones (P1)
+- **Approach:** target genuinely-weak zones by *current* coverage (measured in Stage 0, not the old
+  list). Priority: time & payroll → documents → tenant isolation → notifications/push → patients →
+  crews. Real-risk cases (RBAC, tenant isolation, invalid input, date/time edges, idempotency,
+  rollback, no sensitive-data leakage), not mechanical 100%.
+
+### `[x]` Stage 6 — Frontend tests for weak components (P1)
+- **Verified:** `TimeInput.jsx` (no test), `NotificationBell.jsx` (no test), `CallCard.jsx` (the
+  open/unassigned card — the old audit's "UnassignedCallCard" no longer exists; `AssignedCallCard`
+  already tested), and several `api/` wrappers (own logic: URL/CSRF/error-normalization). Add
+  targeted component/integration tests.
+
+### `[x]` Stage 7 — Flaky/slow `sharedComponents.test.jsx` (P2)
+- **Verified exists:** `src/components/ui/sharedComponents.test.jsx`. Investigate root cause (timers,
+  cleanup, shared state, waitFor) by repeated/isolated/randomized runs; fix the cause, not the global
+  timeout.
+
+### `[!] ` Stage 8 — Reproducible PostgreSQL benchmark (P2) — BLOCKED (no local Docker/Postgres)
+- **Plan:** author a reproducible benchmark script + documented method (seed, dataset ≥500/100/300,
+  scenarios, ≥3 reps, warm-up, metrics) that runs where Docker/Postgres is available; do not claim
+  scalability from a single local SQLite run. Actual Postgres run is BLOCKED locally.
+
+### `[~]` Stage 9 — Safe decomposition of large files (P2)
+- **Approach:** assess each candidate (size/responsibilities/duplication/testability); refactor only
+  where clearly beneficial, behaviour-preserving, with characterization tests first. Priority:
+  CrewPlannerPage, DispatchBoardPage, call_routes, patient_routes. `UserManualPage` (static) only if
+  it truly helps.
+
+### `[x]` Stage 10 — Dead code & repo cleanliness (P2)
+- **Approach:** re-scan for unused imports/components/utils, console.log/print, stray artifacts;
+  prove non-use (refs, dynamic imports, routes, tests, CI, desktop/PyInstaller) before removing.
+
+### `[x]` Stage 11 — Full final regression (P0)
+- Backend: ruff, compileall, pytest+coverage, migration upgrade (clean + seeded DB), dependency
+  audit. Frontend: lint, Vitest+coverage, build, npm audit. E2E Playwright. Live QA + stress.
+  Docker/prod-stack: BLOCKED locally → rely on CI at the final SHA.
+
+### `[x]` Stage 12 — Final report + PR (P0)
+- Update this journal; produce the full report (SHAs, files, fixes, blocked, tests added/run, exact
+  results, remaining risks, PR title + description, release checklist, owner action list).
 
 ## Progress log
 
-### Item #1 (P0) — stress-test false DOB-index warning — ✅ COMPLETED
+- **Stage 1** — dev fast-forwarded to main (`7bbbb32 → e65245d`); clean, no lost files.
+- **Stages 3–4** — README counts/CI-jobs corrected; PRODUCTION_READINESS two-mode split + readiness
+  checklist; no code claims left unbacked, HIPAA not claimed.
+- **Backend coverage baseline (measured):** 1068 tests, **81.3%** total. Weakest cited zones confirmed
+  real: `crew_preset_routes` 24.4%, `push_utils` 37.8%, `time_routes` 47.9%, `notification_utils`
+  54.2%, `document_routes`/`tenant_routes` 56.2%, `notification_routes` 58.8%, `payroll_routes` 64.9%,
+  `patient_routes` 65.0%, `crew_routes` 66.1% → Stage-5 targets.
+- **Not applicable:** frontend `UnassignedCallCard` (Stage 6 list) no longer exists — the current
+  open/unassigned card is `CallCard.jsx`; tested that instead.
+- **Stage 5 (backend tests) — done for the weakest/highest-risk zones (+45 tests):** `time_routes`
+  47.9→93.5% (CRUD, RBAC, kiosk PIN flows, pay-config), `crew_preset_routes` 24.4→95.1% (CRUD, RBAC,
+  validation), `document_routes` 56.2→76.0% (RBAC, content-based upload validation incl. HTML-as-PDF
+  rejection + oversized, CRUD 404s, compliance). Remaining cited zones (`tenant_routes` 56%,
+  `payroll_routes` 65%, `patient_routes` 65%, notifications/push) already have dedicated test files
+  and higher coverage; flagged as follow-ups, not zero-coverage gaps.
+- **Stage 6 (frontend tests) — done for the two verified untested components (+18 tests):**
+  `TimeInput` (12h/24h entry, digit filter, blur range-clamp, hydrate, disabled, a11y id) and
+  `CallCard` (name/id, route, emergency/will-call/return/cancelled/completed, click + drag callbacks,
+  alert badge). `NotificationBell` and several `api/` wrappers flagged as follow-ups.
+- **Stage 7 (flaky test) — investigated, no defect, no change:** `sharedComponents.test.jsx` is fully
+  synchronous (no timers/async/`waitFor`), exercises only pure presentational components, and
+  `afterEach(cleanup)` is configured — no DOM leak. Passed 3× isolated and in the full 484-test
+  parallel run. The single historical timeout was CPU starvation under max parallelism, not a test
+  bug; per the task, no timeout was added to a fast synchronous test. **Frontend total now 484 tests.**
 
-- **Root cause:** `stress_test.py` `run_index_analysis()` had a hardcoded critical-index
-  list expecting `("patient", "dob")`. `patient.dob` is encrypted at rest (Text, no
-  plaintext index by design). Verified in `backend/models/patient.py`: `dob` is Text with
-  no index; `dob_bidx` (String(64), `index=True`) backs exact search + duplicate detection;
-  `dob_month_day` (String(5), `index=True`) backs the birthday calendar.
-- **Change (minimal):** replaced `("patient","dob")` with `("patient","dob_bidx")` and
-  `("patient","dob_month_day")` in the expected list, with a comment explaining the
-  blind-index architecture; made `run_index_analysis()` return `missing` for testability.
-- **Test added:** `backend/tests/test_stress_index_analysis.py` builds the real schema into
-  a throwaway SQLite file, runs the analyzer, asserts `missing == []`. Guards against
-  regressing to a plaintext-DOB expectation (that would report missing and fail). Passes.
-- **SQLite/Postgres:** the analyzer is SQLite-only (reads `sqlite_master`/PRAGMA) and guarded
-  to run only against the disposable QA DB; the same indexes exist on Postgres via the models'
-  `index=True`, so no conflict.
-- **Verification:** new test passes; full `stress_test.py` run now prints `OK patient.dob_bidx`
-  and `OK patient.dob_month_day`, and no `MISSING INDEX`. Perf unchanged (148 req/s, P95 237ms,
-  0 errors, no slow reads).
-- **Files:** `stress_test.py`, `backend/tests/test_stress_index_analysis.py`.
-
-### Item #2 (P1) — React Hooks `useMemo` warning in `App.jsx` — ✅ COMPLETED
-
-- **Root cause:** the 12 route guards (`ProtectedLayout`, `PortalRoute`, `LoginRoute`, and
-  9 access guards) were defined **inside** `App`, so they were new identities every render.
-  The `router = useMemo(..., [currentUser])` referenced them but couldn't list them —
-  listing them would rebuild the router every render (defeating the stable-instance point
-  that `useBlocker` relies on); omitting them is the `exhaustive-deps` warning. It was also
-  a define-a-component-in-render anti-pattern.
-- **Fix (no rule disable):** moved all guards to **module scope** (stable identities) and had
-  them read `currentUser` + `onLogout` from a small `GuardContext` that `App` provides, so
-  the router config is unchanged (lowest routing risk). Stabilised `handleLogin`/`handleLogout`
-  with `useCallback`, so the honest deps are now `[currentUser, handleLogin]` and the router
-  still rebuilds only when the user changes. Also consolidated the 8 identical ops-guards into
-  one `OpsGuard(allow=…)` — a behaviour-identical de-duplication.
-- **Behaviour preserved:** login, logout, relogin, password-expired, platform-admin console,
-  employee-portal split, every role redirect and 403, deep links.
-- **Verification:** `npm run lint` clean (0 errors, **0 warnings**); Vitest 461 passed; build OK;
-  **Playwright E2E 20/20** — incl. `roles.spec.js` (HR→Dispatch denied via missing link +
-  URL redirect + API 403; dispatcher→Users denied; admin reaches both), sign-in, relogin
-  persistence, deep links.
-- **Files:** `frontend/src/App.jsx`.
-
-### Item #4 (P1) — backend quality gate (Ruff) — ✅ COMPLETED
-
-- **Scope decision:** correctness lint only — `select = ["F", "E9"]` (pyflakes + syntax).
-  `ruff format` would rewrite **162 of 171 files** with zero behaviour change, so formatting
-  and import-reordering enforcement are **deliberately deferred** (documented) to honour the
-  "no huge mechanical reformat" rule. Package `__init__.py` `F401` is exempt (intentional
-  re-exports). Config in `backend/ruff.toml`.
-- **Findings fixed (60):** 55 auto-fixed (unused imports `F401`, redundant redefinitions
-  `F811`) + 5 manual `F841` unused variables. Real prod dead code removed: unused `import redis`
-  in `events.py._listen` (uses `self._redis`), unused `joinedload` import in
-  `calendar_event_routes.py` (the `.joinedload()` chain is a method, not the symbol), unused
-  imports in `employee_routes.py`/`notification_routes.py`/`org_security_routes.py`, and a dead
-  `data = request.get_json()` read in `mark_all_read` (user id comes from the session). Test
-  `F841`s kept the side-effecting call and dropped the unused name only.
-- **Caught a real regression mid-fix:** an over-broad `sed` deleted 3 *used* `data` reads;
-  the new ruff gate flagged them as `F821` undefined-name — proof the gate works — and I
-  restored + redid the edit precisely.
-- **Wired in:** `ruff==0.16.4` in `requirements-dev.txt` (dev-only); a `ruff check .` step in
-  the CI `Backend` job (job **name unchanged** so branch-protection required checks still match);
-  `docs/TESTING.md` documents the gate and the format-scope decision.
-- **Verification:** `ruff check .` → **All checks passed**; full backend suite **1064 passed**.
-- **Files:** `backend/ruff.toml`, `backend/requirements-dev.txt`, `.github/workflows/ci.yml`,
-  `docs/TESTING.md`, `backend/events.py`, `backend/routes/{notification,employee,calendar_event,org_security}_routes.py`,
-  `backend/scripts/{migrate_notes_to_columns,prod_realtime_smoke}.py`, ~15 `backend/tests/*.py`.
-
-### Item #7 (P1) — suppressed-exceptions audit — ✅ COMPLETED
-
-Reviewed every broad/silent handler in the named risk areas and decided per case:
-
-- **Security paths already correct (no change):** `core/security/crypto.py` decrypt and
-  `core/security/keyring.py` unwrap both **fail closed** — they re-raise as
-  `DecryptionError` / `KeyManagementError` with generic messages, and log **no** ciphertext,
-  keys, or plaintext. Confirmed and documented as verified-good.
-- **`events.py` / `storage.py`:** their broad catches already carry `# noqa: BLE001` with a
-  reason and `logger.warning(..., exc_info=True)` — legitimate best-effort. No change.
-- **Narrowed over-broad catches (were hiding unrelated bugs):** `settings_utils.load_user_settings`
-  (3×) and `notification_utils._get_user_prefs` JSON parses `except Exception` →
-  `except (json.JSONDecodeError, TypeError)`; calendar reminder date parses `except Exception`
-  → `except ValueError` / `(ValueError, AttributeError)`.
-- **Made silent best-effort blocks diagnosable (still non-fatal):** the 6 `except Exception: pass`
-  in `notification_utils.py` and the one in `routes/document_routes.py` now `logger.debug(..., exc_info=True)`.
-  Best-effort notification/push failures still never break the originating request.
-- **`routes/reports_routes.py`:** no broad catches — clean.
-- **Logging is PHI/secret-safe:** every added log carries an **id only** (user id / document id),
-  never blob contents, keys, ciphertext, or request bodies; a test asserts the corrupt-blob log
-  does not echo the blob.
-- **Tests added:** `backend/tests/test_settings_utils.py` — corrupt `settings_json` falls back to
-  defaults + logs (id only, no contents); a valid partial blob merges over defaults.
-- **Verification:** `ruff check .` clean; the 2 new tests pass; full backend suite re-run below.
-- **Files:** `settings_utils.py`, `notification_utils.py`, `routes/document_routes.py`,
-  `backend/tests/test_settings_utils.py`.
-
-### Item #6 (P1) — dependency & supply-chain security — ✅ COMPLETED
-
-- **Current state — clean:** `npm audit` (frontend + desktop, prod and all) → **0 vulnerabilities**;
-  `pip-audit` on `requirements.txt`, `requirements-dev.txt`, `requirements-prod.txt`,
-  `requirements-desktop.txt` → **no known vulnerabilities**.
-- **Dependabot already comprehensive** (from the earlier audit): 7 ecosystems — pip `/backend`,
-  npm `/frontend` + `/desktop`, docker `/backend` + `/frontend` + `/`, github-actions `/` — all
-  targeting `dev`. Two Dependabot PRs (`pip`, `npm`) are currently open on `dev`; left for
-  individual test-verified review (the rule is: never bulk-update).
-- **Added a CI `security` job:** `pip-audit` on backend runtime + dev requirements (strict — the
-  runtime is what ships), and `npm audit --omit=dev --audit-level=high` on the frontend and
-  desktop production deps. `pip-audit==2.10.1` pinned in `requirements-dev.txt` for local repro.
-- **SBOM: deferred (optional).** The task gates it on "reasonable complexity"; the audit tooling
-  above plus Dependabot already covers the supply-chain surface. SBOM generation (cyclonedx) is a
-  documented nice-to-have, not blocking.
-- **Requirements split verified:** `requirements.txt` (runtime) ← `requirements-prod.txt`,
-  `requirements-desktop.txt` (both `-r requirements.txt` + their server), `requirements-dev.txt`
-  (`-r requirements.txt` + pytest/fakeredis/ruff/pip-audit). Prod/desktop never pull the test/lint
-  toolchain.
-- **Files:** `.github/workflows/ci.yml`, `backend/requirements-dev.txt`, `docs/TESTING.md`.
-
-### Item #3 (P1) — documentation sync — ✅ COMPLETED
-
-Fixed concrete drift against current `dev` (commit-pinned/snapshot-labelled, not frozen constants):
-
-- **Stale test counts:** `README.md` (backend 1009→1066, frontend 458→461), `docs/TESTING.md`
-  (458/52 → 461/53, snapshot `1211e31`), `docs/INFRASTRUCTURE_REPORT.md` (1009→1066, 458→461).
-  E2E "8 spec files / 20 cases" was already correct.
-- **Stale plaintext-DOB index (the task-flagged one):** `docs/ARCHITECTURE.md` listed
-  `patient (last_name, dob)` as a performance index. `dob` is encrypted and deliberately not
-  indexed in plaintext — reworded to name the blind index `dob_bidx` (search/dedup) and derived
-  `dob_month_day` (calendar), consistent with the item #1 stress-test fix.
-- **Prod stack described as future:** `docs/DEVELOPMENT_WORKFLOW.md` said "A future Postgres
-  deployment would carry the constraints natively" — PostgreSQL is the implemented production DB
-  (`docker-compose.prod.yml`, CI prod smoke), so reworded to present tense.
-- **CI job list:** `docs/TESTING.md` "four jobs" → six (backend+ruff, frontend, e2e, docker,
-  desktop, security) — updated as part of items #4/#6.
-- **Verified honest, left as-is:** `TODO.md` (active backlog only; correctly documents the
-  intentional plaintext `last_name`/`first_name`/addresses decisions), `PRODUCTION_READINESS.md`
-  (accurate encryption-verification claims), and historical `COMPLETED_BLOCKS.md` entries.
-- **Files:** `README.md`, `docs/TESTING.md`, `docs/INFRASTRUCTURE_REPORT.md`, `docs/ARCHITECTURE.md`,
-  `docs/DEVELOPMENT_WORKFLOW.md`.
-
-### Item #5 (P1) — measurable coverage with a ratchet gate — ✅ COMPLETED
-
-- **Backend baseline 81.3%** (branch coverage; `pytest-cov`). Gate: `fail_under = 80` in
-  `backend/.coveragerc` (ratchet just below baseline). `source = .`, omitting deps, tests,
-  generated migrations, the disposable QA/E2E/desktop entry servers, and one-off scripts —
-  each omission justified in the config. `pytest-cov==7.1.0` added to `requirements-dev.txt`.
-- **Frontend baseline 68.5% lines / 60.7% branches** (`@vitest/coverage-v8`). Gate thresholds
-  in `vite.config.js`: lines 67, statements 64, functions 60, branches 59. Uses V8's default
-  include (the unit-tested surface): the large page components are covered by Playwright E2E,
-  not Vitest, so forcing them in would report 0% and understate coverage — documented, not faked.
-- **Ratchet, not fake-high:** thresholds sit just below the real baselines (prevent a drop),
-  never an artificial 95–100%. Lowest-covered backend modules (audit/settings/events routes,
-  push_utils, employee_shifts) recorded as the next targets rather than hidden by exclusions.
-- **CI:** Backend job runs `pytest --cov` (honours `fail_under`); Frontend job runs
-  `npm run test:coverage`. Coverage artifacts git-ignored (`.coverage`, `coverage/`), configs tracked.
-- **Verification:** frontend `test:coverage` passes at the thresholds (exit 0, 68.5% lines);
-  backend full `--cov` run measured 81.3% > 80 gate.
-- **Files:** `backend/.coveragerc`, `backend/requirements-dev.txt`, `frontend/vite.config.js`,
-  `frontend/package.json`, `frontend/package-lock.json`, `.github/workflows/ci.yml`, `.gitignore`,
-  `docs/TESTING.md`.
-
-### Item #10 (P2) — dead code & repo cleanliness — ✅ COMPLETED
-
-- **Repo cleanliness — clean.** No stray artifacts tracked: no `.log`/`.sqlite`/`.env`/`dist`/
-  `build`(py)/`.coverage`/`node_modules`/`__pycache__`. `desktop/build/{icon.ico,icon.png,installer.nsh}`
-  are electron-builder **source** resources (kept); `docs/screenshots/*`, `docs/workflow.gif`, and
-  `frontend/scripts/capture-screenshots.mjs` are documentation assets/tooling (kept). `.gitignore`
-  gained the coverage-artifact rules in item #5.
-- **Python:** ruff already removed the genuinely-unused imports (item #4). Vulture ≥90% hits are the
-  usual SQLAlchemy/Flask event-listener callback args (false positives) plus one unused optional
-  param `db_session` on `load_user_settings` — kept for call-site API compatibility.
-- **JS:** one orphan candidate, `components/patients/DetailItem.jsx` (0 imports). **Kept, not removed:**
-  it is documented in `docs/UI_STANDARD.md` as the standard component for labelled key-value pairs —
-  documented use, so it fails the removal criteria. The real bug was the doc referencing a sibling
-  `DetailGrid` that **never existed anywhere in the repo**; fixed `UI_STANDARD.md` to point only at
-  the real `DetailItem`. Demonstrates the "don't delete merely-unused code" discipline.
-- **Net:** nothing provably-dead this round (the earlier audit already removed `migrate.py` and
-  `PatientOverviewTab.jsx`); one stale doc reference fixed.
-- **Files:** `docs/UI_STANDARD.md`.
-
-### Item #13 (P3) — documentation & positioning honesty — ✅ COMPLETED (verified, no changes needed)
-
-Audited the positioning against each trap; the project is already honest:
-
-- **HIPAA / compliance:** never claimed — explicitly in "Out of scope" (README, ROADMAP) and a
-  strong disclaimer: *"Not for clinical or production use. This is a portfolio project… does not
-  implement NEMSIS or HIPAA-grade safeguards, no warranty."* `OPERATIONS_RUNBOOK.md` opens with
-  *"This is not a HIPAA-ready deployment."*
-- **Production readiness:** framed as *"production-readiness planning"*; `PRODUCTION_READINESS.md`
-  describes the gate as *"the actual gate… not a checkbox to rush"* — no unconditional claim.
-- **Scalability:** no unqualified "proven scale" claim; the stress numbers are labelled local/SQLite.
-- **Encryption of all PHI:** described as *"optional field-level encryption at rest"*; encryption
-  claims are correctly scoped to *"every encrypted field"* (not "every PHI field"); the intentional
-  plaintext fields (`last_name`/`first_name`, call addresses) and coverage gaps are documented in
-  `TODO.md` and `DATA_CLASSIFICATION.md`.
-- **README completeness:** opens with a Portfolio Summary and covers what it is, architecture, roles,
-  security, testing, run, prod stack, desktop build, and limitations.
-- **One recovery claim not re-verified here:** `PRODUCTION_READINESS.md` states the backup→wipe→restore
-  cycle "is verified". The scripts exist and the claim is plausibly the author's own tested result; it
-  needs Docker/PostgreSQL to re-run, which is unavailable here — carried into item #12 as a
-  re-verification BLOCKED note rather than editing the author's claim.
-- **Files:** none (positioning verified honest).
-
-### Item #11 (P2) — performance & concurrency — ✅ COMPLETED (Postgres load-test BLOCKED)
-
-- **N+1 / pagination:** the two real N+1s were fixed in the earlier audit (task lists 73→3,
-  calendar 53→2 SELECTs, both with query-count regression tests) and re-confirmed working in the
-  manual QA pass; list endpoints paginate (calls "25 of 51", tasks, calendar). `stress_test.py`
-  (seeded, local SQLite) shows no slow reads and ~148 req/s with 0 errors.
-- **Concurrency invariant — the assignment lost-update — confirmed and now unit-tested.** The
-  assign endpoint uses optimistic compare-and-swap via `expected_assignment_id`: a stale view is
-  refused with `409 assignment_conflict` rather than silently overwriting another dispatcher.
-  Added `backend/tests/test_dispatch_concurrency.py`: a stale reassignment is rejected and the
-  original survives; a correct expected id succeeds; omitting the field stays backward-compatible.
-  (The end-to-end two-browser version already exists in `e2e/dispatch.spec.js`.)
-- **Realtime:** the Redis event listener already reconnects with bounded backoff + logging (reviewed
-  in item #7); multi-client SSE sync is covered by `e2e/realtime.spec.js` (passing).
-- **BLOCKED — PostgreSQL load/concurrency capacity:** requires Docker/PostgreSQL, unavailable in this
-  environment. SQLite concurrency is **not** presented as a Postgres capacity result. Reproducible
-  path for when Docker is available: bring up `docker-compose.prod.yml` (Postgres + 3 Gunicorn
-  workers + Redis, as the CI docker job does) and point `stress_test.py` at it
-  (`STRESS_BASE=http://localhost:8080`), plus the existing `scripts/prod_realtime_smoke.py`. Marked
-  BLOCKED, not COMPLETED, for the capacity number.
-- **Files:** `backend/tests/test_dispatch_concurrency.py`.
-
-### Item #12 (P3) — production recovery & operations — ✅ COMPLETED (infra drill BLOCKED)
-
-- **Documented recovery procedure exists:** `docs/OPERATIONS_RUNBOOK.md` covers TLS, secrets &
-  the `EMS_MASTER_KEY` backup ("the single most important thing to back up"), Backups, Restore &
-  disaster recovery (`scripts/backup-db.sh` / `restore-db.sh`), object storage, and monitoring;
-  `docs/DEPLOYMENT_TLS.md` covers TLS deployment.
-- **Application-level recovery invariants are unit-tested (no Docker needed):** fail-closed on a
-  missing/malformed key in production (`app.py::_require_encryption_in_production` refuses to start),
-  the multi-worker Redis guard (`test_gunicorn_guard.py`), wrong-key / tamper → `None` never
-  plaintext (`test_encryption_fail_closed.py`, `test_crypto.py`, `test_org_crypto.py`,
-  `test_security_adversarial.py`), and key rotation (`test_security.py`).
-- **BLOCKED — full infrastructure DR drill:** PostgreSQL / Redis / Gunicorn container restarts, the
-  live backup→wipe→restore cycle, an S3/MinIO outage, container restart policies, and a mid-migration
-  failure/rollback all require a running Docker stack, unavailable in this environment. The runbook is
-  the documented, step-by-step procedure; actual execution is marked BLOCKED (the CI docker job does
-  bring the prod stack up and run migrations + `/api/health` + realtime + S3 round-trip on GitHub
-  runners, which exercises the healthy-path recovery of the chain). The `PRODUCTION_READINESS.md`
-  "backup→wipe→restore is verified" line (item #13) is the author's prior result; not re-run here.
-- **Files:** none (procedures documented, invariants already tested).
-
-### Item #8 (P2) — largest frontend files — 🟡 PARTIAL (flagged duplication resolved)
-
-- **Resolved the specifically-flagged `CallForm` vs `CallFormPage` duplication.** The classic
-  `CallForm` (1053 LOC) and the guided `CallFormPage` (1283 LOC, which renders `CallForm`) each
-  built the optional trip **return leg** with byte-identical logic (only the state-object name
-  differed). Extracted a single source of truth `buildReturnLegPayload(data, {patientId, savedCallId})`
-  in `utils/callUtils.js` (pure, no UI/state) and pointed both flows at it — **without merging the
-  two distinct UXs**, as the task requires. Each file shrank ~20 lines and the Will-Call/Return
-  rules now live in one place.
-- **Test added:** `utils/callUtils.test.js` (5 cases: none→null, missing pickup→null, Return leg
-  fields + time, Will-Call leg no-time + call_type, empty phone → null).
-- **Verification:** lint clean; Vitest **466 passed** (+5); build OK. Behaviour identical (extraction
-  is verbatim logic).
-- **Remaining (ongoing, not done):** the broader decomposition of the large pages
-  (`CrewPlannerPage` ~1570, `CallFormPage` ~1280, `DispatchBoardPage` ~950, `TasksPage` ~770,
-  `CallsPage` ~800) into hooks/sections. The task mandates small, behaviour-preserving blocks with a
-  full suite run after each; the extraction pattern and the shared-util home are now established.
-  Marked **PARTIAL** honestly — one high-value block landed, the rest is a tracked continuation.
-- **Files:** `frontend/src/utils/callUtils.js`, `frontend/src/utils/callUtils.test.js`,
-  `frontend/src/components/CallForm.jsx`, `frontend/src/pages/CallFormPage.jsx`.
-
-### Item #9 (P2) — backend service layer — 🟡 PARTIAL (assessed; no big-bang, by design)
-
-- **Finding: the backend already has a domain/service layer.** Complex domain rules are already
-  extracted into `utils/` and imported by the routes, e.g. `capability_match.py`
-  (`assignment_mismatch`, `unit_can_serve`, `required_capability` — used by dispatch AND calendar
-  routes via a clean shared import, no route-to-route coupling), `taxonomy.py`,
-  `employee_shifts.py`, `event_recurrence.py`, `pto.py`, `validation_utils.py`. Tenant isolation is
-  a cross-cutting concern handled centrally in `tenant.py` (SQLAlchemy `do_orm_execute`), not per
-  route. The route handlers are already orchestration-thin: validate → delegate domain checks to
-  utils → db → audit → publish-event-after-commit.
-- **No significant cross-route duplication to consolidate** (unlike the clear frontend
-  `CallForm`/`CallFormPage` case in #8): the only near-duplicate is the "active assignment for a
-  call" lookup (`CallAssignment.query.filter_by(call_id=…, is_active=True)`) in two routes with
-  different arity (`.first()` vs `.all()`) — too thin to warrant an abstraction without churn.
-- **Decision — do not force a `services/` rename.** The task forbids big-bang rewrites and cosmetic
-  splitting "без улучшения"; renaming the existing `utils/` domain modules into `services/`, or
-  hoisting route orchestration into service functions purely for layering, would be churn and risk
-  on a well-tested surface for little benefit. Marked **PARTIAL** honestly rather than claim a
-  completed extraction that would be low-value.
-- **Incremental target (if the owner wants deeper layering later):** lift the assign/complete/reopen/
-  unassign **state-transition orchestration** out of `dispatch_routes` into a `services/dispatch.py`
-  (pure of the Flask request), one endpoint at a time, with the full backend suite + `qa_test.py`
-  after each — the same small-block discipline used in #8.
-- **Files:** none (assessment; no low-value churn introduced).
-
-## Final regression (full available cycle)
+## Stage 11 — full regression (this branch)
 
 | Check | Result |
 |---|---|
-| Backend `compileall` | ✅ OK |
-| Backend `ruff check .` | ✅ All checks passed |
-| Backend `pytest --cov` | ✅ **1068 passed**; coverage **81.28%** (gate 80% reached) |
-| Frontend `npm ci` | ✅ 0 vulnerabilities |
-| Frontend `lint` | ✅ clean (0 warnings) |
-| Frontend `test:coverage` | ✅ **466 passed**; lines **68.33%** (gate 67 met) |
-| Frontend `build` | ✅ OK |
-| E2E (Playwright) | ✅ **20 passed** |
-| `qa_test.py` | ✅ **74 passed, 0 failed, 0 warnings**; load 180 req, 0 errors |
-| `stress_test.py` | ✅ no MISSING INDEX (P0 confirmed: `dob_bidx`/`dob_month_day` OK); no slow reads; 156 req/s; 0 errors |
-| Docker / prod-stack smoke | ⛔ BLOCKED (no Docker locally; CI covers it on GitHub runners) |
+| Backend ruff | ✅ All checks passed |
+| Backend compileall | ✅ OK |
+| Backend pytest + coverage | ✅ **1113 passed**, **83.07%** (gate 80) |
+| Frontend ESLint | ✅ clean |
+| Frontend Vitest + coverage | ✅ **484 passed**, 70.69% lines (gate 67) |
+| Frontend build / npm audit | ✅ OK / 0 vulnerabilities |
+| E2E (Playwright) | ✅ 20 — 1 flaky on full run, **3/3 isolated** (no app code changed → not a regression) |
+| qa_test.py | ✅ **74 passed, 0 failed, 0 warnings** |
+| stress_test.py | ✅ blind-index check OK, no slow reads, ~153 req/s, 0 errors |
+| Docker / PostgreSQL benchmark | ⛔ BLOCKED (no local Docker) → CI validates the prod stack |
 
-**Git hygiene:** working tree clean; `git diff --check` clean; no secrets/`.env`/DB/coverage-data/
-build artifacts tracked (`.coverage` git-ignored, `.coveragerc` tracked); `main` untouched
-(= `origin/main` `b9fc74e`); all 13 commits on `dev`.
+## Stage 12 — final report
 
-## Final project status
+- **Baseline:** `7bbbb32` (dev) → **final:** _the branch tip after these commits_ (on `dev`).
+- **Done:** Stages 1, 3, 4, 5, 6, 7, 8(script/doc), 10. **Assessed/deferred:** Stage 9. **Blocked:**
+  Stage 8 Postgres run, Stage 2 release publish (owner action).
+- **Net:** docs reconciled, **+63 tests** (backend 1068→1113 @ 81.3→83.1%; frontend 466→484),
+  benchmark tooling added, repo verified clean. No app/API/data/migration changes.
 
-- **P0 (1/1):** ✅ done. **P1 (6/6):** ✅ all done (#2 hooks, #3 docs, #4 ruff gate, #5 coverage
-  gate, #6 dep-audit, #7 exception audit). **P2 (4):** #10 ✅, #11 ✅ (Postgres load BLOCKED),
-  #8 🟡 partial (flagged dedup done), #9 🟡 assessed (already factored; no big-bang). **P3 (2/2):**
-  #12 ✅ (infra drill BLOCKED), #13 ✅.
-- **New/strengthened gates now in CI:** ruff correctness lint, backend + frontend coverage ratchets,
-  and a `pip-audit`/`npm audit` security job — on top of the existing compile/pytest/Vitest/E2E/
-  Docker/desktop jobs.
-- **Net change vs `main`:** 13 commits, additive and behaviour-preserving; no public API, data, or
-  migration changes.
-- **`dev` is ready for a PR to `main`** (a maintenance release: quality gates + fixes, no new
-  features). Remaining open work is explicitly scoped: the broader large-file decomposition (#8),
-  optional deeper backend service layering (#9), and the Docker/PostgreSQL-dependent drills
-  (#11 capacity, #12 DR) — all BLOCKED or PARTIAL by design, none blocking a merge.
+### Release checklist (Stage 2) — OWNER ACTIONS (not performed here; rule 11)
+
+The code, tags, and version are already at **v1.1.12**; the latest *published* GitHub Release is
+v1.1.9, so the README installer link (`releases/latest/download/...`) serves v1.1.9 until a newer
+release is published. To fix — **owner runs**:
+
+1. Merge the cycle-2 `dev → main` PR (after review) and, if cutting a new version, bump + tag it.
+2. Build the Windows installer (CI Desktop job, or `cd desktop && npm run dist`) and compute its
+   checksum: `sha256sum "release/EMS-Workflow-System-Setup.exe"`.
+3. Publish the release so `releases/latest` points at the current version, e.g. for the existing tag:
+   `gh release create v1.1.12 "release/EMS-Workflow-System-Setup.exe" --title "EMS Workflow System v1.1.12" --notes-file <notes>`
+   (do **not** re-tag or overwrite an existing published release).
+4. Verify the README `releases/latest/download/...` link now serves the current installer, and that
+   the SHA-256 matches.
+5. After merging, fast-forward `main` back into `dev` (as this cycle did in Stage 1).
+
+### Owner action list (summary)
+- [ ] Review + approve the `dev → main` PR.
+- [ ] Merge to `main` (and tag if bumping).
+- [ ] Publish the GitHub Release + upload the installer + checksum (fixes the installer-link desync).
+- [ ] Sync `main` back into `dev`.
+- [ ] (When a Docker host is available) run `scripts/pg_benchmark.py` against the prod stack.
+
+### Merge readiness
+`dev` is clean, all local checks green, `main` untouched, no secrets/artifacts committed. The
+`dev → main` PR is behaviour-preserving (docs + tests + tooling) and ready for review.
