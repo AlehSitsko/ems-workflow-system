@@ -5,7 +5,6 @@ shape, the all-day vs timed encoding, text escaping, and that it respects the
 same visibility rule as the calendar.
 """
 
-import pytest
 
 
 def mk(client, **fields):

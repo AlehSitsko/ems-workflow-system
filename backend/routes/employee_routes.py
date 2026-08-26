@@ -2,7 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models import db, Employee, DailyCrewUnit, EmploymentEvent, DisciplinaryAction, Organization
+from models import db, Employee, EmploymentEvent, DisciplinaryAction, Organization
 from utils.employee_utils import apply_employee_data
 from utils.employee_shifts import employee_shifts
 from notification_utils import create_notification

@@ -8,7 +8,6 @@ account to the change flow until it is rotated.
 
 from datetime import datetime, timedelta
 
-import pytest
 
 from models import db, User, PasswordHistory
 from conftest import make_user, login, TEST_PASSWORD
@@ -45,7 +44,7 @@ def test_change_password_enforces_strength_and_no_reuse(clients):
 
 
 def test_change_password_rotates_and_updates_the_login(app):
-    user = make_user("dispatcher", username="rotator")
+    make_user("dispatcher", username="rotator")
     c = app.test_client()
     login(c, "rotator")
 

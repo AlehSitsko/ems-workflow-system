@@ -5,9 +5,8 @@ their calendar and — through their linked user account — receive an invite w
 added and a reminder before it starts.
 """
 
-from datetime import datetime as real_datetime, timedelta
+from datetime import datetime as real_datetime
 
-import pytest
 
 from conftest import make_user
 from models import db, Employee, NotificationEvent, UserNotification
@@ -172,7 +171,7 @@ def test_reminder_fires_for_owner_and_participants(app, clients, monkeypatch):
 def test_reminder_does_not_fire_outside_the_window(app, clients, monkeypatch):
     import notification_utils as nu
 
-    owner = make_user("supervisor", username="owner2")
+    make_user("supervisor", username="owner2")
     owner_client = app.test_client()
     from conftest import login
     login(owner_client, "owner2")

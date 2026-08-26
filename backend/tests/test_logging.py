@@ -3,10 +3,8 @@
 import json
 import logging
 
-import pytest
 
-from logging_config import JsonFormatter, configure_logging
-from models import db
+from logging_config import JsonFormatter
 
 
 def test_json_formatter_emits_one_valid_object_with_structured_fields():

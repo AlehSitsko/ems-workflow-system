@@ -1,7 +1,6 @@
 """Secret resolution: `{NAME}_FILE` (a mounted Docker/K8s secret) wins over the
 `{NAME}` environment variable."""
 
-import os
 
 from config import _secret
 

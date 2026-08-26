@@ -10,9 +10,8 @@ the past or to resurrect a finished call.
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Call, Patient
+from models import db, Call, Patient
 
 
 FUTURE = (date.today() + timedelta(days=5)).isoformat()

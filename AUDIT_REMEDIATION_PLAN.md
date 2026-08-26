@@ -42,7 +42,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 1 | P0 | Fix false stress-test "MISSING INDEX: patient.dob" (blind-index arch) | ✅ COMPLETED | Stress report no longer demands a plaintext DOB index and confirms `dob_bidx`/`dob_month_day`. |
 | 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | ✅ COMPLETED | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
 | 3 | P1 | Synchronize documentation with actual `dev` state | TODO | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
-| 4 | P1 | Add backend quality gate (Ruff lint + format check) | TODO | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
+| 4 | P1 | Add backend quality gate (Ruff lint + format check) | ✅ COMPLETED | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
 | 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
 | 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | TODO | Reproducible audit in CI; no unexplained critical/high vulns. |
 | 7 | P1 | Audit suppressed exceptions / silent failures | TODO | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
@@ -97,3 +97,28 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
   URL redirect + API 403; dispatcher→Users denied; admin reaches both), sign-in, relogin
   persistence, deep links.
 - **Files:** `frontend/src/App.jsx`.
+
+### Item #4 (P1) — backend quality gate (Ruff) — ✅ COMPLETED
+
+- **Scope decision:** correctness lint only — `select = ["F", "E9"]` (pyflakes + syntax).
+  `ruff format` would rewrite **162 of 171 files** with zero behaviour change, so formatting
+  and import-reordering enforcement are **deliberately deferred** (documented) to honour the
+  "no huge mechanical reformat" rule. Package `__init__.py` `F401` is exempt (intentional
+  re-exports). Config in `backend/ruff.toml`.
+- **Findings fixed (60):** 55 auto-fixed (unused imports `F401`, redundant redefinitions
+  `F811`) + 5 manual `F841` unused variables. Real prod dead code removed: unused `import redis`
+  in `events.py._listen` (uses `self._redis`), unused `joinedload` import in
+  `calendar_event_routes.py` (the `.joinedload()` chain is a method, not the symbol), unused
+  imports in `employee_routes.py`/`notification_routes.py`/`org_security_routes.py`, and a dead
+  `data = request.get_json()` read in `mark_all_read` (user id comes from the session). Test
+  `F841`s kept the side-effecting call and dropped the unused name only.
+- **Caught a real regression mid-fix:** an over-broad `sed` deleted 3 *used* `data` reads;
+  the new ruff gate flagged them as `F821` undefined-name — proof the gate works — and I
+  restored + redid the edit precisely.
+- **Wired in:** `ruff==0.16.4` in `requirements-dev.txt` (dev-only); a `ruff check .` step in
+  the CI `Backend` job (job **name unchanged** so branch-protection required checks still match);
+  `docs/TESTING.md` documents the gate and the format-scope decision.
+- **Verification:** `ruff check .` → **All checks passed**; full backend suite **1064 passed**.
+- **Files:** `backend/ruff.toml`, `backend/requirements-dev.txt`, `.github/workflows/ci.yml`,
+  `docs/TESTING.md`, `backend/events.py`, `backend/routes/{notification,employee,calendar_event,org_security}_routes.py`,
+  `backend/scripts/{migrate_notes_to_columns,prod_realtime_smoke}.py`, ~15 `backend/tests/*.py`.

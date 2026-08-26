@@ -9,7 +9,7 @@ calls and shifts, filtered by exactly the same rule enforced here.
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request, Response
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import selectinload
 
 from models import db, CalendarEvent, CalendarEventParticipant, Employee, User
 

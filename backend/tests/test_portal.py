@@ -8,10 +8,10 @@ existing ops/HR surface stays closed to the new role.
 import pytest
 
 from models import (
-    db, Employee, User, DailyCrewUnit, Task, EmployeeLeaveRequest,
+    db, Employee, DailyCrewUnit, Task, EmployeeLeaveRequest,
     TimeEntry, EmployeeDocument, PtoLedgerEntry,
 )
-from conftest import make_user, login, TEST_PASSWORD
+from conftest import make_user, login
 
 
 def mk_employee(first="Jamie", last="Carter"):

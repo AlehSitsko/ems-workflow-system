@@ -90,6 +90,20 @@ around each test. This is a config override — it has zero effect on `python ap
 Add new modules under `backend/tests/`; the `app`, `client`, and `db_session`
 fixtures are available without extra imports.
 
+## Backend lint (ruff)
+
+```powershell
+cd backend
+ruff check .          # correctness gate; CI runs the same command
+```
+
+`backend/ruff.toml` scopes the gate to **correctness only** — `F` (pyflakes: unused
+imports/variables, undefined names, redefinitions, f-string bugs) and `E9` (syntax
+errors). It is intentionally **not** a formatter: the project keeps its own consistent
+style, so blanket `ruff format` / import-reordering is out of scope (it would rewrite
+~160 files with no behavioural change). Package `__init__.py` re-exports are exempt from
+`F401`. `ruff` is a dev-only dependency (`requirements-dev.txt`).
+
 ## Running frontend Vitest
 
 ```powershell

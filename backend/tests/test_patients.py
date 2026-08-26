@@ -11,7 +11,7 @@ Run: pytest backend/tests/test_patients.py -v
 
 import pytest
 
-from models import Patient, PatientAlert, PatientContact, AuditLog
+from models import Patient, AuditLog
 
 
 # No X-User-Id: audit logs then store a null user_id (the isolated test DB has no

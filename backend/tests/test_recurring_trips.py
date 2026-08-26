@@ -10,9 +10,8 @@ recurrence at all.
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Patient, Call, CallAssignment, DailyCrewUnit, RecurringTrip
+from models import db, Patient, Call, CallAssignment, DailyCrewUnit, RecurringTrip
 from utils.recurrence import generate, occurrences
 
 

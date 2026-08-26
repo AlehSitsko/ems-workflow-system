@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 
 from flask import Blueprint, jsonify, request
 
@@ -110,7 +109,6 @@ def mark_read():
 
 @notif_bp.route("/read-all", methods=["POST"])
 def mark_all_read():
-    data = request.get_json() or {}
     user_id = get_request_user_id()  # from the session, never the client
     if not user_id:
         return jsonify({"error": "user_id required"}), 400

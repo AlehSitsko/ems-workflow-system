@@ -4,7 +4,7 @@ Each login registers a row; the auth guard checks it every request, so revoking
 one device signs it out on its next call without touching the others.
 """
 
-from models import db, UserSession
+from models import UserSession
 from conftest import make_user, login
 
 

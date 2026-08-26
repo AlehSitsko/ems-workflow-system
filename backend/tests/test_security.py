@@ -17,7 +17,6 @@ docs/PRODUCTION_READINESS.md.
 """
 
 import pytest
-from werkzeug.security import generate_password_hash
 
 from models import db, User, Call, DailyCrewUnit, CallAssignment, Patient
 
@@ -242,7 +241,6 @@ def test_user_administration_is_admin_only(roles, method, url, body, role):
 
 def test_anonymous_cannot_create_an_admin_account(client):
     """The worst shape of the hole: self-service privilege escalation."""
-    from models import User
 
     before = User.query.count()
     resp = client.post("/api/auth/users", json={
@@ -503,7 +501,6 @@ def test_kiosk_clock_in_stays_reachable_after_time_entry_lockdown(client):
 # without waiting for the cookie to expire — the app's revocation mechanism.
 
 def test_disabling_a_user_ends_their_session_on_the_next_request(app, roles):
-    from models import User
     # The dispatcher is signed in and working.
     assert roles["dispatcher"].get("/api/patients").status_code == 200
 
@@ -518,7 +515,6 @@ def test_disabling_a_user_ends_their_session_on_the_next_request(app, roles):
 
 
 def test_a_role_change_takes_effect_on_the_next_request(app, roles):
-    from models import User
     # A dispatcher cannot administer users.
     assert roles["dispatcher"].get("/api/auth/users").status_code == 403
 
@@ -533,7 +529,6 @@ def test_a_role_change_takes_effect_on_the_next_request(app, roles):
 
 
 def test_a_demotion_also_takes_effect_immediately(app, roles):
-    from models import User
     assert roles["admin"].get("/api/auth/users").status_code == 200
 
     user = User.query.filter_by(username="test_security_admin").first()
@@ -544,7 +539,6 @@ def test_a_demotion_also_takes_effect_immediately(app, roles):
 
 
 def test_deleting_the_user_behind_a_live_session_ends_it(app, roles):
-    from models import User
     user = User.query.filter_by(username="test_security_hr").first()
     db.session.delete(user)
     db.session.commit()

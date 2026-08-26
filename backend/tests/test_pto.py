@@ -5,7 +5,7 @@ app, so the org defaults apply (15 days/year, carryover cap 5)."""
 from datetime import date
 from types import SimpleNamespace
 
-from models import db, Employee, Holiday, EmployeeLeaveRequest, PtoLedgerEntry
+from models import db, Employee, EmployeeLeaveRequest, PtoLedgerEntry
 from utils import pto
 
 

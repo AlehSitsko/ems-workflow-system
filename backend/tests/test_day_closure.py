@@ -10,9 +10,8 @@ only shows today, which is how they survive into next week.
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Call, DailyCrewUnit, CallAssignment, OperationalDayClosure
+from models import db, Call, DailyCrewUnit, CallAssignment, OperationalDayClosure
 
 
 YESTERDAY = (date.today() - timedelta(days=1)).isoformat()

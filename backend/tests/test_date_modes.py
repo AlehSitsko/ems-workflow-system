@@ -7,9 +7,8 @@ API directly, bypassing any disabled button.
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Call, DailyCrewUnit, CallAssignment
+from models import db, Call, DailyCrewUnit, CallAssignment
 from utils.operational_dates import (
     parse_operational_date, operational_mode, PLANNING, LIVE, HISTORY,
 )

@@ -1,0 +1,18 @@
+# Ruff configuration for the backend quality gate.
+#
+# Scope is deliberately narrow: high-signal *correctness* lint (pyflakes + syntax
+# errors), not opinionated style or formatting. The project keeps its own consistent
+# style; a blanket reformat is out of scope. Widen `select` later (e.g. B, I) only
+# with a matching, reviewed cleanup — never as a silent mass rewrite.
+extend-exclude = ["venv", "migrations", "build", "dist"]
+target-version = "py313"
+
+[lint]
+# F  = pyflakes: unused imports/vars, undefined names, redefinitions, f-string bugs.
+# E9 = syntax / IndentationError-class problems.
+select = ["F", "E9"]
+
+[lint.per-file-ignores]
+# Package __init__ files intentionally re-export names to form the public import
+# surface (e.g. models/__init__.py re-exports every model), so F401 there is expected.
+"__init__.py" = ["F401"]
