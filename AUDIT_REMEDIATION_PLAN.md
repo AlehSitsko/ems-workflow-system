@@ -50,7 +50,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
 | 10 | P2 | Dead code & repo cleanliness (proven-dead only) | ✅ COMPLETED | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
 | 11 | P2 | Performance & concurrency correctness | ✅ COMPLETED (Postgres load = BLOCKED) | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
-| 12 | P3 | Production recovery & operations (DR drill or documented runbook) | TODO | Confirmed or honestly-documented recovery procedure. |
+| 12 | P3 | Production recovery & operations (DR drill or documented runbook) | ✅ COMPLETED (infra drill = BLOCKED) | Confirmed or honestly-documented recovery procedure. |
 | 13 | P3 | Final documentation & positioning honesty | ✅ COMPLETED | No false compliance/scale/PHI/recovery claims; README complete. |
 
 ## Progress log
@@ -277,3 +277,23 @@ Audited the positioning against each trap; the project is already honest:
   (`STRESS_BASE=http://localhost:8080`), plus the existing `scripts/prod_realtime_smoke.py`. Marked
   BLOCKED, not COMPLETED, for the capacity number.
 - **Files:** `backend/tests/test_dispatch_concurrency.py`.
+
+### Item #12 (P3) — production recovery & operations — ✅ COMPLETED (infra drill BLOCKED)
+
+- **Documented recovery procedure exists:** `docs/OPERATIONS_RUNBOOK.md` covers TLS, secrets &
+  the `EMS_MASTER_KEY` backup ("the single most important thing to back up"), Backups, Restore &
+  disaster recovery (`scripts/backup-db.sh` / `restore-db.sh`), object storage, and monitoring;
+  `docs/DEPLOYMENT_TLS.md` covers TLS deployment.
+- **Application-level recovery invariants are unit-tested (no Docker needed):** fail-closed on a
+  missing/malformed key in production (`app.py::_require_encryption_in_production` refuses to start),
+  the multi-worker Redis guard (`test_gunicorn_guard.py`), wrong-key / tamper → `None` never
+  plaintext (`test_encryption_fail_closed.py`, `test_crypto.py`, `test_org_crypto.py`,
+  `test_security_adversarial.py`), and key rotation (`test_security.py`).
+- **BLOCKED — full infrastructure DR drill:** PostgreSQL / Redis / Gunicorn container restarts, the
+  live backup→wipe→restore cycle, an S3/MinIO outage, container restart policies, and a mid-migration
+  failure/rollback all require a running Docker stack, unavailable in this environment. The runbook is
+  the documented, step-by-step procedure; actual execution is marked BLOCKED (the CI docker job does
+  bring the prod stack up and run migrations + `/api/health` + realtime + S3 round-trip on GitHub
+  runners, which exercises the healthy-path recovery of the chain). The `PRODUCTION_READINESS.md`
+  "backup→wipe→restore is verified" line (item #13) is the author's prior result; not re-run here.
+- **Files:** none (procedures documented, invariants already tested).
