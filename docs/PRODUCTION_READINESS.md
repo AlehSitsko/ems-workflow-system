@@ -2,9 +2,29 @@
 
 This document exists to answer one question honestly: **what would it take to run this in production, and why hasn't that been done yet?**
 
-The short answer: this is currently a stabilization/portfolio-stage project. The simplified authentication, SQLite database, and Flask dev server are all deliberate choices that make local development and demoing fast and frictionless — not accidental gaps. Production hardening is scoped as its own final phase (see [ROADMAP.md](ROADMAP.md), Priority 6) so it happens once, deliberately, on a stable feature set — not piecemeal while the feature set is still moving.
+The short answer: this is a portfolio-stage project that ships in **two modes**, and it is important not to conflate them:
 
-None of the items below are urgent today. They become urgent the moment there's a real plan to deploy this for actual (non-demo) EMS/NEMT operations.
+- **Local / desktop mode** — the default for development and demoing: a Flask/waitress single-process server over SQLite, with simplified auth. Deliberately frictionless, not an accidental gap.
+- **Production Docker mode** — a real, **implemented and CI-validated** stack: Gunicorn (multi-worker) behind an unprivileged Nginx, PostgreSQL, Redis (SSE broker), and MinIO/S3 storage, brought up by `docker-compose.prod.yml`. CI builds both prod images, validates the compose, boots the full stack, runs the migrations, and smoke-tests `/api/health` + a real-browser check on every push (see the "Server" and "Deployment" sections below).
+
+So "production readiness" here is not "none of it is built" — most of the stack exists and is exercised in CI. What is deliberately **out of scope for a portfolio project** is operating it for real (non-demo) EMS/NEMT use: a managed/hardened deployment on real infrastructure, TLS termination, backups/DR runbooks proven on live infra, and any regulatory (e.g. HIPAA) posture. The sections below mark, per concern, what is **implemented**, what is **CI-validated**, what **requires external infrastructure**, and what is **out of scope**.
+
+## Readiness checklist (at a glance)
+
+| Concern | Status |
+|---|---|
+| Server-side session auth, RBAC, tenant isolation | ✅ implemented · CI-tested |
+| Field-level encryption at rest (per-org keys), blind indexes | ✅ implemented · CI-tested |
+| CSRF protection, rate limiting | ✅ implemented · CI-tested |
+| Production Docker stack — Gunicorn + Nginx + PostgreSQL + Redis + MinIO/S3 | ✅ implemented · CI boots + smoke-tests the stack every push |
+| Alembic migrations (Postgres-safe), `/api/health`, metrics | ✅ implemented · CI-validated on real Postgres |
+| Realtime SSE across multiple workers via Redis (fail-closed) | ✅ implemented · CI smoke (`prod_realtime_smoke.py`) |
+| S3/MinIO document storage round-trip | ✅ implemented · CI smoke (`prod_s3_smoke.py`) |
+| TLS termination in front of Nginx | ⚙️ requires external infra (operator-supplied — see DEPLOYMENT_TLS.md) |
+| Backups / restore / DR drill on live infrastructure | ⚙️ documented procedure; not drilled on managed infra |
+| PostgreSQL capacity / scalability benchmark | ⚙️ reproducible method prepared; needs a real Postgres host |
+| HIPAA / regulatory compliance certification | ⛔ out of scope (portfolio project — not claimed) |
+| Managed, hardened production deployment for real EMS use | ⛔ out of scope (portfolio project) |
 
 ## Authentication
 
@@ -132,12 +152,11 @@ documented policy, each after checking no excluded-role flow depended on it:
 
 ## Server
 
-**Current state:** Flask's built-in development server — single-threaded, one request processed at a time. Stress-test baseline: 184 req/s.
+**Local / desktop mode:** Flask's built-in development server (or waitress in the packaged desktop app) — single-process, fine for one operator demoing locally. A local SQLite stress smoke reports ~180 req/s; this is a smoke number on SQLite, **not** a production benchmark (see [ROADMAP.md](ROADMAP.md) and the reproducible-benchmark note in `docs/TESTING.md`).
 
-**Production plan:**
-- `gunicorn -w 4 -b 0.0.0.0:5050 app:app` (expect roughly a 4× throughput improvement with 4 workers)
-- `nginx` as a reverse proxy for static files and TLS termination
-- Consider `gunicorn --worker-class gevent` for I/O-bound workloads (this app is mostly I/O-bound — DB queries, not CPU work)
+**Production mode (implemented, CI-validated):** `docker-compose.prod.yml` runs **Gunicorn** (`backend/Dockerfile.prod`, non-root, `wsgi:app`, 3 gthread workers) behind an **unprivileged Nginx** that serves the SPA and proxies `/api`. CI builds both prod images, validates the compose, boots the stack with `docker compose --wait`, runs `flask db upgrade` against real PostgreSQL, and smoke-tests `/api/health` + a real-browser load on every push. Because it is multi-worker, the SSE realtime broker requires **Redis** (the app fails closed without it) — `scripts/prod_realtime_smoke.py` proves event delivery across all 3 workers.
+
+**Not yet done (external infra / operations):** running this stack on managed/hardened infrastructure for real use, TLS termination in front of Nginx (operator-supplied; see [DEPLOYMENT_TLS.md](DEPLOYMENT_TLS.md)), and autoscaling/worker-count tuning against a real workload.
 
 ## Observability
 
