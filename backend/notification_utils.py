@@ -1,9 +1,12 @@
 import json
+import logging
 import time as _time
 from datetime import datetime, timedelta
 
 from models import db, User, NotificationEvent, UserNotification, UserNotificationPrefs
 from push_utils import send_push
+
+logger = logging.getLogger(__name__)
 
 # Throttle for run_temporal_checks(): every GET /api/notifications poll calls it,
 # and under concurrent polling (multiple users/tabs) that means many simultaneous
@@ -76,7 +79,8 @@ def _get_user_prefs(user_id):
         return {}
     try:
         return json.loads(prefs.prefs_json)
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("corrupt notification prefs_json for user %s; using defaults", user_id)
         return {}
 
 
@@ -143,7 +147,7 @@ def create_notification(event_type, severity, title, body, entity_type=None, ent
                     row.push_sub_json = None
                     db.session.commit()
         except Exception:
-            pass
+            logger.debug("best-effort notification step failed", exc_info=True)
 
 
 def notify_user(user_id, event_type, severity, title, body, entity_type=None, entity_id=None, dedup_minutes=1):
@@ -186,7 +190,7 @@ def notify_user(user_id, event_type, severity, title, body, entity_type=None, en
         try:
             send_push(prefs_row.push_sub_json, title, body or "")
         except Exception:
-            pass
+            logger.debug("best-effort notification step failed", exc_info=True)
 
 
 def notify_users(user_ids, event_type, severity, title, body,
@@ -241,7 +245,7 @@ def notify_users(user_ids, event_type, severity, title, body,
         try:
             send_push(sub_json, title, body or "")
         except Exception:
-            pass
+            logger.debug("best-effort notification step failed", exc_info=True)
 
 
 def run_temporal_checks():
@@ -283,7 +287,7 @@ def run_temporal_checks():
                     entity_type="call", entity_id=call.id, dedup_minutes=25,
                 )
         except Exception:
-            pass
+            logger.debug("best-effort notification step failed", exc_info=True)
 
     # cert_expiring: check employee certifications.
     cert_fields = [
@@ -318,7 +322,7 @@ def run_temporal_checks():
                     entity_type="employee", entity_id=composite_id, dedup_minutes=23 * 60,
                 )
             except Exception:
-                pass
+                logger.debug("best-effort notification step failed", exc_info=True)
 
     # cert_no_scan: active employees with cert checked but no matching EmployeeDocument file.
     # Mapping: (has_field, doc_type, cert_label, cert_idx)
@@ -395,7 +399,7 @@ def run_temporal_checks():
                 entity_type="employee_document", entity_id=doc.id, dedup_minutes=23 * 60,
             )
         except Exception:
-            pass
+            logger.debug("best-effort notification step failed", exc_info=True)
 
     # event_reminder: manual calendar events whose lead time has just been crossed.
     # Fires to the owner + each participant's linked user. The anchor is the start
@@ -412,7 +416,7 @@ def run_temporal_checks():
         for occ in occurrences_in(ev.event_date, ev.recurrence, ev.recurrence_until, win_start, win_end):
             try:
                 occ_dt = datetime.strptime(occ, "%Y-%m-%d")
-            except Exception:
+            except ValueError:
                 continue
             if ev.all_day or not ev.start_time:
                 anchor = occ_dt.replace(hour=0, minute=0)
@@ -420,7 +424,7 @@ def run_temporal_checks():
                 try:
                     h, m = ev.start_time.split(":")
                     anchor = occ_dt.replace(hour=int(h), minute=int(m))
-                except Exception:
+                except (ValueError, AttributeError):
                     continue
             trigger = anchor - timedelta(minutes=lead)
             if not (trigger <= now_dt < anchor):

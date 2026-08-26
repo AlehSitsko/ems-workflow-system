@@ -45,7 +45,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 4 | P1 | Add backend quality gate (Ruff lint + format check) | ✅ COMPLETED | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
 | 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
 | 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | TODO | Reproducible audit in CI; no unexplained critical/high vulns. |
-| 7 | P1 | Audit suppressed exceptions / silent failures | TODO | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
+| 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
 | 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
 | 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
 | 10 | P2 | Dead code & repo cleanliness (proven-dead only) | TODO | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
@@ -122,3 +122,30 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 - **Files:** `backend/ruff.toml`, `backend/requirements-dev.txt`, `.github/workflows/ci.yml`,
   `docs/TESTING.md`, `backend/events.py`, `backend/routes/{notification,employee,calendar_event,org_security}_routes.py`,
   `backend/scripts/{migrate_notes_to_columns,prod_realtime_smoke}.py`, ~15 `backend/tests/*.py`.
+
+### Item #7 (P1) — suppressed-exceptions audit — ✅ COMPLETED
+
+Reviewed every broad/silent handler in the named risk areas and decided per case:
+
+- **Security paths already correct (no change):** `core/security/crypto.py` decrypt and
+  `core/security/keyring.py` unwrap both **fail closed** — they re-raise as
+  `DecryptionError` / `KeyManagementError` with generic messages, and log **no** ciphertext,
+  keys, or plaintext. Confirmed and documented as verified-good.
+- **`events.py` / `storage.py`:** their broad catches already carry `# noqa: BLE001` with a
+  reason and `logger.warning(..., exc_info=True)` — legitimate best-effort. No change.
+- **Narrowed over-broad catches (were hiding unrelated bugs):** `settings_utils.load_user_settings`
+  (3×) and `notification_utils._get_user_prefs` JSON parses `except Exception` →
+  `except (json.JSONDecodeError, TypeError)`; calendar reminder date parses `except Exception`
+  → `except ValueError` / `(ValueError, AttributeError)`.
+- **Made silent best-effort blocks diagnosable (still non-fatal):** the 6 `except Exception: pass`
+  in `notification_utils.py` and the one in `routes/document_routes.py` now `logger.debug(..., exc_info=True)`.
+  Best-effort notification/push failures still never break the originating request.
+- **`routes/reports_routes.py`:** no broad catches — clean.
+- **Logging is PHI/secret-safe:** every added log carries an **id only** (user id / document id),
+  never blob contents, keys, ciphertext, or request bodies; a test asserts the corrupt-blob log
+  does not echo the blob.
+- **Tests added:** `backend/tests/test_settings_utils.py` — corrupt `settings_json` falls back to
+  defaults + logs (id only, no contents); a valid partial blob merges over defaults.
+- **Verification:** `ruff check .` clean; the 2 new tests pass; full backend suite re-run below.
+- **Files:** `settings_utils.py`, `notification_utils.py`, `routes/document_routes.py`,
+  `backend/tests/test_settings_utils.py`.
