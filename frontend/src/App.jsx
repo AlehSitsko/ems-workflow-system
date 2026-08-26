@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createHashRouter, RouterProvider, Outlet, Navigate } from "react-router-dom";
 
 import "./App.css";
@@ -76,6 +76,86 @@ import {
 } from "./api/authApi";
 import { onSessionExpired, resetSessionExpiry } from "./api/sessionExpiry";
 
+// The route guards live at module scope (stable component identities) and read the
+// signed-in user + logout handler from this context, which App provides. They used to
+// be redefined inside App on every render — the source of the useMemo dependency
+// warning, and a define-a-component-in-render anti-pattern that would churn the router.
+const GuardContext = createContext({ currentUser: null, onLogout: () => {} });
+
+// Wrap protected pages inside the shared application layout. An employee has no
+// operational surface, so they never render the ops shell — they are sent to their
+// portal instead. Every ops route bounces a non-matching role to /home, so this one
+// check catches employees for the whole ops app.
+function ProtectedLayout({ children }) {
+  const { currentUser, onLogout } = useContext(GuardContext);
+  if (!currentUser) return <Navigate to="/login" replace />;
+  if (isEmployeePortalUser(currentUser)) return <Navigate to="/portal" replace />;
+  return <AppShell currentUser={currentUser} onLogout={onLogout}>{children}</AppShell>;
+}
+
+// The employee self-service portal — its own shell, gated to the employee role.
+function PortalRoute({ children }) {
+  const { currentUser, onLogout } = useContext(GuardContext);
+  if (!currentUser) return <Navigate to="/login" replace />;
+  if (!isEmployeePortalUser(currentUser)) return <Navigate to="/home" replace />;
+  return <PortalLayout currentUser={currentUser} onLogout={onLogout}>{children}</PortalLayout>;
+}
+
+// Prevent logged-in users from staying on the login page; route by role.
+function LoginRoute({ children }) {
+  const { currentUser } = useContext(GuardContext);
+  if (currentUser) {
+    return <Navigate to={isEmployeePortalUser(currentUser) ? "/portal" : "/home"} replace />;
+  }
+  return children;
+}
+
+// A protected ops page: require a session, apply an access predicate, then render
+// inside the ops shell. Every specific guard below is this with its own predicate.
+function OpsGuard({ allow, children }) {
+  const { currentUser, onLogout } = useContext(GuardContext);
+  if (!currentUser) return <Navigate to="/login" replace />;
+  if (!allow(currentUser)) return <Navigate to="/home" replace />;
+  return <AppShell currentUser={currentUser} onLogout={onLogout}>{children}</AppShell>;
+}
+
+// Patient/call pages.
+function PatientRoute({ children }) {
+  return <OpsGuard allow={hasPatientAccess}>{children}</OpsGuard>;
+}
+// Employee-record pages.
+function EmployeeRoute({ children }) {
+  return <OpsGuard allow={hasEmployeeAccess}>{children}</OpsGuard>;
+}
+// Leave review: HR and admin decide, a supervisor gets the read-only overview.
+function LeaveRoute({ children }) {
+  return <OpsGuard allow={hasLeaveReviewAccess}>{children}</OpsGuard>;
+}
+// Crew planning pages.
+function CrewPlannerRoute({ children }) {
+  return <OpsGuard allow={hasCrewPlannerAccess}>{children}</OpsGuard>;
+}
+// Dispatch board — not accessible to HR.
+function DispatchRoute({ children }) {
+  return <OpsGuard allow={hasDispatchAccess}>{children}</OpsGuard>;
+}
+// Fleet pages. Dispatchers get read-only visibility; HR has no reason to see the fleet.
+function FleetRoute({ children }) {
+  return <OpsGuard allow={hasFleetAccess}>{children}</OpsGuard>;
+}
+// Supervisor-level pages.
+function SupervisorRoute({ children }) {
+  return <OpsGuard allow={hasSupervisorAccess}>{children}</OpsGuard>;
+}
+// Tasks — visible to admin/supervisor/hr/dispatcher, each scoped to their own tasks server-side.
+function TasksRoute({ children }) {
+  return <OpsGuard allow={(u) => ["admin", "supervisor", "hr", "dispatcher"].includes(u.role)}>{children}</OpsGuard>;
+}
+// Admin-only pages.
+function AdminRoute({ children }) {
+  return <OpsGuard allow={hasAdminAccess}>{children}</OpsGuard>;
+}
+
 function App() {
   // The cached user gives the shell something to render immediately; the
   // session cookie is the actual identity, so it is confirmed with the server
@@ -109,217 +189,25 @@ function App() {
     });
   }, []);
 
-  // Save logged-in user in application state.
-  const handleLogin = (user) => {
+  // Save logged-in user in application state. Stable identity (setCurrentUser and the
+  // imports it calls never change), so the router memo and guardValue don't churn.
+  const handleLogin = useCallback((user) => {
     // Re-arm the expiry watch so a future revocation of this new session fires.
     resetSessionExpiry();
     setCurrentUser(user);
-  };
+  }, []);
 
   // End the session server-side (the cookie is HttpOnly, so only the server can
   // clear it), then drop local state.
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logoutUser();
     setCurrentUser(null);
-  };
+  }, []);
 
-  // Wrap protected pages inside the shared application layout. An employee has no
-  // operational surface, so they never render the ops shell — they are sent to
-  // their portal instead. Every ops route bounces a non-matching role to /home,
-  // so this one check catches employees for the whole ops app.
-  const ProtectedLayout = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-    if (isEmployeePortalUser(currentUser)) {
-      return <Navigate to="/portal" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // The employee self-service portal — its own shell, gated to the employee role.
-  const PortalRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-    if (!isEmployeePortalUser(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-    return (
-      <PortalLayout currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </PortalLayout>
-    );
-  };
-
-  // Prevent logged-in users from staying on the login page; route by role.
-  const LoginRoute = ({ children }) => {
-    if (currentUser) {
-      return <Navigate to={isEmployeePortalUser(currentUser) ? "/portal" : "/home"} replace />;
-    }
-
-    return children;
-  };
-
-  // Protect pages that should only be available to patient/call users.
-  const PatientRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasPatientAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect pages that should only be available to employee record users.
-  const EmployeeRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasEmployeeAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Leave review: HR and admin decide, a supervisor gets the read-only overview.
-  const LeaveRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasLeaveReviewAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect pages that should only be available to crew planning users.
-  const CrewPlannerRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasCrewPlannerAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect dispatch board — not accessible to HR.
-  const DispatchRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasDispatchAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect Fleet pages. Dispatchers get read-only visibility; HR has no
-  // operational reason to see the fleet.
-  const FleetRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasFleetAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect supervisor-level pages.
-  const SupervisorRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasSupervisorAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect the Tasks module — visible to admin/supervisor/hr/dispatcher,
-  // each scoped to their own visible tasks server-side.
-  const TasksRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!["admin", "supervisor", "hr", "dispatcher"].includes(currentUser.role)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
-
-  // Protect admin-only pages.
-  const AdminRoute = ({ children }) => {
-    if (!currentUser) {
-      return <Navigate to="/login" replace />;
-    }
-
-    if (!hasAdminAccess(currentUser)) {
-      return <Navigate to="/home" replace />;
-    }
-
-    return (
-      <AppShell currentUser={currentUser} onLogout={handleLogout}>
-        {children}
-      </AppShell>
-    );
-  };
+  // The value the module-scope route guards read (see GuardContext). Memoised so the
+  // Provider does not hand consumers a new object every render, and so it changes in
+  // step with the router (both rebuild only when currentUser changes).
+  const guardValue = useMemo(() => ({ currentUser, onLogout: handleLogout }), [currentUser, handleLogout]);
 
   // A data router (createHashRouter) rather than the <HashRouter> component, so
   // pages can use useBlocker to guard sidebar navigation against unsaved edits.
@@ -393,7 +281,7 @@ function App() {
         { path: "*", element: <Navigate to="/home" replace /> },
       ],
     },
-  ]), [currentUser]);
+  ]), [currentUser, handleLogin]);
 
   // An expired password locks the whole app: the server refuses every other API
   // call, so there is nothing to render behind the router until it is rotated.
@@ -419,7 +307,9 @@ function App() {
               when signed in, so its SSE connects with a session (mounting while
               logged out would open an unauthenticated stream that never recovers). */}
           {currentUser && <NotificationsListener currentUser={currentUser} />}
-          <RouterProvider router={router} />
+          <GuardContext.Provider value={guardValue}>
+            <RouterProvider router={router} />
+          </GuardContext.Provider>
         </>
       )}
     </UserSettingsProvider>

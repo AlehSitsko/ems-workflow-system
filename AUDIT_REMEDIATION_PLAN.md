@@ -40,7 +40,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | # | Pri | Item | Status | Done-when |
 |---|-----|------|--------|-----------|
 | 1 | P0 | Fix false stress-test "MISSING INDEX: patient.dob" (blind-index arch) | ✅ COMPLETED | Stress report no longer demands a plaintext DOB index and confirms `dob_bidx`/`dob_month_day`. |
-| 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | TODO | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
+| 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | ✅ COMPLETED | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
 | 3 | P1 | Synchronize documentation with actual `dev` state | TODO | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
 | 4 | P1 | Add backend quality gate (Ruff lint + format check) | TODO | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
 | 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
@@ -75,3 +75,25 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
   and `OK patient.dob_month_day`, and no `MISSING INDEX`. Perf unchanged (148 req/s, P95 237ms,
   0 errors, no slow reads).
 - **Files:** `stress_test.py`, `backend/tests/test_stress_index_analysis.py`.
+
+### Item #2 (P1) — React Hooks `useMemo` warning in `App.jsx` — ✅ COMPLETED
+
+- **Root cause:** the 12 route guards (`ProtectedLayout`, `PortalRoute`, `LoginRoute`, and
+  9 access guards) were defined **inside** `App`, so they were new identities every render.
+  The `router = useMemo(..., [currentUser])` referenced them but couldn't list them —
+  listing them would rebuild the router every render (defeating the stable-instance point
+  that `useBlocker` relies on); omitting them is the `exhaustive-deps` warning. It was also
+  a define-a-component-in-render anti-pattern.
+- **Fix (no rule disable):** moved all guards to **module scope** (stable identities) and had
+  them read `currentUser` + `onLogout` from a small `GuardContext` that `App` provides, so
+  the router config is unchanged (lowest routing risk). Stabilised `handleLogin`/`handleLogout`
+  with `useCallback`, so the honest deps are now `[currentUser, handleLogin]` and the router
+  still rebuilds only when the user changes. Also consolidated the 8 identical ops-guards into
+  one `OpsGuard(allow=…)` — a behaviour-identical de-duplication.
+- **Behaviour preserved:** login, logout, relogin, password-expired, platform-admin console,
+  employee-portal split, every role redirect and 403, deep links.
+- **Verification:** `npm run lint` clean (0 errors, **0 warnings**); Vitest 461 passed; build OK;
+  **Playwright E2E 20/20** — incl. `roles.spec.js` (HR→Dispatch denied via missing link +
+  URL redirect + API 403; dispatcher→Users denied; admin reaches both), sign-in, relogin
+  persistence, deep links.
+- **Files:** `frontend/src/App.jsx`.
