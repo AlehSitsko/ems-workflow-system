@@ -81,13 +81,13 @@ applicable after verification.
   scenarios, ≥3 reps, warm-up, metrics) that runs where Docker/Postgres is available; do not claim
   scalability from a single local SQLite run. Actual Postgres run is BLOCKED locally.
 
-### `[ ]` Stage 9 — Safe decomposition of large files (P2)
+### `[~]` Stage 9 — Safe decomposition of large files (P2)
 - **Approach:** assess each candidate (size/responsibilities/duplication/testability); refactor only
   where clearly beneficial, behaviour-preserving, with characterization tests first. Priority:
   CrewPlannerPage, DispatchBoardPage, call_routes, patient_routes. `UserManualPage` (static) only if
   it truly helps.
 
-### `[ ]` Stage 10 — Dead code & repo cleanliness (P2)
+### `[x]` Stage 10 — Dead code & repo cleanliness (P2)
 - **Approach:** re-scan for unused imports/components/utils, console.log/print, stray artifacts;
   prove non-use (refs, dynamic imports, routes, tests, CI, desktop/PyInstaller) before removing.
 
