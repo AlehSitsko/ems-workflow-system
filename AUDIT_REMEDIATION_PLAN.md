@@ -48,7 +48,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
 | 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
 | 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
-| 10 | P2 | Dead code & repo cleanliness (proven-dead only) | TODO | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
+| 10 | P2 | Dead code & repo cleanliness (proven-dead only) | ✅ COMPLETED | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
 | 11 | P2 | Performance & concurrency correctness | TODO | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
 | 12 | P3 | Production recovery & operations (DR drill or documented runbook) | TODO | Confirmed or honestly-documented recovery procedure. |
 | 13 | P3 | Final documentation & positioning honesty | TODO | No false compliance/scale/PHI/recovery claims; README complete. |
@@ -213,3 +213,22 @@ Fixed concrete drift against current `dev` (commit-pinned/snapshot-labelled, not
 - **Files:** `backend/.coveragerc`, `backend/requirements-dev.txt`, `frontend/vite.config.js`,
   `frontend/package.json`, `frontend/package-lock.json`, `.github/workflows/ci.yml`, `.gitignore`,
   `docs/TESTING.md`.
+
+### Item #10 (P2) — dead code & repo cleanliness — ✅ COMPLETED
+
+- **Repo cleanliness — clean.** No stray artifacts tracked: no `.log`/`.sqlite`/`.env`/`dist`/
+  `build`(py)/`.coverage`/`node_modules`/`__pycache__`. `desktop/build/{icon.ico,icon.png,installer.nsh}`
+  are electron-builder **source** resources (kept); `docs/screenshots/*`, `docs/workflow.gif`, and
+  `frontend/scripts/capture-screenshots.mjs` are documentation assets/tooling (kept). `.gitignore`
+  gained the coverage-artifact rules in item #5.
+- **Python:** ruff already removed the genuinely-unused imports (item #4). Vulture ≥90% hits are the
+  usual SQLAlchemy/Flask event-listener callback args (false positives) plus one unused optional
+  param `db_session` on `load_user_settings` — kept for call-site API compatibility.
+- **JS:** one orphan candidate, `components/patients/DetailItem.jsx` (0 imports). **Kept, not removed:**
+  it is documented in `docs/UI_STANDARD.md` as the standard component for labelled key-value pairs —
+  documented use, so it fails the removal criteria. The real bug was the doc referencing a sibling
+  `DetailGrid` that **never existed anywhere in the repo**; fixed `UI_STANDARD.md` to point only at
+  the real `DetailItem`. Demonstrates the "don't delete merely-unused code" discipline.
+- **Net:** nothing provably-dead this round (the earlier audit already removed `migrate.py` and
+  `PatientOverviewTab.jsx`); one stale doc reference fixed.
+- **Files:** `docs/UI_STANDARD.md`.
