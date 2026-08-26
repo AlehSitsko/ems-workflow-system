@@ -44,7 +44,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 3 | P1 | Synchronize documentation with actual `dev` state | TODO | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
 | 4 | P1 | Add backend quality gate (Ruff lint + format check) | ✅ COMPLETED | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
 | 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
-| 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | TODO | Reproducible audit in CI; no unexplained critical/high vulns. |
+| 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | ✅ COMPLETED | Reproducible audit in CI; no unexplained critical/high vulns. |
 | 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
 | 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
 | 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
@@ -149,3 +149,24 @@ Reviewed every broad/silent handler in the named risk areas and decided per case
 - **Verification:** `ruff check .` clean; the 2 new tests pass; full backend suite re-run below.
 - **Files:** `settings_utils.py`, `notification_utils.py`, `routes/document_routes.py`,
   `backend/tests/test_settings_utils.py`.
+
+### Item #6 (P1) — dependency & supply-chain security — ✅ COMPLETED
+
+- **Current state — clean:** `npm audit` (frontend + desktop, prod and all) → **0 vulnerabilities**;
+  `pip-audit` on `requirements.txt`, `requirements-dev.txt`, `requirements-prod.txt`,
+  `requirements-desktop.txt` → **no known vulnerabilities**.
+- **Dependabot already comprehensive** (from the earlier audit): 7 ecosystems — pip `/backend`,
+  npm `/frontend` + `/desktop`, docker `/backend` + `/frontend` + `/`, github-actions `/` — all
+  targeting `dev`. Two Dependabot PRs (`pip`, `npm`) are currently open on `dev`; left for
+  individual test-verified review (the rule is: never bulk-update).
+- **Added a CI `security` job:** `pip-audit` on backend runtime + dev requirements (strict — the
+  runtime is what ships), and `npm audit --omit=dev --audit-level=high` on the frontend and
+  desktop production deps. `pip-audit==2.10.1` pinned in `requirements-dev.txt` for local repro.
+- **SBOM: deferred (optional).** The task gates it on "reasonable complexity"; the audit tooling
+  above plus Dependabot already covers the supply-chain surface. SBOM generation (cyclonedx) is a
+  documented nice-to-have, not blocking.
+- **Requirements split verified:** `requirements.txt` (runtime) ← `requirements-prod.txt`,
+  `requirements-desktop.txt` (both `-r requirements.txt` + their server), `requirements-dev.txt`
+  (`-r requirements.txt` + pytest/fakeredis/ruff/pip-audit). Prod/desktop never pull the test/lint
+  toolchain.
+- **Files:** `.github/workflows/ci.yml`, `backend/requirements-dev.txt`, `docs/TESTING.md`.

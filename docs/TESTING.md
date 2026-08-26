@@ -153,11 +153,11 @@ is not installed the run fails at launch — do not report E2E as passing in tha
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs four jobs on pull requests and pushes to
+`.github/workflows/ci.yml` runs six jobs on pull requests and pushes to
 `dev`/`main`:
 
-- **Backend job:** `pip install -r backend/requirements.txt`,
-  `python -m compileall backend`, `pytest`
+- **Backend job:** `pip install -r backend/requirements-dev.txt`, **`ruff check .`**
+  (correctness lint gate), `python -m compileall backend`, `pytest`
 - **Frontend job:** `npm ci`, `npm run lint`, `npm test`, `npm run build`
 - **E2E job:** builds the SPA and runs the **Playwright** suite (`npm run
   test:e2e`) against a disposable, migrated + seeded backend that Playwright's
@@ -167,9 +167,17 @@ is not installed the run fails at launch — do not report E2E as passing in tha
 - **Docker job:** builds the dev and prod images, then **smoke-tests the
   production stack** — `docker compose -f docker-compose.prod.yml up --wait` brings
   up PostgreSQL + Gunicorn + Nginx (the backend runs the full migration chain
-  against PostgreSQL on startup), then a `/api/health` curl through Nginx proves
-  the chain. This is what exercises the migrations against real PostgreSQL rather
-  than only SQLite.
+  against PostgreSQL on startup), then a `/api/health` curl through Nginx plus a
+  real-browser Playwright smoke prove the chain. This is what exercises the
+  migrations against real PostgreSQL rather than only SQLite.
+- **Desktop job** (`windows-latest`): builds the SPA, packages the backend with
+  PyInstaller, runs `electron-builder --dir`, and asserts the unpacked app bundled
+  the Electron exe, `ems-backend.exe`, and the SPA — a build smoke for the desktop
+  release path (no app launch, no signing).
+- **Security job:** **`pip-audit`** on the backend runtime + dev requirements, and
+  **`npm audit --omit=dev --audit-level=high`** on the frontend and desktop
+  production deps. Complements Dependabot (`.github/dependabot.yml`, which opens
+  update PRs to `dev` for pip, npm, Docker, and GitHub Actions).
 
 The live QA scripts are **intentionally excluded** from CI — although they now
 self-boot a disposable backend (so they *could* run), they are heavier HTTP smoke
