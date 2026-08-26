@@ -46,7 +46,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | ✅ COMPLETED | CI fails on significant coverage drop; report reproducible locally. |
 | 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | ✅ COMPLETED | Reproducible audit in CI; no unexplained critical/high vulns. |
 | 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
-| 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
+| 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | 🟡 PARTIAL | Files simpler, behavior unchanged, tests + build pass. |
 | 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
 | 10 | P2 | Dead code & repo cleanliness (proven-dead only) | ✅ COMPLETED | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
 | 11 | P2 | Performance & concurrency correctness | ✅ COMPLETED (Postgres load = BLOCKED) | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
@@ -297,3 +297,24 @@ Audited the positioning against each trap; the project is already honest:
   runners, which exercises the healthy-path recovery of the chain). The `PRODUCTION_READINESS.md`
   "backup→wipe→restore is verified" line (item #13) is the author's prior result; not re-run here.
 - **Files:** none (procedures documented, invariants already tested).
+
+### Item #8 (P2) — largest frontend files — 🟡 PARTIAL (flagged duplication resolved)
+
+- **Resolved the specifically-flagged `CallForm` vs `CallFormPage` duplication.** The classic
+  `CallForm` (1053 LOC) and the guided `CallFormPage` (1283 LOC, which renders `CallForm`) each
+  built the optional trip **return leg** with byte-identical logic (only the state-object name
+  differed). Extracted a single source of truth `buildReturnLegPayload(data, {patientId, savedCallId})`
+  in `utils/callUtils.js` (pure, no UI/state) and pointed both flows at it — **without merging the
+  two distinct UXs**, as the task requires. Each file shrank ~20 lines and the Will-Call/Return
+  rules now live in one place.
+- **Test added:** `utils/callUtils.test.js` (5 cases: none→null, missing pickup→null, Return leg
+  fields + time, Will-Call leg no-time + call_type, empty phone → null).
+- **Verification:** lint clean; Vitest **466 passed** (+5); build OK. Behaviour identical (extraction
+  is verbatim logic).
+- **Remaining (ongoing, not done):** the broader decomposition of the large pages
+  (`CrewPlannerPage` ~1570, `CallFormPage` ~1280, `DispatchBoardPage` ~950, `TasksPage` ~770,
+  `CallsPage` ~800) into hooks/sections. The task mandates small, behaviour-preserving blocks with a
+  full suite run after each; the extraction pattern and the shared-util home are now established.
+  Marked **PARTIAL** honestly — one high-value block landed, the rest is a tracked continuation.
+- **Files:** `frontend/src/utils/callUtils.js`, `frontend/src/utils/callUtils.test.js`,
+  `frontend/src/components/CallForm.jsx`, `frontend/src/pages/CallFormPage.jsx`.

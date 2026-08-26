@@ -33,7 +33,7 @@ import PriceCalculator from "../components/PriceCalculator";
 // Import the export/print action buttons component.
 import ExportButtons from "../components/ExportButtons";
 
-import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
+import { getLoggedDispatcherName, getTodayDate, localIsoNow, buildReturnLegPayload } from "../utils/callUtils";
 import TimeInput from "../components/ui/TimeInput";
 import { useUserSettings } from "../context/useUserSettings";
 import { formatTimeForDisplay } from "../utils/timeUtils";
@@ -456,32 +456,12 @@ function CallFormPage() {
 
       const savedCall = await createCall(callPayload);
 
-      // Create a separate return / will-call leg when requested.
-      if (guidedCallData.returnRideOption !== "none" && guidedCallData.returnPickup) {
-        const isWillCall = guidedCallData.returnRideOption === "will_call";
-        const returnPayload = {
-          patient_id: finalPatientId,
-          dispatcher_name: guidedCallData.dispatcherName,
-          received_at: localIsoNow(),
-          status: "new",
-          date_of_call: guidedCallData.callDate,
-          trip_date: guidedCallData.tripDate,
-          // Will Call has no pickup time — it will be set from the Dispatch Board.
-          pickup_time: isWillCall ? "" : (guidedCallData.returnTime || ""),
-          appointment_time: "",
-          pickup_address: guidedCallData.returnPickup,
-          dropoff_address: guidedCallData.returnDestination,
-          caller_type: guidedCallData.callerType,
-          call_type: isWillCall ? "will_call" : "return",
-          service_level: guidedCallData.serviceLevel,
-          caller_phone: guidedCallData.phoneNumber || null,
-          caller_note: null,
-          quality_score: 0,
-          missing_critical_fields: "",
-          missing_optional_fields: "",
-          missing_info_explanation: "",
-          notes: `${isWillCall ? "Will Call" : "Return"} leg for call #${savedCall.id}`,
-        };
+      // Create a separate return / will-call leg when requested (shared rules).
+      const returnPayload = buildReturnLegPayload(guidedCallData, {
+        patientId: finalPatientId,
+        savedCallId: savedCall.id,
+      });
+      if (returnPayload) {
         await createCall(returnPayload);
       }
 

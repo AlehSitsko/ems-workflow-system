@@ -30,7 +30,7 @@ import {
 
 const SEVERITY_COLOR = { info: "#0d6efd", warning: "#f59e0b", critical: "#dc3545" };
 
-import { getLoggedDispatcherName, getTodayDate, localIsoNow } from "../utils/callUtils";
+import { getLoggedDispatcherName, getTodayDate, localIsoNow, buildReturnLegPayload } from "../utils/callUtils";
 import TimeInput from "./ui/TimeInput";
 import { SERVICE_LEVELS } from "../utils/taxonomy";
 
@@ -396,32 +396,12 @@ const CallForm = forwardRef((props, ref) => {
 
       const savedCall = await createCall(callPayload);
 
-      // Create a separate return / will-call leg when requested.
-      if (formData.returnRideOption !== "none" && formData.returnPickup) {
-        const isWillCall = formData.returnRideOption === "will_call";
-        const returnPayload = {
-          patient_id: finalPatientId,
-          dispatcher_name: formData.dispatcherName,
-          received_at: localIsoNow(),
-          status: "new",
-          date_of_call: formData.callDate,
-          trip_date: formData.tripDate,
-          // Will Call has no pickup time — it will be set from the Dispatch Board.
-          pickup_time: isWillCall ? "" : (formData.returnTime || ""),
-          appointment_time: "",
-          pickup_address: formData.returnPickup,
-          dropoff_address: formData.returnDestination,
-          caller_type: formData.callerType,
-          call_type: isWillCall ? "will_call" : "return",
-          service_level: formData.serviceLevel,
-          caller_phone: formData.phoneNumber || null,
-          caller_note: null,
-          quality_score: 0,
-          missing_critical_fields: "",
-          missing_optional_fields: "",
-          missing_info_explanation: "",
-          notes: `${isWillCall ? "Will Call" : "Return"} leg for call #${savedCall.id}`,
-        };
+      // Create a separate return / will-call leg when requested (shared rules).
+      const returnPayload = buildReturnLegPayload(formData, {
+        patientId: finalPatientId,
+        savedCallId: savedCall.id,
+      });
+      if (returnPayload) {
         await createCall(returnPayload);
       }
 
