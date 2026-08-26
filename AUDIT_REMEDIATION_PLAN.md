@@ -343,3 +343,39 @@ Audited the positioning against each trap; the project is already honest:
   (pure of the Flask request), one endpoint at a time, with the full backend suite + `qa_test.py`
   after each — the same small-block discipline used in #8.
 - **Files:** none (assessment; no low-value churn introduced).
+
+## Final regression (full available cycle)
+
+| Check | Result |
+|---|---|
+| Backend `compileall` | ✅ OK |
+| Backend `ruff check .` | ✅ All checks passed |
+| Backend `pytest --cov` | ✅ **1068 passed**; coverage **81.28%** (gate 80% reached) |
+| Frontend `npm ci` | ✅ 0 vulnerabilities |
+| Frontend `lint` | ✅ clean (0 warnings) |
+| Frontend `test:coverage` | ✅ **466 passed**; lines **68.33%** (gate 67 met) |
+| Frontend `build` | ✅ OK |
+| E2E (Playwright) | ✅ **20 passed** |
+| `qa_test.py` | ✅ **74 passed, 0 failed, 0 warnings**; load 180 req, 0 errors |
+| `stress_test.py` | ✅ no MISSING INDEX (P0 confirmed: `dob_bidx`/`dob_month_day` OK); no slow reads; 156 req/s; 0 errors |
+| Docker / prod-stack smoke | ⛔ BLOCKED (no Docker locally; CI covers it on GitHub runners) |
+
+**Git hygiene:** working tree clean; `git diff --check` clean; no secrets/`.env`/DB/coverage-data/
+build artifacts tracked (`.coverage` git-ignored, `.coveragerc` tracked); `main` untouched
+(= `origin/main` `b9fc74e`); all 13 commits on `dev`.
+
+## Final project status
+
+- **P0 (1/1):** ✅ done. **P1 (6/6):** ✅ all done (#2 hooks, #3 docs, #4 ruff gate, #5 coverage
+  gate, #6 dep-audit, #7 exception audit). **P2 (4):** #10 ✅, #11 ✅ (Postgres load BLOCKED),
+  #8 🟡 partial (flagged dedup done), #9 🟡 assessed (already factored; no big-bang). **P3 (2/2):**
+  #12 ✅ (infra drill BLOCKED), #13 ✅.
+- **New/strengthened gates now in CI:** ruff correctness lint, backend + frontend coverage ratchets,
+  and a `pip-audit`/`npm audit` security job — on top of the existing compile/pytest/Vitest/E2E/
+  Docker/desktop jobs.
+- **Net change vs `main`:** 13 commits, additive and behaviour-preserving; no public API, data, or
+  migration changes.
+- **`dev` is ready for a PR to `main`** (a maintenance release: quality gates + fixes, no new
+  features). Remaining open work is explicitly scoped: the broader large-file decomposition (#8),
+  optional deeper backend service layering (#9), and the Docker/PostgreSQL-dependent drills
+  (#11 capacity, #12 DR) — all BLOCKED or PARTIAL by design, none blocking a merge.
