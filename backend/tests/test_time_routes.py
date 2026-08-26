@@ -12,7 +12,7 @@ time), 404 on unknown employees/entries, wrong-PIN rejection, the already-clocke
 Run: pytest backend/tests/test_time_routes.py -v
 """
 
-from models import db, Employee, TimeEntry
+from models import db, Employee
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
