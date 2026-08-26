@@ -36,7 +36,7 @@ applicable after verification.
 - **Branch model (proposed):** `main` stable/production-like; `dev` integration; feature/fix branches
   per task; after each release, `main` is fast-forwarded back into `dev` (as just done).
 
-### `[ ]` Stage 2 — Release desync (P0) — PREPARE ONLY (publish blocked, rule 11)
+### `[~]` Stage 2 — Release desync (P0) — PREPARE ONLY (publish blocked, rule 11)
 - **Problem (verified):** tags reach `v1.1.12`; latest *published* Release is `v1.1.9`. README's
   `releases/latest/download/...EMS-Workflow-System-Setup.exe` therefore serves the v1.1.9 installer.
 - **Fix:** verify version consistency (done: 1.1.12 everywhere); prepare release notes + checksum
@@ -91,12 +91,12 @@ applicable after verification.
 - **Approach:** re-scan for unused imports/components/utils, console.log/print, stray artifacts;
   prove non-use (refs, dynamic imports, routes, tests, CI, desktop/PyInstaller) before removing.
 
-### `[ ]` Stage 11 — Full final regression (P0)
+### `[x]` Stage 11 — Full final regression (P0)
 - Backend: ruff, compileall, pytest+coverage, migration upgrade (clean + seeded DB), dependency
   audit. Frontend: lint, Vitest+coverage, build, npm audit. E2E Playwright. Live QA + stress.
   Docker/prod-stack: BLOCKED locally → rely on CI at the final SHA.
 
-### `[ ]` Stage 12 — Final report + PR (P0)
+### `[x]` Stage 12 — Final report + PR (P0)
 - Update this journal; produce the full report (SHAs, files, fixes, blocked, tests added/run, exact
   results, remaining risks, PR title + description, release checklist, owner action list).
 
@@ -126,3 +126,53 @@ applicable after verification.
   `afterEach(cleanup)` is configured — no DOM leak. Passed 3× isolated and in the full 484-test
   parallel run. The single historical timeout was CPU starvation under max parallelism, not a test
   bug; per the task, no timeout was added to a fast synchronous test. **Frontend total now 484 tests.**
+
+## Stage 11 — full regression (this branch)
+
+| Check | Result |
+|---|---|
+| Backend ruff | ✅ All checks passed |
+| Backend compileall | ✅ OK |
+| Backend pytest + coverage | ✅ **1113 passed**, **83.07%** (gate 80) |
+| Frontend ESLint | ✅ clean |
+| Frontend Vitest + coverage | ✅ **484 passed**, 70.69% lines (gate 67) |
+| Frontend build / npm audit | ✅ OK / 0 vulnerabilities |
+| E2E (Playwright) | ✅ 20 — 1 flaky on full run, **3/3 isolated** (no app code changed → not a regression) |
+| qa_test.py | ✅ **74 passed, 0 failed, 0 warnings** |
+| stress_test.py | ✅ blind-index check OK, no slow reads, ~153 req/s, 0 errors |
+| Docker / PostgreSQL benchmark | ⛔ BLOCKED (no local Docker) → CI validates the prod stack |
+
+## Stage 12 — final report
+
+- **Baseline:** `7bbbb32` (dev) → **final:** _the branch tip after these commits_ (on `dev`).
+- **Done:** Stages 1, 3, 4, 5, 6, 7, 8(script/doc), 10. **Assessed/deferred:** Stage 9. **Blocked:**
+  Stage 8 Postgres run, Stage 2 release publish (owner action).
+- **Net:** docs reconciled, **+63 tests** (backend 1068→1113 @ 81.3→83.1%; frontend 466→484),
+  benchmark tooling added, repo verified clean. No app/API/data/migration changes.
+
+### Release checklist (Stage 2) — OWNER ACTIONS (not performed here; rule 11)
+
+The code, tags, and version are already at **v1.1.12**; the latest *published* GitHub Release is
+v1.1.9, so the README installer link (`releases/latest/download/...`) serves v1.1.9 until a newer
+release is published. To fix — **owner runs**:
+
+1. Merge the cycle-2 `dev → main` PR (after review) and, if cutting a new version, bump + tag it.
+2. Build the Windows installer (CI Desktop job, or `cd desktop && npm run dist`) and compute its
+   checksum: `sha256sum "release/EMS-Workflow-System-Setup.exe"`.
+3. Publish the release so `releases/latest` points at the current version, e.g. for the existing tag:
+   `gh release create v1.1.12 "release/EMS-Workflow-System-Setup.exe" --title "EMS Workflow System v1.1.12" --notes-file <notes>`
+   (do **not** re-tag or overwrite an existing published release).
+4. Verify the README `releases/latest/download/...` link now serves the current installer, and that
+   the SHA-256 matches.
+5. After merging, fast-forward `main` back into `dev` (as this cycle did in Stage 1).
+
+### Owner action list (summary)
+- [ ] Review + approve the `dev → main` PR.
+- [ ] Merge to `main` (and tag if bumping).
+- [ ] Publish the GitHub Release + upload the installer + checksum (fixes the installer-link desync).
+- [ ] Sync `main` back into `dev`.
+- [ ] (When a Docker host is available) run `scripts/pg_benchmark.py` against the prod stack.
+
+### Merge readiness
+`dev` is clean, all local checks green, `main` untouched, no secrets/artifacts committed. The
+`dev → main` PR is behaviour-preserving (docs + tests + tooling) and ready for review.
