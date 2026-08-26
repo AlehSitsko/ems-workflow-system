@@ -88,7 +88,8 @@ cosmetic/platform noise, not a schema defect:
   models declare these foreign keys; SQLite's batch migrations don't store them
   as named constraints, and SQLite doesn't enforce FKs by default anyway. This
   cannot be reconciled away on SQLite and is harmless (the ORM relationships
-  work). A future Postgres deployment would carry the constraints natively.
+  work). The production PostgreSQL stack (`docker-compose.prod.yml`) carries these
+  constraints natively.
 - **`modify_type` TEXT ↔ VARCHAR / `_alembic_tmp_*` tables** — only appear
   against a *polluted dev database* (leftover batch temp tables, stale dropped
   columns). A fresh migrated database shows none of these. Rebuild the dev DB

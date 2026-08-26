@@ -41,7 +41,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 |---|-----|------|--------|-----------|
 | 1 | P0 | Fix false stress-test "MISSING INDEX: patient.dob" (blind-index arch) | ✅ COMPLETED | Stress report no longer demands a plaintext DOB index and confirms `dob_bidx`/`dob_month_day`. |
 | 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | ✅ COMPLETED | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
-| 3 | P1 | Synchronize documentation with actual `dev` state | TODO | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
+| 3 | P1 | Synchronize documentation with actual `dev` state | ✅ COMPLETED | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
 | 4 | P1 | Add backend quality gate (Ruff lint + format check) | ✅ COMPLETED | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
 | 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
 | 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | ✅ COMPLETED | Reproducible audit in CI; no unexplained critical/high vulns. |
@@ -170,3 +170,25 @@ Reviewed every broad/silent handler in the named risk areas and decided per case
   (`-r requirements.txt` + pytest/fakeredis/ruff/pip-audit). Prod/desktop never pull the test/lint
   toolchain.
 - **Files:** `.github/workflows/ci.yml`, `backend/requirements-dev.txt`, `docs/TESTING.md`.
+
+### Item #3 (P1) — documentation sync — ✅ COMPLETED
+
+Fixed concrete drift against current `dev` (commit-pinned/snapshot-labelled, not frozen constants):
+
+- **Stale test counts:** `README.md` (backend 1009→1066, frontend 458→461), `docs/TESTING.md`
+  (458/52 → 461/53, snapshot `1211e31`), `docs/INFRASTRUCTURE_REPORT.md` (1009→1066, 458→461).
+  E2E "8 spec files / 20 cases" was already correct.
+- **Stale plaintext-DOB index (the task-flagged one):** `docs/ARCHITECTURE.md` listed
+  `patient (last_name, dob)` as a performance index. `dob` is encrypted and deliberately not
+  indexed in plaintext — reworded to name the blind index `dob_bidx` (search/dedup) and derived
+  `dob_month_day` (calendar), consistent with the item #1 stress-test fix.
+- **Prod stack described as future:** `docs/DEVELOPMENT_WORKFLOW.md` said "A future Postgres
+  deployment would carry the constraints natively" — PostgreSQL is the implemented production DB
+  (`docker-compose.prod.yml`, CI prod smoke), so reworded to present tense.
+- **CI job list:** `docs/TESTING.md` "four jobs" → six (backend+ruff, frontend, e2e, docker,
+  desktop, security) — updated as part of items #4/#6.
+- **Verified honest, left as-is:** `TODO.md` (active backlog only; correctly documents the
+  intentional plaintext `last_name`/`first_name`/addresses decisions), `PRODUCTION_READINESS.md`
+  (accurate encryption-verification claims), and historical `COMPLETED_BLOCKS.md` entries.
+- **Files:** `README.md`, `docs/TESTING.md`, `docs/INFRASTRUCTURE_REPORT.md`, `docs/ARCHITECTURE.md`,
+  `docs/DEVELOPMENT_WORKFLOW.md`.

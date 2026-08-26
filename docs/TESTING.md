@@ -113,8 +113,8 @@ npm run test:watch
 ```
 
 Tests live next to their targets as `*.test.js` / `*.test.jsx`; jsdom + jest-dom
-matchers are wired up in `src/test/setup.js`. As of commit `47ef647`: **458 test
-cases across 52 files**. Regenerate with `npx vitest run`.
+matchers are wired up in `src/test/setup.js`. Snapshot as of commit `1211e31`: **461 test
+cases across 53 files** (the number drifts as tests land). Regenerate with `npx vitest run`.
 
 ## Running Playwright E2E locally
 
