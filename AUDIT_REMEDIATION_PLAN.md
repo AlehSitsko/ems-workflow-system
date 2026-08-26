@@ -1,0 +1,77 @@
+# Audit Remediation Plan
+
+Working journal for the post-audit technical remediation. All work happens on `dev`;
+`main` is never touched directly.
+
+## Session metadata
+
+- **Baseline commit:** `19e7c4d` (chore(release): bump version to 1.1.10)
+- **Start date:** 2026-08-25
+- **Branch:** `dev`
+- **`dev` vs `main`:** identical trees — `main` (`b9fc74e`) is the merge commit of this
+  `dev`; `dev` has 0 commits `main` lacks except the merge commit itself. Content is in sync.
+- **Open Dependabot PRs → dev (fetched, not yet handled):**
+  `dependabot/npm_and_yarn/frontend/dev/...`, `dependabot/pip/backend/dev/...`.
+
+## Baseline (Step 2)
+
+_Recorded at baseline commit `19e7c4d`._
+
+| Check | Result |
+|---|---|
+| Backend compileall (`backend qa_test.py stress_test.py qa_harness.py`) | ✅ OK |
+| Backend pytest | ✅ **1063 passed** (~88s) |
+| Frontend `npm ci` | ✅ OK, **0 vulnerabilities** |
+| Frontend lint | ⚠️ 0 errors, **1 warning** — `App.jsx:396` `useMemo` missing deps (→ item #2) |
+| Frontend unit tests (Vitest) | ✅ **461 passed** / 53 files |
+| Frontend build | ✅ OK |
+| Playwright E2E (`--list`) | ✅ **20 tests in 8 files** (disposable-backend config; prod-smoke excluded) |
+| Live QA (`qa_test.py`) | ✅ **74 passed, 0 failed, 0 warnings**; load 180 req, 0 errors, P95 295ms, 107 req/s |
+| Stress test (`stress_test.py`) | ⚠️ **false `MISSING INDEX: patient.dob`** (→ item #1, P0); throughput 148 req/s, P95 237ms, 0 errors, no slow reads |
+| Docker compose config / prod smoke | ⛔ **BLOCKED** — Docker not available in this environment (`docker version` empty). CI covers it on GitHub runners. |
+
+Baseline verdict: green except one false-positive stress warning (item #1) and one lint warning (item #2) — both real work items below, neither a functional defect.
+
+## Work items
+
+Legend: **P0** critical · **P1** high · **P2** medium · **P3** low.
+Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
+
+| # | Pri | Item | Status | Done-when |
+|---|-----|------|--------|-----------|
+| 1 | P0 | Fix false stress-test "MISSING INDEX: patient.dob" (blind-index arch) | ✅ COMPLETED | Stress report no longer demands a plaintext DOB index and confirms `dob_bidx`/`dob_month_day`. |
+| 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | TODO | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
+| 3 | P1 | Synchronize documentation with actual `dev` state | TODO | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
+| 4 | P1 | Add backend quality gate (Ruff lint + format check) | TODO | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
+| 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
+| 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | TODO | Reproducible audit in CI; no unexplained critical/high vulns. |
+| 7 | P1 | Audit suppressed exceptions / silent failures | TODO | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
+| 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
+| 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
+| 10 | P2 | Dead code & repo cleanliness (proven-dead only) | TODO | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
+| 11 | P2 | Performance & concurrency correctness | TODO | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
+| 12 | P3 | Production recovery & operations (DR drill or documented runbook) | TODO | Confirmed or honestly-documented recovery procedure. |
+| 13 | P3 | Final documentation & positioning honesty | TODO | No false compliance/scale/PHI/recovery claims; README complete. |
+
+## Progress log
+
+### Item #1 (P0) — stress-test false DOB-index warning — ✅ COMPLETED
+
+- **Root cause:** `stress_test.py` `run_index_analysis()` had a hardcoded critical-index
+  list expecting `("patient", "dob")`. `patient.dob` is encrypted at rest (Text, no
+  plaintext index by design). Verified in `backend/models/patient.py`: `dob` is Text with
+  no index; `dob_bidx` (String(64), `index=True`) backs exact search + duplicate detection;
+  `dob_month_day` (String(5), `index=True`) backs the birthday calendar.
+- **Change (minimal):** replaced `("patient","dob")` with `("patient","dob_bidx")` and
+  `("patient","dob_month_day")` in the expected list, with a comment explaining the
+  blind-index architecture; made `run_index_analysis()` return `missing` for testability.
+- **Test added:** `backend/tests/test_stress_index_analysis.py` builds the real schema into
+  a throwaway SQLite file, runs the analyzer, asserts `missing == []`. Guards against
+  regressing to a plaintext-DOB expectation (that would report missing and fail). Passes.
+- **SQLite/Postgres:** the analyzer is SQLite-only (reads `sqlite_master`/PRAGMA) and guarded
+  to run only against the disposable QA DB; the same indexes exist on Postgres via the models'
+  `index=True`, so no conflict.
+- **Verification:** new test passes; full `stress_test.py` run now prints `OK patient.dob_bidx`
+  and `OK patient.dob_month_day`, and no `MISSING INDEX`. Perf unchanged (148 req/s, P95 237ms,
+  0 errors, no slow reads).
+- **Files:** `stress_test.py`, `backend/tests/test_stress_index_analysis.py`.
