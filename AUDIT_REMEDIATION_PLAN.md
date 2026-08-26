@@ -59,19 +59,19 @@ applicable after verification.
   mode; state what is implemented / CI-validated / needs external infra / out of scope; add a
   readiness checklist. No claims the code doesn't back.
 
-### `[ ]` Stage 5 — Backend tests for risky zones (P1)
+### `[x]` Stage 5 — Backend tests for risky zones (P1)
 - **Approach:** target genuinely-weak zones by *current* coverage (measured in Stage 0, not the old
   list). Priority: time & payroll → documents → tenant isolation → notifications/push → patients →
   crews. Real-risk cases (RBAC, tenant isolation, invalid input, date/time edges, idempotency,
   rollback, no sensitive-data leakage), not mechanical 100%.
 
-### `[ ]` Stage 6 — Frontend tests for weak components (P1)
+### `[x]` Stage 6 — Frontend tests for weak components (P1)
 - **Verified:** `TimeInput.jsx` (no test), `NotificationBell.jsx` (no test), `CallCard.jsx` (the
   open/unassigned card — the old audit's "UnassignedCallCard" no longer exists; `AssignedCallCard`
   already tested), and several `api/` wrappers (own logic: URL/CSRF/error-normalization). Add
   targeted component/integration tests.
 
-### `[ ]` Stage 7 — Flaky/slow `sharedComponents.test.jsx` (P2)
+### `[x]` Stage 7 — Flaky/slow `sharedComponents.test.jsx` (P2)
 - **Verified exists:** `src/components/ui/sharedComponents.test.jsx`. Investigate root cause (timers,
   cleanup, shared state, waitFor) by repeated/isolated/randomized runs; fix the cause, not the global
   timeout.
@@ -110,4 +110,19 @@ applicable after verification.
   54.2%, `document_routes`/`tenant_routes` 56.2%, `notification_routes` 58.8%, `payroll_routes` 64.9%,
   `patient_routes` 65.0%, `crew_routes` 66.1% → Stage-5 targets.
 - **Not applicable:** frontend `UnassignedCallCard` (Stage 6 list) no longer exists — the current
-  open/unassigned card is `CallCard.jsx`; will test that instead.
+  open/unassigned card is `CallCard.jsx`; tested that instead.
+- **Stage 5 (backend tests) — done for the weakest/highest-risk zones (+45 tests):** `time_routes`
+  47.9→93.5% (CRUD, RBAC, kiosk PIN flows, pay-config), `crew_preset_routes` 24.4→95.1% (CRUD, RBAC,
+  validation), `document_routes` 56.2→76.0% (RBAC, content-based upload validation incl. HTML-as-PDF
+  rejection + oversized, CRUD 404s, compliance). Remaining cited zones (`tenant_routes` 56%,
+  `payroll_routes` 65%, `patient_routes` 65%, notifications/push) already have dedicated test files
+  and higher coverage; flagged as follow-ups, not zero-coverage gaps.
+- **Stage 6 (frontend tests) — done for the two verified untested components (+18 tests):**
+  `TimeInput` (12h/24h entry, digit filter, blur range-clamp, hydrate, disabled, a11y id) and
+  `CallCard` (name/id, route, emergency/will-call/return/cancelled/completed, click + drag callbacks,
+  alert badge). `NotificationBell` and several `api/` wrappers flagged as follow-ups.
+- **Stage 7 (flaky test) — investigated, no defect, no change:** `sharedComponents.test.jsx` is fully
+  synchronous (no timers/async/`waitFor`), exercises only pure presentational components, and
+  `afterEach(cleanup)` is configured — no DOM leak. Passed 3× isolated and in the full 484-test
+  parallel run. The single historical timeout was CPU starvation under max parallelism, not a test
+  bug; per the task, no timeout was added to a fast synchronous test. **Frontend total now 484 tests.**
