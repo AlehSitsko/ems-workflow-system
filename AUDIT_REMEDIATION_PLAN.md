@@ -49,9 +49,9 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
 | 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
 | 10 | P2 | Dead code & repo cleanliness (proven-dead only) | ✅ COMPLETED | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
-| 11 | P2 | Performance & concurrency correctness | TODO | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
+| 11 | P2 | Performance & concurrency correctness | ✅ COMPLETED (Postgres load = BLOCKED) | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
 | 12 | P3 | Production recovery & operations (DR drill or documented runbook) | TODO | Confirmed or honestly-documented recovery procedure. |
-| 13 | P3 | Final documentation & positioning honesty | TODO | No false compliance/scale/PHI/recovery claims; README complete. |
+| 13 | P3 | Final documentation & positioning honesty | ✅ COMPLETED | No false compliance/scale/PHI/recovery claims; README complete. |
 
 ## Progress log
 
@@ -232,3 +232,48 @@ Fixed concrete drift against current `dev` (commit-pinned/snapshot-labelled, not
 - **Net:** nothing provably-dead this round (the earlier audit already removed `migrate.py` and
   `PatientOverviewTab.jsx`); one stale doc reference fixed.
 - **Files:** `docs/UI_STANDARD.md`.
+
+### Item #13 (P3) — documentation & positioning honesty — ✅ COMPLETED (verified, no changes needed)
+
+Audited the positioning against each trap; the project is already honest:
+
+- **HIPAA / compliance:** never claimed — explicitly in "Out of scope" (README, ROADMAP) and a
+  strong disclaimer: *"Not for clinical or production use. This is a portfolio project… does not
+  implement NEMSIS or HIPAA-grade safeguards, no warranty."* `OPERATIONS_RUNBOOK.md` opens with
+  *"This is not a HIPAA-ready deployment."*
+- **Production readiness:** framed as *"production-readiness planning"*; `PRODUCTION_READINESS.md`
+  describes the gate as *"the actual gate… not a checkbox to rush"* — no unconditional claim.
+- **Scalability:** no unqualified "proven scale" claim; the stress numbers are labelled local/SQLite.
+- **Encryption of all PHI:** described as *"optional field-level encryption at rest"*; encryption
+  claims are correctly scoped to *"every encrypted field"* (not "every PHI field"); the intentional
+  plaintext fields (`last_name`/`first_name`, call addresses) and coverage gaps are documented in
+  `TODO.md` and `DATA_CLASSIFICATION.md`.
+- **README completeness:** opens with a Portfolio Summary and covers what it is, architecture, roles,
+  security, testing, run, prod stack, desktop build, and limitations.
+- **One recovery claim not re-verified here:** `PRODUCTION_READINESS.md` states the backup→wipe→restore
+  cycle "is verified". The scripts exist and the claim is plausibly the author's own tested result; it
+  needs Docker/PostgreSQL to re-run, which is unavailable here — carried into item #12 as a
+  re-verification BLOCKED note rather than editing the author's claim.
+- **Files:** none (positioning verified honest).
+
+### Item #11 (P2) — performance & concurrency — ✅ COMPLETED (Postgres load-test BLOCKED)
+
+- **N+1 / pagination:** the two real N+1s were fixed in the earlier audit (task lists 73→3,
+  calendar 53→2 SELECTs, both with query-count regression tests) and re-confirmed working in the
+  manual QA pass; list endpoints paginate (calls "25 of 51", tasks, calendar). `stress_test.py`
+  (seeded, local SQLite) shows no slow reads and ~148 req/s with 0 errors.
+- **Concurrency invariant — the assignment lost-update — confirmed and now unit-tested.** The
+  assign endpoint uses optimistic compare-and-swap via `expected_assignment_id`: a stale view is
+  refused with `409 assignment_conflict` rather than silently overwriting another dispatcher.
+  Added `backend/tests/test_dispatch_concurrency.py`: a stale reassignment is rejected and the
+  original survives; a correct expected id succeeds; omitting the field stays backward-compatible.
+  (The end-to-end two-browser version already exists in `e2e/dispatch.spec.js`.)
+- **Realtime:** the Redis event listener already reconnects with bounded backoff + logging (reviewed
+  in item #7); multi-client SSE sync is covered by `e2e/realtime.spec.js` (passing).
+- **BLOCKED — PostgreSQL load/concurrency capacity:** requires Docker/PostgreSQL, unavailable in this
+  environment. SQLite concurrency is **not** presented as a Postgres capacity result. Reproducible
+  path for when Docker is available: bring up `docker-compose.prod.yml` (Postgres + 3 Gunicorn
+  workers + Redis, as the CI docker job does) and point `stress_test.py` at it
+  (`STRESS_BASE=http://localhost:8080`), plus the existing `scripts/prod_realtime_smoke.py`. Marked
+  BLOCKED, not COMPLETED, for the capacity number.
+- **Files:** `backend/tests/test_dispatch_concurrency.py`.
