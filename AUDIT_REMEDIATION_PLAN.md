@@ -43,7 +43,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 2 | P1 | Resolve React Hooks `useMemo` warning in `App.jsx` | ✅ COMPLETED | `npm run lint` clean (0 errors/warnings); all FE tests pass; auth/password-expired/platform-admin/route flows intact. |
 | 3 | P1 | Synchronize documentation with actual `dev` state | ✅ COMPLETED | Docs honestly describe current `dev`; counts are snapshotted/commit-pinned; no code/CI contradictions. |
 | 4 | P1 | Add backend quality gate (Ruff lint + format check) | ✅ COMPLETED | Reproducible backend lint/format check passes locally and in CI; dev-only deps. |
-| 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | TODO | CI fails on significant coverage drop; report reproducible locally. |
+| 5 | P1 | Add measurable test coverage (pytest-cov + Vitest V8) with CI gate | ✅ COMPLETED | CI fails on significant coverage drop; report reproducible locally. |
 | 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | ✅ COMPLETED | Reproducible audit in CI; no unexplained critical/high vulns. |
 | 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
 | 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | TODO | Files simpler, behavior unchanged, tests + build pass. |
@@ -192,3 +192,24 @@ Fixed concrete drift against current `dev` (commit-pinned/snapshot-labelled, not
   (accurate encryption-verification claims), and historical `COMPLETED_BLOCKS.md` entries.
 - **Files:** `README.md`, `docs/TESTING.md`, `docs/INFRASTRUCTURE_REPORT.md`, `docs/ARCHITECTURE.md`,
   `docs/DEVELOPMENT_WORKFLOW.md`.
+
+### Item #5 (P1) — measurable coverage with a ratchet gate — ✅ COMPLETED
+
+- **Backend baseline 81.3%** (branch coverage; `pytest-cov`). Gate: `fail_under = 80` in
+  `backend/.coveragerc` (ratchet just below baseline). `source = .`, omitting deps, tests,
+  generated migrations, the disposable QA/E2E/desktop entry servers, and one-off scripts —
+  each omission justified in the config. `pytest-cov==7.1.0` added to `requirements-dev.txt`.
+- **Frontend baseline 68.5% lines / 60.7% branches** (`@vitest/coverage-v8`). Gate thresholds
+  in `vite.config.js`: lines 67, statements 64, functions 60, branches 59. Uses V8's default
+  include (the unit-tested surface): the large page components are covered by Playwright E2E,
+  not Vitest, so forcing them in would report 0% and understate coverage — documented, not faked.
+- **Ratchet, not fake-high:** thresholds sit just below the real baselines (prevent a drop),
+  never an artificial 95–100%. Lowest-covered backend modules (audit/settings/events routes,
+  push_utils, employee_shifts) recorded as the next targets rather than hidden by exclusions.
+- **CI:** Backend job runs `pytest --cov` (honours `fail_under`); Frontend job runs
+  `npm run test:coverage`. Coverage artifacts git-ignored (`.coverage`, `coverage/`), configs tracked.
+- **Verification:** frontend `test:coverage` passes at the thresholds (exit 0, 68.5% lines);
+  backend full `--cov` run measured 81.3% > 80 gate.
+- **Files:** `backend/.coveragerc`, `backend/requirements-dev.txt`, `frontend/vite.config.js`,
+  `frontend/package.json`, `frontend/package-lock.json`, `.github/workflows/ci.yml`, `.gitignore`,
+  `docs/TESTING.md`.

@@ -27,8 +27,8 @@ jobs:
         run: ruff check .
       - name: Compile all modules
         run: python -m compileall .
-      - name: Run pytest (isolated, in-memory SQLite)
-        run: pytest -q
+      - name: Run pytest + coverage gate (isolated, in-memory SQLite)
+        run: pytest -q --cov --cov-report=term-missing
 
   frontend:
     name: Frontend (lint + test + build)
@@ -47,8 +47,8 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Unit tests (Vitest)
-        run: npm test
+      - name: Unit tests + coverage gate (Vitest)
+        run: npm run test:coverage
       - name: Production build
         run: npm run build
 

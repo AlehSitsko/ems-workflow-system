@@ -116,6 +116,29 @@ Tests live next to their targets as `*.test.js` / `*.test.jsx`; jsdom + jest-dom
 matchers are wired up in `src/test/setup.js`. Snapshot as of commit `1211e31`: **461 test
 cases across 53 files** (the number drifts as tests land). Regenerate with `npx vitest run`.
 
+## Coverage gates
+
+Both suites enforce a **ratchet** — a threshold set just below the current baseline, so
+the gate fails on a real regression but tolerates small fluctuation. Raise the numbers as
+coverage improves; never lower them silently.
+
+```powershell
+cd backend;  pytest --cov --cov-report=term-missing   # gate: fail_under = 80 (baseline 81.3%)
+cd frontend; npm run test:coverage                     # gate: lines 67 (baseline 68.5%), branches 59
+```
+
+- **Backend** (`backend/.coveragerc`, V8-style branch coverage via `pytest-cov`): measures
+  application code; omits deps, tests, generated migrations, the disposable QA/E2E/desktop entry
+  servers, and one-off scripts (all justified). Lowest-covered modules today — `audit_routes`,
+  `settings_routes`, `events_routes`, `push_utils`, `employee_shifts` — are the next test targets.
+- **Frontend** (`vite.config.js` `test.coverage`, `@vitest/coverage-v8`): measures the
+  unit-tested surface. The large page components (`CrewPlannerPage`, `CallFormPage`,
+  `DispatchBoardPage`, …) are covered by the **Playwright E2E** suite, not Vitest, so they are
+  intentionally outside this number rather than counted as 0%.
+
+CI runs both gates (Backend and Frontend jobs). Coverage artifacts (`.coverage`, `coverage/`)
+are git-ignored; the config files are tracked.
+
 ## Running Playwright E2E locally
 
 The E2E suite is **8 spec files** (`frontend/e2e/*.spec.js`) containing **20 test
