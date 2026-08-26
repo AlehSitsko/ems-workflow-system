@@ -1,9 +1,8 @@
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Employee
+from models import db, Employee
 
 
 @pytest.fixture()

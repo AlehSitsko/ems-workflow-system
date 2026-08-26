@@ -23,10 +23,12 @@ jobs:
           cache-dependency-path: backend/requirements-dev.txt
       - name: Install dependencies (runtime + test toolchain)
         run: pip install -r requirements-dev.txt
+      - name: Lint (ruff — correctness gate, see backend/ruff.toml)
+        run: ruff check .
       - name: Compile all modules
         run: python -m compileall .
-      - name: Run pytest (isolated, in-memory SQLite)
-        run: pytest -q
+      - name: Run pytest + coverage gate (isolated, in-memory SQLite)
+        run: pytest -q --cov --cov-report=term-missing
 
   frontend:
     name: Frontend (lint + test + build)
@@ -45,8 +47,8 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Unit tests (Vitest)
-        run: npm test
+      - name: Unit tests + coverage gate (Vitest)
+        run: npm run test:coverage
       - name: Production build
         run: npm run build
 
@@ -248,3 +250,31 @@ jobs:
           test -f "$app/resources/backend/ems-backend.exe" || { echo "bundled backend exe missing"; exit 1; }
           test -f "$app/resources/frontend/index.html"     || { echo "bundled SPA missing";          exit 1; }
           echo "desktop build smoke OK"
+
+  security:
+    name: Dependency audit (pip-audit + npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # Runtime is what ships, so audit it strictly (fail on any known advisory);
+      # the dev toolchain is audited too. Baseline is clean. If an unfixable
+      # transitive advisory appears, pin/ignore it explicitly with a comment.
+      - name: pip-audit (backend runtime + dev)
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r backend/requirements.txt
+          pip-audit -r backend/requirements-dev.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      # Production (shipped) deps must have no high/critical advisories. Dev-only
+      # advisories are surfaced by Dependabot rather than blocking here.
+      - name: npm audit (frontend production deps)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (desktop production deps)
+        working-directory: desktop
+        run: npm audit --omit=dev --audit-level=high

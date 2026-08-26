@@ -1,12 +1,11 @@
 """Tests for the unified calendar events API and the Dispatch Board date-mode
 guard (planning/live/history)."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Employee, Patient, Call, DailyCrewUnit, CallAssignment, Vehicle, Task
+from models import db, Employee, Patient, Call, DailyCrewUnit, CallAssignment, Vehicle, Task
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────

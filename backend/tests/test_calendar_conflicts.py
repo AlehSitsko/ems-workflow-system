@@ -9,9 +9,8 @@ drags the day's readiness down.
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Employee, DailyCrewUnit, Vehicle
+from models import db, Employee, DailyCrewUnit, Vehicle
 
 
 DAY = (date.today() + timedelta(days=3)).isoformat()

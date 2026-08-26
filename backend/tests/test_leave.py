@@ -7,9 +7,8 @@ not by noticing that a field is present but blank.
 """
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Employee, EmployeeLeaveRequest, DailyCrewUnit
+from models import db, Employee, DailyCrewUnit
 
 
 @pytest.fixture()

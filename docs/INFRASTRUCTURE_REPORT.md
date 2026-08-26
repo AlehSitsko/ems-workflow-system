@@ -191,9 +191,9 @@ the field-encryption / kiosk-PIN-hash rollout — see [DATA_CLASSIFICATION.md](D
 
 ## Test posture
 
-Full backend suite **1009 tests** (as of commit `47ef647`; the report was first
-written at 982 and 993 — the number grows as tests land, so treat it as a snapshot
-and regenerate with `pytest --co -q`); frontend **458**
+Full backend suite **1066 tests** (snapshot as of commit `1211e31`; the report was first
+written at 982/993/1009 — the number grows as tests land, so treat it as a snapshot
+and regenerate with `pytest --co -q`); frontend **461**
 Vitest tests. **8 Playwright E2E spec files (20 cases)** run in CI against a disposable
 migrated+seeded backend (smoke, roles, dispatch, workflow, invitations, realtime,
 cross-module realtime sync, responsive-viewport). CI runs four jobs — backend

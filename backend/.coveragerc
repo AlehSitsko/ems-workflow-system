@@ -1,0 +1,29 @@
+# Coverage config for the backend test suite.
+# Measures application code only. Omissions are all justified: third-party deps
+# (venv), the test code itself, generated Alembic migrations, the disposable
+# QA/E2E/desktop entry servers (exercised by live QA / E2E, not unit tests), and
+# one-off scripts.
+[run]
+source = .
+branch = True
+omit =
+    venv/*
+    tests/*
+    migrations/*
+    conftest.py
+    e2e_server.py
+    qa_server.py
+    desktop_server.py
+    wsgi.py
+    gunicorn.conf.py
+    scripts/*
+
+[report]
+show_missing = True
+skip_covered = True
+precision = 1
+# Ratchet just below the current baseline (81.3%): the gate fails on a real
+# regression but tolerates small fluctuation. Raise this as coverage improves;
+# never lower it silently. Lowest-covered modules today (audit/settings/events
+# routes, push_utils, employee_shifts) are the documented next targets.
+fail_under = 80

@@ -9,7 +9,6 @@ Safe to run multiple times — only updates records where notes contain
 legacy structured lines AND the proper column is currently empty.
 """
 
-import re
 import sys
 import os
 

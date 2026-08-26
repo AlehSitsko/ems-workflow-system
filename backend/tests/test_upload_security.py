@@ -9,7 +9,6 @@ refused before it is buffered.
 """
 
 import io
-import os
 import zipfile
 
 import pytest

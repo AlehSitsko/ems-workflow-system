@@ -3,7 +3,6 @@ aggregator, and RRULE in the ICS export. The occurrence maths itself is pinned i
 test_event_recurrence.py; this checks the wiring end to end.
 """
 
-import pytest
 
 
 def mk(client, **fields):

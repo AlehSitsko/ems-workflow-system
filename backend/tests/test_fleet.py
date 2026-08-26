@@ -6,9 +6,8 @@ frontend gate is a convenience — these tests pin the backend enforcement.
 """
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Vehicle, AuditLog
+from models import db, Vehicle, AuditLog
 
 
 @pytest.fixture()

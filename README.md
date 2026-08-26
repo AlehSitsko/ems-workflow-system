@@ -290,10 +290,10 @@ npm run build     # production build
 ### Tests
 
 ```powershell
-# Backend — 1009 isolated pytest tests (in-memory SQLite, no server needed)
+# Backend — 1066 isolated pytest tests (in-memory SQLite, no server needed)
 cd backend; pytest -v
 
-# Frontend — 458 Vitest tests (utilities + component tests)
+# Frontend — 461 Vitest tests (utilities + component tests)
 cd frontend; npm test
 
 # End-to-end — 8 Playwright spec files (20 test cases) against a disposable,

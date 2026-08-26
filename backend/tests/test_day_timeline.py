@@ -4,7 +4,6 @@ The read side of the lifecycle timestamps: the day's trips as an agenda with
 planned times, actual milestones and the pickup variance.
 """
 
-import pytest
 
 from models import db, Call
 

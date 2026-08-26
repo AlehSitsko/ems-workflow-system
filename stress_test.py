@@ -215,8 +215,13 @@ def run_index_analysis(db_path):
             print(f"    {t:35s} {cur.fetchone()[0]:>6} rows")
         except Exception:
             pass
+    # patient.dob is encrypted at rest (Text, no plaintext index by design). Exact
+    # search and duplicate detection go through the blind index patient.dob_bidx, and
+    # the birthday calendar filters on the derived patient.dob_month_day — both indexed.
+    # Do NOT expect an index on plaintext patient.dob; that would defeat the encryption.
     expected = [("call", "trip_date"), ("call", "status"), ("call", "patient_id"),
-                ("patient", "last_name"), ("patient", "dob"), ("call_assignment", "unit_id"),
+                ("patient", "last_name"), ("patient", "dob_bidx"), ("patient", "dob_month_day"),
+                ("call_assignment", "unit_id"),
                 ("daily_crew_unit", "shift_date"), ("user_notification", "user_id"),
                 ("time_entry", "employee_id"), ("audit_log", "timestamp"),
                 ("employee_document", "employee_id"), ("employee_document", "expiry_date")]
@@ -235,6 +240,7 @@ def run_index_analysis(db_path):
             missing.append((table, col))
     conn.close()
     RESULTS["missing_indexes"] = missing
+    return missing
 
 
 def print_report():

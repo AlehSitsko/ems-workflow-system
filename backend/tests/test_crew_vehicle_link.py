@@ -8,9 +8,8 @@ keep working.
 """
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Vehicle, DailyCrewUnit
+from models import db, Vehicle, DailyCrewUnit
 
 
 @pytest.fixture()

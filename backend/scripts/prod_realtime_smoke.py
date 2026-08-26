@@ -12,7 +12,6 @@ Exits non-zero on failure so CI fails loudly. Requires the demo users to be seed
 (the CI job runs `flask seed-demo` first).
 """
 
-import json
 import sys
 import threading
 import time

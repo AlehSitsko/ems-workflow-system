@@ -195,7 +195,6 @@ class RedisEventBus:
                 pass
 
     def _listen(self):
-        import redis
         backoff = 0.5
         while not self._stop.is_set():
             try:

@@ -26,3 +26,11 @@ desktop/release/
 backend/build/
 backend/dist/
 *.spec.bak
+
+# Coverage artifacts (config files .coveragerc / vite coverage config are tracked;
+# the generated data and reports are not).
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+*.lcov

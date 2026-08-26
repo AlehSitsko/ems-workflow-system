@@ -90,6 +90,20 @@ around each test. This is a config override — it has zero effect on `python ap
 Add new modules under `backend/tests/`; the `app`, `client`, and `db_session`
 fixtures are available without extra imports.
 
+## Backend lint (ruff)
+
+```powershell
+cd backend
+ruff check .          # correctness gate; CI runs the same command
+```
+
+`backend/ruff.toml` scopes the gate to **correctness only** — `F` (pyflakes: unused
+imports/variables, undefined names, redefinitions, f-string bugs) and `E9` (syntax
+errors). It is intentionally **not** a formatter: the project keeps its own consistent
+style, so blanket `ruff format` / import-reordering is out of scope (it would rewrite
+~160 files with no behavioural change). Package `__init__.py` re-exports are exempt from
+`F401`. `ruff` is a dev-only dependency (`requirements-dev.txt`).
+
 ## Running frontend Vitest
 
 ```powershell
@@ -99,8 +113,31 @@ npm run test:watch
 ```
 
 Tests live next to their targets as `*.test.js` / `*.test.jsx`; jsdom + jest-dom
-matchers are wired up in `src/test/setup.js`. As of commit `47ef647`: **458 test
-cases across 52 files**. Regenerate with `npx vitest run`.
+matchers are wired up in `src/test/setup.js`. Snapshot as of commit `1211e31`: **461 test
+cases across 53 files** (the number drifts as tests land). Regenerate with `npx vitest run`.
+
+## Coverage gates
+
+Both suites enforce a **ratchet** — a threshold set just below the current baseline, so
+the gate fails on a real regression but tolerates small fluctuation. Raise the numbers as
+coverage improves; never lower them silently.
+
+```powershell
+cd backend;  pytest --cov --cov-report=term-missing   # gate: fail_under = 80 (baseline 81.3%)
+cd frontend; npm run test:coverage                     # gate: lines 67 (baseline 68.5%), branches 59
+```
+
+- **Backend** (`backend/.coveragerc`, V8-style branch coverage via `pytest-cov`): measures
+  application code; omits deps, tests, generated migrations, the disposable QA/E2E/desktop entry
+  servers, and one-off scripts (all justified). Lowest-covered modules today — `audit_routes`,
+  `settings_routes`, `events_routes`, `push_utils`, `employee_shifts` — are the next test targets.
+- **Frontend** (`vite.config.js` `test.coverage`, `@vitest/coverage-v8`): measures the
+  unit-tested surface. The large page components (`CrewPlannerPage`, `CallFormPage`,
+  `DispatchBoardPage`, …) are covered by the **Playwright E2E** suite, not Vitest, so they are
+  intentionally outside this number rather than counted as 0%.
+
+CI runs both gates (Backend and Frontend jobs). Coverage artifacts (`.coverage`, `coverage/`)
+are git-ignored; the config files are tracked.
 
 ## Running Playwright E2E locally
 
@@ -139,11 +176,11 @@ is not installed the run fails at launch — do not report E2E as passing in tha
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs four jobs on pull requests and pushes to
+`.github/workflows/ci.yml` runs six jobs on pull requests and pushes to
 `dev`/`main`:
 
-- **Backend job:** `pip install -r backend/requirements.txt`,
-  `python -m compileall backend`, `pytest`
+- **Backend job:** `pip install -r backend/requirements-dev.txt`, **`ruff check .`**
+  (correctness lint gate), `python -m compileall backend`, `pytest`
 - **Frontend job:** `npm ci`, `npm run lint`, `npm test`, `npm run build`
 - **E2E job:** builds the SPA and runs the **Playwright** suite (`npm run
   test:e2e`) against a disposable, migrated + seeded backend that Playwright's
@@ -153,9 +190,17 @@ is not installed the run fails at launch — do not report E2E as passing in tha
 - **Docker job:** builds the dev and prod images, then **smoke-tests the
   production stack** — `docker compose -f docker-compose.prod.yml up --wait` brings
   up PostgreSQL + Gunicorn + Nginx (the backend runs the full migration chain
-  against PostgreSQL on startup), then a `/api/health` curl through Nginx proves
-  the chain. This is what exercises the migrations against real PostgreSQL rather
-  than only SQLite.
+  against PostgreSQL on startup), then a `/api/health` curl through Nginx plus a
+  real-browser Playwright smoke prove the chain. This is what exercises the
+  migrations against real PostgreSQL rather than only SQLite.
+- **Desktop job** (`windows-latest`): builds the SPA, packages the backend with
+  PyInstaller, runs `electron-builder --dir`, and asserts the unpacked app bundled
+  the Electron exe, `ems-backend.exe`, and the SPA — a build smoke for the desktop
+  release path (no app launch, no signing).
+- **Security job:** **`pip-audit`** on the backend runtime + dev requirements, and
+  **`npm audit --omit=dev --audit-level=high`** on the frontend and desktop
+  production deps. Complements Dependabot (`.github/dependabot.yml`, which opens
+  update PRs to `dev` for pip, npm, Docker, and GitHub Actions).
 
 The live QA scripts are **intentionally excluded** from CI — although they now
 self-boot a disposable backend (so they *could* run), they are heavier HTTP smoke

@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
 
-from models import db, User, Organization, OrgRecoveryCode, UserSession
+from models import db, User, OrgRecoveryCode, UserSession
 from utils.auth_utils import (
     require_role, get_request_user_id, get_request_user_name, append_password_history,
 )

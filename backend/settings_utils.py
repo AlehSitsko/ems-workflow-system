@@ -1,4 +1,7 @@
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
     "notifications": {
@@ -82,8 +85,10 @@ def load_user_settings(user, db_session=None):
     if user.settings_json:
         try:
             stored = json.loads(user.settings_json)
-        except Exception:
-            pass
+        except (json.JSONDecodeError, TypeError):
+            # A corrupt blob shouldn't lock the user out — fall back to defaults, but
+            # log it (id only, never the blob's contents) so it can be investigated.
+            logger.warning("corrupt settings_json for user %s; using defaults", user.id)
 
     # One-time migration from old UserNotificationPrefs table
     if not stored:
@@ -92,13 +97,13 @@ def load_user_settings(user, db_session=None):
             if old.prefs_json:
                 try:
                     stored["notifications"] = json.loads(old.prefs_json)
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning("corrupt legacy prefs_json for user %s; skipping", user.id)
             if old.dispatch_thresholds_json:
                 try:
                     stored["dispatch"] = json.loads(old.dispatch_thresholds_json)
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning("corrupt legacy dispatch_thresholds_json for user %s; skipping", user.id)
         if stored:
             # Persist migrated data immediately
             from models import db

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
@@ -10,6 +11,8 @@ from notification_utils import create_notification
 from utils.validation_utils import check_length
 from utils.file_validation import validate_upload, UploadValidationError, safe_display_name, scan_upload
 from utils.auth_utils import get_request_user_id, require_role
+
+logger = logging.getLogger(__name__)
 from audit_utils import log_action
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api")
@@ -182,7 +185,9 @@ def _notify_if_expiring(doc):
             dedup_minutes=60,
         )
     except Exception:
-        pass
+        # Best-effort expiry notification — must not fail the document write. Log at
+        # debug (id only, no document contents) so a delivery problem is diagnosable.
+        logger.debug("doc-expiring notification failed for document %s", doc.id, exc_info=True)
 
 
 # ── Single document ──────────────────────────────────────────────────────────

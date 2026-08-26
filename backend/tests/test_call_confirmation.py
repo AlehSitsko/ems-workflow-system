@@ -9,9 +9,8 @@ leaving it looking scheduled is how a truck gets sent to a door nobody opens.
 from datetime import date, timedelta
 
 import pytest
-from werkzeug.security import generate_password_hash
 
-from models import db, User, Call, Patient
+from models import db, Call, Patient
 
 
 TOMORROW = (date.today() + timedelta(days=1)).isoformat()

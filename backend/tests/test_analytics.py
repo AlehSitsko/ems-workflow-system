@@ -2,7 +2,6 @@
 part — tenant isolation (the endpoint aggregates Call rows, which must never cross an
 org boundary). Also pins the role gate."""
 
-import pytest
 
 from models import db, Organization, Call
 from conftest import make_user, login

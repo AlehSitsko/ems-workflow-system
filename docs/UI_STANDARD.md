@@ -46,7 +46,8 @@ open the Employees list.
 | Clicking a row opens a drawer | Bulk selection needed |
 
 ### Detail Grid
-Use `DetailGrid` / `DetailItem` components for key-value pairs inside a drawer or overview panel — not raw `<div>` pairs.
+Use the `DetailItem` component (`components/patients/DetailItem.jsx`) for labelled key-value
+pairs inside a drawer or overview panel — not raw `<div>` pairs.
 
 ---
 

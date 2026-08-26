@@ -175,7 +175,7 @@ def test_utilization_counts_units_calls_and_load(clients):
     mk_unit("2026-01-10")
     mk_unit("2026-01-10")            # two units on duty that day
     c1 = mk_call("2026-01-10", status="completed")
-    c2 = mk_call("2026-01-10", status="new")
+    mk_call("2026-01-10", status="new")
     mk_unit("2026-01-11")           # a unit but no calls
     assign(c1, DailyCrewUnit.query.first())   # one call covered
 
