@@ -47,7 +47,7 @@ Status: `TODO` · `IN PROGRESS` · `BLOCKED` · `COMPLETED`.
 | 6 | P1 | Dependency & supply-chain security (pip-audit, npm audit, Dependabot, SBOM) | ✅ COMPLETED | Reproducible audit in CI; no unexplained critical/high vulns. |
 | 7 | P1 | Audit suppressed exceptions / silent failures | ✅ COMPLETED | Important failures diagnosable; security-sensitive paths fail closed; best-effort ops don't break requests; no PHI/secrets in logs. |
 | 8 | P2 | Refactor largest frontend files (CrewPlanner, CallForm(Page), DispatchBoard, Tasks, Calls) | 🟡 PARTIAL | Files simpler, behavior unchanged, tests + build pass. |
-| 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | TODO | Business logic testable off-HTTP; routes thinner; no regressions. |
+| 9 | P2 | Extract backend service layer (calls, dispatch, calendar, patients, tasks) | 🟡 PARTIAL (assessed — already substantially factored) | Business logic testable off-HTTP; routes thinner; no regressions. |
 | 10 | P2 | Dead code & repo cleanliness (proven-dead only) | ✅ COMPLETED | Only proven-dead removed; `.gitignore` correct; builds/tests pass. |
 | 11 | P2 | Performance & concurrency correctness | ✅ COMPLETED (Postgres load = BLOCKED) | Core invariants confirmed under concurrency or honestly documented as BLOCKED. |
 | 12 | P3 | Production recovery & operations (DR drill or documented runbook) | ✅ COMPLETED (infra drill = BLOCKED) | Confirmed or honestly-documented recovery procedure. |
@@ -318,3 +318,28 @@ Audited the positioning against each trap; the project is already honest:
   Marked **PARTIAL** honestly — one high-value block landed, the rest is a tracked continuation.
 - **Files:** `frontend/src/utils/callUtils.js`, `frontend/src/utils/callUtils.test.js`,
   `frontend/src/components/CallForm.jsx`, `frontend/src/pages/CallFormPage.jsx`.
+
+### Item #9 (P2) — backend service layer — 🟡 PARTIAL (assessed; no big-bang, by design)
+
+- **Finding: the backend already has a domain/service layer.** Complex domain rules are already
+  extracted into `utils/` and imported by the routes, e.g. `capability_match.py`
+  (`assignment_mismatch`, `unit_can_serve`, `required_capability` — used by dispatch AND calendar
+  routes via a clean shared import, no route-to-route coupling), `taxonomy.py`,
+  `employee_shifts.py`, `event_recurrence.py`, `pto.py`, `validation_utils.py`. Tenant isolation is
+  a cross-cutting concern handled centrally in `tenant.py` (SQLAlchemy `do_orm_execute`), not per
+  route. The route handlers are already orchestration-thin: validate → delegate domain checks to
+  utils → db → audit → publish-event-after-commit.
+- **No significant cross-route duplication to consolidate** (unlike the clear frontend
+  `CallForm`/`CallFormPage` case in #8): the only near-duplicate is the "active assignment for a
+  call" lookup (`CallAssignment.query.filter_by(call_id=…, is_active=True)`) in two routes with
+  different arity (`.first()` vs `.all()`) — too thin to warrant an abstraction without churn.
+- **Decision — do not force a `services/` rename.** The task forbids big-bang rewrites and cosmetic
+  splitting "без улучшения"; renaming the existing `utils/` domain modules into `services/`, or
+  hoisting route orchestration into service functions purely for layering, would be churn and risk
+  on a well-tested surface for little benefit. Marked **PARTIAL** honestly rather than claim a
+  completed extraction that would be low-value.
+- **Incremental target (if the owner wants deeper layering later):** lift the assign/complete/reopen/
+  unassign **state-transition orchestration** out of `dispatch_routes` into a `services/dispatch.py`
+  (pure of the Flask request), one endpoint at a time, with the full backend suite + `qa_test.py`
+  after each — the same small-block discipline used in #8.
+- **Files:** none (assessment; no low-value churn introduced).
