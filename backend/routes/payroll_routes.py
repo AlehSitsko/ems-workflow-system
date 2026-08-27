@@ -1,4 +1,5 @@
 import csv
+from utils.csv_utils import csv_safe
 import io
 from datetime import datetime
 
@@ -219,14 +220,14 @@ def export_payroll():
         for r in rows:
             if r["regular_hours"] > 0:
                 writer.writerow([
-                    r["employee_number"] or r["employee_id"],
-                    r["first_name"], r["last_name"],
+                    csv_safe(r["employee_number"] or r["employee_id"]),
+                    csv_safe(r["first_name"]), csv_safe(r["last_name"]),
                     r["regular_hours"], r["regular_pay"], "Regular",
                 ])
             if r["ot_hours"] > 0:
                 writer.writerow([
-                    r["employee_number"] or r["employee_id"],
-                    r["first_name"], r["last_name"],
+                    csv_safe(r["employee_number"] or r["employee_id"]),
+                    csv_safe(r["first_name"]), csv_safe(r["last_name"]),
                     r["ot_hours"], r["ot_pay"], "Overtime",
                 ])
     elif fmt == "adp":
@@ -251,8 +252,8 @@ def export_payroll():
         ])
         for r in rows:
             writer.writerow([
-                r["employee_number"] or r["employee_id"],
-                r["first_name"], r["last_name"],
+                csv_safe(r["employee_number"] or r["employee_id"]),
+                csv_safe(r["first_name"]), csv_safe(r["last_name"]),
                 r["total_hours"], r["regular_hours"], r["ot_hours"],
                 r["hourly_rate"], r["ot_rate_multiplier"],
                 r["regular_pay"], r["ot_pay"], r["total_pay"],

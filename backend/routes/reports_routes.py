@@ -23,6 +23,7 @@ from sqlalchemy import or_
 from models import db, Call, DailyCrewUnit, CallAssignment, TimeEntry, Employee, Organization
 from utils.auth_utils import require_role, get_request_role
 from utils.operational_dates import parse_operational_date, require_valid_date
+from utils.csv_utils import csv_safe
 from utils import lateness as lateness_engine
 from tenant import current_org_id
 
@@ -192,8 +193,8 @@ def calls_report_export():
     for c in calls:
         writer.writerow([
             c.id, c.trip_date, c.status or "new", c.service_level or "",
-            c.dispatcher_name or "", c.pickup_time or "",
-            c.pickup_address or "", c.dropoff_address or "",
+            csv_safe(c.dispatcher_name or ""), c.pickup_time or "",
+            csv_safe(c.pickup_address or ""), csv_safe(c.dropoff_address or ""),
             c.completed_at or "", c.cancelled_at or "",
         ])
 
@@ -380,7 +381,7 @@ def hours_report_export():
     writer = csv.writer(output)
     writer.writerow(["Employee ID", "Name", "Total Hours", "Entries", "Days Worked"])
     for r in rows:
-        writer.writerow([r["employee_id"], r["name"], r["total_hours"],
+        writer.writerow([r["employee_id"], csv_safe(r["name"]), r["total_hours"],
                          r["entries"], r["days_worked"]])
 
     filename = f"hours_{start_d.isoformat()}_{end_d.isoformat()}.csv"
