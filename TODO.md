@@ -33,6 +33,30 @@ DB-at-rest encryption.
   Python-shaped, not clean SQL; a full move to indexed SQL aggregation + operational-day
   rollups is only worth it at real volume (the query is already bounded by `limit`).
 
+## Coverage & hardening follow-ups (post-v1.1.12 remediation)
+
+Actionable items from the cycle-2 assessment — closing the remaining test gaps in the
+weakest zones (same standard as the time/crew_preset/document work). Worked one at a time,
+each with its own commit; this list is updated as each lands.
+
+- [ ] **A — Notifications/push backend tests.** `notification_utils.py` (54%),
+  `notification_routes.py` (59%), `push_utils.py` (38%). Cover read/unread, dedup, tenant
+  isolation, role targeting, subscription lifecycle, invalid endpoint, and that a push
+  provider failure never breaks the primary workflow.
+- [ ] **B — `tenant_routes.py` backend tests** (56%). Public `current`, org get/patch,
+  invitation lifecycle, org-boundary (cannot read/modify another org), no org-id via payload.
+- [ ] **C — `NotificationBell.jsx` frontend test.** Unread counter, open list, mark
+  (all) read, empty state, failed request, accessible name/focus.
+- [ ] **D — `payroll_routes.py` (65%) + `patient_routes.py` (65%) coverage top-up** —
+  edge cases (already-calculated period, permission boundaries, archived/deleted).
+- [ ] **E — `api/` wrapper tests** for a couple of untested wrappers with real own-logic
+  (URL construction, CSRF, error normalization for 401/403/409/422).
+
+**Blocked (need a Docker/Postgres host — not faked locally):**
+- [ ] Run `scripts/pg_benchmark.py` against the prod PostgreSQL stack; compare to SQLite.
+- [ ] DR drill on a live stack (backup→restore, container restart, Redis/S3 outage).
+- [ ] Operator TLS-terminating proxy for a target environment (external, per deployment).
+
 ## Deferred (intentionally parked — not oversights)
 
 - [ ] **External (Google/Outlook) two-way calendar sync** — needs an OAuth
