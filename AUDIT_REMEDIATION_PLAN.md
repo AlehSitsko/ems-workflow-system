@@ -36,7 +36,7 @@ Untested: employeesApi, patientsApi, vehiclesApi, operationsApi, portalApi (+ cr
 Own-logic: URL/query/encoding, method, body, credentials, CSRF/caller headers, error normalization
 (400/401/403/404/409/422/429/500 + fallback), no client-trusted org_id/role/identity. Fetch stubbed.
 
-### `[ ]` D (P1) — Multi-tenancy / security adversarial review
+### `[x]` D (P1) — Multi-tenancy / security adversarial review
 Verify existing tenant-isolation + upload + CSRF tests cover org_id spoofing (body/query/header),
 IDOR, CSV injection, HTML-as-PDF. Add adversarial tests where a gap is proven.
 
@@ -72,5 +72,10 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
   settings_utils 68.3→**85%** (legacy prefs migration + corrupt-blob skip), crew_routes lifted
   (+12 CRUD/validation/RBAC/alerts), notification_utils fan-out+dedup (+5). push_utils internals
   wrap pywebpush → tested at the route level (send_push mocked); library-boundary mocking skipped.
+
+- **D** — existing suite already covers the cited vectors (test_tenant_isolation ×19, test_security_
+  adversarial: client org_id-on-create ignored, AAD/ciphertext relocation, key rotation, realtime
+  isolation, invite escalation; test_upload_security; test_org_id_in_payload_is_ignored). **One real
+  gap found & fixed: CSV formula injection** in reports/payroll exports (csv_safe guard + tests).
 
 _Appended per item._
