@@ -46,8 +46,8 @@ each with its own commit; this list is updated as each lands.
 - [x] **B — `tenant_routes.py` backend tests** (56% -> 92.4%). Done: PATCH validation
   branches (name/settings/pto/punctuality) + caller-only-sees-own-org + org-id-in-payload
   ignored. Found & fixed a real bug: over-length name/settings returned 500 (now 400).
-- [ ] **C — `NotificationBell.jsx` frontend test.** Unread counter, open list, mark
-  (all) read, empty state, failed request, accessible name/focus.
+- [x] **C — `NotificationBell.jsx` frontend test.** Done (+9): badge (count / 99+ / hidden),
+  open/close, empty state, list, Mark all read, mark-read on unread click, no re-mark of read.
 - [ ] **D — `payroll_routes.py` (65%) + `patient_routes.py` (65%) coverage top-up** —
   edge cases (already-calculated period, permission boundaries, archived/deleted).
 - [ ] **E — `api/` wrapper tests** for a couple of untested wrappers with real own-logic
