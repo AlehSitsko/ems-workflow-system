@@ -22,7 +22,7 @@ commands, not executed. Source of truth = the current code, re-verified.
 
 Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked · `[-]` n/a after check.
 
-### `[ ]` A (P1) — Documentation sync to v1.1.13
+### `[x]` A (P1) — Documentation sync to v1.1.13
 README line 363 still says "1068 backend + 466 frontend, snapshot at v1.1.12" (actual 1150/500,
 version 1.1.13). Update to measured values pinned to v1.1.13 / de-brittle; sweep docs for stale
 v1.1.12; keep historical reports labelled historical; no false HIPAA/prod-scale/CAD-ePCR claims.
@@ -31,7 +31,7 @@ v1.1.12; keep historical reports labelled historical; no false HIPAA/prod-scale/
 Targets: `settings_utils`, `audit_routes`, `crew_routes`, `models/dispatch`, `push_utils`,
 `notification_utils`. Real-risk tests (RBAC, tenant isolation, validation, no PHI/secret leak).
 
-### `[ ]` C (P2) — Frontend API-wrapper tests
+### `[x]` C (P2) — Frontend API-wrapper tests
 Untested: employeesApi, patientsApi, vehiclesApi, operationsApi, portalApi (+ crew/auth/audit).
 Own-logic: URL/query/encoding, method, body, credentials, CSRF/caller headers, error normalization
 (400/401/403/404/409/422/429/500 + fallback), no client-trusted org_id/role/identity. Fetch stubbed.
@@ -60,5 +60,12 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
 ### `[ ]` J (P0) — Final report
 
 ## Progress log
+
+- **A** — README snapshot synced to v1.1.13 (1150/500, measured). Only stale spot; other docs
+  clean or historical-labelled.
+- **C** — +18 wrapper tests (employeesApi, patientsApi, vehiclesApi): URL/query/encoding, method,
+  body, credentials, error normalization. eslint clean.
+- **B baseline (measured):** push_utils 37.8%, notification_utils 54.2%, crew_routes 66.1%,
+  settings_utils 68.3%, audit_routes 69.0%, payroll_routes 69.6%, models/dispatch 73.0%.
 
 _Appended per item._
