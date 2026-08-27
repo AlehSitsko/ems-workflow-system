@@ -71,3 +71,71 @@ def test_org_settings_are_admin_only(app):
     org = _org("acme", "Acme EMS")
     c, base, _ = _admin_on(app, org, role="dispatcher", username="disp")
     assert c.get("/api/tenant/org", base_url=base).status_code == 403
+
+
+# ── PATCH validation branches (the previously-uncovered part) ────────────────
+
+def _patcher(app, slug="acme"):
+    """One signed-in admin on one org; returns a patch(body) bound to it, so several
+    bad bodies can be checked with a single login (avoids multi-login-per-test churn)."""
+    org = _org(slug, slug.title())
+    c, base, csrf = _admin_on(app, org, username=f"admin_{slug}")
+    return lambda body: c.patch("/api/tenant/org", base_url=base,
+                                headers={"X-CSRF-Token": csrf}, json=body)
+
+
+def test_org_name_cannot_be_blanked(app):
+    assert _patcher(app)({"name": "   "}).status_code == 400
+
+
+def test_org_name_length_capped(app):
+    assert _patcher(app)({"name": "x" * 201}).status_code == 400
+
+
+def test_settings_must_be_an_object(app):
+    assert _patcher(app)({"settings": "nope"}).status_code == 400
+
+
+def test_pto_settings_validated(app):
+    patch = _patcher(app)
+    assert patch({"settings": {"pto": "nope"}}).status_code == 400
+    assert patch({"settings": {"pto": {"annualDays": "x"}}}).status_code == 400
+    assert patch({"settings": {"pto": {"annualDays": 999}}}).status_code == 400
+
+
+def test_pto_settings_happy_path_persists(app):
+    r = _patcher(app)({"settings": {"pto": {"annualDays": 15, "carryoverCapDays": 5}}})
+    assert r.status_code == 200
+    assert r.get_json()["settings"]["pto"] == {"annualDays": 15.0, "carryoverCapDays": 5.0}
+
+
+def test_punctuality_settings_validated(app):
+    patch = _patcher(app)
+    assert patch({"settings": {"punctuality": "nope"}}).status_code == 400
+    assert patch({"settings": {"punctuality": {"graceMinutes": "x"}}}).status_code == 400
+    assert patch({"settings": {"punctuality": {"graceMinutes": 999}}}).status_code == 400
+
+
+def test_punctuality_settings_happy_path_persists(app):
+    r = _patcher(app)({"settings": {"punctuality": {"graceMinutes": 7}}})
+    assert r.status_code == 200
+    assert r.get_json()["settings"]["punctuality"] == {"graceMinutes": 7}
+
+
+def test_admin_only_ever_sees_their_own_org(app):
+    # Two orgs exist; the admin belongs to Acme and can only ever read Acme via /org —
+    # there is no way to address another org through this endpoint.
+    _org("beta", "Beta EMS")
+    acme = _org("acme", "Acme EMS")
+    c, base, _ = _admin_on(app, acme)
+    got = c.get("/api/tenant/org", base_url=base).get_json()
+    assert got["slug"] == "acme" and got["name"] == "Acme EMS"
+
+
+def test_org_id_in_payload_is_ignored(app):
+    # The PATCH body only reads name/settings; a stray org_id/slug/is_active must not
+    # move the tenant identity or reassign the org.
+    r = _patcher(app)({"name": "Renamed", "org_id": 999, "slug": "hacked", "is_active": False})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["slug"] == "acme" and body["name"] == "Renamed"

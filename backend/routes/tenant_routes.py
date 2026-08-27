@@ -63,55 +63,60 @@ def update_my_org():
         return jsonify({"error": "No organisation for this account"}), 404
 
     data = request.get_json() or {}
-    if "name" in data:
-        name = (data.get("name") or "").strip()
-        if not name:
-            return jsonify({"error": "Organisation name cannot be empty"}), 400
-        check_length(name, 200, "name")
-        org.name = name
+    try:
+        if "name" in data:
+            name = (data.get("name") or "").strip()
+            if not name:
+                return jsonify({"error": "Organisation name cannot be empty"}), 400
+            check_length(name, 200, "name")
+            org.name = name
 
-    if "settings" in data:
-        settings = data.get("settings")
-        if not isinstance(settings, dict):
-            return jsonify({"error": "settings must be an object"}), 400
-        # A small, closed set of light branding + policy fields — never the slug
-        # (the tenant's identity) or is_active (a platform decision).
-        cleaned = {}
-        for key, limit in (("timezone", 64), ("logoUrl", 500)):
-            if key in settings:
-                value = (settings.get(key) or "").strip()
-                check_length(value, limit, key)
-                cleaned[key] = value
-        if "pto" in settings:
-            pto = settings.get("pto")
-            if not isinstance(pto, dict):
-                return jsonify({"error": "settings.pto must be an object"}), 400
-            pto_clean = {}
-            for key in ("annualDays", "carryoverCapDays"):
-                if key in pto and pto.get(key) is not None:
+        if "settings" in data:
+            settings = data.get("settings")
+            if not isinstance(settings, dict):
+                return jsonify({"error": "settings must be an object"}), 400
+            # A small, closed set of light branding + policy fields — never the slug
+            # (the tenant's identity) or is_active (a platform decision).
+            cleaned = {}
+            for key, limit in (("timezone", 64), ("logoUrl", 500)):
+                if key in settings:
+                    value = (settings.get(key) or "").strip()
+                    check_length(value, limit, key)
+                    cleaned[key] = value
+            if "pto" in settings:
+                pto = settings.get("pto")
+                if not isinstance(pto, dict):
+                    return jsonify({"error": "settings.pto must be an object"}), 400
+                pto_clean = {}
+                for key in ("annualDays", "carryoverCapDays"):
+                    if key in pto and pto.get(key) is not None:
+                        try:
+                            n = float(pto[key])
+                        except (TypeError, ValueError):
+                            return jsonify({"error": f"settings.pto.{key} must be a number"}), 400
+                        if n < 0 or n > 365:
+                            return jsonify({"error": f"settings.pto.{key} must be between 0 and 365"}), 400
+                        pto_clean[key] = n
+                cleaned["pto"] = pto_clean
+            if "punctuality" in settings:
+                punc = settings.get("punctuality")
+                if not isinstance(punc, dict):
+                    return jsonify({"error": "settings.punctuality must be an object"}), 400
+                punc_clean = {}
+                if punc.get("graceMinutes") is not None:
                     try:
-                        n = float(pto[key])
+                        g = int(punc["graceMinutes"])
                     except (TypeError, ValueError):
-                        return jsonify({"error": f"settings.pto.{key} must be a number"}), 400
-                    if n < 0 or n > 365:
-                        return jsonify({"error": f"settings.pto.{key} must be between 0 and 365"}), 400
-                    pto_clean[key] = n
-            cleaned["pto"] = pto_clean
-        if "punctuality" in settings:
-            punc = settings.get("punctuality")
-            if not isinstance(punc, dict):
-                return jsonify({"error": "settings.punctuality must be an object"}), 400
-            punc_clean = {}
-            if punc.get("graceMinutes") is not None:
-                try:
-                    g = int(punc["graceMinutes"])
-                except (TypeError, ValueError):
-                    return jsonify({"error": "settings.punctuality.graceMinutes must be an integer"}), 400
-                if g < 0 or g > 240:
-                    return jsonify({"error": "settings.punctuality.graceMinutes must be between 0 and 240"}), 400
-                punc_clean["graceMinutes"] = g
-            cleaned["punctuality"] = punc_clean
-        org.settings_json = json.dumps(cleaned)
+                        return jsonify({"error": "settings.punctuality.graceMinutes must be an integer"}), 400
+                    if g < 0 or g > 240:
+                        return jsonify({"error": "settings.punctuality.graceMinutes must be between 0 and 240"}), 400
+                    punc_clean["graceMinutes"] = g
+                cleaned["punctuality"] = punc_clean
+            org.settings_json = json.dumps(cleaned)
+    except ValueError as e:
+        # An over-length name / timezone / logoUrl (check_length raised) is bad input,
+        # not a server fault — return 400, not a 500.
+        return jsonify({"error": str(e)}), 400
 
     db.session.commit()
     return jsonify(_org_payload(org))

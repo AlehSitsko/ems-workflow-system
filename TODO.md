@@ -33,6 +33,33 @@ DB-at-rest encryption.
   Python-shaped, not clean SQL; a full move to indexed SQL aggregation + operational-day
   rollups is only worth it at real volume (the query is already bounded by `limit`).
 
+## Coverage & hardening follow-ups (post-v1.1.12 remediation)
+
+Actionable items from the cycle-2 assessment — closing the remaining test gaps in the
+weakest zones (same standard as the time/crew_preset/document work). Worked one at a time,
+each with its own commit; this list is updated as each lands.
+
+- [x] **A — Notifications/push backend tests.** Done (`test_notification_routes.py`, +14):
+  list (role/prefs-filtered), mark-read/all, per-user isolation, prefs get/put, push
+  subscribe/unsubscribe/test-push with mocked provider outcomes (failure -> clean 502/400 +
+  cleared subscription, never a 500). `notification_routes` 58.8% -> 84.6%.
+- [x] **B — `tenant_routes.py` backend tests** (56% -> 92.4%). Done: PATCH validation
+  branches (name/settings/pto/punctuality) + caller-only-sees-own-org + org-id-in-payload
+  ignored. Found & fixed a real bug: over-length name/settings returned 500 (now 400).
+- [x] **C — `NotificationBell.jsx` frontend test.** Done (+9): badge (count / 99+ / hidden),
+  open/close, empty state, list, Mark all read, mark-read on unread click, no re-mark of read.
+- [x] **D — payroll + patient coverage top-up.** Done (+14): patient alerts/contacts CRUD
+  (`patient_routes` 65 -> 75.4%) and payroll period create/list/delete (`payroll_routes`
+  65 -> 69.6%), with validation, RBAC, and 404s.
+- [x] **E — `api/` wrapper tests.** Done (`callsApi.test.js`, +7): URL/query construction,
+  credentials, error normalization (server message + generic fallback), JSON POST, and
+  caller-supplied header (CSRF) pass-through.
+
+**Blocked (need a Docker/Postgres host — not faked locally):**
+- [ ] Run `scripts/pg_benchmark.py` against the prod PostgreSQL stack; compare to SQLite.
+- [ ] DR drill on a live stack (backup→restore, container restart, Redis/S3 outage).
+- [ ] Operator TLS-terminating proxy for a target environment (external, per deployment).
+
 ## Deferred (intentionally parked — not oversights)
 
 - [ ] **External (Google/Outlook) two-way calendar sync** — needs an OAuth
