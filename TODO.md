@@ -48,8 +48,9 @@ each with its own commit; this list is updated as each lands.
   ignored. Found & fixed a real bug: over-length name/settings returned 500 (now 400).
 - [x] **C — `NotificationBell.jsx` frontend test.** Done (+9): badge (count / 99+ / hidden),
   open/close, empty state, list, Mark all read, mark-read on unread click, no re-mark of read.
-- [ ] **D — `payroll_routes.py` (65%) + `patient_routes.py` (65%) coverage top-up** —
-  edge cases (already-calculated period, permission boundaries, archived/deleted).
+- [x] **D — payroll + patient coverage top-up.** Done (+14): patient alerts/contacts CRUD
+  (`patient_routes` 65 -> 75.4%) and payroll period create/list/delete (`payroll_routes`
+  65 -> 69.6%), with validation, RBAC, and 404s.
 - [ ] **E — `api/` wrapper tests** for a couple of untested wrappers with real own-logic
   (URL construction, CSRF, error normalization for 401/403/409/422).
 
