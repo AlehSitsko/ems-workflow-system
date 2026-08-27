@@ -1,178 +1,133 @@
-# Audit Remediation Plan — Cycle 2
+# Audit Remediation Plan — Cycle 3 (final audit)
 
-Living work journal. All work happens on `dev`; `main` is never touched directly. No GitHub
-Release is published and no `dev → main` merge is performed without explicit owner approval
-(the release, PR, and instructions are fully prepared instead).
+Living work journal. **Constraints this cycle:** all work on `dev`; **no `dev → main` merge, no
+GitHub Release, no new/changed tags** without the owner. Owner actions are prepared as exact
+commands, not executed. Source of truth = the current code, re-verified.
 
-Status keys: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked · `[-]` not
-applicable after verification.
+> **Prior cycles (shipped):** v1.1.10 (audit) · v1.1.11 (quality gates) · v1.1.12 (deps) ·
+> v1.1.13 (coverage follow-ups + a tenant 500→400 fix). This cycle is the closing pass.
 
-> **Prior cycle (shipped):** an earlier remediation shipped as **v1.1.11** (quality gates:
-> ruff, coverage ratchets, dependency-audit CI; hooks/exception/docs fixes) and **v1.1.12**
-> (dependency updates). This cycle re-verifies every finding below against the **current code**,
-> not old reports.
+## Baseline (verified 2026-08-27)
 
-## Stage 0 — baseline (verified 2026-08-26)
+- **Branch:** `dev`. **dev = main = `6f9f84a`**, divergence **0/0** (in sync after the v1.1.13
+  release merge — expected, not an artificial split).
+- **Version:** frontend + desktop both **1.1.13** (consistent).
+- **Last tag:** `v1.1.13`. **Last published Release:** `v1.1.13` (Latest, installer + SHA-256) —
+  **no release desync.**
+- **Open PRs:** none. **Working tree:** clean.
+- **CI on `6f9f84a`:** green (all 6 jobs).
+- **Tests (to confirm in Stage I):** backend ~1150 @ ~84.8%; frontend ~500 @ ~69.8%; E2E 20.
 
-- **Baseline commit:** `7bbbb32` (dev) / `e65245d` (main, = merge of dev).
-- **Branch:** work starts on `dev`.
-- **Divergence:** `dev` is **3 commits behind `main`** (the release-merge commits #13/#16/#17),
-  with **0 unique commits** on dev → dev is a clean ancestor of main; safe fast-forward, no conflict.
-- **Open PRs:** none. **Version:** frontend + desktop both `1.1.12` (consistent; backend derives
-  from frontend `package.json` via `__APP_VERSION__`).
-- **Latest published GitHub Release:** `v1.1.9` — but tags exist through `v1.1.12`. **Release desync
-  is real.**
-- **CI on `main` `e65245d`:** green (all 6 jobs).
-- Baseline tests (to confirm in Stage 11): backend pytest / coverage, frontend Vitest / coverage,
-  E2E 20, ruff, npm/pip audit — all green on the shipped v1.1.12.
+## Work items
 
-## Stages
+Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked · `[-]` n/a after check.
 
-### `[x]` Stage 1 — Sync `dev` with `main` (P0)
-- **Problem (verified):** `dev` behind `main` by 3 merge commits, 0 unique dev commits.
-- **Done:** fast-forwarded `dev` `7bbbb32 → e65245d` (= main) via `git merge --ff-only main`. No
-  conflicts, trees identical, no lost files. dev history now aligned with main; the next `dev → main`
-  PR will be clean. No destructive reset used.
-- **Branch model (proposed):** `main` stable/production-like; `dev` integration; feature/fix branches
-  per task; after each release, `main` is fast-forwarded back into `dev` (as just done).
+### `[x]` A (P1) — Documentation sync to v1.1.13
+README line 363 still says "1068 backend + 466 frontend, snapshot at v1.1.12" (actual 1150/500,
+version 1.1.13). Update to measured values pinned to v1.1.13 / de-brittle; sweep docs for stale
+v1.1.12; keep historical reports labelled historical; no false HIPAA/prod-scale/CAD-ePCR claims.
 
-### `[~]` Stage 2 — Release desync (P0) — PREPARE ONLY (publish blocked, rule 11)
-- **Problem (verified):** tags reach `v1.1.12`; latest *published* Release is `v1.1.9`. README's
-  `releases/latest/download/...EMS-Workflow-System-Setup.exe` therefore serves the v1.1.9 installer.
-- **Fix:** verify version consistency (done: 1.1.12 everywhere); prepare release notes + checksum
-  instructions + exact `gh release create` sequence for the owner; ensure the README link is correct
-  once a current release is published. Do **not** re-tag existing tags. Publishing is owner's action.
+### `[x]` B (P2) — Backend coverage for weak zones
+Targets: `settings_utils`, `audit_routes`, `crew_routes`, `models/dispatch`, `push_utils`,
+`notification_utils`. Real-risk tests (RBAC, tenant isolation, validation, no PHI/secret leak).
 
-### `[x]` Stage 3 — README accuracy (P1)
-- **Problem (verified):** README line 293 "1066", line 358 "1009 / 458" — inconsistent & stale
-  (actual: **1068 / 466**, measured); CI described as "four jobs" (now six).
-- **Done:** softened the run-tests block to non-brittle descriptions pointing at the coverage gate;
-  updated the status snapshot to `1068 / 466 / 20`, pinned to tag `v1.1.12` with the regenerate
-  command and a note that the CI gate is authoritative; corrected the CI description to six jobs
-  (backend Ruff+cov, frontend ESLint+cov, E2E, Docker+browser-smoke, Desktop, Dependency audit).
+### `[x]` C (P2) — Frontend API-wrapper tests
+Untested: employeesApi, patientsApi, vehiclesApi, operationsApi, portalApi (+ crew/auth/audit).
+Own-logic: URL/query/encoding, method, body, credentials, CSRF/caller headers, error normalization
+(400/401/403/404/409/422/429/500 + fallback), no client-trusted org_id/role/identity. Fetch stubbed.
 
-### `[x]` Stage 4 — `PRODUCTION_READINESS.md` contradiction (P1)
-- **Problem (verified):** line 135 "**Current state:** Flask's built-in development server" while
-  lines 333+ document a fully-implemented, CI-validated Gunicorn/Nginx/Postgres/Redis/MinIO prod
-  Docker stack. Self-contradiction.
-- **Fix:** cleanly separate desktop/local dev, backend dev, and the implemented production Docker
-  mode; state what is implemented / CI-validated / needs external infra / out of scope; add a
-  readiness checklist. No claims the code doesn't back.
+### `[x]` D (P1) — Multi-tenancy / security adversarial review
+Verify existing tenant-isolation + upload + CSRF tests cover org_id spoofing (body/query/header),
+IDOR, CSV injection, HTML-as-PDF. Add adversarial tests where a gap is proven.
 
-### `[x]` Stage 5 — Backend tests for risky zones (P1)
-- **Approach:** target genuinely-weak zones by *current* coverage (measured in Stage 0, not the old
-  list). Priority: time & payroll → documents → tenant isolation → notifications/push → patients →
-  crews. Real-risk cases (RBAC, tenant isolation, invalid input, date/time edges, idempotency,
-  rollback, no sensitive-data leakage), not mechanical 100%.
+### `[x]` E (P2) — Migrations & schema drift
+Verify Alembic head (claimed `f1a2b3c4d5e6`), clean upgrade on empty SQLite, idempotency, drift test.
+PostgreSQL upgrade BLOCKED (no Docker) — document command.
 
-### `[x]` Stage 6 — Frontend tests for weak components (P1)
-- **Verified:** `TimeInput.jsx` (no test), `NotificationBell.jsx` (no test), `CallCard.jsx` (the
-  open/unassigned card — the old audit's "UnassignedCallCard" no longer exists; `AssignedCallCard`
-  already tested), and several `api/` wrappers (own logic: URL/CSRF/error-normalization). Add
-  targeted component/integration tests.
+### `[x]` F (P2) — Performance / load
+Run `qa_test.py` + `stress_test.py` (seeded ≥500/100/300). `pg_benchmark.py` vs PostgreSQL BLOCKED
+(no Docker) — document command + expected metrics. Never call SQLite+Flask a production load test.
 
-### `[x]` Stage 7 — Flaky/slow `sharedComponents.test.jsx` (P2)
-- **Verified exists:** `src/components/ui/sharedComponents.test.jsx`. Investigate root cause (timers,
-  cleanup, shared state, waitFor) by repeated/isolated/randomized runs; fix the cause, not the global
-  timeout.
+### `[x]` G (P3) — Dead code & repo hygiene
+Re-verify: no console.log/print/debugger in shipped src, no stray artifacts, `.gitignore` sound,
+`pass` intentional. Remove only proven-dead code.
 
-### `[!] ` Stage 8 — Reproducible PostgreSQL benchmark (P2) — BLOCKED (no local Docker/Postgres)
-- **Plan:** author a reproducible benchmark script + documented method (seed, dataset ≥500/100/300,
-  scenarios, ≥3 reps, warm-up, metrics) that runs where Docker/Postgres is available; do not claim
-  scalability from a single local SQLite run. Actual Postgres run is BLOCKED locally.
+### `[x]` H (P1) — Branch/release hygiene + owner checklist
+Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT execute.
 
-### `[~]` Stage 9 — Safe decomposition of large files (P2)
-- **Approach:** assess each candidate (size/responsibilities/duplication/testability); refactor only
-  where clearly beneficial, behaviour-preserving, with characterization tests first. Priority:
-  CrewPlannerPage, DispatchBoardPage, call_routes, patient_routes. `UserManualPage` (static) only if
-  it truly helps.
+### `[x]` I (P0) — Full final regression
 
-### `[x]` Stage 10 — Dead code & repo cleanliness (P2)
-- **Approach:** re-scan for unused imports/components/utils, console.log/print, stray artifacts;
-  prove non-use (refs, dynamic imports, routes, tests, CI, desktop/PyInstaller) before removing.
-
-### `[x]` Stage 11 — Full final regression (P0)
-- Backend: ruff, compileall, pytest+coverage, migration upgrade (clean + seeded DB), dependency
-  audit. Frontend: lint, Vitest+coverage, build, npm audit. E2E Playwright. Live QA + stress.
-  Docker/prod-stack: BLOCKED locally → rely on CI at the final SHA.
-
-### `[x]` Stage 12 — Final report + PR (P0)
-- Update this journal; produce the full report (SHAs, files, fixes, blocked, tests added/run, exact
-  results, remaining risks, PR title + description, release checklist, owner action list).
+### `[ ]` J (P0) — Final report
 
 ## Progress log
 
-- **Stage 1** — dev fast-forwarded to main (`7bbbb32 → e65245d`); clean, no lost files.
-- **Stages 3–4** — README counts/CI-jobs corrected; PRODUCTION_READINESS two-mode split + readiness
-  checklist; no code claims left unbacked, HIPAA not claimed.
-- **Backend coverage baseline (measured):** 1068 tests, **81.3%** total. Weakest cited zones confirmed
-  real: `crew_preset_routes` 24.4%, `push_utils` 37.8%, `time_routes` 47.9%, `notification_utils`
-  54.2%, `document_routes`/`tenant_routes` 56.2%, `notification_routes` 58.8%, `payroll_routes` 64.9%,
-  `patient_routes` 65.0%, `crew_routes` 66.1% → Stage-5 targets.
-- **Not applicable:** frontend `UnassignedCallCard` (Stage 6 list) no longer exists — the current
-  open/unassigned card is `CallCard.jsx`; tested that instead.
-- **Stage 5 (backend tests) — done for the weakest/highest-risk zones (+45 tests):** `time_routes`
-  47.9→93.5% (CRUD, RBAC, kiosk PIN flows, pay-config), `crew_preset_routes` 24.4→95.1% (CRUD, RBAC,
-  validation), `document_routes` 56.2→76.0% (RBAC, content-based upload validation incl. HTML-as-PDF
-  rejection + oversized, CRUD 404s, compliance). Remaining cited zones (`tenant_routes` 56%,
-  `payroll_routes` 65%, `patient_routes` 65%, notifications/push) already have dedicated test files
-  and higher coverage; flagged as follow-ups, not zero-coverage gaps.
-- **Stage 6 (frontend tests) — done for the two verified untested components (+18 tests):**
-  `TimeInput` (12h/24h entry, digit filter, blur range-clamp, hydrate, disabled, a11y id) and
-  `CallCard` (name/id, route, emergency/will-call/return/cancelled/completed, click + drag callbacks,
-  alert badge). `NotificationBell` and several `api/` wrappers flagged as follow-ups.
-- **Stage 7 (flaky test) — investigated, no defect, no change:** `sharedComponents.test.jsx` is fully
-  synchronous (no timers/async/`waitFor`), exercises only pure presentational components, and
-  `afterEach(cleanup)` is configured — no DOM leak. Passed 3× isolated and in the full 484-test
-  parallel run. The single historical timeout was CPU starvation under max parallelism, not a test
-  bug; per the task, no timeout was added to a fast synchronous test. **Frontend total now 484 tests.**
+- **A** — README snapshot synced to v1.1.13 (1150/500, measured). Only stale spot; other docs
+  clean or historical-labelled.
+- **C** — +18 wrapper tests (employeesApi, patientsApi, vehiclesApi): URL/query/encoding, method,
+  body, credentials, error normalization. eslint clean.
+- **B baseline (measured):** push_utils 37.8%, notification_utils 54.2%, crew_routes 66.1%,
+  settings_utils 68.3%, audit_routes 69.0%, payroll_routes 69.6%, models/dispatch 73.0%.
 
-## Stage 11 — full regression (this branch)
+- **B** — audit_routes 69→**100%** (pagination cap/floor, all filters, malformed id, RBAC),
+  settings_utils 68.3→**85%** (legacy prefs migration + corrupt-blob skip), crew_routes lifted
+  (+12 CRUD/validation/RBAC/alerts), notification_utils fan-out+dedup (+5). push_utils internals
+  wrap pywebpush → tested at the route level (send_push mocked); library-boundary mocking skipped.
 
-| Check | Result |
-|---|---|
-| Backend ruff | ✅ All checks passed |
-| Backend compileall | ✅ OK |
-| Backend pytest + coverage | ✅ **1113 passed**, **83.07%** (gate 80) |
-| Frontend ESLint | ✅ clean |
-| Frontend Vitest + coverage | ✅ **484 passed**, 70.69% lines (gate 67) |
-| Frontend build / npm audit | ✅ OK / 0 vulnerabilities |
-| E2E (Playwright) | ✅ 20 — 1 flaky on full run, **3/3 isolated** (no app code changed → not a regression) |
-| qa_test.py | ✅ **74 passed, 0 failed, 0 warnings** |
-| stress_test.py | ✅ blind-index check OK, no slow reads, ~153 req/s, 0 errors |
-| Docker / PostgreSQL benchmark | ⛔ BLOCKED (no local Docker) → CI validates the prod stack |
+- **D** — existing suite already covers the cited vectors (test_tenant_isolation ×19, test_security_
+  adversarial: client org_id-on-create ignored, AAD/ciphertext relocation, key rotation, realtime
+  isolation, invite escalation; test_upload_security; test_org_id_in_payload_is_ignored). **One real
+  gap found & fixed: CSV formula injection** in reports/payroll exports (csv_safe guard + tests).
 
-## Stage 12 — final report
+- **E** — Alembic head verified `f1a2b3c4d5e6`; clean zero→head upgrade on empty SQLite + idempotent
+  re-run OK; test_schema_drift 3 pass. PostgreSQL upgrade BLOCKED (no Docker) — CI Docker job covers it.
+- **F** — qa_test.py 74/0/0; stress_test.py 0 errors, no slow reads, 142.5 req/s, P95 234ms, blind-index
+  OK. pg_benchmark vs PostgreSQL BLOCKED (no Docker).
+- **G** — clean: no console.log/print/debugger in shipped src, no stray artifacts tracked, ruff F401
+  clean, `.gitignore` sound. Nothing to remove.
 
-- **Baseline:** `7bbbb32` (dev) → **final:** _the branch tip after these commits_ (on `dev`).
-- **Done:** Stages 1, 3, 4, 5, 6, 7, 8(script/doc), 10. **Assessed/deferred:** Stage 9. **Blocked:**
-  Stage 8 Postgres run, Stage 2 release publish (owner action).
-- **Net:** docs reconciled, **+63 tests** (backend 1068→1113 @ 81.3→83.1%; frontend 466→484),
-  benchmark tooling added, repo verified clean. No app/API/data/migration changes.
+_Appended per item._
 
-### Release checklist (Stage 2) — OWNER ACTIONS (not performed here; rule 11)
+## Item H — Branch/release hygiene + owner checklist
 
-The code, tags, and version are already at **v1.1.12**; the latest *published* GitHub Release is
-v1.1.9, so the README installer link (`releases/latest/download/...`) serves v1.1.9 until a newer
-release is published. To fix — **owner runs**:
+**Verified state:** `dev = main = 6f9f84a` (pre-cycle), version 1.1.13 consistent (frontend+desktop),
+last tag `v1.1.13`, last published Release `v1.1.13` (Latest, installer + SHA-256) — README
+`releases/latest/download/...` serves v1.1.13. No release desync. This cycle's work is committed on
+`dev` on top of that (docs + tests + one CSV-injection security fix). **No merge, tag, or Release
+performed** (per constraints).
 
-1. Merge the cycle-2 `dev → main` PR (after review) and, if cutting a new version, bump + tag it.
-2. Build the Windows installer (CI Desktop job, or `cd desktop && npm run dist`) and compute its
-   checksum: `sha256sum "release/EMS-Workflow-System-Setup.exe"`.
-3. Publish the release so `releases/latest` points at the current version, e.g. for the existing tag:
-   `gh release create v1.1.12 "release/EMS-Workflow-System-Setup.exe" --title "EMS Workflow System v1.1.12" --notes-file <notes>`
-   (do **not** re-tag or overwrite an existing published release).
-4. Verify the README `releases/latest/download/...` link now serves the current installer, and that
-   the SHA-256 matches.
-5. After merging, fast-forward `main` back into `dev` (as this cycle did in Stage 1).
+### Owner checklist (do NOT run automatically — owner's decision)
+1. Review the cycle-3 commits on `dev` (all green in CI once pushed).
+2. Open a PR `dev → main` (title suggestion: *"Cycle-3: CSV-injection fix + coverage (audit/settings/
+   crew/notifications) + wrapper tests + docs sync"*).
+3. Merge after CI is green (all 6 jobs).
+4. This cycle is **docs+tests+a security fix** — if cutting a release, bump the patch version
+   (`1.1.13 → 1.1.14`) in `frontend/package.json`, `desktop/package.json` and both lock files, then
+   tag + build the installer + publish the Release with its SHA-256 (as done for v1.1.13). The
+   CSV-injection fix is a reason to ship a patch release.
+5. After merging, fast-forward `main` back into `dev`.
 
-### Owner action list (summary)
-- [ ] Review + approve the `dev → main` PR.
-- [ ] Merge to `main` (and tag if bumping).
-- [ ] Publish the GitHub Release + upload the installer + checksum (fixes the installer-link desync).
-- [ ] Sync `main` back into `dev`.
-- [ ] (When a Docker host is available) run `scripts/pg_benchmark.py` against the prod stack.
+### Blocked (need a Docker/PostgreSQL host — exact commands)
+- PostgreSQL migration upgrade: `DATABASE_URL=<pg-url> flask --app app db upgrade` (CI Docker job runs
+  this on every push).
+- Prod-stack + PostgreSQL benchmark: bring up `docker-compose.prod.yml`, seed, then
+  `python scripts/pg_benchmark.py --base-url http://localhost:8080 --reps 3 --warmup 30 --concurrency 20`.
+- E2E: `cd frontend && npx playwright install chromium && npm run test:e2e` (see Item I result).
 
-### Merge readiness
-`dev` is clean, all local checks green, `main` untouched, no secrets/artifacts committed. The
-`dev → main` PR is behaviour-preserving (docs + tests + tooling) and ready for review.
+## Item I — full regression (this branch)
+
+| Check | Command | Result |
+|---|---|---|
+| Backend compileall | `python -m compileall ...` | ✅ OK |
+| Backend ruff | `ruff check .` | ✅ All checks passed |
+| Backend pytest + coverage | `pytest --cov=.` | ✅ **1188 passed**, **85.31%** (gate 80) |
+| Backend pip-audit | `pip-audit -r requirements.txt` | ✅ No known vulnerabilities |
+| Frontend lint | `npm run lint` | ✅ clean |
+| Frontend Vitest + coverage | `npm run test:coverage` | ✅ **518 passed**, 72.12% lines (gate 67) |
+| Frontend build | `npm run build` | ✅ OK |
+| Frontend npm audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| Desktop npm audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| E2E | `npm run test:e2e` | ✅ **20 passed** |
+| Live QA | `python qa_test.py` | ✅ 74 passed, 0 failed, 0 warnings |
+| Stress | `python stress_test.py` | ✅ 0 errors, no slow reads, 142.5 req/s |
+| SQLite migration | zero→head + idempotent + drift | ✅ head f1a2b3c4d5e6, drift 3 pass |
+| Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI covers |
