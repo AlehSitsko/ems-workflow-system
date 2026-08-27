@@ -35,3 +35,37 @@ def test_valid_settings_json_is_merged_over_defaults(app):
     assert result["notifications"]["call_new_today"] is False
     # A partial blob still inherits every other default key.
     assert result["notifications"]["doc_expiring"] == DEFAULT_SETTINGS["notifications"]["doc_expiring"]
+
+
+# ── one-time migration from the legacy UserNotificationPrefs table ───────────
+
+def test_migrates_legacy_notification_and_dispatch_prefs(app):
+    """First load with an empty settings_json pulls prefs from the old
+    UserNotificationPrefs table into settings_json (and persists them)."""
+    from models import UserNotificationPrefs
+    user = make_user("dispatcher", username="legacy_prefs")
+    db.session.add(UserNotificationPrefs(
+        user_id=user.id,
+        prefs_json='{"call_new_today": false}',
+        dispatch_thresholds_json='{"stuck_after": 15}',
+    ))
+    db.session.commit()
+
+    result = load_user_settings(user)
+    assert result["notifications"]["call_new_today"] is False
+    assert result["dispatch"]["stuck_after"] == 15
+    # migrated data is persisted onto the user so the next load is a no-op
+    assert user.settings_json and "call_new_today" in user.settings_json
+
+
+def test_corrupt_legacy_prefs_are_skipped_not_fatal(app, caplog):
+    from models import UserNotificationPrefs
+    user = make_user("dispatcher", username="legacy_corrupt")
+    db.session.add(UserNotificationPrefs(user_id=user.id, prefs_json="{not json"))
+    db.session.commit()
+
+    with caplog.at_level(logging.WARNING):
+        result = load_user_settings(user)
+    # falls back to defaults (no notifications key migrated), no crash
+    assert result == DEFAULT_SETTINGS
+    assert any("legacy" in r.message for r in caplog.records)
