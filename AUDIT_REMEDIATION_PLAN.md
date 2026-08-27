@@ -27,7 +27,7 @@ README line 363 still says "1068 backend + 466 frontend, snapshot at v1.1.12" (a
 version 1.1.13). Update to measured values pinned to v1.1.13 / de-brittle; sweep docs for stale
 v1.1.12; keep historical reports labelled historical; no false HIPAA/prod-scale/CAD-ePCR claims.
 
-### `[ ]` B (P2) — Backend coverage for weak zones
+### `[x]` B (P2) — Backend coverage for weak zones
 Targets: `settings_utils`, `audit_routes`, `crew_routes`, `models/dispatch`, `push_utils`,
 `notification_utils`. Real-risk tests (RBAC, tenant isolation, validation, no PHI/secret leak).
 
@@ -67,5 +67,10 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
   body, credentials, error normalization. eslint clean.
 - **B baseline (measured):** push_utils 37.8%, notification_utils 54.2%, crew_routes 66.1%,
   settings_utils 68.3%, audit_routes 69.0%, payroll_routes 69.6%, models/dispatch 73.0%.
+
+- **B** — audit_routes 69→**100%** (pagination cap/floor, all filters, malformed id, RBAC),
+  settings_utils 68.3→**85%** (legacy prefs migration + corrupt-blob skip), crew_routes lifted
+  (+12 CRUD/validation/RBAC/alerts), notification_utils fan-out+dedup (+5). push_utils internals
+  wrap pywebpush → tested at the route level (send_push mocked); library-boundary mocking skipped.
 
 _Appended per item._
