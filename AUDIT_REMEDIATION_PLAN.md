@@ -52,10 +52,10 @@ Run `qa_test.py` + `stress_test.py` (seeded ≥500/100/300). `pg_benchmark.py` v
 Re-verify: no console.log/print/debugger in shipped src, no stray artifacts, `.gitignore` sound,
 `pass` intentional. Remove only proven-dead code.
 
-### `[ ]` H (P1) — Branch/release hygiene + owner checklist
+### `[x]` H (P1) — Branch/release hygiene + owner checklist
 Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT execute.
 
-### `[ ]` I (P0) — Full final regression
+### `[x]` I (P0) — Full final regression
 
 ### `[ ]` J (P0) — Final report
 
@@ -86,3 +86,48 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
   clean, `.gitignore` sound. Nothing to remove.
 
 _Appended per item._
+
+## Item H — Branch/release hygiene + owner checklist
+
+**Verified state:** `dev = main = 6f9f84a` (pre-cycle), version 1.1.13 consistent (frontend+desktop),
+last tag `v1.1.13`, last published Release `v1.1.13` (Latest, installer + SHA-256) — README
+`releases/latest/download/...` serves v1.1.13. No release desync. This cycle's work is committed on
+`dev` on top of that (docs + tests + one CSV-injection security fix). **No merge, tag, or Release
+performed** (per constraints).
+
+### Owner checklist (do NOT run automatically — owner's decision)
+1. Review the cycle-3 commits on `dev` (all green in CI once pushed).
+2. Open a PR `dev → main` (title suggestion: *"Cycle-3: CSV-injection fix + coverage (audit/settings/
+   crew/notifications) + wrapper tests + docs sync"*).
+3. Merge after CI is green (all 6 jobs).
+4. This cycle is **docs+tests+a security fix** — if cutting a release, bump the patch version
+   (`1.1.13 → 1.1.14`) in `frontend/package.json`, `desktop/package.json` and both lock files, then
+   tag + build the installer + publish the Release with its SHA-256 (as done for v1.1.13). The
+   CSV-injection fix is a reason to ship a patch release.
+5. After merging, fast-forward `main` back into `dev`.
+
+### Blocked (need a Docker/PostgreSQL host — exact commands)
+- PostgreSQL migration upgrade: `DATABASE_URL=<pg-url> flask --app app db upgrade` (CI Docker job runs
+  this on every push).
+- Prod-stack + PostgreSQL benchmark: bring up `docker-compose.prod.yml`, seed, then
+  `python scripts/pg_benchmark.py --base-url http://localhost:8080 --reps 3 --warmup 30 --concurrency 20`.
+- E2E: `cd frontend && npx playwright install chromium && npm run test:e2e` (see Item I result).
+
+## Item I — full regression (this branch)
+
+| Check | Command | Result |
+|---|---|---|
+| Backend compileall | `python -m compileall ...` | ✅ OK |
+| Backend ruff | `ruff check .` | ✅ All checks passed |
+| Backend pytest + coverage | `pytest --cov=.` | ✅ **1188 passed**, **85.31%** (gate 80) |
+| Backend pip-audit | `pip-audit -r requirements.txt` | ✅ No known vulnerabilities |
+| Frontend lint | `npm run lint` | ✅ clean |
+| Frontend Vitest + coverage | `npm run test:coverage` | ✅ **518 passed**, 72.12% lines (gate 67) |
+| Frontend build | `npm run build` | ✅ OK |
+| Frontend npm audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| Desktop npm audit | `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| E2E | `npm run test:e2e` | ✅ **20 passed** |
+| Live QA | `python qa_test.py` | ✅ 74 passed, 0 failed, 0 warnings |
+| Stress | `python stress_test.py` | ✅ 0 errors, no slow reads, 142.5 req/s |
+| SQLite migration | zero→head + idempotent + drift | ✅ head f1a2b3c4d5e6, drift 3 pass |
+| Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI covers |
