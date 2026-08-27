@@ -40,15 +40,15 @@ Own-logic: URL/query/encoding, method, body, credentials, CSRF/caller headers, e
 Verify existing tenant-isolation + upload + CSRF tests cover org_id spoofing (body/query/header),
 IDOR, CSV injection, HTML-as-PDF. Add adversarial tests where a gap is proven.
 
-### `[ ]` E (P2) — Migrations & schema drift
+### `[x]` E (P2) — Migrations & schema drift
 Verify Alembic head (claimed `f1a2b3c4d5e6`), clean upgrade on empty SQLite, idempotency, drift test.
 PostgreSQL upgrade BLOCKED (no Docker) — document command.
 
-### `[ ]` F (P2) — Performance / load
+### `[x]` F (P2) — Performance / load
 Run `qa_test.py` + `stress_test.py` (seeded ≥500/100/300). `pg_benchmark.py` vs PostgreSQL BLOCKED
 (no Docker) — document command + expected metrics. Never call SQLite+Flask a production load test.
 
-### `[ ]` G (P3) — Dead code & repo hygiene
+### `[x]` G (P3) — Dead code & repo hygiene
 Re-verify: no console.log/print/debugger in shipped src, no stray artifacts, `.gitignore` sound,
 `pass` intentional. Remove only proven-dead code.
 
@@ -77,5 +77,12 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
   adversarial: client org_id-on-create ignored, AAD/ciphertext relocation, key rotation, realtime
   isolation, invite escalation; test_upload_security; test_org_id_in_payload_is_ignored). **One real
   gap found & fixed: CSV formula injection** in reports/payroll exports (csv_safe guard + tests).
+
+- **E** — Alembic head verified `f1a2b3c4d5e6`; clean zero→head upgrade on empty SQLite + idempotent
+  re-run OK; test_schema_drift 3 pass. PostgreSQL upgrade BLOCKED (no Docker) — CI Docker job covers it.
+- **F** — qa_test.py 74/0/0; stress_test.py 0 errors, no slow reads, 142.5 req/s, P95 234ms, blind-index
+  OK. pg_benchmark vs PostgreSQL BLOCKED (no Docker).
+- **G** — clean: no console.log/print/debugger in shipped src, no stray artifacts tracked, ruff F401
+  clean, `.gitignore` sound. Nothing to remove.
 
 _Appended per item._
