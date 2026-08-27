@@ -39,10 +39,10 @@ Actionable items from the cycle-2 assessment — closing the remaining test gaps
 weakest zones (same standard as the time/crew_preset/document work). Worked one at a time,
 each with its own commit; this list is updated as each lands.
 
-- [ ] **A — Notifications/push backend tests.** `notification_utils.py` (54%),
-  `notification_routes.py` (59%), `push_utils.py` (38%). Cover read/unread, dedup, tenant
-  isolation, role targeting, subscription lifecycle, invalid endpoint, and that a push
-  provider failure never breaks the primary workflow.
+- [x] **A — Notifications/push backend tests.** Done (`test_notification_routes.py`, +14):
+  list (role/prefs-filtered), mark-read/all, per-user isolation, prefs get/put, push
+  subscribe/unsubscribe/test-push with mocked provider outcomes (failure -> clean 502/400 +
+  cleared subscription, never a 500). `notification_routes` 58.8% -> 84.6%.
 - [ ] **B — `tenant_routes.py` backend tests** (56%). Public `current`, org get/patch,
   invitation lifecycle, org-boundary (cannot read/modify another org), no org-id via payload.
 - [ ] **C — `NotificationBell.jsx` frontend test.** Unread counter, open list, mark
