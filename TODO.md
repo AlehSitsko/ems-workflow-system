@@ -51,8 +51,9 @@ each with its own commit; this list is updated as each lands.
 - [x] **D — payroll + patient coverage top-up.** Done (+14): patient alerts/contacts CRUD
   (`patient_routes` 65 -> 75.4%) and payroll period create/list/delete (`payroll_routes`
   65 -> 69.6%), with validation, RBAC, and 404s.
-- [ ] **E — `api/` wrapper tests** for a couple of untested wrappers with real own-logic
-  (URL construction, CSRF, error normalization for 401/403/409/422).
+- [x] **E — `api/` wrapper tests.** Done (`callsApi.test.js`, +7): URL/query construction,
+  credentials, error normalization (server message + generic fallback), JSON POST, and
+  caller-supplied header (CSRF) pass-through.
 
 **Blocked (need a Docker/Postgres host — not faked locally):**
 - [ ] Run `scripts/pg_benchmark.py` against the prod PostgreSQL stack; compare to SQLite.
