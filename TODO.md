@@ -43,8 +43,9 @@ each with its own commit; this list is updated as each lands.
   list (role/prefs-filtered), mark-read/all, per-user isolation, prefs get/put, push
   subscribe/unsubscribe/test-push with mocked provider outcomes (failure -> clean 502/400 +
   cleared subscription, never a 500). `notification_routes` 58.8% -> 84.6%.
-- [ ] **B — `tenant_routes.py` backend tests** (56%). Public `current`, org get/patch,
-  invitation lifecycle, org-boundary (cannot read/modify another org), no org-id via payload.
+- [x] **B — `tenant_routes.py` backend tests** (56% -> 92.4%). Done: PATCH validation
+  branches (name/settings/pto/punctuality) + caller-only-sees-own-org + org-id-in-payload
+  ignored. Found & fixed a real bug: over-length name/settings returned 500 (now 400).
 - [ ] **C — `NotificationBell.jsx` frontend test.** Unread counter, open list, mark
   (all) read, empty state, failed request, accessible name/focus.
 - [ ] **D — `payroll_routes.py` (65%) + `patient_routes.py` (65%) coverage top-up** —
