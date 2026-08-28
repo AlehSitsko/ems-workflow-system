@@ -161,7 +161,11 @@ merge/tag/Release/installer; do not touch the published v1.1.14 Release; prepare
   RBAC, regression battery. 30 tests, all pass.
 - **Commit:** `bacc9c8`. **Status: done.**
 
-### `[ ]` C4-2 (P2) — Backend coverage follow-up (notification/push/dispatch/crew/payroll)
+### `[x]` C4-2 (P2) — Backend coverage follow-up
+push_utils **37.8→94.6%** (send_push success/exception/410-reraise/malformed/no-key-leak + VAPID
+resolution, pywebpush mocked at the boundary); notification_utils +2 (inactive user excluded,
+no-recipient event records event but 0 user rows). crew/payroll/dispatch already lifted in cycle-3
++ the new CSV export tests; no low-value % padding added.
 ### `[ ]` C4-3 (P2) — Frontend API wrapper coverage (classify + test the ones with real logic)
 ### `[ ]` C4-4 (P1) — Documentation sync to v1.1.14 + honest historical narrative
 ### `[ ]` C4-5 (P1) — Prepare v1.1.15 (version bump + release notes + owner checklist; NO tag/Release)
