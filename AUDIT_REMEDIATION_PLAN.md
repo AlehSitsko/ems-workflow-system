@@ -184,7 +184,7 @@ README snapshot → 1217 backend / 532 frontend (measured), labelled for v1.1.15
 documents the now-complete CSV guard (v1.1.14 partial → v1.1.15 complete). Cycle-3 J closed with the
 historical note that v1.1.14 was published after cycle-3; no claim that v1.1.14 fully fixed CSV
 injection. No HIPAA/prod-scale/CAD-ePCR overclaims introduced.
-### `[ ]` C4-5 (P1) — Prepare v1.1.15 (version bump + release notes + owner checklist; NO tag/Release)
+### `[x]` C4-5 (P1) — Prepare v1.1.15 (bump + release notes + owner checklist; no tag/Release). Done.
 ### `[ ]` C4-6 (P0) — Full regression + final review
 
 ## C4-5 — v1.1.15 prepared (NOT tagged/released)
