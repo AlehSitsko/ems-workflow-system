@@ -63,3 +63,26 @@ def test_notify_user_reaches_exactly_one_user(app):
     ev = NotificationEvent.query.order_by(NotificationEvent.id.desc()).first()
     rows = UserNotification.query.filter_by(event_id=ev.id).all()
     assert len(rows) == 1 and rows[0].user_id == users["admin"].id
+
+
+def test_inactive_user_is_excluded_from_fan_out(app):
+    from conftest import make_user
+    active = make_user("admin", username="nu_active")
+    inactive = make_user("admin", username="nu_inactive")
+    inactive.is_active = False
+    db.session.commit()
+    create_notification("call_new_today", "info", "T", "b", entity_id=201)
+    db.session.commit()
+    ev = NotificationEvent.query.order_by(NotificationEvent.id.desc()).first()
+    recipients = {un.user_id for un in UserNotification.query.filter_by(event_id=ev.id)}
+    assert active.id in recipients and inactive.id not in recipients
+
+
+def test_event_with_no_eligible_recipients_creates_no_user_rows(app):
+    from conftest import make_user
+    make_user("dispatcher", username="nu_disp")  # dispatcher can't receive employee_added
+    create_notification("employee_added", "info", "T", "b", entity_id=202)
+    db.session.commit()
+    ev = NotificationEvent.query.filter_by(type="employee_added", entity_id=202).first()
+    assert ev is not None  # the event row is still recorded
+    assert UserNotification.query.filter_by(event_id=ev.id).count() == 0
