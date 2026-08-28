@@ -48,6 +48,14 @@ This document records what was **experimentally proven**, and — honestly — w
   (case + surrounding space), and uses **per-org scoped keys** — the same plaintext
   produces **different** blind-index bytes in different orgs (no cross-tenant
   correlation), and the index is a keyed hash (no plaintext).
+- **CSV formula-injection guard (all exports).** Every CSV export (reports
+  calls / hours / punctuality / call-log; payroll generic / Gusto / ADP) routes every
+  data row through `utils/csv_utils.csv_safe_row`: a user-controlled cell beginning with a
+  formula trigger (`= + - @`, or leading whitespace before one, or a leading tab / CR / LF)
+  is prefixed with `'` so a spreadsheet treats it as text, never a live formula. Verified by
+  per-endpoint integration tests that parse the response with `csv.reader` and assert no cell
+  starts with a live trigger. First guard shipped in v1.1.14 (reports/payroll names); coverage
+  completed across the remaining exports in the v1.1.15 line.
 
 ## Intentionally plaintext (accepted, not defects)
 
