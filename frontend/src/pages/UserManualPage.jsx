@@ -998,6 +998,15 @@ function SupervisorSection() {
         ]} />
         <Tip>Use this to spot dispatchers who may need a refresher on intake procedure, or fields that are frequently skipped.</Tip>
       </Sub>
+      <Sub title="Punctuality & On-Time Performance">
+        <List items={[
+          "On-time performance over a date range, grouped by driver, crew, or dispatcher (dispatcher grouping is Admin / Supervisor only).",
+          "Per group: pickups and appointments measured, how many were late, on-time %, and average / worst lateness in minutes — worst offenders first.",
+          "\"Late\" means arriving more than the organisation's grace window after the scheduled time; set the grace under Organization settings.",
+          "Exportable as CSV. A team-facing Crew Punctuality page (by driver / crew) also lives in the Operations menu so the whole crew can see who is running late.",
+        ]} />
+        <Note>Only completed trips that have both a scheduled and an actual time are scored.</Note>
+      </Sub>
     </>
   );
 }
@@ -1312,11 +1321,11 @@ function ShortcutsSection() {
                 ["Call Form", "✓", "✓", "✓", "—"],
                 ["Patients / Calls", "✓", "✓", "✓", "—"],
                 ["Employees", "✓", "✓", "—", "✓"],
-                ["Crew Planner / Vehicles / Presets", "✓", "✓", "✓", "✓"],
+                ["Crew Planner / Vehicles / Presets", "✓", "✓", "✓", "—"],
                 ["Payroll", "✓", "✓", "—", "✓"],
                 ["Compliance", "✓", "✓", "—", "✓"],
                 ["Supervisor Dashboard", "✓", "✓", "—", "—"],
-                ["Audit Log", "✓", "✓", "—", "✓"],
+                ["Audit Log", "✓", "✓", "✓", "✓"],
                 ["User Management", "✓", "—", "—", "—"],
                 ["Kiosk / Clock", "✓", "✓", "✓", "✓"],
               ].map(([mod, ...vals]) => (
