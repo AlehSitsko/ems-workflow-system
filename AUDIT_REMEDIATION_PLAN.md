@@ -185,7 +185,7 @@ documents the now-complete CSV guard (v1.1.14 partial → v1.1.15 complete). Cyc
 historical note that v1.1.14 was published after cycle-3; no claim that v1.1.14 fully fixed CSV
 injection. No HIPAA/prod-scale/CAD-ePCR overclaims introduced.
 ### `[x]` C4-5 (P1) — Prepare v1.1.15 (bump + release notes + owner checklist; no tag/Release). Done.
-### `[ ]` C4-6 (P0) — Full regression + final review
+### `[x]` C4-6 (P0) — Full regression + final review. Done (E2E flake noted; CI authoritative).
 
 ## C4-5 — v1.1.15 prepared (NOT tagged/released)
 
@@ -219,3 +219,21 @@ Release, or installer** — owner action only.
    size-match).
 9. Fast-forward `main` back into `dev`.
 Do **not** modify or overwrite the existing published v1.1.14 Release.
+
+## C4-6 — full regression
+
+| Check | Command | Result |
+|---|---|---|
+| Backend compileall | `compileall` | ✅ OK |
+| Backend ruff | `ruff check .` | ✅ clean |
+| Backend pytest+cov | `pytest --cov=.` | ✅ **1217 passed**, **85.72%** (gate 80) |
+| Backend pip-audit | `pip-audit -r requirements.txt` | ✅ no known vulns |
+| Frontend lint | `npm run lint` | ✅ clean |
+| Frontend Vitest+cov | `npm run test:coverage` | ✅ **532 passed**, 72.81% lines (gate 67) |
+| Frontend build / npm audit | `npm run build` / `npm audit` | ✅ OK / 0 |
+| Desktop npm audit | `npm audit --omit=dev` | ✅ 0 |
+| SQLite migration + drift | upgrade→`f1a2b3c4d5e6` + drift | ✅ 3 pass |
+| Live QA | `python qa_test.py` | ✅ 74/0/0 |
+| Stress | `python stress_test.py` | ✅ 0 errors, 155.7 req/s, P95 264ms |
+| E2E (local) | `npm run test:e2e` | ⚠️ 19/20; the 1 fail (`roles.spec` link-redirect-403) is **flaky** — passes 3/3 in isolation, unrelated to cycle-4 (backend/CSV) changes. Authoritative check: CI E2E job on the pushed SHA. |
+| Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI Docker job |
