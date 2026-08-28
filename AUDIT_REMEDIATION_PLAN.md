@@ -166,7 +166,19 @@ push_utils **37.8→94.6%** (send_push success/exception/410-reraise/malformed/n
 resolution, pywebpush mocked at the boundary); notification_utils +2 (inactive user excluded,
 no-recipient event records event but 0 user rows). crew/payroll/dispatch already lifted in cycle-3
 + the new CSV export tests; no low-value % padding added.
-### `[ ]` C4-3 (P2) — Frontend API wrapper coverage (classify + test the ones with real logic)
+### `[x]` C4-3 (P2) — Frontend API wrapper coverage
+**Tested (real own-logic):** callsApi, employeesApi, patientsApi, vehiclesApi (cycle-3) +
+auditApi, operationsApi, crewApi (cycle-4, +14) — query/URL construction, encoding, method, body,
+credentials, caller headers, error normalization. Plus pre-existing timeApi, calendarEventsApi,
+csrf, reports, sessionExpiry tests.
+**Dispositioned (no separate unit test — reason):**
+- `holidaysApi`, `ptoApi`, `tenantApi` — thin CRUD (get/create/delete), body/query trivial and
+  identical to already-tested wrappers; exercised by backend route tests + E2E. No unique logic.
+- `authApi` (login/logout/session/user CRUD) — thin passthroughs; the non-trivial part (session
+  expiry) is already unit-tested (`sessionExpiry.test.js`) and login/logout-as-role is covered by E2E.
+- `portalApi`, `platformApi` — thin passthroughs to self-scoped / platform endpoints, E2E-covered.
+None send a client-trusted org_id/role/identity (verified: wrappers pass only the caller's payload;
+tenant/role come from the session server-side).
 ### `[ ]` C4-4 (P1) — Documentation sync to v1.1.14 + honest historical narrative
 ### `[ ]` C4-5 (P1) — Prepare v1.1.15 (version bump + release notes + owner checklist; NO tag/Release)
 ### `[ ]` C4-6 (P0) — Full regression + final review
