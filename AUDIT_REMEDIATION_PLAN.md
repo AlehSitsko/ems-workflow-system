@@ -57,7 +57,14 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
 
 ### `[x]` I (P0) — Full final regression
 
-### `[ ]` J (P0) — Final report
+### `[x]` J (P0) — Final report
+Delivered (chat + this journal). **Historical note:** Cycle 3 finished with NO tag/Release
+(per its constraints); afterwards the owner authorized shipping, so **v1.1.14 was published**
+(merge `530b6d8`, tag `v1.1.14`, Release with installer + SHA-256). Cycle 4 below runs on top of
+the published v1.1.14. Item D said "CSV injection fixed" — accurate for the reports/payroll-names
+scope of v1.1.14, but **v1.1.14's guard was incomplete** (punctuality/call-log/ADP still raw) —
+completed in Cycle 4. Item C covered employees/patients/vehicles wrappers only; the rest are
+dispositioned in Cycle 4 Item C4-3.
 
 ## Progress log
 
@@ -131,3 +138,31 @@ performed** (per constraints).
 | Stress | `python stress_test.py` | ✅ 0 errors, no slow reads, 142.5 req/s |
 | SQLite migration | zero→head + idempotent + drift | ✅ head f1a2b3c4d5e6, drift 3 pass |
 | Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI covers |
+
+
+---
+
+# Cycle 4 — v1.1.14 security follow-up
+
+Baseline (verified 2026-08-28): `dev = main = 530b6d8`, version **1.1.14**, tag `v1.1.14`, Release
+`v1.1.14` (Latest, installer + SHA-256), no open PRs, main CI green. **Constraints:** dev only; no
+merge/tag/Release/installer; do not touch the published v1.1.14 Release; prepare v1.1.15 only.
+
+### `[x]` C4-1 (P0) — Complete CSV formula-injection across ALL exports
+- **Evidence:** v1.1.14 left three exports writing user text raw — reports `punctuality/export`
+  (group label), reports `call-log/export` (addresses/dispatcher/assignedBy/crew/truck/callType/
+  serviceLevel/status), payroll `adp` (`employee_number`).
+- **Files:** `utils/csv_utils.py`, `routes/reports_routes.py`, `routes/payroll_routes.py`.
+- **Fix:** centralized `csv_safe_row()` applied to every data row of every CSV export; `csv_safe`
+  hardened for leading-whitespace-before-trigger + leading tab/CR/LF (OWASP). Numeric/date columns
+  not routed through it.
+- **Tests:** `test_csv_injection.py` — unit policy + `csv_safe_row`, integration per endpoint parsed
+  with `csv.reader` (calls, call-log, hours, punctuality-dispatcher, payroll generic/gusto/adp),
+  RBAC, regression battery. 30 tests, all pass.
+- **Commit:** `bacc9c8`. **Status: done.**
+
+### `[ ]` C4-2 (P2) — Backend coverage follow-up (notification/push/dispatch/crew/payroll)
+### `[ ]` C4-3 (P2) — Frontend API wrapper coverage (classify + test the ones with real logic)
+### `[ ]` C4-4 (P1) — Documentation sync to v1.1.14 + honest historical narrative
+### `[ ]` C4-5 (P1) — Prepare v1.1.15 (version bump + release notes + owner checklist; NO tag/Release)
+### `[ ]` C4-6 (P0) — Full regression + final review
