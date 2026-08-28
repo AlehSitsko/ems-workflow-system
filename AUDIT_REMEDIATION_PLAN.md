@@ -186,3 +186,36 @@ historical note that v1.1.14 was published after cycle-3; no claim that v1.1.14 
 injection. No HIPAA/prod-scale/CAD-ePCR overclaims introduced.
 ### `[ ]` C4-5 (P1) — Prepare v1.1.15 (version bump + release notes + owner checklist; NO tag/Release)
 ### `[ ]` C4-6 (P0) — Full regression + final review
+
+## C4-5 — v1.1.15 prepared (NOT tagged/released)
+
+Version bumped `1.1.14 → 1.1.15` in frontend/desktop package.json + both lock files. **No tag,
+Release, or installer** — owner action only.
+
+### Draft release notes — v1.1.15 (security patch)
+> **v1.1.15 — complete the CSV export hardening**
+>
+> - **Security:** v1.1.14 added the first CSV / spreadsheet formula-injection guard (operational
+>   reports and payroll names). v1.1.15 **completes it across every CSV export** — the punctuality
+>   report, the call-log export (addresses, dispatcher, crew, truck, service level, …), and the
+>   payroll ADP employee number were still written raw and are now neutralized. A single
+>   `csv_safe_row` guard runs on every export row; the guard also handles a formula trigger after
+>   leading whitespace and a leading tab/CR/LF (OWASP).
+> - **Tests:** per-endpoint integration tests parse each export with `csv.reader` and assert no cell
+>   is a live formula; push-notification edge cases; more frontend API-wrapper coverage.
+> - **No API, schema, or migration changes.** All existing CSV column orders, names, filenames and
+>   the Gusto / ADP / generic formats are unchanged. Upgrading is safe.
+
+### Owner checklist for v1.1.15 (do NOT run automatically)
+1. `git diff main...dev` — review the cycle-4 commits.
+2. Confirm GitHub Actions green on the final `dev` SHA (all 6 jobs).
+3. Open PR `dev → main`; merge only after green CI.
+4. Build the Windows installer: `cd frontend && npm run build`; `cd ../backend && pyinstaller
+   ems-backend.spec --noconfirm`; `cd ../desktop && npm ci && npm run dist`.
+5. Compute the SHA-256 of `desktop/release/EMS-Workflow-System-Setup.exe`.
+6. `git tag v1.1.15 && git push origin v1.1.15`.
+7. `gh release create v1.1.15 <exe> --title "EMS Workflow System v1.1.15" --notes-file <notes>`.
+8. Verify `releases/latest/download/EMS-Workflow-System-Setup.exe` resolves to v1.1.15 (HTTP 200,
+   size-match).
+9. Fast-forward `main` back into `dev`.
+Do **not** modify or overwrite the existing published v1.1.14 Release.
