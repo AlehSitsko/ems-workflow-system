@@ -1,5 +1,5 @@
 import csv
-from utils.csv_utils import csv_safe
+from utils.csv_utils import csv_safe_row
 import io
 from datetime import datetime
 
@@ -219,29 +219,29 @@ def export_payroll():
         ])
         for r in rows:
             if r["regular_hours"] > 0:
-                writer.writerow([
-                    csv_safe(r["employee_number"] or r["employee_id"]),
-                    csv_safe(r["first_name"]), csv_safe(r["last_name"]),
+                writer.writerow(csv_safe_row([
+                    r["employee_number"] or r["employee_id"],
+                    r["first_name"], r["last_name"],
                     r["regular_hours"], r["regular_pay"], "Regular",
-                ])
+                ]))
             if r["ot_hours"] > 0:
-                writer.writerow([
-                    csv_safe(r["employee_number"] or r["employee_id"]),
-                    csv_safe(r["first_name"]), csv_safe(r["last_name"]),
+                writer.writerow(csv_safe_row([
+                    r["employee_number"] or r["employee_id"],
+                    r["first_name"], r["last_name"],
                     r["ot_hours"], r["ot_pay"], "Overtime",
-                ])
+                ]))
     elif fmt == "adp":
         writer.writerow([
             "Co Code", "Batch ID", "File #", "Reg Hours", "O/T Hours",
             "Reg Earnings", "O/T Earnings",
         ])
         for r in rows:
-            writer.writerow([
+            writer.writerow(csv_safe_row([
                 "EMS", period.id,
                 r["employee_number"] or r["employee_id"],
                 r["regular_hours"], r["ot_hours"],
                 r["regular_pay"], r["ot_pay"],
-            ])
+            ]))
     else:
         writer.writerow([
             "Employee ID", "First Name", "Last Name",
@@ -251,14 +251,14 @@ def export_payroll():
             "Pay Type", "Period Start", "Period End",
         ])
         for r in rows:
-            writer.writerow([
-                csv_safe(r["employee_number"] or r["employee_id"]),
-                csv_safe(r["first_name"]), csv_safe(r["last_name"]),
+            writer.writerow(csv_safe_row([
+                r["employee_number"] or r["employee_id"],
+                r["first_name"], r["last_name"],
                 r["total_hours"], r["regular_hours"], r["ot_hours"],
                 r["hourly_rate"], r["ot_rate_multiplier"],
                 r["regular_pay"], r["ot_pay"], r["total_pay"],
                 r["pay_type"], period.start_date, period.end_date,
-            ])
+            ]))
 
     filename = f"payroll_{period.start_date}_{period.end_date}_{fmt}.csv"
     return Response(

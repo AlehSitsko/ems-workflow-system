@@ -23,7 +23,7 @@ from sqlalchemy import or_
 from models import db, Call, DailyCrewUnit, CallAssignment, TimeEntry, Employee, Organization
 from utils.auth_utils import require_role, get_request_role
 from utils.operational_dates import parse_operational_date, require_valid_date
-from utils.csv_utils import csv_safe
+from utils.csv_utils import csv_safe_row
 from utils import lateness as lateness_engine
 from tenant import current_org_id
 
@@ -191,12 +191,12 @@ def calls_report_export():
         "Completed At", "Cancelled At",
     ])
     for c in calls:
-        writer.writerow([
+        writer.writerow(csv_safe_row([
             c.id, c.trip_date, c.status or "new", c.service_level or "",
-            csv_safe(c.dispatcher_name or ""), c.pickup_time or "",
-            csv_safe(c.pickup_address or ""), csv_safe(c.dropoff_address or ""),
+            c.dispatcher_name or "", c.pickup_time or "",
+            c.pickup_address or "", c.dropoff_address or "",
             c.completed_at or "", c.cancelled_at or "",
-        ])
+        ]))
 
     filename = f"calls_{start_d.isoformat()}_{end_d.isoformat()}.csv"
     return Response(
@@ -381,8 +381,8 @@ def hours_report_export():
     writer = csv.writer(output)
     writer.writerow(["Employee ID", "Name", "Total Hours", "Entries", "Days Worked"])
     for r in rows:
-        writer.writerow([r["employee_id"], csv_safe(r["name"]), r["total_hours"],
-                         r["entries"], r["days_worked"]])
+        writer.writerow(csv_safe_row([r["employee_id"], r["name"], r["total_hours"],
+                                      r["entries"], r["days_worked"]]))
 
     filename = f"hours_{start_d.isoformat()}_{end_d.isoformat()}.csv"
     return Response(
@@ -567,13 +567,13 @@ def punctuality_export():
     ])
     for r in rows:
         p, ap = r["pickup"], r["appointment"]
-        writer.writerow([
+        writer.writerow(csv_safe_row([
             r["label"],
             p["measured"], p["late"], "" if p["onTimeRate"] is None else p["onTimeRate"],
             p["avgLateMinutes"], p["maxLateMinutes"],
             ap["measured"], ap["late"], "" if ap["onTimeRate"] is None else ap["onTimeRate"],
             ap["avgLateMinutes"], ap["maxLateMinutes"],
-        ])
+        ]))
     filename = f"punctuality_{group_by}_{start_d.isoformat()}_{end_d.isoformat()}.csv"
     return Response(output.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={filename}"})
@@ -674,14 +674,14 @@ def call_log_export():
     ])
     for c in calls:
         it = _call_log_item(c, asn_by_call, units, emps, grace)
-        writer.writerow([
+        writer.writerow(csv_safe_row([
             it["id"], it["date"] or "", it["serviceLevel"] or "", it["callType"] or "",
             it["status"] or "", it["pickupAddress"] or "", it["dropoffAddress"] or "",
             it["dispatcher"] or "", it["assignedBy"] or "", it["crew"] or "",
             it["truck"] or "", it["pickupTime"] or "", it["arrivedPickupAt"] or "",
             "" if it["pickupLateMinutes"] is None else it["pickupLateMinutes"],
             "yes" if it["isLate"] else "", it["completedAt"] or "",
-        ])
+        ]))
     filename = f"call_log_{start}_{end}.csv"
     return Response(output.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename={filename}"})
