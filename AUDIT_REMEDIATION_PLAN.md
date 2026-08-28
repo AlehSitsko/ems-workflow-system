@@ -57,7 +57,14 @@ Confirmed in baseline. Prepare the owner PR/merge/release checklist — do NOT e
 
 ### `[x]` I (P0) — Full final regression
 
-### `[ ]` J (P0) — Final report
+### `[x]` J (P0) — Final report
+Delivered (chat + this journal). **Historical note:** Cycle 3 finished with NO tag/Release
+(per its constraints); afterwards the owner authorized shipping, so **v1.1.14 was published**
+(merge `530b6d8`, tag `v1.1.14`, Release with installer + SHA-256). Cycle 4 below runs on top of
+the published v1.1.14. Item D said "CSV injection fixed" — accurate for the reports/payroll-names
+scope of v1.1.14, but **v1.1.14's guard was incomplete** (punctuality/call-log/ADP still raw) —
+completed in Cycle 4. Item C covered employees/patients/vehicles wrappers only; the rest are
+dispositioned in Cycle 4 Item C4-3.
 
 ## Progress log
 
@@ -131,3 +138,102 @@ performed** (per constraints).
 | Stress | `python stress_test.py` | ✅ 0 errors, no slow reads, 142.5 req/s |
 | SQLite migration | zero→head + idempotent + drift | ✅ head f1a2b3c4d5e6, drift 3 pass |
 | Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI covers |
+
+
+---
+
+# Cycle 4 — v1.1.14 security follow-up
+
+Baseline (verified 2026-08-28): `dev = main = 530b6d8`, version **1.1.14**, tag `v1.1.14`, Release
+`v1.1.14` (Latest, installer + SHA-256), no open PRs, main CI green. **Constraints:** dev only; no
+merge/tag/Release/installer; do not touch the published v1.1.14 Release; prepare v1.1.15 only.
+
+### `[x]` C4-1 (P0) — Complete CSV formula-injection across ALL exports
+- **Evidence:** v1.1.14 left three exports writing user text raw — reports `punctuality/export`
+  (group label), reports `call-log/export` (addresses/dispatcher/assignedBy/crew/truck/callType/
+  serviceLevel/status), payroll `adp` (`employee_number`).
+- **Files:** `utils/csv_utils.py`, `routes/reports_routes.py`, `routes/payroll_routes.py`.
+- **Fix:** centralized `csv_safe_row()` applied to every data row of every CSV export; `csv_safe`
+  hardened for leading-whitespace-before-trigger + leading tab/CR/LF (OWASP). Numeric/date columns
+  not routed through it.
+- **Tests:** `test_csv_injection.py` — unit policy + `csv_safe_row`, integration per endpoint parsed
+  with `csv.reader` (calls, call-log, hours, punctuality-dispatcher, payroll generic/gusto/adp),
+  RBAC, regression battery. 30 tests, all pass.
+- **Commit:** `bacc9c8`. **Status: done.**
+
+### `[x]` C4-2 (P2) — Backend coverage follow-up
+push_utils **37.8→94.6%** (send_push success/exception/410-reraise/malformed/no-key-leak + VAPID
+resolution, pywebpush mocked at the boundary); notification_utils +2 (inactive user excluded,
+no-recipient event records event but 0 user rows). crew/payroll/dispatch already lifted in cycle-3
++ the new CSV export tests; no low-value % padding added.
+### `[x]` C4-3 (P2) — Frontend API wrapper coverage
+**Tested (real own-logic):** callsApi, employeesApi, patientsApi, vehiclesApi (cycle-3) +
+auditApi, operationsApi, crewApi (cycle-4, +14) — query/URL construction, encoding, method, body,
+credentials, caller headers, error normalization. Plus pre-existing timeApi, calendarEventsApi,
+csrf, reports, sessionExpiry tests.
+**Dispositioned (no separate unit test — reason):**
+- `holidaysApi`, `ptoApi`, `tenantApi` — thin CRUD (get/create/delete), body/query trivial and
+  identical to already-tested wrappers; exercised by backend route tests + E2E. No unique logic.
+- `authApi` (login/logout/session/user CRUD) — thin passthroughs; the non-trivial part (session
+  expiry) is already unit-tested (`sessionExpiry.test.js`) and login/logout-as-role is covered by E2E.
+- `portalApi`, `platformApi` — thin passthroughs to self-scoped / platform endpoints, E2E-covered.
+None send a client-trusted org_id/role/identity (verified: wrappers pass only the caller's payload;
+tenant/role come from the session server-side).
+### `[x]` C4-4 (P1) — Documentation sync + honest narrative
+README snapshot → 1217 backend / 532 frontend (measured), labelled for v1.1.15. SECURITY_AUDIT
+documents the now-complete CSV guard (v1.1.14 partial → v1.1.15 complete). Cycle-3 J closed with the
+historical note that v1.1.14 was published after cycle-3; no claim that v1.1.14 fully fixed CSV
+injection. No HIPAA/prod-scale/CAD-ePCR overclaims introduced.
+### `[x]` C4-5 (P1) — Prepare v1.1.15 (bump + release notes + owner checklist; no tag/Release). Done.
+### `[x]` C4-6 (P0) — Full regression + final review. Done (E2E flake noted; CI authoritative).
+
+## C4-5 — v1.1.15 prepared (NOT tagged/released)
+
+Version bumped `1.1.14 → 1.1.15` in frontend/desktop package.json + both lock files. **No tag,
+Release, or installer** — owner action only.
+
+### Draft release notes — v1.1.15 (security patch)
+> **v1.1.15 — complete the CSV export hardening**
+>
+> - **Security:** v1.1.14 added the first CSV / spreadsheet formula-injection guard (operational
+>   reports and payroll names). v1.1.15 **completes it across every CSV export** — the punctuality
+>   report, the call-log export (addresses, dispatcher, crew, truck, service level, …), and the
+>   payroll ADP employee number were still written raw and are now neutralized. A single
+>   `csv_safe_row` guard runs on every export row; the guard also handles a formula trigger after
+>   leading whitespace and a leading tab/CR/LF (OWASP).
+> - **Tests:** per-endpoint integration tests parse each export with `csv.reader` and assert no cell
+>   is a live formula; push-notification edge cases; more frontend API-wrapper coverage.
+> - **No API, schema, or migration changes.** All existing CSV column orders, names, filenames and
+>   the Gusto / ADP / generic formats are unchanged. Upgrading is safe.
+
+### Owner checklist for v1.1.15 (do NOT run automatically)
+1. `git diff main...dev` — review the cycle-4 commits.
+2. Confirm GitHub Actions green on the final `dev` SHA (all 6 jobs).
+3. Open PR `dev → main`; merge only after green CI.
+4. Build the Windows installer: `cd frontend && npm run build`; `cd ../backend && pyinstaller
+   ems-backend.spec --noconfirm`; `cd ../desktop && npm ci && npm run dist`.
+5. Compute the SHA-256 of `desktop/release/EMS-Workflow-System-Setup.exe`.
+6. `git tag v1.1.15 && git push origin v1.1.15`.
+7. `gh release create v1.1.15 <exe> --title "EMS Workflow System v1.1.15" --notes-file <notes>`.
+8. Verify `releases/latest/download/EMS-Workflow-System-Setup.exe` resolves to v1.1.15 (HTTP 200,
+   size-match).
+9. Fast-forward `main` back into `dev`.
+Do **not** modify or overwrite the existing published v1.1.14 Release.
+
+## C4-6 — full regression
+
+| Check | Command | Result |
+|---|---|---|
+| Backend compileall | `compileall` | ✅ OK |
+| Backend ruff | `ruff check .` | ✅ clean |
+| Backend pytest+cov | `pytest --cov=.` | ✅ **1217 passed**, **85.72%** (gate 80) |
+| Backend pip-audit | `pip-audit -r requirements.txt` | ✅ no known vulns |
+| Frontend lint | `npm run lint` | ✅ clean |
+| Frontend Vitest+cov | `npm run test:coverage` | ✅ **532 passed**, 72.81% lines (gate 67) |
+| Frontend build / npm audit | `npm run build` / `npm audit` | ✅ OK / 0 |
+| Desktop npm audit | `npm audit --omit=dev` | ✅ 0 |
+| SQLite migration + drift | upgrade→`f1a2b3c4d5e6` + drift | ✅ 3 pass |
+| Live QA | `python qa_test.py` | ✅ 74/0/0 |
+| Stress | `python stress_test.py` | ✅ 0 errors, 155.7 req/s, P95 264ms |
+| E2E (local) | `npm run test:e2e` | ⚠️ 19/20; the 1 fail (`roles.spec` link-redirect-403) is **flaky** — passes 3/3 in isolation, unrelated to cycle-4 (backend/CSV) changes. Authoritative check: CI E2E job on the pushed SHA. |
+| Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI Docker job |
