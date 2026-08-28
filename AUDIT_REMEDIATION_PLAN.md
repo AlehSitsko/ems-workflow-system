@@ -179,6 +179,10 @@ csrf, reports, sessionExpiry tests.
 - `portalApi`, `platformApi` — thin passthroughs to self-scoped / platform endpoints, E2E-covered.
 None send a client-trusted org_id/role/identity (verified: wrappers pass only the caller's payload;
 tenant/role come from the session server-side).
-### `[ ]` C4-4 (P1) — Documentation sync to v1.1.14 + honest historical narrative
+### `[x]` C4-4 (P1) — Documentation sync + honest narrative
+README snapshot → 1217 backend / 532 frontend (measured), labelled for v1.1.15. SECURITY_AUDIT
+documents the now-complete CSV guard (v1.1.14 partial → v1.1.15 complete). Cycle-3 J closed with the
+historical note that v1.1.14 was published after cycle-3; no claim that v1.1.14 fully fixed CSV
+injection. No HIPAA/prod-scale/CAD-ePCR overclaims introduced.
 ### `[ ]` C4-5 (P1) — Prepare v1.1.15 (version bump + release notes + owner checklist; NO tag/Release)
 ### `[ ]` C4-6 (P0) — Full regression + final review
