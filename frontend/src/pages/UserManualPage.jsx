@@ -78,21 +78,21 @@ const SECTIONS = [
     id: "crew",
     icon: <FaCalendarAlt />,
     title: "Crew Planner",
-    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    roles: ["admin", "supervisor", "dispatcher"],
     content: <CrewSection />,
   },
   {
     id: "crew-presets",
     icon: <FaClipboardCheck />,
     title: "Crew Presets",
-    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    roles: ["admin", "supervisor", "dispatcher"],
     content: <CrewPresetsSection />,
   },
   {
     id: "vehicles",
     icon: <FaTruck />,
     title: "Vehicles",
-    roles: ["admin", "supervisor", "dispatcher", "hr"],
+    roles: ["admin", "supervisor", "dispatcher"],
     content: <VehiclesSection />,
   },
   {
@@ -141,7 +141,7 @@ const SECTIONS = [
     id: "audit",
     icon: <FaHistory />,
     title: "Audit Log",
-    roles: ["admin", "supervisor"],
+    roles: ["admin", "supervisor", "hr"],
     content: <AuditSection />,
   },
   {
@@ -1031,7 +1031,7 @@ function UserManagementSection() {
 function AuditSection() {
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Audit Log records all significant system actions with full context. Accessible to Admin and Supervisor roles.</p>
+      <p style={{ fontSize: 13, color: "var(--ems-text-secondary)", marginBottom: 14 }}>The Audit Log records all significant system actions with full context. Accessible to Admin, Supervisor, and HR roles.</p>
       <Sub title="What is logged">
         <List items={[
           "Call status changes (assigned, completed, cancelled, reopened).",
@@ -1066,7 +1066,7 @@ function DataSafetySection() {
           "Avoid entering real patient data in a demo or training environment.",
           "Take a database backup before running migrations or major updates.",
           "Browser notifications are controlled entirely by your browser's own permission system — the app cannot force them on.",
-          "Only Admin and Supervisor roles can view the Audit Log and edit lifecycle timestamps — treat those permissions carefully.",
+          "Admin, Supervisor, and HR can view the Audit Log; only Admin and Supervisor can edit lifecycle timestamps — treat those permissions carefully.",
         ]} />
       </Sub>
       <Note>Production authorization hardening (stronger session/token-based login, full permission review) is planned as a final phase.</Note>
@@ -1325,7 +1325,7 @@ function ShortcutsSection() {
                 ["Payroll", "✓", "✓", "—", "✓"],
                 ["Compliance", "✓", "✓", "—", "✓"],
                 ["Supervisor Dashboard", "✓", "✓", "—", "—"],
-                ["Audit Log", "✓", "✓", "✓", "✓"],
+                ["Audit Log", "✓", "✓", "—", "✓"],
                 ["User Management", "✓", "—", "—", "—"],
                 ["Kiosk / Clock", "✓", "✓", "✓", "✓"],
               ].map(([mod, ...vals]) => (

@@ -48,6 +48,19 @@ def _validate_time_field(value, field_name):
     return value
 
 
+def _validate_date_field(value, field_name):
+    """Return value unchanged if empty or a real calendar date (YYYY-MM-DD). Raises
+    ValueError otherwise. A call may legitimately be dateless (it waits in the
+    scheduling inbox), but a *present* date must be a real one — otherwise an
+    impossible value like '2026-02-30' or a stray 'not-a-date' is stored and never
+    lands on any board, and it breaks the date-range filters that assume ISO dates."""
+    if value is None or value == "":
+        return value
+    if not is_valid_date(value):
+        raise ValueError(f"{field_name} must be a real calendar date in YYYY-MM-DD format")
+    return value
+
+
 def _validate_quality_score(value):
     """Return an int 0-100, or None if value is absent. Raises ValueError otherwise."""
     if value is None or value == "":
@@ -178,6 +191,8 @@ def create_call():
         estimated_duration = _validate_duration(data.get("estimated_duration_minutes"))
         _validate_time_field(data.get("pickup_time"), "pickup_time")
         _validate_time_field(data.get("appointment_time"), "appointment_time")
+        _validate_date_field(data.get("date_of_call"), "date_of_call")
+        _validate_date_field(data.get("trip_date"), "trip_date")
         check_length(data.get("pickup_address"), 500, "pickup_address")
         check_length(data.get("dropoff_address"), 500, "dropoff_address")
         check_length(data.get("caller_phone"), 30, "caller_phone")
@@ -307,6 +322,8 @@ def update_call(call_id):
             _validate_time_field(data.get("pickup_time"), "pickup_time")
         if "appointment_time" in data:
             _validate_time_field(data.get("appointment_time"), "appointment_time")
+        if "trip_date" in data:
+            _validate_date_field(data.get("trip_date"), "trip_date")
         check_length(data.get("pickup_address"), 500, "pickup_address")
         check_length(data.get("dropoff_address"), 500, "dropoff_address")
         check_length(data.get("caller_phone"), 30, "caller_phone")
