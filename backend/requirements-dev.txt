@@ -10,7 +10,7 @@ fakeredis==2.37.1
 
 # Backend lint quality gate (see backend/ruff.toml). Correctness rules only
 # (pyflakes + syntax); not a formatter. Run: `ruff check .` from backend/.
-ruff==0.16.4
+ruff==0.16.5
 
 # Dependency vulnerability audit (CI runs it too). Run: `pip-audit -r requirements.txt`.
 pip-audit==2.10.1
