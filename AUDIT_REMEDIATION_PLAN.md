@@ -237,3 +237,124 @@ Do **not** modify or overwrite the existing published v1.1.14 Release.
 | Stress | `python stress_test.py` | ✅ 0 errors, 155.7 req/s, P95 264ms |
 | E2E (local) | `npm run test:e2e` | ⚠️ 19/20; the 1 fail (`roles.spec` link-redirect-403) is **flaky** — passes 3/3 in isolation, unrelated to cycle-4 (backend/CSV) changes. Authoritative check: CI E2E job on the pushed SHA. |
 | Docker / PostgreSQL | — | ⛔ BLOCKED (no local Docker) → CI Docker job |
+
+---
+
+# Cycle 5 — v1.1.17 final quality freeze
+
+Second re-audit of the shipped `v1.1.16`. Scope: fix concrete defects, add regression
+tests at every layer, reconcile docs to actual behaviour, prepare (not publish) `v1.1.17`.
+Work is confined to `dev`; **no merge/tag/Release/installer** without owner approval.
+
+## Baseline (recorded before any change)
+
+| Ref | SHA |
+|---|---|
+| `dev` (after safe `merge --ff-only origin/main`) | `22f5ce0603043c3df455d980bd746037d7511008` |
+| `main` | `22f5ce0603043c3df455d980bd746037d7511008` |
+| `v1.1.16` (annotated tag to commit `22f5ce0`) | tag `6fa7860a4c0dff8cc0ca6338ec2206d7bb7200ac` |
+
+Branch state at start: `main` was one merge-commit ahead of `dev` with an identical tree;
+`dev` fast-forwarded to `main` (no history rewrite). Baseline suites (v1.1.16): backend
+**1235** pytest, frontend **532** Vitest; README snapshot was stale at **1217 / v1.1.15**.
+
+## Defects (reproduced, then fixed)
+
+1. **P1 — silent non-persistence on call update.** `CallDrawer.jsx` sends `patient_id` and
+   `date_of_call` on update; the `PUT /api/calls/<id>` `EDITABLE` list omitted both, so the
+   loop that applies fields silently dropped them — 200 returned, `to_dict()` echoed the
+   *old* values, the reload showed no change. Root cause: the update allowlist was never
+   extended when the drawer began sending these fields.
+   Fix (`routes/call_routes.py`): add `patient_id` + `date_of_call` to `EDITABLE`; apply the
+   same strict ISO validation to `date_of_call` on update as on create (`2026-02-30`,
+   `2026-13-45`, `not-a-date`, `0000-00-00`, `2026-00-10`, `10/31/2026`, `2026-8-1` reject
+   with 400; empty/`null` mean dateless, consistent with create); validate `patient_id`
+   existence within the caller's org (the tenant read-filter makes a foreign patient resolve
+   to None so a cross-org link is refused with 400, never silently honoured), allow unlink via
+   `null`/empty, run the check before any mutation so a rejected update leaves the row
+   untouched. Both flow through the existing `changed`-dict audit path, and `to_dict()`
+   returns the live `patient_id` + `patient_name`.
+
+2. **P2 — desktop lockfile corruption.** `desktop/package-lock.json` had
+   `@peculiar/json-schema` `"version": "1.1.16"` (a version that does not exist on npm, 404)
+   while its `resolved`/`integrity` and the installed package were the real `1.1.12`.
+   Root cause: a blanket version find/replace during a prior app-version bump rewrote a
+   *transitive* dependency's `version` field. `--package-lock-only` would not fix it (npm
+   reused the corrupt entry from the hidden `node_modules/.package-lock.json`).
+   Fix: regenerate from a clean state (remove `node_modules` + `package-lock.json`, then
+   `npm install`) giving `@peculiar/json-schema@1.1.12`, `npm ci` clean, 0 vulnerabilities.
+   Frontend lock scanned — clean. No standalone version-bump script exists (the corruption was
+   a manual replace), so the future safeguard is (a) `scripts/check-lockfiles.mjs`, a pure-Node
+   guard that fails when any entry's `version` disagrees with its resolved tarball or the lock
+   root disagrees with `package.json`, wired into the CI `security` job, and (b) bumping only
+   via `npm version --no-git-tag-version` (root package.json + lock root metadata only).
+
+3. **P2 — docs diverged from reality.** README test snapshot stale (`1217` / `v1.1.15`); the
+   User Manual claimed "production authorization hardening ... planned as a final phase" while
+   the app already ships signed HttpOnly session cookies, CSRF, server-side RBAC, tenant
+   isolation, and per-device revocation (a later line in the same manual already said so).
+   Fix: README updated to real counts (`1256 / 538 / 9 spec files (21 cases)`, `v1.1.17`); the
+   manual Note rewritten to describe the security that exists and to state the client is never
+   trusted for identity/role/org. No in-repo text falsely claims `date_of_call` update worked
+   in v1.1.16; the honest v1.1.17 narrative is "completing an incomplete update contract." The
+   published v1.1.16 Release is left untouched.
+
+## Frontend/backend contract audit (systematic)
+
+Compared every create/edit form's payload with its backend update handler. Call was the sole
+silent-ignore. Verified consistent (each applies every field its form sends; several already
+ISO-validate dates): Patient (`ALLOWED_FIELDS` allowlist), Employee (`apply_employee_data`
+full apply), Vehicle (`incoming` full apply), Task (validates `due_date`, routes `assigned_to`
+to its own endpoint), User (all fields incl. employee link), CrewUnit (full apply + shift
+date/time validation). The codebase deliberately ignores *unknown* fields (allowlist) rather
+than 400-ing them, because legitimate callers spread whole objects (e.g. `PatientsPage` sends
+`...patient` incl. `id`/`org_id`); the defect class is a *legitimate editable* field being
+dropped, which the Call fix closes.
+
+## Tests added
+
+- Backend `tests/test_call_update_contract.py` (21) — date_of_call persist/validate/clear/
+  audit/RBAC/auth; patient_id link/change/unlink/nonexistent/cross-org-400/response summary/
+  audit/rejected-leaves-unchanged.
+- Frontend `src/components/dispatch/CallDrawer.test.jsx` (6) — edit-mode prefill; date + patient
+  changes in payload; clear sends `patient_id: null`; backend error shown and `onSaved` not
+  called; success not signalled until the API resolves.
+- E2E `e2e/call-edit-persistence.spec.js` (1) — real browser session: create, edit (drawer
+  payload), reload, persisted patient shown + API confirms both fields; invalid patient/date
+  refused, link unchanged.
+- CI: lockfile-integrity step added to the `security` job.
+
+## Definition of Done — status
+
+- [x] `date_of_call` persists on update (+ strict validation, dateless allowed)
+- [x] `patient_id` link / change / unlink works; cross-tenant link impossible (400)
+- [x] silent-ignore of legitimate editable fields removed (Call); contract audit done
+- [x] backend + frontend + E2E regression tests added and green
+- [x] `@peculiar/json-schema` back to `1.1.12`; `npm ci` clean from scratch; 0 vulns
+- [x] version bump touches only root package.json + lock root metadata (no transitive drift)
+- [x] README + User Manual reconciled to actual behaviour
+- [x] Cycle 5 recorded (this section)
+- [x] `v1.1.17` prepared (versions bumped); not tagged/released
+- [x] coverage gates not lowered (backend 85.76% >= 80; frontend 72.65% >= gate)
+
+## Full regression gate
+
+| Check | Command | Result |
+|---|---|---|
+| Backend compileall | `python -m compileall` | PASS |
+| Backend ruff | `ruff check .` | PASS (clean) |
+| Backend pytest + cov | `pytest --cov=.` | PASS — 1256 passed, 85.76% (gate 80) |
+| Backend pip-audit | `pip-audit -r requirements.txt` | PASS — no known vulns |
+| Frontend lint | `npm run lint` | PASS (clean) |
+| Frontend Vitest + cov | `npm run test:coverage` | PASS — 538 passed, 72.65% lines |
+| Frontend build / audit | `npm run build` / `npm audit --omit=dev` | PASS / 0 |
+| Desktop lockfile | `npm ci` + `npm ls @peculiar/json-schema` | PASS — clean, 1.1.12 |
+| Desktop audit | `npm audit --omit=dev` | PASS — 0 |
+| Lockfile integrity guard | `node scripts/check-lockfiles.mjs` | PASS (frontend + desktop consistent) |
+| SQLite migration + drift | `flask db upgrade` + `flask db check` | PASS upgrade to `f1a2b3c4d5e6`; drift = pre-existing known `org_id` FKs (audit_log, task), no new migrations |
+| Live QA smoke | `EMS_QA_BASE=... python qa_test.py` | PASS — 74/0/0 (load 180 req, 0 err, P95 309ms) |
+| Stress | `EMS_QA_BASE=... python stress_test.py` | PASS — 0 errors, 132.6 req/s, P95 285ms |
+| E2E (local) | `npm run test:e2e` | 20/21; the 1 fail (`roles.spec` HR home render) is a pre-existing flake — 3/3 in isolation, `retries:1` in CI absorbs it; new `call-edit-persistence` spec passes. CI E2E job authoritative. |
+| PostgreSQL migration / Docker prod-stack | — | BLOCKED (Docker daemon not running locally) → CI Docker job authoritative |
+
+Owner checklist for merge/tag/Release lives at the end of the final report; do not run automatically.

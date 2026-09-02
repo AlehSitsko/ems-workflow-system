@@ -270,6 +270,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      # Catch the v1.1.16 class of corruption: a blanket version find/replace that
+      # rewrites a transitive dependency's version out of sync with its resolved
+      # tarball. Pure Node, no install needed — runs before the audits.
+      - name: Lockfile integrity (dependency versions match resolved tarballs)
+        run: node scripts/check-lockfiles.mjs
       # Production (shipped) deps must have no high/critical advisories. Dev-only
       # advisories are surfaced by Dependabot rather than blocking here.
       - name: npm audit (frontend production deps)
