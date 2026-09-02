@@ -1069,7 +1069,7 @@ function DataSafetySection() {
           "Admin, Supervisor, and HR can view the Audit Log; only Admin and Supervisor can edit lifecycle timestamps — treat those permissions carefully.",
         ]} />
       </Sub>
-      <Note>Production authorization hardening (stronger session/token-based login, full permission review) is planned as a final phase.</Note>
+      <Note>Authorization hardening is in place today: sign-in issues a signed, HttpOnly session cookie (never a role the browser can set), state-changing requests require a CSRF token, and every API route enforces its role on the server and is scoped to your organisation. Sessions can be revoked per device, and passwords follow a strength policy. The client is never trusted for identity, role, or organisation.</Note>
     </>
   );
 }

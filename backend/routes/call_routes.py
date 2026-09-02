@@ -295,8 +295,10 @@ def update_call(call_id):
     data = request.get_json() or {}
 
     EDITABLE = [
-        "dispatcher_name", "caller_type", "call_type", "caller_phone", "caller_note",
-        "trip_date", "pickup_time", "appointment_time", "estimated_duration_minutes",
+        "patient_id", "dispatcher_name", "caller_type", "call_type",
+        "caller_phone", "caller_note",
+        "date_of_call", "trip_date", "pickup_time", "appointment_time",
+        "estimated_duration_minutes",
         "pickup_address", "dropoff_address",
         "service_level", "notes",
         "quality_score", "missing_critical_fields", "missing_optional_fields",
@@ -324,6 +326,8 @@ def update_call(call_id):
             _validate_time_field(data.get("appointment_time"), "appointment_time")
         if "trip_date" in data:
             _validate_date_field(data.get("trip_date"), "trip_date")
+        if "date_of_call" in data:
+            _validate_date_field(data.get("date_of_call"), "date_of_call")
         check_length(data.get("pickup_address"), 500, "pickup_address")
         check_length(data.get("dropoff_address"), 500, "dropoff_address")
         check_length(data.get("caller_phone"), 30, "caller_phone")
@@ -334,6 +338,18 @@ def update_call(call_id):
 
     if "service_level" in data:
         data["service_level"] = canonicalize_or_keep(data["service_level"], normalize_service_level)
+
+    # A patient may be (re)linked, or unlinked with null/"". Validate existence
+    # *within the caller's org*: the tenant read-filter (tenant.py) scopes this
+    # SELECT to the current org, so a patient from another organisation resolves to
+    # None here — cross-org linking is refused with 400, never silently honoured.
+    # This runs before any mutation, so a rejected link leaves the call unchanged.
+    if "patient_id" in data:
+        pid = data.get("patient_id")
+        if pid in (None, ""):
+            data["patient_id"] = None
+        elif Patient.query.filter_by(id=pid).first() is None:
+            return jsonify({"error": "Patient not found"}), 400
 
     changed = {}
     for field in EDITABLE:
