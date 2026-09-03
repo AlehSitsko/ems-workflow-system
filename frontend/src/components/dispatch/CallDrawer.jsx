@@ -303,8 +303,9 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
                 <div className="col-12">
                   <div className="row g-2 mb-2">
                     <div className="col-md-5">
-                      <label style={{ fontSize: 11, fontWeight: 600, color: "var(--ems-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Last Name</label>
+                      <label htmlFor="patient-search-last-name" style={{ fontSize: 11, fontWeight: 600, color: "var(--ems-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Last Name</label>
                       <input
+                        id="patient-search-last-name"
                         type="text"
                         placeholder="Smith…"
                         value={searchName}
@@ -403,8 +404,8 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
           <SectionHeader>Trip Details</SectionHeader>
 
           <div className="col-md-6">
-            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Trip Date <span style={{ color: "var(--color-danger)" }}>*</span></label>
-            <input type="date" className="form-control" value={form.tripDate} onChange={field("tripDate")} disabled={saving} />
+            <label htmlFor="call-trip-date" className="form-label fw-semibold" style={{ fontSize: 13 }}>Trip Date <span style={{ color: "var(--color-danger)" }}>*</span></label>
+            <input id="call-trip-date" type="date" className="form-control" value={form.tripDate} onChange={field("tripDate")} disabled={saving} />
           </div>
           <div className="col-md-6">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Service Level <span style={{ color: "var(--color-danger)" }}>*</span></label>
@@ -437,8 +438,8 @@ export default function CallDrawer({ open, onClose, onSaved, callToEdit, default
             <TimeInput value={form.appointmentTime} onChange={v => setFormDirty(p => ({ ...p, appointmentTime: v }))} disabled={saving} />
           </div>
           <div className="col-md-6">
-            <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Date of Call</label>
-            <input type="date" className="form-control" value={form.dateOfCall} onChange={field("dateOfCall")} disabled={saving} />
+            <label htmlFor="call-date-of-call" className="form-label fw-semibold" style={{ fontSize: 13 }}>Date of Call</label>
+            <input id="call-date-of-call" type="date" className="form-control" value={form.dateOfCall} onChange={field("dateOfCall")} disabled={saving} />
           </div>
           <div className="col-12">
             <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Pickup Address <span style={{ color: "var(--color-danger)" }}>*</span></label>

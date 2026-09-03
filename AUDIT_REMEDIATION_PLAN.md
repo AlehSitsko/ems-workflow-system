@@ -358,3 +358,76 @@ dropped, which the Call fix closes.
 | PostgreSQL migration / Docker prod-stack | — | BLOCKED (Docker daemon not running locally) → CI Docker job authoritative |
 
 Owner checklist for merge/tag/Release lives at the end of the final report; do not run automatically.
+
+## Post-release verification (owner-authorised publish + branch / E2E cleanup)
+
+The section above is the **historical prep record**: at the time it was written, `v1.1.17`
+was prepared but deliberately *not* tagged or released, and the constraint was "no
+merge/tag/Release without owner approval." That state is left as written. What follows
+records what happened **after** the owner explicitly authorised publishing, and a later
+cleanup pass — it does not change the history above.
+
+### Owner-authorised publish (performed on explicit approval, after prep)
+
+| Step | Result |
+|---|---|
+| Merge `dev → main` via PR #28 (CI green first) | PASS — merge commit `b20a4c3203b03d23ce5162eb7db1744d81977ed4` |
+| Tag `v1.1.17` (annotated) → `b20a4c3`, pushed | PASS |
+| Build installer (frontend build → PyInstaller freeze → electron-builder NSIS) | PASS — `EMS-Workflow-System-Setup.exe`, bundles backend exe + SPA, app version `1.1.17` |
+| Publish GitHub Release `v1.1.17` (Latest, not draft/prerelease) with the installer | PASS |
+| Re-sync `dev` to `main` (`merge --ff-only`) | PASS |
+
+### Branch-state check (this cleanup pass — verified live, not assumed)
+
+A hand-off note claimed `origin/main` had reverted to `v1.1.16` (`22f5ce0`) despite PR #28
+showing merged. A fresh `git fetch --all --tags` **did not reproduce** that: `origin/main`
+is `b20a4c3` (= the PR #28 merge commit = `v1.1.17`), so there was **nothing to restore** —
+the premise was a stale snapshot taken before the merge propagated. No fast-forward, reset,
+force-push, or tag change was needed or performed.
+
+| Check | Result |
+|---|---|
+| `origin/main` = `origin/dev` = `v1.1.17^{commit}` = `b20a4c3` | PASS |
+| `git rev-list --left-right --count origin/main...origin/dev` | PASS — `0  0` (in sync) |
+| Commits on `main` absent from `dev` (loss risk) | PASS — none |
+| `v1.1.16` still `22f5ce0`, tag unchanged; `v1.1.17` tag not recreated | PASS |
+| Installer SHA-256 re-verified by hashing the **downloaded published asset** | PASS — `4aacb444bddc7491282385e8542411e942e089a8ce700ada1370c3edc8c5bdb2` (matches Release notes) |
+
+### E2E hardened to a real user journey (this cleanup pass)
+
+`e2e/call-edit-persistence.spec.js` previously performed the *edit* through `page.request.put`
+(a full-stack persistence check, but not proof a user can do it in the drawer). The happy path
+is rewritten to drive the **real `CallDrawer` UI**: open the call from the Dispatch Board →
+detail modal → **Edit Call** → change **Date of Call** → **Change** patient → search by last
+name → pick the second patient → **Update Call** → wait for the drawer to close → **full page
+reload** → reopen the call → assert via the UI that the second patient and the new Date of Call
+persisted. The API is used **only** to seed deterministic patients/call and for one independent
+`GET` confirmation. The negative-path checks (unknown `patient_id` → 400, impossible
+`date_of_call` → 400, rejected write leaves the row intact) are kept but split into a separate
+test block explicitly labelled *API integration — not the browser UI path*; true cross-org
+isolation stays a backend regression (`test_call_update_contract.py` / `test_tenant_isolation.py`),
+which the single-org E2E harness cannot reach.
+
+To give the drawer stable accessible names (no design/behaviour change), `CallDrawer.jsx` gained
+`htmlFor`/`id` associations on **Trip Date**, **Date of Call**, and the patient-search **Last
+Name** inputs — pure accessibility, verified by the unchanged CallDrawer unit tests.
+
+### Re-run regression gate (this cleanup pass)
+
+| Check | Command | Result |
+|---|---|---|
+| New E2E spec ×3 (isolated) | `playwright test e2e/call-edit-persistence.spec.js --repeat-each=3` | PASS — 6/6 (UI ×3, API ×3) |
+| Full Playwright suite | `npm run test:e2e` | PASS — 22/22; `roles.spec` 3/3, no flake this run |
+| Backend ruff | `ruff check .` | PASS (clean) |
+| Backend pytest + cov | `pytest --cov=.` | PASS — 1256 passed, 85.76% (gate 80) |
+| Backend pip-audit | `pip-audit -r requirements.txt` | PASS — no known vulns |
+| Frontend lint | `npm run lint` | PASS (clean) |
+| Frontend Vitest + cov | `npm run test:coverage` | PASS — 538 passed, 72.65% lines |
+| Frontend build / audit | `npm run build` / `npm audit --omit=dev` | PASS / 0 |
+| Lockfile integrity guard | `node scripts/check-lockfiles.mjs` | PASS — frontend + desktop consistent (599 entries) |
+| Desktop deps | `npm ci` + `npm ls @peculiar/json-schema` + `npm audit --omit=dev` | PASS — `1.1.12`, 0 vulns |
+| PostgreSQL migration / Docker prod-stack | — | BLOCKED locally (Docker daemon off) → authoritative on the CI Docker job for `b20a4c3` (PASS) |
+
+No application-version change and no new tag/Release/installer in this cleanup pass — it carries
+only test, docs, and accessibility changes, committed to `dev` and taken to `main` through the
+normal green-CI → PR flow.
