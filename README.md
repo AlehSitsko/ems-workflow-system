@@ -298,7 +298,7 @@ cd backend; pytest -v
 # Coverage is gated in CI; run `npm run test:coverage` for the report.
 cd frontend; npm test
 
-# End-to-end — 8 Playwright spec files (20 test cases) against a disposable,
+# End-to-end — 9 Playwright spec files (22 test cases) against a disposable,
 # migrated + seeded backend that Playwright boots and tears down itself
 cd frontend; npm run test:e2e
 

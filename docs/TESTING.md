@@ -141,8 +141,8 @@ are git-ignored; the config files are tracked.
 
 ## Running Playwright E2E locally
 
-The E2E suite is **8 spec files** (`frontend/e2e/*.spec.js`) containing **20 test
-cases** as of commit `47ef647` — a *spec file* groups several `test(...)` *cases*;
+The E2E suite is **9 spec files** (`frontend/e2e/*.spec.js`) containing **22 test
+cases** as of commit `c7dcb4b` — a *spec file* groups several `test(...)` *cases*;
 `npm run test:e2e` reports the case count. Regenerate with
 `npx playwright test --list`.
 
