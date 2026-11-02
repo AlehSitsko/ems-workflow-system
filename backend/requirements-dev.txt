@@ -4,13 +4,13 @@
 # Install for local dev or the CI test job:  pip install -r requirements-dev.txt
 -r requirements.txt
 
-pytest==9.1.1
+pytest==9.2.0
 pytest-cov==7.1.0
-fakeredis==2.37.1
+fakeredis==2.40.0
 
 # Backend lint quality gate (see backend/ruff.toml). Correctness rules only
 # (pyflakes + syntax); not a formatter. Run: `ruff check .` from backend/.
-ruff==0.16.4
+ruff==0.17.3
 
 # Dependency vulnerability audit (CI runs it too). Run: `pip-audit -r requirements.txt`.
 pip-audit==2.10.1
