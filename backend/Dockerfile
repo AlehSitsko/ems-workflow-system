@@ -5,7 +5,7 @@
 # would need (Gunicorn, a non-root user, a build/runtime split, pinned base
 # digests) — see docs/PRODUCTION_READINESS.md.
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # Faster, quieter installs; unbuffered output so logs appear as they happen
 # rather than when the buffer fills.
